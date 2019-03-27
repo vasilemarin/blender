@@ -47,6 +47,7 @@ set(DEFSRC
   rna_fluid.c
   rna_gpencil.c
   rna_gpencil_modifier.c
+  rna_hair.c
   rna_image.c
   rna_key.c
   rna_lattice.c
@@ -68,6 +69,7 @@ set(DEFSRC
   rna_packedfile.c
   rna_palette.c
   rna_particle.c
+  rna_pointcloud.c
   rna_pose.c
   rna_render.c
   rna_rigidbody.c
@@ -88,6 +90,7 @@ set(DEFSRC
   rna_ui.c
   rna_userdef.c
   rna_vfont.c
+  rna_volume.c
   rna_wm.c
   rna_wm_gizmo.c
   rna_workspace.c

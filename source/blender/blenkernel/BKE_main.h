@@ -125,6 +125,9 @@ typedef struct Main {
   ListBase linestyles;
   ListBase cachefiles;
   ListBase workspaces;
+  ListBase hairs;
+  ListBase pointclouds;
+  ListBase volumes;
 
   /**
    * Must be generated, used and freed by same code - never assume this is valid data unless you
@@ -198,7 +201,7 @@ const char *BKE_main_blendfile_path_from_global(void);
 
 struct ListBase *which_libbase(struct Main *mainlib, short type);
 
-#define MAX_LIBARRAY 37
+#define MAX_LIBARRAY 40
 int set_listbasepointers(struct Main *main, struct ListBase *lb[MAX_LIBARRAY]);
 
 #define MAIN_VERSION_ATLEAST(main, ver, subver) \

@@ -251,6 +251,15 @@ static int buttons_context_path_data(ButsContextPath *path, int type)
   else if (RNA_struct_is_a(ptr->type, &RNA_GreasePencil) && (type == -1 || type == OB_GPENCIL)) {
     return 1;
   }
+  else if (RNA_struct_is_a(ptr->type, &RNA_Hair) && (type == -1 || type == OB_HAIR)) {
+    return 1;
+  }
+  else if (RNA_struct_is_a(ptr->type, &RNA_PointCloud) && (type == -1 || type == OB_POINTCLOUD)) {
+    return 1;
+  }
+  else if (RNA_struct_is_a(ptr->type, &RNA_Volume) && (type == -1 || type == OB_VOLUME)) {
+    return 1;
+  }
   /* try to get an object in the path, no pinning supported here */
   else if (buttons_context_path_object(path)) {
     ob = path->ptr[path->len - 1].data;
@@ -274,7 +283,16 @@ static int buttons_context_path_modifier(ButsContextPath *path)
   if (buttons_context_path_object(path)) {
     ob = path->ptr[path->len - 1].data;
 
-    if (ob && ELEM(ob->type, OB_MESH, OB_CURVE, OB_FONT, OB_SURF, OB_LATTICE, OB_GPENCIL)) {
+    if (ob && ELEM(ob->type,
+                   OB_MESH,
+                   OB_CURVE,
+                   OB_FONT,
+                   OB_SURF,
+                   OB_LATTICE,
+                   OB_GPENCIL,
+                   OB_HAIR,
+                   OB_POINTCLOUD,
+                   OB_VOLUME)) {
       return 1;
     }
   }
@@ -776,6 +794,9 @@ const char *buttons_context_dir[] = {
     "line_style",
     "collection",
     "gpencil",
+    "hair",
+    "pointcloud",
+    "volume",
     NULL,
 };
 
@@ -851,6 +872,18 @@ int buttons_context(const bContext *C, const char *member, bContextDataResult *r
   }
   else if (CTX_data_equals(member, "lightprobe")) {
     set_pointer_type(path, result, &RNA_LightProbe);
+    return 1;
+  }
+  else if (CTX_data_equals(member, "hair")) {
+    set_pointer_type(path, result, &RNA_Hair);
+    return 1;
+  }
+  else if (CTX_data_equals(member, "pointcloud")) {
+    set_pointer_type(path, result, &RNA_PointCloud);
+    return 1;
+  }
+  else if (CTX_data_equals(member, "volume")) {
+    set_pointer_type(path, result, &RNA_Volume);
     return 1;
   }
   else if (CTX_data_equals(member, "material")) {

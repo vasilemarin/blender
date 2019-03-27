@@ -443,6 +443,9 @@ void DepsgraphNodeBuilder::build_id(ID *id)
     case ID_CU:
     case ID_MB:
     case ID_LT:
+    case ID_HA:
+    case ID_PT:
+    case ID_VO:
       /* TODO(sergey): Get visibility from a "parent" somehow.
        *
        * NOTE: Similarly to above, we don't want false-positives on
@@ -686,6 +689,9 @@ void DepsgraphNodeBuilder::build_object_data(Object *object, bool is_object_visi
     case OB_MBALL:
     case OB_LATTICE:
     case OB_GPENCIL:
+    case OB_HAIR:
+    case OB_POINTCLOUD:
+    case OB_VOLUME:
       build_object_data_geometry(object, is_object_visible);
       break;
     case OB_ARMATURE:
@@ -1302,6 +1308,21 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata, bool
           NodeType::GEOMETRY,
           OperationCode::GEOMETRY_EVAL,
           function_bind(BKE_gpencil_eval_geometry, _1, (bGPdata *)obdata_cow));
+      op_node->set_as_entry();
+      break;
+    }
+    case ID_HA: {
+      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
+      op_node->set_as_entry();
+      break;
+    }
+    case ID_PT: {
+      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
+      op_node->set_as_entry();
+      break;
+    }
+    case ID_VO: {
+      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
       op_node->set_as_entry();
       break;
     }

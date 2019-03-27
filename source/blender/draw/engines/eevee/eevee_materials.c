@@ -1456,7 +1456,15 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
                          !DRW_state_is_image_render();
 
   /* First get materials for this mesh. */
-  if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
+  if (ELEM(ob->type,
+           OB_MESH,
+           OB_CURVE,
+           OB_SURF,
+           OB_FONT,
+           OB_MBALL,
+           OB_HAIR,
+           OB_POINTCLOUD,
+           OB_VOLUME)) {
     const int materials_len = MAX2(1, ob->totcol);
 
     struct DRWShadingGroup **shgrp_array = BLI_array_alloca(shgrp_array, materials_len);

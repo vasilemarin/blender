@@ -39,6 +39,7 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_light_types.h"
@@ -52,12 +53,14 @@
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_lightprobe_types.h"
+#include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_speaker_types.h"
 #include "DNA_sound_types.h"
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
+#include "DNA_volume_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
 #include "DNA_world_types.h"
@@ -76,6 +79,7 @@
 #include "BKE_fcurve.h"
 #include "BKE_font.h"
 #include "BKE_gpencil.h"
+#include "BKE_hair.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_ipo.h"
@@ -100,6 +104,7 @@
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
+#include "BKE_pointcloud.h"
 #include "BKE_lightprobe.h"
 #include "BKE_speaker.h"
 #include "BKE_sound.h"
@@ -107,6 +112,7 @@
 #include "BKE_scene.h"
 #include "BKE_text.h"
 #include "BKE_texture.h"
+#include "BKE_volume.h"
 #include "BKE_workspace.h"
 #include "BKE_world.h"
 
@@ -583,6 +589,9 @@ void BKE_libblock_remap_locked(Main *bmain, void *old_idv, void *new_idv, const 
     case ID_ME:
     case ID_CU:
     case ID_MB:
+    case ID_HA:
+    case ID_PT:
+    case ID_VO:
       if (new_id) { /* Only affects us in case obdata was relinked (changed). */
         for (Object *ob = bmain->objects.first; ob; ob = ob->id.next) {
           libblock_remap_data_postprocess_obdata_relink(bmain, ob, new_id);
@@ -881,6 +890,15 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       break;
     case ID_WS:
       BKE_workspace_free((WorkSpace *)id);
+      break;
+    case ID_HA:
+      BKE_hair_free((Hair *)id);
+      break;
+    case ID_PT:
+      BKE_pointcloud_free((PointCloud *)id);
+      break;
+    case ID_VO:
+      BKE_volume_free((Volume *)id);
       break;
   }
 }

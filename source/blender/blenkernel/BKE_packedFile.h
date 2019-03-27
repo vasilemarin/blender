@@ -22,6 +22,10 @@
 /** \file
  * \ingroup bke
  */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RET_OK 0
 #define RET_ERROR 1
 
@@ -32,6 +36,7 @@ struct PackedFile;
 struct ReportList;
 struct VFont;
 struct bSound;
+struct Volume;
 
 enum ePF_FileCompare {
   PF_CMP_EQUAL = 0,
@@ -80,6 +85,10 @@ int BKE_packedfile_unpack_image(struct Main *bmain,
                                 struct ReportList *reports,
                                 struct Image *ima,
                                 enum ePF_FileStatus how);
+int BKE_packedfile_unpack_volume(struct Main *bmain,
+                                 struct ReportList *reports,
+                                 struct Volume *volume,
+                                 enum ePF_FileStatus how);
 void BKE_packedfile_unpack_all(struct Main *bmain,
                                struct ReportList *reports,
                                enum ePF_FileStatus how);
@@ -112,5 +121,9 @@ void BKE_packedfile_id_unpack(struct Main *bmain,
                               struct ID *id,
                               struct ReportList *reports,
                               enum ePF_FileStatus how);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

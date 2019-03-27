@@ -188,7 +188,15 @@ void EEVEE_render_cache(void *vedata,
   }
 
   if (ob_visibility & OB_VISIBLE_SELF) {
-    if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
+    if (ELEM(ob->type,
+             OB_MESH,
+             OB_CURVE,
+             OB_SURF,
+             OB_FONT,
+             OB_MBALL,
+             OB_HAIR,
+             OB_POINTCLOUD,
+             OB_VOLUME)) {
       EEVEE_materials_cache_populate(vedata, sldata, ob, &cast_shadow);
     }
     else if (ob->type == OB_LIGHTPROBE) {

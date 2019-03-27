@@ -1029,7 +1029,15 @@ void workbench_deferred_solid_cache_populate(WORKBENCH_Data *vedata, Object *ob)
   }
 
   WORKBENCH_MaterialData *material;
-  if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
+  if (ELEM(ob->type,
+           OB_MESH,
+           OB_CURVE,
+           OB_SURF,
+           OB_FONT,
+           OB_MBALL,
+           OB_HAIR,
+           OB_POINTCLOUD,
+           OB_VOLUME)) {
     const bool is_active = (ob == draw_ctx->obact);
     const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d) &&
                                  !DRW_state_is_image_render();

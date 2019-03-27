@@ -669,6 +669,12 @@ static const char *template_id_browse_tip(const StructRNA *type)
         return N_("Browse Workspace to be linked");
       case ID_LP:
         return N_("Browse LightProbe to be linked");
+      case ID_HA:
+        return N_("Browse Hair Data to be linked");
+      case ID_PT:
+        return N_("Browse Point Cloud Data to be linked");
+      case ID_VO:
+        return N_("Browse Volume Data to be linked");
     }
   }
   return N_("Browse ID data to be linked");
@@ -711,6 +717,9 @@ static uiBut *template_id_def_new_but(uiBlock *block,
                             BLT_I18NCONTEXT_ID_MESH,
                             BLT_I18NCONTEXT_ID_CURVE,
                             BLT_I18NCONTEXT_ID_METABALL,
+                            BLT_I18NCONTEXT_ID_HAIR,
+                            BLT_I18NCONTEXT_ID_POINTCLOUD,
+                            BLT_I18NCONTEXT_ID_VOLUME,
                             BLT_I18NCONTEXT_ID_MATERIAL,
                             BLT_I18NCONTEXT_ID_TEXTURE,
                             BLT_I18NCONTEXT_ID_IMAGE,

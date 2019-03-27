@@ -1,0 +1,246 @@
+/*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
+ */
+
+/** \file blender/blenkernel/intern/hair.c
+ *  \ingroup bke
+ */
+
+#include "MEM_guardedalloc.h"
+
+#include "DNA_object_types.h"
+#include "DNA_hair_types.h"
+
+#include "BLI_listbase.h"
+#include "BLI_math.h"
+#include "BLI_string.h"
+#include "BLI_utildefines.h"
+
+#include "BKE_animsys.h"
+#include "BKE_customdata.h"
+#include "BKE_global.h"
+#include "BKE_hair.h"
+#include "BKE_library.h"
+#include "BKE_library_query.h"
+#include "BKE_library_remap.h"
+#include "BKE_main.h"
+#include "BKE_object.h"
+
+#include "DEG_depsgraph_query.h"
+
+/* Hair datablock */
+
+static void hair_random(Hair *hair)
+{
+  const int numpoints = 8;
+
+  hair->totcurve = 500;
+  hair->totpoint = hair->totcurve * numpoints;
+
+  CustomData_realloc(&hair->pdata, hair->totpoint);
+  CustomData_realloc(&hair->cdata, hair->totcurve);
+  BKE_hair_update_customdata_pointers(hair);
+
+  for (int i = 0; i < hair->totcurve; i++) {
+    HairCurve *curve = &hair->curves[i];
+    HairPoint *point = &hair->points[i * numpoints];
+
+    curve->firstpoint = i * numpoints;
+    curve->numpoints = numpoints;
+
+    float theta = 2.0f * M_PI * drand48();
+    float phi = saacosf(2.0f * drand48() - 1.0f);
+
+    float no[3] = {sinf(theta) * sinf(phi), cosf(theta) * sinf(phi), cosf(phi)};
+    normalize_v3(no);
+
+    float co[3];
+    copy_v3_v3(co, no);
+
+    for (int key = 0; key < numpoints; key++, point++) {
+      float t = key / (float)(numpoints - 1);
+      copy_v3_v3(point->co, co);
+      point->radius = 0.002f * (1.0f - t);
+
+      float offset[3] = {
+          2.0f * drand48() - 1.0f, 2.0f * drand48() - 1.0f, 2.0f * drand48() - 1.0f};
+      add_v3_v3(offset, no);
+      madd_v3_v3fl(co, offset, 1.0f / numpoints);
+    }
+  }
+}
+
+void BKE_hair_init(Hair *hair)
+{
+  BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(hair, id));
+
+  hair->flag = 0;
+  hair->totpoint = 0;
+  hair->totcurve = 0;
+
+  CustomData_reset(&hair->pdata);
+  CustomData_reset(&hair->cdata);
+
+  CustomData_add_layer(&hair->pdata, CD_HAIRPOINT, CD_CALLOC, NULL, hair->totpoint);
+  CustomData_add_layer(&hair->cdata, CD_HAIRCURVE, CD_CALLOC, NULL, hair->totcurve);
+  BKE_hair_update_customdata_pointers(hair);
+
+  hair_random(hair);
+}
+
+void *BKE_hair_add(Main *bmain, const char *name)
+{
+  Hair *hair = BKE_libblock_alloc(bmain, ID_HA, name, 0);
+
+  BKE_hair_init(hair);
+
+  return hair;
+}
+
+void BKE_hair_copy_data(Main *UNUSED(bmain), Hair *hair_dst, const Hair *hair_src, const int flag)
+{
+  hair_dst->mat = MEM_dupallocN(hair_dst->mat);
+
+  const eCDAllocType alloc_type = (flag & LIB_ID_COPY_CD_REFERENCE) ? CD_REFERENCE : CD_DUPLICATE;
+  CustomData_copy(&hair_src->pdata, &hair_dst->pdata, CD_MASK_ALL, alloc_type, hair_dst->totpoint);
+  CustomData_copy(&hair_src->cdata, &hair_dst->cdata, CD_MASK_ALL, alloc_type, hair_dst->totcurve);
+  BKE_hair_update_customdata_pointers(hair_dst);
+
+  hair_dst->batch_cache = NULL;
+}
+
+Hair *BKE_hair_copy(Main *bmain, const Hair *hair)
+{
+  Hair *hair_copy;
+  BKE_id_copy(bmain, &hair->id, (ID **)&hair_copy);
+  return hair_copy;
+}
+
+void BKE_hair_make_local(Main *bmain, Hair *hair, const bool lib_local)
+{
+  BKE_id_make_local_generic(bmain, &hair->id, true, lib_local);
+}
+
+void BKE_hair_free(Hair *hair)
+{
+  BKE_animdata_free((ID *)hair, false);
+
+  BKE_hair_batch_cache_free(hair);
+
+  CustomData_free(&hair->pdata, hair->totpoint);
+  CustomData_free(&hair->cdata, hair->totcurve);
+
+  MEM_SAFE_FREE(hair->mat);
+}
+
+BoundBox *BKE_hair_boundbox_get(Object *ob)
+{
+  BLI_assert(ob->type == OB_HAIR);
+  Hair *hair = ob->data;
+
+  if (ob->runtime.bb != NULL && (ob->runtime.bb->flag & BOUNDBOX_DIRTY) == 0) {
+    return ob->runtime.bb;
+  }
+
+  if (ob->runtime.bb == NULL) {
+    ob->runtime.bb = MEM_callocN(sizeof(BoundBox), "hair boundbox");
+
+    HairPoint *point = hair->points;
+    float min[3], max[3];
+    INIT_MINMAX(min, max);
+    for (int a = 0; a < hair->totpoint; a++, point++) {
+      float co_min[3] = {point->co[0] - point->radius,
+                         point->co[1] - point->radius,
+                         point->co[2] - point->radius};
+      float co_max[3] = {point->co[0] + point->radius,
+                         point->co[1] + point->radius,
+                         point->co[2] + point->radius};
+      DO_MIN(co_min, min);
+      DO_MAX(co_max, max);
+    }
+
+    BKE_boundbox_init_from_minmax(ob->runtime.bb, min, max);
+  }
+
+  return ob->runtime.bb;
+}
+
+void BKE_hair_update_customdata_pointers(Hair *hair)
+{
+  hair->points = CustomData_get_layer(&hair->pdata, CD_HAIRPOINT);
+  hair->curves = CustomData_get_layer(&hair->cdata, CD_HAIRCURVE);
+  hair->mapping = CustomData_get_layer(&hair->cdata, CD_HAIRMAPPING);
+}
+
+/* Dependency Graph */
+
+Hair *BKE_hair_new_for_eval(const Hair *hair_src, int totpoint, int totcurve)
+{
+  Hair *hair_dst = BKE_id_new_nomain(ID_HA, NULL);
+
+  STRNCPY(hair_dst->id.name, hair_src->id.name);
+  hair_dst->mat = MEM_dupallocN(hair_src->mat);
+  hair_dst->totcol = hair_src->totcol;
+
+  hair_dst->totpoint = totpoint;
+  hair_dst->totcurve = totcurve;
+  CustomData_copy(&hair_src->pdata, &hair_dst->pdata, CD_MASK_ALL, CD_CALLOC, totpoint);
+  CustomData_copy(&hair_src->cdata, &hair_dst->cdata, CD_MASK_ALL, CD_CALLOC, totcurve);
+  BKE_hair_update_customdata_pointers(hair_dst);
+
+  return hair_dst;
+}
+
+Hair *BKE_hair_copy_for_eval(Hair *hair_src, bool reference)
+{
+  int flags = LIB_ID_COPY_LOCALIZE;
+
+  if (reference) {
+    flags |= LIB_ID_COPY_CD_REFERENCE;
+  }
+
+  Hair *result;
+  BKE_id_copy_ex(NULL, &hair_src->id, (ID **)&result, flags);
+  return result;
+}
+
+void BKE_hair_data_update(struct Depsgraph *UNUSED(depsgraph),
+                          struct Scene *UNUSED(scene),
+                          Object *UNUSED(object))
+{
+  /* Nothing to do yet. */
+}
+
+/* Draw Cache */
+void (*BKE_hair_batch_cache_dirty_tag_cb)(Hair *hair, int mode) = NULL;
+void (*BKE_hair_batch_cache_free_cb)(Hair *hair) = NULL;
+
+void BKE_hair_batch_cache_dirty_tag(Hair *hair, int mode)
+{
+  if (hair->batch_cache) {
+    BKE_hair_batch_cache_dirty_tag_cb(hair, mode);
+  }
+}
+
+void BKE_hair_batch_cache_free(Hair *hair)
+{
+  if (hair->batch_cache) {
+    BKE_hair_batch_cache_free_cb(hair);
+  }
+}

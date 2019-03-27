@@ -766,17 +766,15 @@ typedef enum eDopeSheet_FilterFlag {
   /* GPencil Mode */
   /** GP Mode - Only show datablocks used in the scene */
   ADS_FILTER_GP_3DONLY = (1 << 29),
-
-  /** combination filters (some only used at runtime) */
-  ADS_FILTER_NOOBDATA = (ADS_FILTER_NOCAM | ADS_FILTER_NOMAT | ADS_FILTER_NOLAM |
-                         ADS_FILTER_NOCUR | ADS_FILTER_NOPART | ADS_FILTER_NOARM |
-                         ADS_FILTER_NOSPK | ADS_FILTER_NOMODIFIERS),
 } eDopeSheet_FilterFlag;
 
 /* DopeSheet filter-flags - Overflow (filterflag2) */
 typedef enum eDopeSheet_FilterFlag2 {
   ADS_FILTER_NOCACHEFILES = (1 << 1),
   ADS_FILTER_NOMOVIECLIPS = (1 << 2),
+  ADS_FILTER_NOHAIR = (1 << 3),
+  ADS_FILTER_NOPOINTCLOUD = (1 << 4),
+  ADS_FILTER_NOVOLUME = (1 << 5),
 } eDopeSheet_FilterFlag2;
 
 /* DopeSheet general flags */

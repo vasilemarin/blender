@@ -76,7 +76,7 @@ typedef struct CustomData {
    * MUST be >= CD_NUMTYPES, but we cant use a define here.
    * Correct size is ensured in CustomData_update_typemap assert().
    */
-  int typemap[42];
+  int typemap[46];
   char _pad0[4];
   /** Number of layers, size of layers array. */
   int totlayer, maxlayer;
@@ -147,7 +147,15 @@ typedef enum CustomDataType {
   CD_TESSLOOPNORMAL = 40,
   CD_CUSTOMLOOPNORMAL = 41,
 
-  CD_NUMTYPES = 42,
+  /* Hair */
+  CD_HAIRPOINT = 42,
+  CD_HAIRCURVE = 43,
+  CD_HAIRMAPPING = 44,
+
+  /* PointCloud */
+  CD_POINT = 45,
+
+  CD_NUMTYPES = 46,
 } CustomDataType;
 
 /* Bits for CustomDataMask */
@@ -201,6 +209,9 @@ typedef enum CustomDataType {
 
 /** Multires loop data. */
 #define CD_MASK_MULTIRES_GRIDS (CD_MASK_MDISPS | CD_GRID_PAINT_MASK)
+
+/* All data layers. */
+#define CD_MASK_ALL (~0LL)
 
 typedef struct CustomData_MeshMasks {
   uint64_t vmask;

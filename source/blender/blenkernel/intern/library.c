@@ -43,6 +43,7 @@
 #include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_light_types.h"
@@ -56,6 +57,7 @@
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
+#include "DNA_pointcloud_types.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
@@ -64,6 +66,7 @@
 #include "DNA_sound_types.h"
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
+#include "DNA_volume_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_world_types.h"
 #include "DNA_workspace_types.h"
@@ -92,6 +95,7 @@
 #include "BKE_font.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
+#include "BKE_hair.h"
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
@@ -114,6 +118,7 @@
 #include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_packedFile.h"
+#include "BKE_pointcloud.h"
 #include "BKE_lightprobe.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sound.h"
@@ -121,6 +126,7 @@
 #include "BKE_scene.h"
 #include "BKE_text.h"
 #include "BKE_texture.h"
+#include "BKE_volume.h"
 #include "BKE_world.h"
 
 #include "DEG_depsgraph.h"
@@ -566,6 +572,18 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
         BKE_cachefile_make_local(bmain, (CacheFile *)id, lib_local);
       }
       return true;
+    case ID_HA:
+      if (!test)
+        BKE_hair_make_local(bmain, (Hair *)id, lib_local);
+      return true;
+    case ID_PT:
+      if (!test)
+        BKE_pointcloud_make_local(bmain, (PointCloud *)id, lib_local);
+      return true;
+    case ID_VO:
+      if (!test)
+        BKE_volume_make_local(bmain, (Volume *)id, lib_local);
+      return true;
     case ID_WS:
     case ID_SCR:
       /* A bit special: can be appended but not linked. Return false
@@ -760,6 +778,15 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
     case ID_VF:
       BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
       break;
+    case ID_HA:
+      BKE_hair_copy_data(bmain, (Hair *)*r_newid, (Hair *)id, flag);
+      break;
+    case ID_PT:
+      BKE_pointcloud_copy_data(bmain, (PointCloud *)*r_newid, (PointCloud *)id, flag);
+      break;
+    case ID_VO:
+      BKE_volume_copy_data(bmain, (Volume *)*r_newid, (Volume *)id, flag);
+      break;
     case ID_LI:
     case ID_SCR:
     case ID_WM:
@@ -851,6 +878,9 @@ void BKE_id_swap(Main *bmain, ID *id_a, ID *id_b)
     CASE_SWAP(ID_PAL, Palette);
     CASE_SWAP(ID_PC, PaintCurve);
     CASE_SWAP(ID_CF, CacheFile);
+    CASE_SWAP(ID_HA, Hair);
+    CASE_SWAP(ID_PT, PointCloud);
+    CASE_SWAP(ID_VO, Volume);
     case ID_IP:
       break; /* Deprecated. */
   }
@@ -1195,6 +1225,9 @@ size_t BKE_libblock_get_alloc_info(short type, const char **name)
     CASE_RETURN(ID_PC, PaintCurve);
     CASE_RETURN(ID_CF, CacheFile);
     CASE_RETURN(ID_WS, WorkSpace);
+    CASE_RETURN(ID_HA, Hair);
+    CASE_RETURN(ID_PT, PointCloud);
+    CASE_RETURN(ID_VO, Volume);
   }
   return 0;
 #undef CASE_RETURN
@@ -1362,6 +1395,15 @@ void BKE_libblock_init_empty(ID *id)
       break;
     case ID_CF:
       BKE_cachefile_init((CacheFile *)id);
+      break;
+    case ID_HA:
+      BKE_hair_init((Hair *)id);
+      break;
+    case ID_PT:
+      BKE_pointcloud_init((PointCloud *)id);
+      break;
+    case ID_VO:
+      BKE_volume_init((Volume *)id);
       break;
     case ID_KE:
       /* Shapekeys are a complex topic too - they depend on their 'user' data type...

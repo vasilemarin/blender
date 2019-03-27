@@ -109,6 +109,7 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(collections)
 RNA_MAIN_LISTBASE_FUNCS_DEF(curves)
 RNA_MAIN_LISTBASE_FUNCS_DEF(fonts)
 RNA_MAIN_LISTBASE_FUNCS_DEF(gpencils)
+RNA_MAIN_LISTBASE_FUNCS_DEF(hairs)
 RNA_MAIN_LISTBASE_FUNCS_DEF(images)
 RNA_MAIN_LISTBASE_FUNCS_DEF(lattices)
 RNA_MAIN_LISTBASE_FUNCS_DEF(libraries)
@@ -125,6 +126,7 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(objects)
 RNA_MAIN_LISTBASE_FUNCS_DEF(paintcurves)
 RNA_MAIN_LISTBASE_FUNCS_DEF(palettes)
 RNA_MAIN_LISTBASE_FUNCS_DEF(particles)
+RNA_MAIN_LISTBASE_FUNCS_DEF(pointclouds)
 RNA_MAIN_LISTBASE_FUNCS_DEF(scenes)
 RNA_MAIN_LISTBASE_FUNCS_DEF(screens)
 RNA_MAIN_LISTBASE_FUNCS_DEF(shapekeys)
@@ -132,6 +134,7 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(sounds)
 RNA_MAIN_LISTBASE_FUNCS_DEF(speakers)
 RNA_MAIN_LISTBASE_FUNCS_DEF(texts)
 RNA_MAIN_LISTBASE_FUNCS_DEF(textures)
+RNA_MAIN_LISTBASE_FUNCS_DEF(volumes)
 RNA_MAIN_LISTBASE_FUNCS_DEF(wm)
 RNA_MAIN_LISTBASE_FUNCS_DEF(workspaces)
 RNA_MAIN_LISTBASE_FUNCS_DEF(worlds)
@@ -380,6 +383,19 @@ void RNA_def_main(BlenderRNA *brna)
        "LightProbes",
        "LightProbe data-blocks",
        RNA_def_main_lightprobes},
+      {"hairs", "Hair", "rna_Main_hairs_begin", "Hairs", "Hair data-blocks", RNA_def_main_hairs},
+      {"pointclouds",
+       "PointCloud",
+       "rna_Main_pointclouds_begin",
+       "Point Clouds",
+       "Point cloud data-blocks",
+       RNA_def_main_pointclouds},
+      {"volumes",
+       "Volume",
+       "rna_Main_volumes_begin",
+       "Volumes",
+       "Volume data-blocks",
+       RNA_def_main_volumes},
       {NULL, NULL, NULL, NULL, NULL, NULL},
   };
 

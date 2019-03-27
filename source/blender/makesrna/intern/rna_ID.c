@@ -75,6 +75,9 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_SPK, "SPEAKER", ICON_SPEAKER, "Speaker", ""},
     {ID_TXT, "TEXT", ICON_TEXT, "Text", ""},
     {ID_TE, "TEXTURE", ICON_TEXTURE_DATA, "Texture", ""},
+    {ID_HA, "HAIR", ICON_HAIR_DATA, "Hair", ""},
+    {ID_PT, "POINTCLOUD", ICON_POINTCLOUD_DATA, "PointCloud", ""},
+    {ID_VO, "VOLUME", ICON_VOLUME_DATA, "Volume", ""},
     {ID_WM, "WINDOWMANAGER", ICON_WINDOW, "Window Manager", ""},
     {ID_WO, "WORLD", ICON_WORLD_DATA, "World", ""},
     {ID_WS, "WORKSPACE", ICON_WORKSPACE, "Workspace", ""},
@@ -245,6 +248,9 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == &RNA_FreestyleLineStyle) {
     return ID_LS;
   }
+  if (base_type == &RNA_Hair) {
+    return ID_HA;
+  }
   if (base_type == &RNA_Lattice) {
     return ID_LT;
   }
@@ -278,6 +284,9 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == &RNA_PaintCurve) {
     return ID_PC;
   }
+  if (base_type == &RNA_PointCloud) {
+    return ID_PT;
+  }
   if (base_type == &RNA_LightProbe) {
     return ID_LP;
   }
@@ -301,6 +310,9 @@ short RNA_type_to_ID_code(const StructRNA *type)
   }
   if (base_type == &RNA_VectorFont) {
     return ID_VF;
+  }
+  if (base_type == &RNA_Volume) {
+    return ID_VO;
   }
   if (base_type == &RNA_WorkSpace) {
     return ID_WS;
@@ -336,6 +348,8 @@ StructRNA *ID_code_to_RNA_type(short idcode)
       return &RNA_GreasePencil;
     case ID_GR:
       return &RNA_Collection;
+    case ID_HA:
+      return &RNA_Hair;
     case ID_IM:
       return &RNA_Image;
     case ID_KE:
@@ -368,6 +382,8 @@ StructRNA *ID_code_to_RNA_type(short idcode)
       return &RNA_Palette;
     case ID_PC:
       return &RNA_PaintCurve;
+    case ID_PT:
+      return &RNA_PointCloud;
     case ID_LP:
       return &RNA_LightProbe;
     case ID_SCE:
@@ -384,6 +400,8 @@ StructRNA *ID_code_to_RNA_type(short idcode)
       return &RNA_Text;
     case ID_VF:
       return &RNA_VectorFont;
+    case ID_VO:
+      return &RNA_Volume;
     case ID_WM:
       return &RNA_WindowManager;
     case ID_WO:
