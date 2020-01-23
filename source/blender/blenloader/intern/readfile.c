@@ -2112,8 +2112,8 @@ void blo_make_volume_pointer_map(FileData *fd, Main *oldmain)
 
   Volume *volume = oldmain->volumes.first;
   for (; volume; volume = volume->id.next) {
-    if (volume->vdb_grids) {
-      oldnewmap_insert(fd->volumemap, volume->vdb_grids, volume->vdb_grids, 0);
+    if (volume->grids) {
+      oldnewmap_insert(fd->volumemap, volume->grids, volume->grids, 0);
     }
   }
 }
@@ -2133,7 +2133,7 @@ void blo_end_volume_pointer_map(FileData *fd, Main *oldmain)
   }
 
   for (; volume; volume = volume->id.next) {
-    volume->vdb_grids = newvolumeadr(fd, volume->vdb_grids);
+    volume->grids = newvolumeadr(fd, volume->grids);
   }
 }
 
@@ -9327,8 +9327,8 @@ static void direct_link_volume(FileData *fd, Volume *volume)
   direct_link_animdata(fd, volume->adt);
 
   volume->packedfile = direct_link_packedfile(fd, volume->packedfile);
-  volume->vdb_grids = (fd->volumemap) ? newvolumeadr(fd, volume->vdb_grids) : NULL;
-  BKE_volume_init_grids(volume->vdb_grids);
+  volume->grids = (fd->volumemap) ? newvolumeadr(fd, volume->grids) : NULL;
+  BKE_volume_init_grids(volume->grids);
 
   /* materials */
   volume->mat = newdataadr(fd, volume->mat);

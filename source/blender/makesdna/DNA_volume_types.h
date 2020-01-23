@@ -28,6 +28,7 @@
 #include "DNA_ID.h"
 
 struct PackedFile;
+struct VolumeGridVector;
 
 typedef struct Volume {
   ID id;
@@ -41,7 +42,7 @@ typedef struct Volume {
 
   /* OpenVDB Voxel Grids */
   int active_grid;
-  void *vdb_grids;
+  struct VolumeGridVector *grids;
 
   /* Material */
   struct Material **mat;

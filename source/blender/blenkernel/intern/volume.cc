@@ -45,11 +45,13 @@
 #ifdef WITH_OPENVDB
 #  include <openvdb/openvdb.h>
 
-#endif
+struct VolumeGrid {
+  openvdb::GridBase::Ptr vdb;
+};
 
-/* For casting from C to OpenVDB data structures. */
-#define OPENVDB_GRIDS_CAST(vdb_grids) (*(openvdb::GridPtrVec *)(vdb_grids))
-#define OPENVDB_GRID_CAST(grid) (*(openvdb::GridBase *)(grid))
+struct VolumeGridVector : public std::vector<VolumeGrid> {
+};
+#endif
 
 /* Volume datablock */
 
@@ -66,8 +68,8 @@ void BKE_volume_init(Volume *volume)
 void BKE_volume_init_grids(Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  if (volume->vdb_grids == NULL) {
-    volume->vdb_grids = OBJECT_GUARDED_NEW(openvdb::GridPtrVec);
+  if (volume->grids == NULL) {
+    volume->grids = OBJECT_GUARDED_NEW(VolumeGridVector);
   }
 #else
   UNUSED_VARS(volume);
@@ -94,9 +96,9 @@ void BKE_volume_copy_data(Main *UNUSED(bmain),
 
   volume_dst->mat = (Material **)MEM_dupallocN(volume_src->mat);
 #ifdef WITH_OPENVDB
-  if (volume_src->vdb_grids) {
-    const openvdb::GridPtrVec &grids_src = OPENVDB_GRIDS_CAST(volume_src->vdb_grids);
-    volume_dst->vdb_grids = OBJECT_GUARDED_NEW(openvdb::GridPtrVec, grids_src);
+  if (volume_src->grids) {
+    const VolumeGridVector &grids_src = *(volume_src->grids);
+    volume_dst->grids = OBJECT_GUARDED_NEW(VolumeGridVector, grids_src);
   }
 #endif
 }
@@ -119,15 +121,14 @@ void BKE_volume_free(Volume *volume)
   BKE_volume_batch_cache_free(volume);
   MEM_SAFE_FREE(volume->mat);
 #ifdef WITH_OPENVDB
-  OBJECT_GUARDED_SAFE_DELETE(volume->vdb_grids, openvdb::GridPtrVec);
+  OBJECT_GUARDED_SAFE_DELETE(volume->grids, VolumeGridVector);
 #endif
 }
 
 void BKE_volume_reload(Main *bmain, Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  openvdb::GridPtrVec &grids = OPENVDB_GRIDS_CAST(volume->vdb_grids);
-  grids.clear();
+  volume->grids->clear();
 
   /* Get absolute file path. */
   char filepath[FILE_MAX];
@@ -139,16 +140,25 @@ void BKE_volume_reload(Main *bmain, Volume *volume)
 
   /* Open OpenVDB file. */
   openvdb::io::File file(filepath);
+  openvdb::GridPtrVec vdb_grids;
+
   try {
     file.setCopyMaxBytes(0);
     file.open();
-    grids = *(file.readAllGridMetadata());
-    /* TODO: need to filter out NULL grids from vector? or check for NULL everywhere? */
+    vdb_grids = *(file.readAllGridMetadata());
   }
-  /* Mostly to catch exceptions related to Blosc not being supported. */
   catch (const openvdb::IoError &e) {
     /* TODO: report error to user. */
     std::cerr << e.what() << '\n';
+  }
+
+  /* Add grids read from file to own vector, filtering out any NULL pointers. */
+  for (const openvdb::GridBase::Ptr vdb_grid : vdb_grids) {
+    if (vdb_grid) {
+      VolumeGrid grid;
+      grid.vdb = vdb_grid;
+      volume->grids->push_back(std::move(grid));
+    }
   }
 #else
   UNUSED_VARS(bmain, volume);
@@ -177,25 +187,14 @@ BoundBox *BKE_volume_boundbox_get(Object *ob)
       /* TODO: this is quite expensive, how often is it computed? Is there a faster
        * way without actually reading grids? We should ensure copy-on-write does not
        * compute this over and over for static files. */
-      const openvdb::GridBase &grid = OPENVDB_GRID_CAST(BKE_volume_grid_for_read(volume, i));
-      if (grid.empty()) {
-        continue;
-      }
-
-      openvdb::CoordBBox coordbbox = grid.evalActiveVoxelBoundingBox();
-      openvdb::BBoxd bbox = grid.transform().indexToWorld(coordbbox);
-
+      const VolumeGrid *grid = BKE_volume_grid_for_read(volume, i);
       float grid_min[3], grid_max[3];
-      grid_min[0] = (float)bbox.min().x();
-      grid_min[1] = (float)bbox.min().y();
-      grid_min[2] = (float)bbox.min().z();
-      grid_max[0] = (float)bbox.max().x();
-      grid_max[1] = (float)bbox.max().y();
-      grid_max[2] = (float)bbox.max().z();
 
-      DO_MIN(min, grid_min);
-      DO_MAX(max, grid_max);
-      have_minmax = true;
+      if (BKE_volume_grid_bounds(grid, grid_min, grid_max)) {
+        DO_MIN(min, grid_min);
+        DO_MAX(max, grid_max);
+        have_minmax = true;
+      }
     }
 
     if (!have_minmax) {
@@ -269,8 +268,7 @@ void BKE_volume_batch_cache_free(Volume *volume)
 int BKE_volume_num_grids(Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  const openvdb::GridPtrVec &grids = OPENVDB_GRIDS_CAST(volume->vdb_grids);
-  return grids.size();
+  return volume->grids->size();
 #else
   UNUSED_VARS(volume);
   return 0;
@@ -280,8 +278,7 @@ int BKE_volume_num_grids(Volume *volume)
 const VolumeGrid *BKE_volume_grid_for_metadata(Volume *volume, int grid_index)
 {
 #ifdef WITH_OPENVDB
-  const openvdb::GridPtrVec &grids = OPENVDB_GRIDS_CAST(volume->vdb_grids);
-  return (const VolumeGrid *)grids.at(grid_index).get();
+  return &volume->grids->at(grid_index);
 #else
   UNUSED_VARS(volume, grid_index);
   return NULL;
@@ -310,17 +307,47 @@ VolumeGrid *BKE_volume_grid_for_write(Volume *volume, int grid_index)
 #endif
 }
 
-const char *BKE_volume_grid_name(const VolumeGrid *grid_)
+/* Grid Metadata */
+
+const char *BKE_volume_grid_name(const VolumeGrid *volume_grid)
 {
 #ifdef WITH_OPENVDB
   /* Don't use grid.getName() since it copies the string, we want a pointer to the
    * original so it doesn't get freed out of scope. */
-  const openvdb::GridBase &grid = OPENVDB_GRID_CAST(grid_);
-  openvdb::StringMetadata::ConstPtr name_meta = grid.getMetadata<openvdb::StringMetadata>(
+  const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
+  openvdb::StringMetadata::ConstPtr name_meta = grid->getMetadata<openvdb::StringMetadata>(
       openvdb::GridBase::META_GRID_NAME);
   return (name_meta) ? name_meta->value().c_str() : "";
 #else
-  UNUSED_VARS(volume, grid_index);
+  UNUSED_VARS(volume_grid);
   return "density";
+#endif
+}
+
+/* Grid Voxels */
+
+bool BKE_volume_grid_bounds(const VolumeGrid *volume_grid, float min[3], float max[3])
+{
+#ifdef WITH_OPENVDB
+  const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
+  if (grid->empty()) {
+    INIT_MINMAX(min, max);
+    return false;
+  }
+
+  openvdb::CoordBBox coordbbox = grid->evalActiveVoxelBoundingBox();
+  openvdb::BBoxd bbox = grid->transform().indexToWorld(coordbbox);
+
+  min[0] = (float)bbox.min().x();
+  min[1] = (float)bbox.min().y();
+  min[2] = (float)bbox.min().z();
+  max[0] = (float)bbox.max().x();
+  max[1] = (float)bbox.max().y();
+  max[2] = (float)bbox.max().z();
+  return true;
+#else
+  UNUSED_VARS(volume_grid);
+  INIT_MINMAX(min, max);
+  return false;
 #endif
 }
