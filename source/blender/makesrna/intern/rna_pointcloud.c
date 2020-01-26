@@ -38,6 +38,8 @@
 
 #ifdef RNA_RUNTIME
 
+#  include "BLI_math_vector.h"
+
 #  include "BKE_pointcloud.h"
 
 #  include "DEG_depsgraph.h"
@@ -52,8 +54,39 @@ static PointCloud *rna_pointcloud(PointerRNA *ptr)
 
 static int rna_Point_index_get(PointerRNA *ptr)
 {
-  PointCloud *pointcloud = rna_pointcloud(ptr);
-  return (int)((Point *)ptr->data - pointcloud->points);
+  const PointCloud *pointcloud = rna_pointcloud(ptr);
+  const float(*co)[3] = ptr->data;
+  return (int)(co - pointcloud->co);
+}
+
+static void rna_Point_location_get(PointerRNA *ptr, float value[3])
+{
+  copy_v3_v3(value, (const float *)ptr->data);
+}
+
+static void rna_Point_location_set(PointerRNA *ptr, const float value[3])
+{
+  copy_v3_v3((float *)ptr->data, value);
+}
+
+static float rna_Point_radius_get(PointerRNA *ptr)
+{
+  const PointCloud *pointcloud = rna_pointcloud(ptr);
+  if (pointcloud->radius == NULL) {
+    return 0.0f;
+  }
+  const float(*co)[3] = ptr->data;
+  return pointcloud->radius[co - pointcloud->co];
+}
+
+static void rna_Point_radius_set(PointerRNA *ptr, float value)
+{
+  const PointCloud *pointcloud = rna_pointcloud(ptr);
+  if (pointcloud->radius == NULL) {
+    return;
+  }
+  const float(*co)[3] = ptr->data;
+  pointcloud->radius[co - pointcloud->co] = value;
 }
 
 static char *rna_Point_path(PointerRNA *ptr)
@@ -86,10 +119,13 @@ static void rna_def_point(BlenderRNA *brna)
   RNA_def_struct_path_func(srna, "rna_Point_path");
 
   prop = RNA_def_property(srna, "co", PROP_FLOAT, PROP_TRANSLATION);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_float_funcs(prop, "rna_Point_location_get", "rna_Point_location_set", NULL);
   RNA_def_property_ui_text(prop, "Location", "");
   RNA_def_property_update(prop, 0, "rna_PointCloud_update_data");
 
   prop = RNA_def_property(srna, "radius", PROP_FLOAT, PROP_DISTANCE);
+  RNA_def_property_float_funcs(prop, "rna_Point_radius_get", "rna_Point_radius_set", NULL);
   RNA_def_property_ui_text(prop, "Radius", "");
   RNA_def_property_update(prop, 0, "rna_PointCloud_update_data");
 
@@ -109,10 +145,13 @@ static void rna_def_pointcloud(BlenderRNA *brna)
   RNA_def_struct_ui_icon(srna, ICON_POINTCLOUD_DATA);
 
   /* geometry */
+  /* TODO: better solution for (*co)[3] parsing issue. */
+  RNA_define_verify_sdna(0);
   prop = RNA_def_property(srna, "points", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, NULL, "points", "totpoint");
+  RNA_def_property_collection_sdna(prop, NULL, "co", "totpoint");
   RNA_def_property_struct_type(prop, "Point");
   RNA_def_property_ui_text(prop, "Points", "");
+  RNA_define_verify_sdna(1);
 
   /* materials */
   prop = RNA_def_property(srna, "materials", PROP_COLLECTION, PROP_NONE);

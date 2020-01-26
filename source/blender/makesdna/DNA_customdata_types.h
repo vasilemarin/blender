@@ -147,13 +147,11 @@ typedef enum CustomDataType {
   CD_TESSLOOPNORMAL = 40,
   CD_CUSTOMLOOPNORMAL = 41,
 
-  /* Hair */
-  CD_HAIRPOINT = 42,
-  CD_HAIRCURVE = 43,
-  CD_HAIRMAPPING = 44,
-
-  /* PointCloud */
-  CD_POINT = 45,
+  /* Hair and PointCloud */
+  CD_LOCATION = 42,
+  CD_RADIUS = 43,
+  CD_HAIRCURVE = 44,
+  CD_HAIRMAPPING = 45,
 
   CD_NUMTYPES = 46,
 } CustomDataType;

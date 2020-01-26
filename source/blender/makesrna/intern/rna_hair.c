@@ -38,6 +38,8 @@
 
 #ifdef RNA_RUNTIME
 
+#  include "BLI_math_vector.h"
+
 #  include "BKE_hair.h"
 
 #  include "DEG_depsgraph.h"
@@ -52,8 +54,39 @@ static Hair *rna_hair(PointerRNA *ptr)
 
 static int rna_HairPoint_index_get(PointerRNA *ptr)
 {
-  Hair *hair = rna_hair(ptr);
-  return (int)((HairPoint *)ptr->data - hair->points);
+  const Hair *hair = rna_hair(ptr);
+  const float(*co)[3] = ptr->data;
+  return (int)(co - hair->co);
+}
+
+static void rna_HairPoint_location_get(PointerRNA *ptr, float value[3])
+{
+  copy_v3_v3(value, (const float *)ptr->data);
+}
+
+static void rna_HairPoint_location_set(PointerRNA *ptr, const float value[3])
+{
+  copy_v3_v3((float *)ptr->data, value);
+}
+
+static float rna_HairPoint_radius_get(PointerRNA *ptr)
+{
+  const Hair *hair = rna_hair(ptr);
+  if (hair->radius == NULL) {
+    return 0.0f;
+  }
+  const float(*co)[3] = ptr->data;
+  return hair->radius[co - hair->co];
+}
+
+static void rna_HairPoint_radius_set(PointerRNA *ptr, float value)
+{
+  const Hair *hair = rna_hair(ptr);
+  if (hair->radius == NULL) {
+    return;
+  }
+  const float(*co)[3] = ptr->data;
+  hair->radius[co - hair->co] = value;
 }
 
 static char *rna_HairPoint_path(PointerRNA *ptr)
@@ -76,8 +109,8 @@ static void rna_HairCurve_points_begin(CollectionPropertyIterator *iter, Pointer
 {
   Hair *hair = rna_hair(ptr);
   HairCurve *curve = ptr->data;
-  HairPoint *points = hair->points + curve->firstpoint;
-  rna_iterator_array_begin(iter, points, sizeof(HairPoint), curve->numpoints, 0, NULL);
+  float(*co)[3] = hair->co + curve->firstpoint;
+  rna_iterator_array_begin(iter, co, sizeof(float[3]), curve->numpoints, 0, NULL);
 }
 
 static int rna_HairCurve_points_length(PointerRNA *ptr)
@@ -111,10 +144,14 @@ static void rna_def_hair_point(BlenderRNA *brna)
   RNA_def_struct_path_func(srna, "rna_HairPoint_path");
 
   prop = RNA_def_property(srna, "co", PROP_FLOAT, PROP_TRANSLATION);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_float_funcs(
+      prop, "rna_HairPoint_location_get", "rna_HairPoint_location_set", NULL);
   RNA_def_property_ui_text(prop, "Location", "");
   RNA_def_property_update(prop, 0, "rna_Hair_update_data");
 
   prop = RNA_def_property(srna, "radius", PROP_FLOAT, PROP_DISTANCE);
+  RNA_def_property_float_funcs(prop, "rna_HairPoint_radius_get", "rna_HairPoint_radius_set", NULL);
   RNA_def_property_ui_text(prop, "Radius", "");
   RNA_def_property_update(prop, 0, "rna_Hair_update_data");
 
@@ -176,10 +213,13 @@ static void rna_def_hair(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "HairCurve");
   RNA_def_property_ui_text(prop, "Curves", "All hair curves");
 
+  /* TODO: better solution for (*co)[3] parsing issue. */
+  RNA_define_verify_sdna(0);
   prop = RNA_def_property(srna, "points", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, NULL, "points", "totpoint");
+  RNA_def_property_collection_sdna(prop, NULL, "co", "totpoint");
   RNA_def_property_struct_type(prop, "HairPoint");
   RNA_def_property_ui_text(prop, "Points", "Control points of all hair curves");
+  RNA_define_verify_sdna(1);
 
   /* materials */
   prop = RNA_def_property(srna, "materials", PROP_COLLECTION, PROP_NONE);

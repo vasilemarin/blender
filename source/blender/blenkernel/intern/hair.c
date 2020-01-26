@@ -29,6 +29,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
+#include "BLI_rand.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
@@ -57,15 +58,15 @@ static void hair_random(Hair *hair)
   CustomData_realloc(&hair->cdata, hair->totcurve);
   BKE_hair_update_customdata_pointers(hair);
 
+  RNG *rng = BLI_rng_new(0);
+
   for (int i = 0; i < hair->totcurve; i++) {
     HairCurve *curve = &hair->curves[i];
-    HairPoint *point = &hair->points[i * numpoints];
-
     curve->firstpoint = i * numpoints;
     curve->numpoints = numpoints;
 
-    float theta = 2.0f * M_PI * drand48();
-    float phi = saacosf(2.0f * drand48() - 1.0f);
+    float theta = 2.0f * M_PI * BLI_rng_get_float(rng);
+    float phi = saacosf(2.0f * BLI_rng_get_float(rng) - 1.0f);
 
     float no[3] = {sinf(theta) * sinf(phi), cosf(theta) * sinf(phi), cosf(phi)};
     normalize_v3(no);
@@ -73,17 +74,22 @@ static void hair_random(Hair *hair)
     float co[3];
     copy_v3_v3(co, no);
 
-    for (int key = 0; key < numpoints; key++, point++) {
+    float(*curve_co)[3] = hair->co + curve->firstpoint;
+    float *curve_radius = hair->radius + curve->firstpoint;
+    for (int key = 0; key < numpoints; key++) {
       float t = key / (float)(numpoints - 1);
-      copy_v3_v3(point->co, co);
-      point->radius = 0.002f * (1.0f - t);
+      copy_v3_v3(curve_co[key], co);
+      curve_radius[key] = 0.002f * (1.0f - t);
 
-      float offset[3] = {
-          2.0f * drand48() - 1.0f, 2.0f * drand48() - 1.0f, 2.0f * drand48() - 1.0f};
+      float offset[3] = {2.0f * BLI_rng_get_float(rng) - 1.0f,
+                         2.0f * BLI_rng_get_float(rng) - 1.0f,
+                         2.0f * BLI_rng_get_float(rng) - 1.0f};
       add_v3_v3(offset, no);
       madd_v3_v3fl(co, offset, 1.0f / numpoints);
     }
   }
+
+  BLI_rng_free(rng);
 }
 
 void BKE_hair_init(Hair *hair)
@@ -97,7 +103,8 @@ void BKE_hair_init(Hair *hair)
   CustomData_reset(&hair->pdata);
   CustomData_reset(&hair->cdata);
 
-  CustomData_add_layer(&hair->pdata, CD_HAIRPOINT, CD_CALLOC, NULL, hair->totpoint);
+  CustomData_add_layer(&hair->pdata, CD_LOCATION, CD_CALLOC, NULL, hair->totpoint);
+  CustomData_add_layer(&hair->pdata, CD_RADIUS, CD_CALLOC, NULL, hair->totpoint);
   CustomData_add_layer(&hair->cdata, CD_HAIRCURVE, CD_CALLOC, NULL, hair->totcurve);
   BKE_hair_update_customdata_pointers(hair);
 
@@ -161,16 +168,16 @@ BoundBox *BKE_hair_boundbox_get(Object *ob)
   if (ob->runtime.bb == NULL) {
     ob->runtime.bb = MEM_callocN(sizeof(BoundBox), "hair boundbox");
 
-    HairPoint *point = hair->points;
     float min[3], max[3];
     INIT_MINMAX(min, max);
-    for (int a = 0; a < hair->totpoint; a++, point++) {
-      float co_min[3] = {point->co[0] - point->radius,
-                         point->co[1] - point->radius,
-                         point->co[2] - point->radius};
-      float co_max[3] = {point->co[0] + point->radius,
-                         point->co[1] + point->radius,
-                         point->co[2] + point->radius};
+
+    float(*hair_co)[3] = hair->co;
+    float *hair_radius = hair->radius;
+    for (int a = 0; a < hair->totpoint; a++) {
+      float *co = hair_co[a];
+      float radius = (hair_radius) ? hair_radius[a] : 0.0f;
+      float co_min[3] = {co[0] - radius, co[1] - radius, co[2] - radius};
+      float co_max[3] = {co[0] + radius, co[1] + radius, co[2] + radius};
       DO_MIN(co_min, min);
       DO_MAX(co_max, max);
     }
@@ -183,7 +190,8 @@ BoundBox *BKE_hair_boundbox_get(Object *ob)
 
 void BKE_hair_update_customdata_pointers(Hair *hair)
 {
-  hair->points = CustomData_get_layer(&hair->pdata, CD_HAIRPOINT);
+  hair->co = CustomData_get_layer(&hair->pdata, CD_LOCATION);
+  hair->radius = CustomData_get_layer(&hair->pdata, CD_RADIUS);
   hair->curves = CustomData_get_layer(&hair->cdata, CD_HAIRCURVE);
   hair->mapping = CustomData_get_layer(&hair->cdata, CD_HAIRMAPPING);
 }

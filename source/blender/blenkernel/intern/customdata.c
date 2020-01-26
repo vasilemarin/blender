@@ -1623,14 +1623,14 @@ static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
     {sizeof(short[4][3]), "", 0, NULL, NULL, NULL, NULL, layerSwap_flnor, NULL},
     /* 41: CD_CUSTOMLOOPNORMAL */
     {sizeof(short[2]), "vec2s", 1, NULL, NULL, NULL, NULL, NULL, NULL},
-    /* 42: CD_HAIRPOINT */
-    {sizeof(HairPoint), "HairPoint", 1, NULL, NULL, NULL, NULL, NULL, NULL},
-    /* 43: CD_HAIRCURVE */
+    /* 42: CD_LOCATION */
+    {sizeof(float[3]), "vec3f", 1, NULL, NULL, NULL, NULL, NULL, NULL},
+    /* 43: CD_RADIUS */
+    {sizeof(float), "MFloatProperty", 1, NULL, NULL, NULL, NULL, NULL, NULL},
+    /* 44: CD_HAIRCURVE */
     {sizeof(HairCurve), "HairCurve", 1, NULL, NULL, NULL, NULL, NULL, NULL},
-    /* 44: CD_HAIRMAPPING */
+    /* 45: CD_HAIR_MAPPING */
     {sizeof(HairMapping), "HairMapping", 1, NULL, NULL, NULL, NULL, NULL, NULL},
-    /* 45: CD_POINT */
-    {sizeof(Point), "Point", 1, NULL, NULL, NULL, NULL, NULL, NULL},
 };
 
 static const char *LAYERTYPENAMES[CD_NUMTYPES] = {

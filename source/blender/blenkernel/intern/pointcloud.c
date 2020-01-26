@@ -29,6 +29,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
+#include "BLI_rand.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
@@ -50,13 +51,16 @@ static void pointcloud_random(PointCloud *pointcloud)
   CustomData_realloc(&pointcloud->pdata, pointcloud->totpoint);
   BKE_pointcloud_update_customdata_pointers(pointcloud);
 
+  RNG *rng = BLI_rng_new(0);
+
   for (int i = 0; i < pointcloud->totpoint; i++) {
-    Point *point = &pointcloud->points[i];
-    point->co[0] = 2.0f * drand48() - 1.0f;
-    point->co[1] = 2.0f * drand48() - 1.0f;
-    point->co[2] = 2.0f * drand48() - 1.0f;
-    point->radius = 0.05f * drand48();
+    pointcloud->co[i][0] = 2.0f * BLI_rng_get_float(rng) - 1.0f;
+    pointcloud->co[i][1] = 2.0f * BLI_rng_get_float(rng) - 1.0f;
+    pointcloud->co[i][2] = 2.0f * BLI_rng_get_float(rng) - 1.0f;
+    pointcloud->radius[i] = 0.05f * BLI_rng_get_float(rng);
   }
+
+  BLI_rng_free(rng);
 }
 
 void BKE_pointcloud_init(PointCloud *pointcloud)
@@ -67,7 +71,8 @@ void BKE_pointcloud_init(PointCloud *pointcloud)
   pointcloud->totpoint = 0;
 
   CustomData_reset(&pointcloud->pdata);
-  CustomData_add_layer(&pointcloud->pdata, CD_POINT, CD_CALLOC, NULL, pointcloud->totpoint);
+  CustomData_add_layer(&pointcloud->pdata, CD_LOCATION, CD_CALLOC, NULL, pointcloud->totpoint);
+  CustomData_add_layer(&pointcloud->pdata, CD_RADIUS, CD_CALLOC, NULL, pointcloud->totpoint);
   BKE_pointcloud_update_customdata_pointers(pointcloud);
 
   pointcloud_random(pointcloud);
@@ -130,16 +135,16 @@ BoundBox *BKE_pointcloud_boundbox_get(Object *ob)
   if (ob->runtime.bb == NULL) {
     ob->runtime.bb = MEM_callocN(sizeof(BoundBox), "pointcloud boundbox");
 
-    Point *point = pointcloud->points;
     float min[3], max[3];
     INIT_MINMAX(min, max);
-    for (int a = 0; a < pointcloud->totpoint; a++, point++) {
-      float co_min[3] = {point->co[0] - point->radius,
-                         point->co[1] - point->radius,
-                         point->co[2] - point->radius};
-      float co_max[3] = {point->co[0] + point->radius,
-                         point->co[1] + point->radius,
-                         point->co[2] + point->radius};
+
+    float(*pointcloud_co)[3] = pointcloud->co;
+    float *pointcloud_radius = pointcloud->radius;
+    for (int a = 0; a < pointcloud->totpoint; a++) {
+      float *co = pointcloud_co[a];
+      float radius = (pointcloud_radius) ? pointcloud_radius[a] : 0.0f;
+      float co_min[3] = {co[0] - radius, co[1] - radius, co[2] - radius};
+      float co_max[3] = {co[0] + radius, co[1] + radius, co[2] + radius};
       DO_MIN(co_min, min);
       DO_MAX(co_max, max);
     }
@@ -152,7 +157,8 @@ BoundBox *BKE_pointcloud_boundbox_get(Object *ob)
 
 void BKE_pointcloud_update_customdata_pointers(PointCloud *pointcloud)
 {
-  pointcloud->points = CustomData_get_layer(&pointcloud->pdata, CD_POINT);
+  pointcloud->co = CustomData_get_layer(&pointcloud->pdata, CD_LOCATION);
+  pointcloud->radius = CustomData_get_layer(&pointcloud->pdata, CD_RADIUS);
 }
 
 /* Dependency Graph */

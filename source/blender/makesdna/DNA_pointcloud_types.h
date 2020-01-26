@@ -28,13 +28,6 @@
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
 
-/* TODO: for compatibility with node systems and renderers, separate
- * data layers for coordinate and radius seems better? */
-typedef struct Point {
-  float co[3];
-  float radius;
-} Point;
-
 typedef struct PointCloud {
   ID id;
   struct AnimData *adt; /* animation data (must be immediately after id) */
@@ -43,7 +36,8 @@ typedef struct PointCloud {
   int _pad1[1];
 
   /* Geometry */
-  struct Point *points;
+  float (*co)[3];
+  float *radius;
   int totpoint;
   int _pad2[1];
 

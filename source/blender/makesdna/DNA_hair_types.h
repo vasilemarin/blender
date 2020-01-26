@@ -28,18 +28,11 @@
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
 
-/* TODO: for compatibility with node systems and renderers, separate
- * data layers for coordinate and radius seems better? */
-typedef struct HairPoint {
-  float co[3];
-  float radius;
-} HairPoint;
-
-/* TODO: make numpoints implicit? It can be automatically computed from
- * next firstpoint. */
 typedef struct HairCurve {
+  /* Index of first point of hair curve. */
   int firstpoint;
-  int numpoints; /* Must be 2 or higher. */
+  /* Number of points in hair curve, must be 2 or higher. */
+  int numpoints;
 } HairCurve;
 
 /* Hair attachment to a mesh.
@@ -58,7 +51,8 @@ typedef struct Hair {
   int _pad1[1];
 
   /* Geometry */
-  struct HairPoint *points;
+  float (*co)[3];
+  float *radius;
   struct HairCurve *curves;
   struct HairMaping *mapping;
   int totpoint;
