@@ -802,7 +802,6 @@ bool BKE_id_copy(Main *bmain, const ID *id, ID **newid)
 /**
  * Does a mere memory swap over the whole IDs data (including type-specific memory).
  * \note Most internal ID data itself is not swapped (only IDProperties are).
- * \note bmain may be NULL, in which case no internal pointers to itself remapping will be done.
  */
 void BKE_id_swap(Main *bmain, ID *id_a, ID *id_b)
 {
@@ -866,11 +865,9 @@ void BKE_id_swap(Main *bmain, ID *id_a, ID *id_b)
   id_a->properties = id_b_back.properties;
   id_b->properties = id_a_back.properties;
 
-  if (bmain != NULL) {
-    /* Swap will have broken internal references to itself, restore them. */
-    BKE_libblock_relink_ex(bmain, id_a, id_b, id_a, ID_REMAP_SKIP_NEVER_NULL_USAGE);
-    BKE_libblock_relink_ex(bmain, id_b, id_a, id_b, ID_REMAP_SKIP_NEVER_NULL_USAGE);
-  }
+  /* Swap will have broken internal references to itself, restore them. */
+  BKE_libblock_relink_ex(bmain, id_a, id_b, id_a, ID_REMAP_SKIP_NEVER_NULL_USAGE);
+  BKE_libblock_relink_ex(bmain, id_b, id_a, id_b, ID_REMAP_SKIP_NEVER_NULL_USAGE);
 }
 
 /** Does *not* set ID->newid pointer. */
@@ -2432,6 +2429,9 @@ void BLI_libblock_ensure_unique_name(Main *bmain, const char *name)
     BKE_id_new_name_validate(lb, idtest, NULL);
     bmain->is_memfile_undo_written = false;
   }
+
+  /* ID renaming requires an 'undo barrier'. */
+  bmain->use_memfile_full_barrier = true;
 }
 
 /**
@@ -2443,6 +2443,9 @@ void BKE_libblock_rename(Main *bmain, ID *id, const char *name)
   if (BKE_id_new_name_validate(lb, id, name)) {
     bmain->is_memfile_undo_written = false;
   }
+
+  /* ID renaming requires an 'undo barrier'. */
+  bmain->use_memfile_full_barrier = true;
 }
 
 /**

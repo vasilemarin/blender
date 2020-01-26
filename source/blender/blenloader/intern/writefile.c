@@ -3836,8 +3836,6 @@ static bool write_file_handle(Main *mainvar,
           BKE_override_library_operations_store_start(bmain, override_storage, id);
         }
 
-        printf("%s: Writing ID %s\n", __func__, id->name);
-
         switch ((ID_Type)GS(id->name)) {
           case ID_WM:
             write_windowmanager(wd, (wmWindowManager *)id);

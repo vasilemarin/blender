@@ -2155,6 +2155,11 @@ GHash *BKE_scene_undo_depsgraphs_extract(Main *bmain)
       BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, __func__);
 
   for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
+    if (scene->depsgraph_hash == NULL) {
+      /* In some cases, e.g. when undo has to perform multiple steps at once, no depsgraph will be
+       * built so this pointer may be NULL. */
+      continue;
+    }
     for (ViewLayer *view_layer = scene->view_layers.first; view_layer != NULL;
          view_layer = view_layer->next) {
       DepsgraphKey key;
@@ -2195,6 +2200,11 @@ void BKE_scene_undo_depsgraphs_restore(Main *bmain, GHash *depsgraph_extract)
 
       Depsgraph **depsgraph_extract_ptr = (Depsgraph **)BLI_ghash_lookup_p(depsgraph_extract,
                                                                            key_full);
+      if (depsgraph_extract_ptr == NULL) {
+        continue;
+      }
+      BLI_assert(*depsgraph_extract_ptr != NULL);
+
       Depsgraph **depsgraph_scene_ptr = scene_get_depsgraph_p(
           bmain, scene, view_layer, true, false);
       BLI_assert(depsgraph_scene_ptr != NULL);

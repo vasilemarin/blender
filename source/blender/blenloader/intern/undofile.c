@@ -98,6 +98,7 @@ void memfile_chunk_add(MemFile *memfile, const char *buf, uint size, MemFileChun
   curchunk->size = size;
   curchunk->buf = NULL;
   curchunk->is_identical = false;
+  curchunk->is_identical_future = false;
   BLI_addtail(&memfile->chunks, curchunk);
 
   /* we compare compchunk with buf */
@@ -106,8 +107,8 @@ void memfile_chunk_add(MemFile *memfile, const char *buf, uint size, MemFileChun
     if (compchunk->size == curchunk->size) {
       if (memcmp(compchunk->buf, buf, size) == 0) {
         curchunk->buf = compchunk->buf;
-        printf("\t%s: That mem chunk is unchanged\n", __func__);
         curchunk->is_identical = true;
+        compchunk->is_identical_future = true;
       }
     }
     *compchunk_step = compchunk->next;
@@ -127,8 +128,11 @@ struct Main *BLO_memfile_main_get(struct MemFile *memfile,
                                   struct Scene **r_scene)
 {
   struct Main *bmain_undo = NULL;
-  BlendFileData *bfd = BLO_read_from_memfile(
-      oldmain, BKE_main_blendfile_path(oldmain), memfile, BLO_READ_SKIP_NONE, NULL);
+  BlendFileData *bfd = BLO_read_from_memfile(oldmain,
+                                             BKE_main_blendfile_path(oldmain),
+                                             memfile,
+                                             &(const struct BlendFileReadParams){0},
+                                             NULL);
 
   if (bfd) {
     bmain_undo = bfd->main;

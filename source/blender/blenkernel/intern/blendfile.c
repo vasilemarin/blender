@@ -473,8 +473,7 @@ bool BKE_blendfile_read_from_memfile(bContext *C,
   Main *bmain = CTX_data_main(C);
   BlendFileData *bfd;
 
-  bfd = BLO_read_from_memfile(
-      bmain, BKE_main_blendfile_path(bmain), memfile, params->skip_flags, reports);
+  bfd = BLO_read_from_memfile(bmain, BKE_main_blendfile_path(bmain), memfile, params, reports);
   if (bfd) {
     /* remove the unused screens and wm */
     while (bfd->main->wm.first) {

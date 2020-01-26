@@ -26,9 +26,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_sys_types.h"
-#include "BLI_ghash.h"
 #include "BLI_listbase.h"
-#include "BLI_path_util.h"
 #include "BLI_string.h"
 
 #include "BLT_translation.h"
@@ -40,7 +38,6 @@
 #include "BKE_global.h"
 #include "BKE_library_override.h"
 #include "BKE_main.h"
-#include "BKE_scene.h"
 #include "BKE_undo_system.h"
 
 #include "MEM_guardedalloc.h"
@@ -166,6 +163,7 @@ static bool undosys_step_encode(bContext *C, Main *bmain, UndoStack *ustack, Und
        * not all members are filled in. */
       us->type->step_foreach_ID_ref(us, undosys_id_ref_store, bmain);
     }
+
 #ifdef WITH_GLOBAL_UNDO_CORRECT_ORDER
     if (us->type == BKE_UNDOSYS_TYPE_MEMFILE) {
       ustack->step_active_memfile = us;
@@ -192,15 +190,11 @@ static void undosys_step_decode(
             /* Common case, we're already using the last memfile state. */
           }
           else {
-            GHash *depsgraphs = BKE_scene_undo_depsgraphs_extract(bmain);
-
             /* Load the previous memfile state so any ID's referenced in this
              * undo step will be correctly resolved, see: T56163. */
             undosys_step_decode(C, bmain, ustack, us_iter, dir, false);
             /* May have been freed on memfile read. */
             bmain = G_MAIN;
-
-            BKE_scene_undo_depsgraphs_restore(bmain, depsgraphs);
           }
           break;
         }
