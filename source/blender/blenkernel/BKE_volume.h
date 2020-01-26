@@ -77,7 +77,7 @@ extern void (*BKE_volume_batch_cache_free_cb)(struct Volume *volume);
 /* Grids
  *
  * When accessing a grid, it must be specified if the grid will be used for
- * reading only metadata, reading metadata and voxels or full read/write.
+ * reading only metadata, or reading metadata and voxels.
  *
  * This makes it possible to load just the required data on-demand, and share
  * grids between volumes for copy-on-write. */
@@ -85,16 +85,15 @@ extern void (*BKE_volume_batch_cache_free_cb)(struct Volume *volume);
 typedef struct VolumeGrid VolumeGrid;
 
 int BKE_volume_num_grids(struct Volume *volume);
-const VolumeGrid *BKE_volume_grid_for_metadata(struct Volume *volume, int grid_index);
-const VolumeGrid *BKE_volume_grid_for_read(struct Volume *volume, int grid_index);
-VolumeGrid *BKE_volume_grid_for_write(struct Volume *volume, int grid_index);
 
 /* Grid Metadata */
 
+const VolumeGrid *BKE_volume_grid_for_metadata(struct Volume *volume, int grid_index);
 const char *BKE_volume_grid_name(const struct VolumeGrid *grid);
 
-/* Grid Voxels */
+/* Grid Tree and Voxels */
 
+const VolumeGrid *BKE_volume_grid_for_tree(struct Volume *volume, int grid_index);
 bool BKE_volume_grid_bounds(const struct VolumeGrid *grid, float min[3], float max[3]);
 
 #ifdef __cplusplus

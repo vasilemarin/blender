@@ -43,13 +43,29 @@
 #include "BKE_volume.h"
 
 #ifdef WITH_OPENVDB
+#  include <mutex>
 #  include <openvdb/openvdb.h>
 
 struct VolumeGrid {
+  VolumeGrid(const openvdb::GridBase::Ptr &vdb, const bool has_tree) : vdb(vdb), has_tree(has_tree)
+  {
+  }
+
+  VolumeGrid(const VolumeGrid &other) : vdb(other.vdb), has_tree(other.has_tree)
+  {
+  }
+
+  /* OpenVDB grid. */
   openvdb::GridBase::Ptr vdb;
+  /* Grid may have only metadata and no tree. */
+  bool has_tree;
+  /* Mutex for on-demand reading of tree. */
+  std::mutex mutex;
 };
 
 struct VolumeGridVector : public std::vector<VolumeGrid> {
+  /* Absolute file path to read voxels from on-demand. */
+  char filepath[FILE_MAX];
 };
 #endif
 
@@ -131,15 +147,14 @@ void BKE_volume_reload(Main *bmain, Volume *volume)
   volume->grids->clear();
 
   /* Get absolute file path. */
-  char filepath[FILE_MAX];
-  STRNCPY(filepath, volume->filepath);
-  BLI_path_abs(filepath, ID_BLEND_PATH(bmain, &volume->id));
+  STRNCPY(volume->grids->filepath, volume->filepath);
+  BLI_path_abs(volume->grids->filepath, ID_BLEND_PATH(bmain, &volume->id));
 
   /* TODO: move this to a better place. */
   openvdb::initialize();
 
   /* Open OpenVDB file. */
-  openvdb::io::File file(filepath);
+  openvdb::io::File file(volume->grids->filepath);
   openvdb::GridPtrVec vdb_grids;
 
   try {
@@ -155,9 +170,7 @@ void BKE_volume_reload(Main *bmain, Volume *volume)
   /* Add grids read from file to own vector, filtering out any NULL pointers. */
   for (const openvdb::GridBase::Ptr vdb_grid : vdb_grids) {
     if (vdb_grid) {
-      VolumeGrid grid;
-      grid.vdb = vdb_grid;
-      volume->grids->push_back(std::move(grid));
+      volume->grids->emplace_back(vdb_grid, false);
     }
   }
 #else
@@ -187,12 +200,12 @@ BoundBox *BKE_volume_boundbox_get(Object *ob)
       /* TODO: this is quite expensive, how often is it computed? Is there a faster
        * way without actually reading grids? We should ensure copy-on-write does not
        * compute this over and over for static files. */
-      const VolumeGrid *grid = BKE_volume_grid_for_read(volume, i);
+      const VolumeGrid *grid = BKE_volume_grid_for_tree(volume, i);
       float grid_min[3], grid_max[3];
 
       if (BKE_volume_grid_bounds(grid, grid_min, grid_max)) {
-        DO_MIN(min, grid_min);
-        DO_MAX(max, grid_max);
+        DO_MIN(grid_min, min);
+        DO_MAX(grid_max, max);
         have_minmax = true;
       }
     }
@@ -285,22 +298,36 @@ const VolumeGrid *BKE_volume_grid_for_metadata(Volume *volume, int grid_index)
 #endif
 }
 
-const VolumeGrid *BKE_volume_grid_for_read(Volume *volume, int grid_index)
+const VolumeGrid *BKE_volume_grid_for_tree(Volume *volume, int grid_index)
 {
 #ifdef WITH_OPENVDB
-  /* TODO: implement */
-  return BKE_volume_grid_for_metadata(volume, grid_index);
-#else
-  UNUSED_VARS(volume, grid_index);
-  return NULL;
-#endif
-}
+  VolumeGrid &grid = volume->grids->at(grid_index);
 
-VolumeGrid *BKE_volume_grid_for_write(Volume *volume, int grid_index)
-{
-#ifdef WITH_OPENVDB
-  /* TODO: implement */
-  return (VolumeGrid *)BKE_volume_grid_for_metadata(volume, grid_index);
+  if (!grid.has_tree) {
+    std::lock_guard<std::mutex> lock(grid.mutex);
+
+    if (!grid.has_tree) {
+      /* Read OpenVDB grid on-demand. */
+      /* TODO: avoid repeating this for multiple grids when we know we will
+       * need them? How best to do it without keeping the file open forever? */
+      openvdb::io::File file(volume->grids->filepath);
+      openvdb::GridPtrVec vdb_grids;
+
+      try {
+        file.setCopyMaxBytes(0);
+        file.open();
+        grid.vdb = file.readGrid(grid.vdb->getName());
+      }
+      catch (const openvdb::IoError &e) {
+        /* TODO: log error with clog. */
+        std::cerr << e.what() << '\n';
+      }
+
+      grid.has_tree = true;
+    }
+  }
+
+  return &grid;
 #else
   UNUSED_VARS(volume, grid_index);
   return NULL;
@@ -324,12 +351,14 @@ const char *BKE_volume_grid_name(const VolumeGrid *volume_grid)
 #endif
 }
 
-/* Grid Voxels */
+/* Grid Tree and Voxels */
 
 bool BKE_volume_grid_bounds(const VolumeGrid *volume_grid, float min[3], float max[3])
 {
 #ifdef WITH_OPENVDB
   const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
+  BLI_assert(volume_grid->has_tree);
+
   if (grid->empty()) {
     INIT_MINMAX(min, max);
     return false;

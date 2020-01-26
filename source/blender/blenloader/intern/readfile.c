@@ -9328,7 +9328,7 @@ static void direct_link_volume(FileData *fd, Volume *volume)
 
   volume->packedfile = direct_link_packedfile(fd, volume->packedfile);
   volume->grids = (fd->volumemap) ? newvolumeadr(fd, volume->grids) : NULL;
-  BKE_volume_init_grids(volume->grids);
+  BKE_volume_init_grids(volume);
 
   /* materials */
   volume->mat = newdataadr(fd, volume->mat);
