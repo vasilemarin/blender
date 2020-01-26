@@ -252,9 +252,19 @@ Volume *BKE_volume_copy_for_eval(Volume *volume_src, bool reference)
 
 void BKE_volume_data_update(struct Depsgraph *UNUSED(depsgraph),
                             struct Scene *UNUSED(scene),
-                            Object *UNUSED(object))
+                            Object *object)
 {
-  /* Nothing to do yet. */
+  /* Free any evaluated data and restore original data. */
+  BKE_object_free_derived_caches(object);
+
+  /* Modifier evaluation goes here, using BKE_volume_new_for_eval or
+   * BKE_volume_copy_for_eval to create a new Volume. */
+  Volume *volume = (Volume *)object->data;
+  Volume *volume_eval = volume;
+
+  /* Assign evaluated object. */
+  const bool is_owned = (volume != volume_eval);
+  BKE_object_eval_assign_data(object, &volume_eval->id, is_owned);
 }
 
 /* Draw Cache */

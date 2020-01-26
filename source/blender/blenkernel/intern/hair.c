@@ -222,9 +222,19 @@ Hair *BKE_hair_copy_for_eval(Hair *hair_src, bool reference)
 
 void BKE_hair_data_update(struct Depsgraph *UNUSED(depsgraph),
                           struct Scene *UNUSED(scene),
-                          Object *UNUSED(object))
+                          Object *object)
 {
-  /* Nothing to do yet. */
+  /* Free any evaluated data and restore original data. */
+  BKE_object_free_derived_caches(object);
+
+  /* Modifier evaluation goes here, using BKE_hair_new_for_eval or
+   * BKE_hair_copy_for_eval to create a new Hair. */
+  Hair *hair = object->data;
+  Hair *hair_eval = hair;
+
+  /* Assign evaluated object. */
+  const bool is_owned = (hair != hair_eval);
+  BKE_object_eval_assign_data(object, &hair_eval->id, is_owned);
 }
 
 /* Draw Cache */

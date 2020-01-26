@@ -188,9 +188,19 @@ PointCloud *BKE_pointcloud_copy_for_eval(struct PointCloud *pointcloud_src, bool
 
 void BKE_pointcloud_data_update(struct Depsgraph *UNUSED(depsgraph),
                                 struct Scene *UNUSED(scene),
-                                Object *UNUSED(object))
+                                Object *object)
 {
-  /* Nothing to do yet. */
+  /* Free any evaluated data and restore original data. */
+  BKE_object_free_derived_caches(object);
+
+  /* Modifier evaluation goes here, using BKE_pointcloud_new_for_eval or
+   * BKE_pointcloud_copy_for_eval to create a new PointCloud. */
+  PointCloud *pointcloud = object->data;
+  PointCloud *pointcloud_eval = pointcloud;
+
+  /* Assign evaluated object. */
+  const bool is_owned = (pointcloud != pointcloud_eval);
+  BKE_object_eval_assign_data(object, &pointcloud_eval->id, is_owned);
 }
 
 /* Draw Cache */
