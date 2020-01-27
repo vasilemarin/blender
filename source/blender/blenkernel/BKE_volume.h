@@ -85,6 +85,7 @@ extern void (*BKE_volume_batch_cache_free_cb)(struct Volume *volume);
 typedef struct VolumeGrid VolumeGrid;
 
 int BKE_volume_num_grids(struct Volume *volume);
+const char *BKE_volume_grids_error_msg(const struct Volume *volume);
 
 /* Grid Metadata */
 

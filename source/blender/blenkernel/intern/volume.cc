@@ -64,8 +64,10 @@ struct VolumeGrid {
 };
 
 struct VolumeGridVector : public std::vector<VolumeGrid> {
-  /* Absolute file path to read voxels from on-demand. */
+  /* Absolute file path that grids have been loaded from. */
   char filepath[FILE_MAX];
+  /* File loading error message. */
+  std::string error_msg;
 };
 #endif
 
@@ -144,17 +146,20 @@ void BKE_volume_free(Volume *volume)
 void BKE_volume_reload(Main *bmain, Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  volume->grids->clear();
+  VolumeGridVector &grids = *volume->grids;
+  grids.clear();
+  grids.error_msg.clear();
 
   /* Get absolute file path. */
-  STRNCPY(volume->grids->filepath, volume->filepath);
-  BLI_path_abs(volume->grids->filepath, ID_BLEND_PATH(bmain, &volume->id));
+  STRNCPY(grids.filepath, volume->filepath);
+  BLI_path_abs(grids.filepath, ID_BLEND_PATH(bmain, &volume->id));
 
-  /* TODO: move this to a better place. */
+  /* Initialize the first time we use it. This is thread safe and can be safely
+   * called multiple times. */
   openvdb::initialize();
 
   /* Open OpenVDB file. */
-  openvdb::io::File file(volume->grids->filepath);
+  openvdb::io::File file(grids.filepath);
   openvdb::GridPtrVec vdb_grids;
 
   try {
@@ -163,8 +168,7 @@ void BKE_volume_reload(Main *bmain, Volume *volume)
     vdb_grids = *(file.readAllGridMetadata());
   }
   catch (const openvdb::IoError &e) {
-    /* TODO: report error to user. */
-    std::cerr << e.what() << '\n';
+    grids.error_msg = e.what();
   }
 
   /* Add grids read from file to own vector, filtering out any NULL pointers. */
@@ -298,6 +302,11 @@ int BKE_volume_num_grids(Volume *volume)
 #endif
 }
 
+const char *BKE_volume_grids_error_msg(const Volume *volume)
+{
+  return volume->grids->error_msg.c_str();
+}
+
 const VolumeGrid *BKE_volume_grid_for_metadata(Volume *volume, int grid_index)
 {
 #ifdef WITH_OPENVDB
@@ -311,29 +320,28 @@ const VolumeGrid *BKE_volume_grid_for_metadata(Volume *volume, int grid_index)
 const VolumeGrid *BKE_volume_grid_for_tree(Volume *volume, int grid_index)
 {
 #ifdef WITH_OPENVDB
-  VolumeGrid &grid = volume->grids->at(grid_index);
+  VolumeGridVector &grids = *volume->grids;
+  VolumeGrid &grid = grids.at(grid_index);
 
-  if (!grid.has_tree) {
+  if (!grid.has_tree && grids.error_msg.empty()) {
     std::lock_guard<std::mutex> lock(grid.mutex);
 
     if (!grid.has_tree) {
       /* Read OpenVDB grid on-demand. */
       /* TODO: avoid repeating this for multiple grids when we know we will
        * need them? How best to do it without keeping the file open forever? */
-      openvdb::io::File file(volume->grids->filepath);
+      openvdb::io::File file(grids.filepath);
       openvdb::GridPtrVec vdb_grids;
 
       try {
         file.setCopyMaxBytes(0);
         file.open();
         grid.vdb = file.readGrid(grid.vdb->getName());
+        grid.has_tree = true;
       }
       catch (const openvdb::IoError &e) {
-        /* TODO: log error with clog. */
-        std::cerr << e.what() << '\n';
+        grids.error_msg = e.what();
       }
-
-      grid.has_tree = true;
     }
   }
 

@@ -128,6 +128,20 @@ static void rna_VolumeGrids_active_grid_index_set(PointerRNA *ptr, int value)
   volume->active_grid = value;
 }
 
+/* Error Message */
+
+static void rna_VolumeGrids_error_message_get(PointerRNA *ptr, char *value)
+{
+  Volume *volume = (Volume *)ptr->data;
+  strcpy(value, BKE_volume_grids_error_msg(volume));
+}
+
+static int rna_VolumeGrids_error_message_length(PointerRNA *ptr)
+{
+  Volume *volume = (Volume *)ptr->data;
+  return strlen(BKE_volume_grids_error_msg(volume));
+}
+
 #else
 
 static void rna_def_volume_grid(BlenderRNA *brna)
@@ -162,6 +176,13 @@ static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
                              "rna_VolumeGrids_active_grid_index_set",
                              "rna_VolumeGrids_active_grid_index_range");
   RNA_def_property_ui_text(prop, "Active Grid Index", "Index of active volume grid");
+
+  prop = RNA_def_property(srna, "error_message", PROP_STRING, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_string_funcs(
+      prop, "rna_VolumeGrids_error_message_get", "rna_VolumeGrids_error_message_length", NULL);
+  RNA_def_property_ui_text(
+      prop, "Error Message", "If loading grids failed, error message with details");
 }
 
 static void rna_def_volume(BlenderRNA *brna)

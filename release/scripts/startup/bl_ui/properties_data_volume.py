@@ -64,6 +64,12 @@ class DATA_PT_volume(DataButtonsPanel, Panel):
 
         layout.prop(volume, "filepath", text="")
 
+        error_msg = volume.grids.error_message
+        if len(error_msg):
+          col = layout.column(align=True)
+          col.label(text="Failed to load volume:")
+          col.label(text=error_msg)
+
 
 class VOLUME_UL_grids(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -80,6 +86,7 @@ class DATA_PT_volume_grids(DataButtonsPanel, Panel):
         volume = context.volume
 
         layout.template_list("VOLUME_UL_grids", "grids", volume, "grids", volume.grids, "active_index", rows=2)
+
 
 class DATA_PT_custom_props_volume(DataButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
