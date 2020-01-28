@@ -9444,12 +9444,14 @@ static BHead *read_libblock(FileData *fd,
   /* read libblock */
   fd->are_memchunks_identical = true;
   id = read_struct(fd, bhead, "lib block");
+  const short idcode = id != NULL ? GS(id->name) : 0;
 
   BHead *id_bhead = bhead;
+  /* Used when undoing from memfile, we swap changed IDs into their old addresses when found. */
+  ID *id_old = NULL;
+  bool do_id_swap = false;
 
   if (id) {
-    const short idcode = GS(id->name);
-
     if (id_bhead->code != ID_LINK_PLACEHOLDER) {
       /* need a name for the mallocN, just for debugging and sane prints on leaks */
       allocname = dataname(idcode);
@@ -9472,7 +9474,7 @@ static BHead *read_libblock(FileData *fd,
 
         /* Find the 'current' existing ID we want to reuse instead of the one we would read from
          * the undo memfile. */
-        ID *id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
+        id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
         if (id_old != NULL) {
           MEM_freeN(id);
           id = id_old;
@@ -9512,19 +9514,29 @@ static BHead *read_libblock(FileData *fd,
     /* do after read_struct, for dna reconstruct */
     lb = which_libbase(main, idcode);
     if (lb) {
-      /* for ID_LINK_PLACEHOLDER check */
-      oldnewmap_insert(fd->libmap, id_bhead->old, id, id_bhead->code);
-
       /* Some re-used old IDs might also use newly read ones, so we have to check for old memory
        * addresses for those as well. */
       if (fd->memfile != NULL && (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0 &&
           id->lib == NULL) {
         BLI_assert(fd->old_idmap != NULL);
-        ID *id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
+        if (id_old == NULL) {
+          id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
+        }
         if (id_old != NULL) {
-          oldnewmap_insert(fd->libmap_undo_reused, id_old, id, id_bhead->code);
+          BLI_assert(MEM_allocN_len(id) == MEM_allocN_len(id_old));
+          /* UI IDs are always re-used from old bmain at higher-level calling code, so never swap
+           * those. Besides maybe custom properties, no other ID should have pointers to those
+           * anyway...
+           * And linked IDs are handled separately as well. */
+          do_id_swap = !ELEM(idcode, ID_WM, ID_SCR, ID_WS) &&
+                       !(id_bhead->code == ID_LINK_PLACEHOLDER);
+          oldnewmap_insert(
+              fd->libmap_undo_reused, id_old, do_id_swap ? id_old : id, id_bhead->code);
         }
       }
+
+      /* for ID_LINK_PLACEHOLDER check */
+      oldnewmap_insert(fd->libmap, id_bhead->old, do_id_swap ? id_old : id, id_bhead->code);
 
       BLI_addtail(lb, id);
     }
@@ -9537,7 +9549,7 @@ static BHead *read_libblock(FileData *fd,
   }
 
   if (r_id) {
-    *r_id = id;
+    *r_id = do_id_swap ? id_old : id;
   }
   if (!id) {
     return blo_bhead_next(fd, id_bhead);
@@ -9585,7 +9597,7 @@ static BHead *read_libblock(FileData *fd,
   /* Note: doing this after direct_link_id(), which resets that field. */
   id->tag = tag | LIB_TAG_NEED_LINK | LIB_TAG_NEW;
 
-  switch (GS(id->name)) {
+  switch (idcode) {
     case ID_WM:
       direct_link_windowmanager(fd, (wmWindowManager *)id);
       break;
@@ -9701,6 +9713,29 @@ static BHead *read_libblock(FileData *fd,
 
   if (wrong_id) {
     BKE_id_free(main, id);
+  }
+  else if (do_id_swap) {
+    /* During memfile undo, if an ID changed and we cannot directly re-use existing one from old
+     * bmain, we do a full read of the new id from the memfile, and then fully swap its content
+     * with the old id. This allows us to keep the same pointer even for modified data, which helps
+     * reducing further detected changes by the depsgraph (since unchanged IDs remain fully
+     * unchanged, even if they are using/pointing to a changed one). */
+
+    BLI_assert((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0);
+
+    Main *old_bmain = fd->old_mainlist->first;
+    BLI_assert(old_bmain == BKE_main_idmap_main_get(fd->old_idmap));
+    BLI_assert(id_old != NULL);
+
+    ListBase *old_lb = which_libbase(old_bmain, idcode);
+    ListBase *new_lb = which_libbase(main, idcode);
+    BLI_remlink(old_lb, id_old);
+    BLI_remlink(new_lb, id);
+
+    BKE_id_full_swap(NULL, id, id_old);
+
+    BLI_addtail(new_lb, id_old);
+    BLI_addtail(old_lb, id);
   }
 
   return (bhead);
