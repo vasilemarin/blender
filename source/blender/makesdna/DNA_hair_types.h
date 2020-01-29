@@ -76,4 +76,7 @@ enum {
   HA_DS_EXPAND = (1 << 0),
 };
 
+/* Only one material supported currently. */
+#define HAIR_MATERIAL_NR 1
+
 #endif /* __DNA_HAIR_TYPES_H__ */

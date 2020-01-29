@@ -134,9 +134,16 @@ static DRWShadingGroup *drw_shgroup_create_hair_procedural_ex(Object *object,
   int thickness_res = (scene->r.hair_type == SCE_HAIR_SHAPE_STRAND) ? 1 : 2;
 
   ParticleHairCache *hair_cache;
-  ParticleSettings *part = psys->part;
-  bool need_ft_update = particles_ensure_procedural_data(
-      object, psys, md, &hair_cache, subdiv, thickness_res);
+  bool need_ft_update;
+  if (psys) {
+    /* Old particle hair. */
+    need_ft_update = particles_ensure_procedural_data(
+        object, psys, md, &hair_cache, subdiv, thickness_res);
+  }
+  else {
+    /* New hair object. */
+    need_ft_update = hair_ensure_procedural_data(object, &hair_cache, subdiv, thickness_res);
+  }
 
   DRWShadingGroup *shgrp;
   if (gpu_mat) {
@@ -163,36 +170,61 @@ static DRWShadingGroup *drw_shgroup_create_hair_procedural_ex(Object *object,
     }
   }
 
-  if ((dupli_parent != NULL) && (dupli_object != NULL)) {
-    DRWHairInstanceData *hair_inst_data = (DRWHairInstanceData *)DRW_drawdata_ensure(
-        &object->id,
-        (DrawEngineType *)&drw_shgroup_create_hair_procedural_ex,
-        sizeof(DRWHairInstanceData),
-        NULL,
-        NULL);
-    dupli_mat = hair_inst_data->mat;
-    if (dupli_object->type & OB_DUPLICOLLECTION) {
-      copy_m4_m4(dupli_mat, dupli_parent->obmat);
+  if (psys) {
+    /* Old particle hair. */
+    if ((dupli_parent != NULL) && (dupli_object != NULL)) {
+      DRWHairInstanceData *hair_inst_data = (DRWHairInstanceData *)DRW_drawdata_ensure(
+          &object->id,
+          (DrawEngineType *)&drw_shgroup_create_hair_procedural_ex,
+          sizeof(DRWHairInstanceData),
+          NULL,
+          NULL);
+      dupli_mat = hair_inst_data->mat;
+      if (dupli_object->type & OB_DUPLICOLLECTION) {
+        copy_m4_m4(dupli_mat, dupli_parent->obmat);
+      }
+      else {
+        copy_m4_m4(dupli_mat, dupli_object->ob->obmat);
+        invert_m4(dupli_mat);
+        mul_m4_m4m4(dupli_mat, object->obmat, dupli_mat);
+      }
     }
     else {
-      copy_m4_m4(dupli_mat, dupli_object->ob->obmat);
-      invert_m4(dupli_mat);
-      mul_m4_m4m4(dupli_mat, object->obmat, dupli_mat);
+      dupli_mat = unit_mat;
     }
   }
   else {
-    dupli_mat = unit_mat;
+    /* New hair object. */
+    dupli_mat = object->obmat;
+  }
+
+  /* Get hair shape parameters. */
+  float hair_rad_shape, hair_rad_root, hair_rad_tip;
+  bool hair_close_tip;
+  if (psys) {
+    /* Old particle hair. */
+    ParticleSettings *part = psys->part;
+    hair_rad_shape = part->shape;
+    hair_rad_root = part->rad_root * part->rad_scale * 0.5f;
+    hair_rad_tip = part->rad_tip * part->rad_scale * 0.5f;
+    hair_close_tip = (part->shape_flag & PART_SHAPE_CLOSE_TIP) != 0;
+  }
+  else {
+    /* TODO: implement for new hair object. */
+    hair_rad_shape = 1.0f;
+    hair_rad_root = 0.005f;
+    hair_rad_tip = 0.0f;
+    hair_close_tip = true;
   }
 
   DRW_shgroup_uniform_texture(shgrp, "hairPointBuffer", hair_cache->final[subdiv].proc_tex);
   DRW_shgroup_uniform_int(shgrp, "hairStrandsRes", &hair_cache->final[subdiv].strands_res, 1);
   DRW_shgroup_uniform_int_copy(shgrp, "hairThicknessRes", thickness_res);
-  DRW_shgroup_uniform_float(shgrp, "hairRadShape", &part->shape, 1);
+  DRW_shgroup_uniform_float_copy(shgrp, "hairRadShape", hair_rad_shape);
   DRW_shgroup_uniform_mat4(shgrp, "hairDupliMatrix", dupli_mat);
-  DRW_shgroup_uniform_float_copy(shgrp, "hairRadRoot", part->rad_root * part->rad_scale * 0.5f);
-  DRW_shgroup_uniform_float_copy(shgrp, "hairRadTip", part->rad_tip * part->rad_scale * 0.5f);
-  DRW_shgroup_uniform_bool_copy(
-      shgrp, "hairCloseTip", (part->shape_flag & PART_SHAPE_CLOSE_TIP) != 0);
+  DRW_shgroup_uniform_float_copy(shgrp, "hairRadRoot", hair_rad_root);
+  DRW_shgroup_uniform_float_copy(shgrp, "hairRadTip", hair_rad_tip);
+  DRW_shgroup_uniform_bool_copy(shgrp, "hairCloseTip", hair_close_tip);
   /* TODO(fclem): Until we have a better way to cull the hair and render with orco, bypass culling
    * test. */
   GPUBatch *geom = hair_cache->final[subdiv].proc_hairs[thickness_res - 1];

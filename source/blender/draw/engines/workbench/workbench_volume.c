@@ -22,16 +22,18 @@
 
 #include "workbench_private.h"
 
-#include "BKE_object.h"
-#include "BKE_fluid.h"
+#include "DNA_fluid_types.h"
+#include "DNA_modifier_types.h"
+#include "DNA_object_force_types.h"
+#include "DNA_volume_types.h"
 
 #include "BLI_rand.h"
 #include "BLI_dynstr.h"
 #include "BLI_string_utils.h"
 
-#include "DNA_modifier_types.h"
-#include "DNA_object_force_types.h"
-#include "DNA_fluid_types.h"
+#include "BKE_object.h"
+#include "BKE_fluid.h"
+#include "BKE_volume.h"
 
 #include "GPU_draw.h"
 
@@ -47,6 +49,7 @@ static struct {
   struct GPUShader *volume_sh[VOLUME_SH_MAX];
   struct GPUShader *volume_coba_sh;
   struct GPUTexture *dummy_tex;
+  struct GPUTexture *dummy_shadow_tex;
   struct GPUTexture *dummy_coba_tex;
 } e_data = {{NULL}};
 
@@ -97,9 +100,11 @@ static GPUShader *volume_shader_get(bool slice, bool coba, bool cubic)
 void workbench_volume_engine_init(void)
 {
   if (!e_data.dummy_tex) {
-    float pixel[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    e_data.dummy_tex = GPU_texture_create_3d(1, 1, 1, GPU_RGBA8, pixel, NULL);
-    e_data.dummy_coba_tex = GPU_texture_create_1d(1, GPU_RGBA8, pixel, NULL);
+    float zero[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float one[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    e_data.dummy_tex = GPU_texture_create_3d(1, 1, 1, GPU_RGBA8, zero, NULL);
+    e_data.dummy_shadow_tex = GPU_texture_create_3d(1, 1, 1, GPU_RGBA8, one, NULL);
+    e_data.dummy_coba_tex = GPU_texture_create_1d(1, GPU_RGBA8, zero, NULL);
   }
 }
 
@@ -109,6 +114,7 @@ void workbench_volume_engine_free(void)
     DRW_SHADER_FREE_SAFE(e_data.volume_sh[i]);
   }
   DRW_TEXTURE_FREE_SAFE(e_data.dummy_tex);
+  DRW_TEXTURE_FREE_SAFE(e_data.dummy_shadow_tex);
   DRW_TEXTURE_FREE_SAFE(e_data.dummy_coba_tex);
 }
 
@@ -118,10 +124,9 @@ void workbench_volume_cache_init(WORKBENCH_Data *vedata)
       "Volumes", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA_PREMUL | DRW_STATE_CULL_FRONT);
 }
 
-void workbench_volume_cache_populate(WORKBENCH_Data *vedata,
-                                     Scene *UNUSED(scene),
-                                     Object *ob,
-                                     ModifierData *md)
+static void workbench_volume_modifier_cache_populate(WORKBENCH_Data *vedata,
+                                                     Object *ob,
+                                                     ModifierData *md)
 {
   FluidModifierData *mmd = (FluidModifierData *)md;
   FluidDomainSettings *mds = mmd->domain;
@@ -221,6 +226,102 @@ void workbench_volume_cache_populate(WORKBENCH_Data *vedata,
   }
 
   BLI_addtail(&wpd->smoke_domains, BLI_genericNodeN(mmd));
+}
+
+static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Object *ob)
+{
+  /* Create 3D textures. */
+  Volume *volume = ob->data;
+  DRWVolumeGrid *density = DRW_volume_batch_cache_get_grid(volume, "density");
+  if (density == NULL) {
+    return;
+  }
+
+  // TODO: shaders assumes all textures to have the same bounding box.
+  // to solve this each texture would need its own loc + size transform.
+  // DRWVolumeGrid *temperature = DRW_volume_batch_cache_get_temperature(volume, "temperature");
+
+  WORKBENCH_PrivateData *wpd = vedata->stl->g_data;
+  WORKBENCH_EffectInfo *effect_info = vedata->stl->effects;
+  DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
+
+  wpd->volumes_do = true;
+
+  // TODO: add user settings
+  const bool use_slice = false;
+  const bool cubic_interp = false;
+  const float slice_per_voxel = 5.0f;
+  const float display_thickness = 1000.0f;
+
+  /* Create shader. */
+  GPUShader *sh = volume_shader_get(use_slice, false, cubic_interp);
+
+  /* Compute world space dimensions for step size. */
+  float ob_size[3];
+  mat4_to_size(ob_size, ob->obmat);
+  float world_space_size[3] = {fabsf(ob_size[0]) * density->size[0],
+                               fabsf(ob_size[1]) * density->size[1],
+                               fabsf(ob_size[2]) * density->size[2]};
+
+  /* Compute slice parameters. */
+  double noise_ofs;
+  BLI_halton_1d(3, 0.0, effect_info->jitter_index, &noise_ofs);
+  float step_length, max_slice;
+  float slice_ct[3] = {density->resolution[0], density->resolution[1], density->resolution[2]};
+  mul_v3_fl(slice_ct, max_ff(0.001f, slice_per_voxel));
+  max_slice = max_fff(slice_ct[0], slice_ct[1], slice_ct[2]);
+  invert_v3(slice_ct);
+  mul_v3_v3(slice_ct, world_space_size);
+  step_length = len_v3(slice_ct);
+
+  DRWShadingGroup *grp = DRW_shgroup_create(sh, vedata->psl->volume_pass);
+  DRW_shgroup_uniform_vec4(grp, "viewvecs[0]", (float *)wpd->viewvecs, 3);
+  DRW_shgroup_uniform_int_copy(grp, "samplesLen", max_slice);
+  DRW_shgroup_uniform_float_copy(grp, "stepLength", step_length);
+  DRW_shgroup_uniform_float_copy(grp, "noiseOfs", noise_ofs);
+  DRW_shgroup_state_enable(grp, DRW_STATE_CULL_FRONT);
+
+  static float white[3] = {1.0f, 1.0f, 1.0f};
+  // TODO: density is rgb color + a density, it's getting squared currently?
+  DRW_shgroup_uniform_texture(grp, "densityTexture", density->texture);
+  // TODO: implement shadow texture, like manta_smoke_calc_transparency
+  DRW_shgroup_uniform_texture(grp, "shadowTexture", e_data.dummy_shadow_tex);
+  DRW_shgroup_uniform_texture(grp, "flameTexture", e_data.dummy_tex);
+  DRW_shgroup_uniform_texture(grp, "flameColorTexture", e_data.dummy_coba_tex);
+  DRW_shgroup_uniform_vec3(grp, "activeColor", white, 1);
+
+  DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
+  DRW_shgroup_uniform_float_copy(grp, "densityScale", 10.0f * display_thickness);
+
+  /* Combined object and unit cube to bounding box transform. */
+  float unit_cube_to_bb[4][4], drawmat[4][4];
+  size_to_mat4(unit_cube_to_bb, density->size);
+  copy_v3_v3(unit_cube_to_bb[3], density->loc);
+  mul_m4_m4m4(drawmat, ob->obmat, unit_cube_to_bb);
+
+  // TODO: DRW_shgroup_call_obmat is not working here, and also does not
+  // support culling, so we hack around it like this.
+  float backup_obmat[4][4], backup_imat[4][4];
+  copy_m4_m4(backup_obmat, ob->obmat);
+  copy_m4_m4(backup_imat, ob->imat);
+  copy_m4_m4(ob->obmat, drawmat);
+  invert_m4_m4(ob->imat, drawmat);
+  DRW_shgroup_call(grp, DRW_cache_cube_get(), ob);
+  copy_m4_m4(ob->obmat, backup_obmat);
+  copy_m4_m4(ob->imat, backup_imat);
+}
+
+void workbench_volume_cache_populate(WORKBENCH_Data *vedata,
+                                     Scene *UNUSED(scene),
+                                     Object *ob,
+                                     ModifierData *md)
+{
+  if (md == NULL) {
+    workbench_volume_object_cache_populate(vedata, ob);
+  }
+  else {
+    workbench_volume_modifier_cache_populate(vedata, ob, md);
+  }
 }
 
 void workbench_volume_smoke_textures_free(WORKBENCH_PrivateData *wpd)

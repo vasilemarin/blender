@@ -96,6 +96,7 @@ const char *BKE_volume_grid_name(const struct VolumeGrid *grid);
 
 const VolumeGrid *BKE_volume_grid_for_tree(struct Volume *volume, int grid_index);
 bool BKE_volume_grid_bounds(const struct VolumeGrid *grid, float min[3], float max[3]);
+float *BKE_volume_grid_to_dense_voxels(const struct VolumeGrid *volume_grid, size_t size[3]);
 
 #ifdef __cplusplus
 }

@@ -125,10 +125,7 @@ static GPUTexture *create_transfer_function(int type, const struct ColorBand *co
 static void swizzle_texture_channel_rrrr(GPUTexture *tex)
 {
   GPU_texture_bind(tex, 0);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_R, GL_RED);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_G, GL_RED);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_A, GL_RED);
+  GPU_texture_swizzle_channel_rrrr(tex);
   GPU_texture_unbind(tex);
 }
 

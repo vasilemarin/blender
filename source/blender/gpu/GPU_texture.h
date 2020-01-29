@@ -232,6 +232,7 @@ void GPU_texture_wrap_mode(GPUTexture *tex, bool use_repeat);
 void GPU_texture_filters(GPUTexture *tex,
                          eGPUFilterFunction min_filter,
                          eGPUFilterFunction mag_filter);
+void GPU_texture_swizzle_channel_rrrr(GPUTexture *tex);
 
 void GPU_texture_attach_framebuffer(GPUTexture *tex, struct GPUFrameBuffer *fb, int attachment);
 int GPU_texture_detach_framebuffer(GPUTexture *tex, struct GPUFrameBuffer *fb);

@@ -58,4 +58,7 @@ enum {
   VO_DS_EXPAND = (1 << 0),
 };
 
+/* Only one material supported currently. */
+#define VOLUME_MATERIAL_NR 1
+
 #endif /* __DNA_VOLUME_TYPES_H__ */

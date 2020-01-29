@@ -32,11 +32,14 @@ struct ModifierData;
 struct PTCacheEdit;
 struct ParticleSystem;
 
+struct bGPdata;
 struct Curve;
+struct Hair;
 struct Lattice;
 struct Mesh;
 struct MetaBall;
-struct bGPdata;
+struct PointCloud;
+struct Volume;
 
 /* Expose via BKE callbacks */
 void DRW_mball_batch_cache_dirty_tag(struct MetaBall *mb, int mode);
@@ -60,6 +63,18 @@ void DRW_particle_batch_cache_free(struct ParticleSystem *psys);
 
 void DRW_gpencil_batch_cache_dirty_tag(struct bGPdata *gpd);
 void DRW_gpencil_batch_cache_free(struct bGPdata *gpd);
+
+void DRW_hair_batch_cache_dirty_tag(struct Hair *hair, int mode);
+void DRW_hair_batch_cache_validate(struct Hair *hair);
+void DRW_hair_batch_cache_free(struct Hair *hair);
+
+void DRW_pointcloud_batch_cache_dirty_tag(struct PointCloud *pointcloud, int mode);
+void DRW_pointcloud_batch_cache_validate(struct PointCloud *pointcloud);
+void DRW_pointcloud_batch_cache_free(struct PointCloud *pointcloud);
+
+void DRW_volume_batch_cache_dirty_tag(struct Volume *volume, int mode);
+void DRW_volume_batch_cache_validate(struct Volume *volume);
+void DRW_volume_batch_cache_free(struct Volume *volume);
 
 /* Garbage collection */
 void DRW_batch_cache_free_old(struct Object *ob, int ctime);
@@ -116,6 +131,17 @@ struct GPUBatch *DRW_lattice_batch_cache_get_all_edges(struct Lattice *lt,
                                                        const int actdef);
 struct GPUBatch *DRW_lattice_batch_cache_get_all_verts(struct Lattice *lt);
 struct GPUBatch *DRW_lattice_batch_cache_get_edit_verts(struct Lattice *lt);
+
+/* Hair */
+int DRW_hair_material_count_get(struct Hair *hair);
+
+/* PointCloud */
+int DRW_pointcloud_material_count_get(struct PointCloud *pointcloud);
+
+struct GPUBatch *DRW_pointcloud_batch_cache_get_dots(struct Object *ob);
+
+/* Volume */
+int DRW_volume_material_count_get(struct Volume *volume);
 
 /* Mesh */
 void DRW_mesh_batch_cache_create_requested(struct Object *ob,

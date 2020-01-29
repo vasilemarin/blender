@@ -45,6 +45,7 @@
 #ifdef WITH_OPENVDB
 #  include <mutex>
 #  include <openvdb/openvdb.h>
+#  include <openvdb/tools/Dense.h>
 
 struct VolumeGrid {
   VolumeGrid(const openvdb::GridBase::Ptr &vdb, const bool has_tree) : vdb(vdb), has_tree(has_tree)
@@ -396,5 +397,34 @@ bool BKE_volume_grid_bounds(const VolumeGrid *volume_grid, float min[3], float m
   UNUSED_VARS(volume_grid);
   INIT_MINMAX(min, max);
   return false;
+#endif
+}
+
+float *BKE_volume_grid_to_dense_voxels(const VolumeGrid *volume_grid, size_t size[3])
+{
+#ifdef WITH_OPENVDB
+  /* TODO: support different grid types. */
+  /* TODO: return NULL for empty grids. */
+  const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
+  BLI_assert(volume_grid->has_tree);
+
+  openvdb::Coord coord = grid->evalActiveVoxelDim();
+  size[0] = coord.x();
+  size[1] = coord.y();
+  size[2] = coord.z();
+
+  float *voxels = (float *)MEM_malloc_arrayN(size[0] * size[1] * size[2], sizeof(float), __func__);
+
+  openvdb::FloatGrid::Ptr floatgrid = openvdb::gridPtrCast<openvdb::FloatGrid>(grid);
+  openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(
+      floatgrid->evalActiveVoxelBoundingBox(), voxels);
+  openvdb::tools::copyToDense(*floatgrid, dense);
+
+  return voxels;
+#else
+  size[0] = 0;
+  size[1] = 0;
+  size[2] = 0;
+  return NULL;
 #endif
 }

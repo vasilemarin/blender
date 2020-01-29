@@ -29,6 +29,7 @@
 
 #include "DNA_object_force_types.h"
 #include "DNA_fluid_types.h"
+#include "DNA_volume_types.h"
 #include "DNA_world_types.h"
 
 #include "BKE_modifier.h"
@@ -392,8 +393,6 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
 {
   static const float white[3] = {1.0f, 1.0f, 1.0f};
 
-  float *texcoloc = NULL;
-  float *texcosize = NULL;
   struct ModifierData *md = NULL;
   Material *ma = give_current_material(ob, 1);
 
@@ -422,8 +421,6 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
 
   DRWShadingGroup *grp = DRW_shgroup_material_create(mat, vedata->psl->volumetric_objects_ps);
 
-  BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texcoloc, &texcosize);
-
   /* TODO(fclem) remove those "unnecessary" UBOs */
   DRW_shgroup_uniform_block(grp, "planar_block", sldata->planar_ubo);
   DRW_shgroup_uniform_block(grp, "probe_block", sldata->probe_ubo);
@@ -432,14 +429,41 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   DRW_shgroup_uniform_block(grp, "grid_block", sldata->grid_ubo);
 
   DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
-  DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texcoloc, 1);
-  DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texcosize, 1);
 
+  /* Volume Object */
+  if (ob->type == OB_VOLUME) {
+    // TODO: check what the BASE_FROM_DUPLI test is for, do we need it too?
+    Volume *volume = ob->data;
+    DRWVolumeGrid *density = DRW_volume_batch_cache_get_grid(volume, "density");
+    if (density == NULL) {
+      return;
+    }
+
+    // TODO: ensure we are culling volumes out of view
+
+    // TODO: shaders assumes all textures to have the same bounding box.
+    // to solve this each texture would need its own loc + size transform.
+    // DRWVolumeGrid *temperature = DRW_volume_batch_cache_get_temperature(volume);
+
+    // TODO: why a texture reference? probably there is no way to dynamically update it.
+    DRW_shgroup_uniform_texture_ref(grp, "sampdensity", &density->texture);
+    DRW_shgroup_uniform_texture_ref(grp, "sampflame", &e_data.dummy_flame);
+
+    DRW_shgroup_uniform_vec3(grp, "volumeColor", white, 1);
+
+    /* Output is such that 0..1 maps to 0..1000K */
+    const float flame_ignition = 1.5f;  // TODO: user setting?
+    DRW_shgroup_uniform_vec2(grp, "unftemperature", &flame_ignition, 1);
+
+    /* Volume dimensions for texture sampling. */
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", density->mid, 1);
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", density->halfsize, 1);
+  }
   /* Smoke Simulation */
-  if (((ob->base_flag & BASE_FROM_DUPLI) == 0) &&
-      (md = modifiers_findByType(ob, eModifierType_Fluid)) &&
-      (modifier_isEnabled(scene, md, eModifierMode_Realtime)) &&
-      ((FluidModifierData *)md)->domain != NULL) {
+  else if (((ob->base_flag & BASE_FROM_DUPLI) == 0) &&
+           (md = modifiers_findByType(ob, eModifierType_Fluid)) &&
+           (modifier_isEnabled(scene, md, eModifierMode_Realtime)) &&
+           ((FluidModifierData *)md)->domain != NULL) {
     FluidModifierData *mmd = (FluidModifierData *)md;
     FluidDomainSettings *mds = mmd->domain;
 
@@ -480,12 +504,20 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
 
     /* Output is such that 0..1 maps to 0..1000K */
     DRW_shgroup_uniform_vec2(grp, "unftemperature", &mds->flame_ignition, 1);
+
+    /* Volume dimensions for texture sampling. */
+    float *texcoloc, *texcosize;
+    BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texcoloc, &texcosize);
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texcoloc, 1);
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texcosize, 1);
   }
   else {
     DRW_shgroup_uniform_texture(grp, "sampdensity", e_data.dummy_density);
     DRW_shgroup_uniform_texture(grp, "sampflame", e_data.dummy_flame);
     DRW_shgroup_uniform_vec3(grp, "volumeColor", white, 1);
     DRW_shgroup_uniform_vec2(grp, "unftemperature", (float[2]){0.0f, 1.0f}, 1);
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", (float[3]){0.0f, 0.0f, 0.0f}, 1);
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", (float[3]){1.0f, 1.0f, 1.0f}, 1);
   }
 
   /* TODO Reduce to number of slices intersecting. */

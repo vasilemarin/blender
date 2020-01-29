@@ -58,4 +58,7 @@ enum {
   PT_DS_EXPAND = (1 << 0),
 };
 
+/* Only one material supported currently. */
+#define POINTCLOUD_MATERIAL_NR 1
+
 #endif /* __DNA_POINTCLOUD_TYPES_H__ */
