@@ -9499,6 +9499,10 @@ static BHead *read_libblock(FileData *fd,
           id_old->newid = NULL;
           id_old->orig_id = NULL;
 
+          /* About recalc: since that ID did not change at all, we know that its recalc fields also
+           * remained unchanged, so no need to handle neither recalc nor recalc_undo_future here.
+           */
+
           Main *old_bmain = fd->old_mainlist->first;
           BLI_assert(old_bmain == BKE_main_idmap_main_get(fd->old_idmap));
           ListBase *old_lb = which_libbase(old_bmain, idcode);
@@ -9587,6 +9591,15 @@ static BHead *read_libblock(FileData *fd,
    * the version the file has been saved with. */
   if (!fd->memfile) {
     id->recalc = 0;
+    id->recalc_undo_future = 0;
+  }
+  else {
+    /* We are coming from the future (i.e. do an actual undo, and not a redo), and we found an old
+     * (aka existing) ID: we use its 'last saved recalc flags' as 'future undo recalc flags' of our
+     * newly read ID. */
+    if (id_old != NULL && fd->undo_direction < 0) {
+      id->recalc = id_old->recalc_undo_future;
+    }
   }
 
   /* this case cannot be direct_linked: it's just the ID part */
