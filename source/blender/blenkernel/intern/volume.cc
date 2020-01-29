@@ -65,6 +65,11 @@ struct VolumeGrid {
 };
 
 struct VolumeGridVector : public std::vector<VolumeGrid> {
+  VolumeGridVector()
+  {
+    filepath[0] = '\0';
+  }
+
   /* Absolute file path that grids have been loaded from. */
   char filepath[FILE_MAX];
   /* File loading error message. */
@@ -144,12 +149,15 @@ void BKE_volume_free(Volume *volume)
 #endif
 }
 
-void BKE_volume_reload(Main *bmain, Volume *volume)
+void BKE_volume_load(Volume *volume, Main *bmain)
 {
 #ifdef WITH_OPENVDB
   VolumeGridVector &grids = *volume->grids;
-  grids.clear();
-  grids.error_msg.clear();
+
+  /* Test if there is a file to load, or if already loaded. */
+  if (volume->filepath[0] == '\0' || grids.filepath[0] != '\0') {
+    return;
+  }
 
   /* Get absolute file path. */
   STRNCPY(grids.filepath, volume->filepath);
@@ -183,6 +191,18 @@ void BKE_volume_reload(Main *bmain, Volume *volume)
 #endif
 }
 
+void BKE_volume_unload(Volume *volume)
+{
+#ifdef WITH_OPENVDB
+  VolumeGridVector &grids = *volume->grids;
+  grids.clear();
+  grids.error_msg.clear();
+  grids.filepath[0] = '\0';
+#else
+  UNUSED_VARS(volume);
+#endif
+}
+
 BoundBox *BKE_volume_boundbox_get(Object *ob)
 {
   BLI_assert(ob->type == OB_VOLUME);
@@ -192,13 +212,17 @@ BoundBox *BKE_volume_boundbox_get(Object *ob)
   }
 
   if (ob->runtime.bb == NULL) {
+    Volume *volume = (Volume *)ob->data;
+
     ob->runtime.bb = (BoundBox *)MEM_callocN(sizeof(BoundBox), "volume boundbox");
 
     float min[3], max[3];
     bool have_minmax = false;
     INIT_MINMAX(min, max);
 
-    Volume *volume = (Volume *)ob->data;
+    // TODO: avoid global access, load earlier?
+    BKE_volume_load(volume, G.main);
+
     const int num_grids = BKE_volume_num_grids(volume);
 
     for (int i = 0; i < num_grids; i++) {

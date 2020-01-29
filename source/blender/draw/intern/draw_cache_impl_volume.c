@@ -34,6 +34,7 @@
 #include "DNA_object_types.h"
 #include "DNA_volume_types.h"
 
+#include "BKE_global.h"
 #include "BKE_volume.h"
 
 #include "GPU_batch.h"
@@ -143,6 +144,9 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   cache_grid = MEM_callocN(sizeof(DRWVolumeGrid), __func__);
   cache_grid->name = BLI_strdup(name);
   BLI_addtail(&cache->grids, cache_grid);
+
+  // TODO: avoid global access, load earlier?
+  BKE_volume_load(volume, G.main);
 
   /* Find grid with matching name. */
   int num_grids = BKE_volume_num_grids(volume);

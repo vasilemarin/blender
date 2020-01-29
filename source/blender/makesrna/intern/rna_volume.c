@@ -39,18 +39,20 @@
 #ifdef RNA_RUNTIME
 
 #  include "BKE_volume.h"
+
 #  include "DEG_depsgraph.h"
+
+#  include "WM_types.h"
+#  include "WM_api.h"
 
 /* Updates */
 
-static void rna_Volume_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
+static void rna_Volume_update_filepath(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
   Volume *volume = (Volume *)ptr->owner_id;
+  BKE_volume_unload(volume);
   DEG_id_tag_update(&volume->id, ID_RECALC_COPY_ON_WRITE);
-
-  /* TODO: remove and handle through depsgraph, but needs design for copy-on-write
-   * synchronization between copy and original */
-  BKE_volume_reload(bmain, volume);
+  WM_main_add_notifier(NC_GEOM | ND_DATA, volume);
 }
 
 /* Grid */
@@ -183,6 +185,12 @@ static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
       prop, "rna_VolumeGrids_error_message_get", "rna_VolumeGrids_error_message_length", NULL);
   RNA_def_property_ui_text(
       prop, "Error Message", "If loading grids failed, error message with details");
+
+  /* API */
+  FunctionRNA *func;
+  func = RNA_def_function(srna, "load", "BKE_volume_load");
+  RNA_def_function_ui_description(func, "Load file to populate grids list");
+  RNA_def_function_flag(func, FUNC_USE_MAIN);
 }
 
 static void rna_def_volume(BlenderRNA *brna)
@@ -196,7 +204,7 @@ static void rna_def_volume(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
   RNA_def_property_ui_text(prop, "File Path", "Volume sample file used by this Volume data-block");
-  RNA_def_property_update(prop, 0, "rna_Volume_update");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_filepath");
 
   prop = RNA_def_property(srna, "packed_file", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, NULL, "packedfile");

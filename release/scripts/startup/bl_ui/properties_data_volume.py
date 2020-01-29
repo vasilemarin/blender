@@ -61,6 +61,7 @@ class DATA_PT_volume(DataButtonsPanel, Panel):
         layout = self.layout
 
         volume = context.volume
+        volume.grids.load()
 
         layout.prop(volume, "filepath", text="")
 
@@ -84,6 +85,7 @@ class DATA_PT_volume_grids(DataButtonsPanel, Panel):
         layout = self.layout
 
         volume = context.volume
+        volume.grids.load()
 
         layout.template_list("VOLUME_UL_grids", "grids", volume, "grids", volume.grids, "active_index", rows=2)
 

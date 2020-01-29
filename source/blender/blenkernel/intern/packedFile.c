@@ -685,7 +685,7 @@ int BKE_packedfile_unpack_volume(Main *bmain,
       BKE_packedfile_free(volume->packedfile);
       volume->packedfile = NULL;
 
-      BKE_volume_reload(bmain, volume);
+      BKE_volume_unload(volume);
 
       ret_value = RET_OK;
     }
