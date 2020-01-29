@@ -257,7 +257,8 @@ void MEM_use_guarded_allocator(void);
         MEM_freeN(mem); \
     }
 
-/* Needed when type includes a namespace, then the namespace should not be used after ~. */
+/* Needed when type includes a namespace, then the namespace should not be
+ * specified after ~, so using a macro fails. */
 template<class T> inline void OBJECT_GUARDED_DESTRUCTOR(T *what)
 {
   what->~T();
@@ -286,7 +287,6 @@ template<class T> inline void OBJECT_GUARDED_DESTRUCTOR(T *what)
       } \
     } \
     (void)0
-
 #endif /* __cplusplus */
 
 #endif /* __MEM_GUARDEDALLOC_H__ */

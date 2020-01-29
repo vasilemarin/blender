@@ -460,7 +460,6 @@ void BKE_object_free_derived_caches(Object *ob)
   MEM_SAFE_FREE(ob->runtime.bb);
 
   object_update_from_subsurf_ccg(ob);
-  BKE_object_free_derived_mesh_caches(ob);
 
   if (ob->runtime.data_eval != NULL) {
     if (ob->runtime.is_data_eval_owned) {
@@ -493,20 +492,6 @@ void BKE_object_free_derived_caches(Object *ob)
 
   /* clear grease pencil data */
   DRW_gpencil_freecache(ob);
-}
-
-void BKE_object_free_derived_mesh_caches(struct Object *ob)
-{
-  if (ob->derivedFinal) {
-    ob->derivedFinal->needsFree = 1;
-    ob->derivedFinal->release(ob->derivedFinal);
-    ob->derivedFinal = NULL;
-  }
-  if (ob->derivedDeform) {
-    ob->derivedDeform->needsFree = 1;
-    ob->derivedDeform->release(ob->derivedDeform);
-    ob->derivedDeform = NULL;
-  }
 }
 
 void BKE_object_free_caches(Object *object)
@@ -1476,9 +1461,6 @@ void BKE_object_copy_data(Main *bmain, Object *ob_dst, const Object *ob_src, con
   BKE_rigidbody_object_copy(bmain, ob_dst, ob_src, flag_subdata);
 
   BKE_object_copy_particlesystems(ob_dst, ob_src, flag_subdata);
-
-  ob_dst->derivedDeform = NULL;
-  ob_dst->derivedFinal = NULL;
 
   BLI_listbase_clear((ListBase *)&ob_dst->drawdata);
   BLI_listbase_clear(&ob_dst->pc_ids);
