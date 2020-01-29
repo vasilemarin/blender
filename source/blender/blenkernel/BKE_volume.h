@@ -38,6 +38,12 @@ struct Object;
 struct Scene;
 struct Volume;
 
+/* Module */
+
+void BKE_volumes_init(void);
+
+/* Datablock Management */
+
 void BKE_volume_init(struct Volume *volume);
 void BKE_volume_init_grids(struct Volume *volume);
 void *BKE_volume_add(struct Main *bmain, const char *name);
@@ -48,9 +54,6 @@ void BKE_volume_copy_data(struct Main *bmain,
 struct Volume *BKE_volume_copy(struct Main *bmain, const struct Volume *volume);
 void BKE_volume_make_local(struct Main *bmain, struct Volume *volume, const bool lib_local);
 void BKE_volume_free(struct Volume *volume);
-
-void BKE_volume_load(struct Volume *volume, struct Main *bmain);
-void BKE_volume_unload(struct Volume *volume);
 
 struct BoundBox *BKE_volume_boundbox_get(struct Object *ob);
 
@@ -77,27 +80,64 @@ extern void (*BKE_volume_batch_cache_free_cb)(struct Volume *volume);
 
 /* Grids
  *
- * When accessing a grid, it must be specified if the grid will be used for
- * reading only metadata, or reading metadata and voxels.
- *
- * This makes it possible to load just the required data on-demand, and share
- * grids between volumes for copy-on-write. */
+ * For volumes referencing a file, the list of grids and metadata must be
+ * loaded before it can be accessed. This happens on-demand, only when needed
+ * by the user interface, dependency graph or render engine. */
 
 typedef struct VolumeGrid VolumeGrid;
 
+bool BKE_volume_load(struct Volume *volume, struct Main *bmain);
+void BKE_volume_unload(struct Volume *volume);
+bool BKE_volume_is_loaded(const struct Volume *volume);
+
 int BKE_volume_num_grids(struct Volume *volume);
 const char *BKE_volume_grids_error_msg(const struct Volume *volume);
+VolumeGrid *BKE_volume_grid_get(struct Volume *volume, int grid_index);
+VolumeGrid *BKE_volume_grid_find(struct Volume *volume, const char *name);
 
-/* Grid Metadata */
+/* Grid
+ *
+ * By default only grid metadata is loaded, for access to the tree and voxels
+ * the BKE_volume_grid_load must be called first. */
 
-const VolumeGrid *BKE_volume_grid_for_metadata(struct Volume *volume, int grid_index);
+typedef enum VolumeGridType {
+  VOLUME_GRID_UNKNOWN = 0,
+  VOLUME_GRID_BOOLEAN,
+  VOLUME_GRID_FLOAT,
+  VOLUME_GRID_DOUBLE,
+  VOLUME_GRID_INT,
+  VOLUME_GRID_INT64,
+  VOLUME_GRID_MASK,
+  VOLUME_GRID_STRING,
+  VOLUME_GRID_VECTOR_FLOAT,
+  VOLUME_GRID_VECTOR_DOUBLE,
+  VOLUME_GRID_VECTOR_INT,
+} VolumeGridType;
+
+bool BKE_volume_grid_load(struct Volume *volume, struct VolumeGrid *grid);
+void BKE_volume_grid_unload(struct VolumeGrid *volume);
+bool BKE_volume_grid_is_loaded(const struct VolumeGrid *grid);
+
+/* Metadata */
 const char *BKE_volume_grid_name(const struct VolumeGrid *grid);
+VolumeGridType BKE_volume_grid_type(const struct VolumeGrid *grid);
+int BKE_volume_grid_channels(const struct VolumeGrid *grid);
+void BKE_volume_grid_transform_matrix(const struct VolumeGrid *grid, float mat[4][4]);
 
-/* Grid Tree and Voxels */
-
-const VolumeGrid *BKE_volume_grid_for_tree(struct Volume *volume, int grid_index);
+/* Tree and Voxels */
 bool BKE_volume_grid_bounds(const struct VolumeGrid *grid, float min[3], float max[3]);
-float *BKE_volume_grid_to_dense_voxels(const struct VolumeGrid *volume_grid, size_t size[3]);
+
+bool BKE_volume_grid_dense_bounds(const struct VolumeGrid *volume_grid,
+                                  size_t min[3],
+                                  size_t max[3]);
+void BKE_volume_grid_dense_transform_matrix(const struct VolumeGrid *volume_grid,
+                                            const size_t min[3],
+                                            const size_t max[3],
+                                            float mat[4][4]);
+void BKE_volume_grid_dense_voxels(const struct VolumeGrid *volume_grid,
+                                  const size_t min[3],
+                                  const size_t max[3],
+                                  float *voxels);
 
 #ifdef __cplusplus
 }

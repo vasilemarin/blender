@@ -69,6 +69,29 @@ static int rna_VolumeGrid_name_length(PointerRNA *ptr)
   return strlen(BKE_volume_grid_name(grid));
 }
 
+static int rna_VolumeGrid_channels_get(PointerRNA *ptr)
+{
+  const VolumeGrid *grid = ptr->data;
+  return BKE_volume_grid_channels(grid);
+}
+
+static void rna_VolumeGrid_matrix_object_get(PointerRNA *ptr, float *value)
+{
+  VolumeGrid *grid = ptr->data;
+  BKE_volume_grid_transform_matrix(grid, (float(*)[4])value);
+}
+
+static bool rna_VolumeGrid_is_loaded_get(PointerRNA *ptr)
+{
+  VolumeGrid *grid = ptr->data;
+  return BKE_volume_grid_is_loaded(grid);
+}
+
+static bool rna_VolumeGrid_load(ID *id, VolumeGrid *grid)
+{
+  return BKE_volume_grid_load((Volume *)id, grid);
+}
+
 /* Grids Iterator */
 
 static void rna_Volume_grids_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -95,7 +118,7 @@ static void rna_Volume_grids_end(CollectionPropertyIterator *UNUSED(iter))
 static PointerRNA rna_Volume_grids_get(CollectionPropertyIterator *iter)
 {
   Volume *volume = iter->internal.count.ptr;
-  const VolumeGrid *grid = BKE_volume_grid_for_metadata(volume, iter->internal.count.item);
+  const VolumeGrid *grid = BKE_volume_grid_get(volume, iter->internal.count.item);
   return rna_pointer_inherit_refine(&iter->parent, &RNA_VolumeGrid, (void *)grid);
 }
 
@@ -130,6 +153,14 @@ static void rna_VolumeGrids_active_grid_index_set(PointerRNA *ptr, int value)
   volume->active_grid = value;
 }
 
+/* Loading */
+
+static bool rna_VolumeGrids_is_loaded_get(PointerRNA *ptr)
+{
+  Volume *volume = (Volume *)ptr->data;
+  return BKE_volume_is_loaded(volume);
+}
+
 /* Error Message */
 
 static void rna_VolumeGrids_error_message_get(PointerRNA *ptr, char *value)
@@ -160,6 +191,38 @@ static void rna_def_volume_grid(BlenderRNA *brna)
   RNA_def_property_string_funcs(
       prop, "rna_VolumeGrid_name_get", "rna_VolumeGrid_name_length", NULL);
   RNA_def_property_ui_text(prop, "Name", "Volume grid name");
+
+  prop = RNA_def_property(srna, "channels", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_int_funcs(prop, "rna_VolumeGrid_channels_get", NULL, NULL);
+  RNA_def_property_ui_text(prop, "Channels", "Number of channels in voxel data");
+
+  /* TODO: naming, clarification of what index space is. */
+  prop = RNA_def_property(srna, "matrix_object", PROP_FLOAT, PROP_MATRIX);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_multi_array(prop, 2, rna_matrix_dimsize_4x4);
+  RNA_def_property_float_funcs(prop, "rna_VolumeGrid_matrix_object_get", NULL, NULL);
+  RNA_def_property_ui_text(
+      prop, "Matrix Object", "Transformation from index space to world space");
+
+  prop = RNA_def_property(srna, "is_loaded", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_boolean_funcs(prop, "rna_VolumeGrid_is_loaded_get", NULL);
+  RNA_def_property_ui_text(prop, "Is Loaded", "Grid tree is loaded in memory");
+
+  /* API */
+  FunctionRNA *func;
+  PropertyRNA *parm;
+
+  func = RNA_def_function(srna, "load", "rna_VolumeGrid_load");
+  RNA_def_function_ui_description(func, "Load grid tree from file");
+  RNA_def_function_flag(func, FUNC_USE_SELF_ID);
+  parm = RNA_def_boolean(func, "success", 0, "", "True if grid tree was successfully loaded");
+  RNA_def_function_return(func, parm);
+
+  func = RNA_def_function(srna, "unload", "BKE_volume_grid_unload");
+  RNA_def_function_ui_description(
+      func, "Unload grid tree and voxel data from memory, leaving only metadata");
 }
 
 static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
@@ -186,11 +249,23 @@ static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_ui_text(
       prop, "Error Message", "If loading grids failed, error message with details");
 
+  prop = RNA_def_property(srna, "is_loaded", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_boolean_funcs(prop, "rna_VolumeGrids_is_loaded_get", NULL);
+  RNA_def_property_ui_text(prop, "Is Loaded", "List of grids and metadata are loaded in memory");
+
   /* API */
   FunctionRNA *func;
+  PropertyRNA *parm;
+
   func = RNA_def_function(srna, "load", "BKE_volume_load");
-  RNA_def_function_ui_description(func, "Load file to populate grids list");
+  RNA_def_function_ui_description(func, "Load list of grids and metadata from file");
   RNA_def_function_flag(func, FUNC_USE_MAIN);
+  parm = RNA_def_boolean(func, "success", 0, "", "True if grid list was successfully loaded");
+  RNA_def_function_return(func, parm);
+
+  func = RNA_def_function(srna, "unload", "BKE_volume_unload");
+  RNA_def_function_ui_description(func, "Unload all grid and voxel data from memory");
 }
 
 static void rna_def_volume(BlenderRNA *brna)

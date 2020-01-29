@@ -148,56 +148,73 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   // TODO: avoid global access, load earlier?
   BKE_volume_load(volume, G.main);
 
-  /* Find grid with matching name. */
-  int num_grids = BKE_volume_num_grids(volume);
-  int grid_index = 0;
-  for (; grid_index < num_grids; grid_index++) {
-    const VolumeGrid *grid = BKE_volume_grid_for_metadata(volume, grid_index);
-    if (STREQ(BKE_volume_grid_name(grid), name)) {
-      break;
-    }
-  }
-
-  if (grid_index == num_grids) {
+  /* Load grid with matching name. */
+  VolumeGrid *grid = BKE_volume_grid_find(volume, name);
+  if (grid == NULL) {
     return cache_grid;
   }
 
-  /* Read dense voxels from grid. */
-  const VolumeGrid *grid = BKE_volume_grid_for_tree(volume, grid_index);
-  float *voxels = BKE_volume_grid_to_dense_voxels(grid, cache_grid->resolution);
-  if (voxels == NULL) {
+  /* Test if we support textures with the number of channels. */
+  size_t channels = BKE_volume_grid_channels(grid);
+  if (!ELEM(channels, 1, 3)) {
     return cache_grid;
   }
 
-  /* Create GPU texture. */
-  /* TODO: support multiple data types. */
-  cache_grid->texture = GPU_texture_create_nD(cache_grid->resolution[0],
-                                              cache_grid->resolution[1],
-                                              cache_grid->resolution[2],
-                                              3,
-                                              voxels,
-                                              GPU_R8,
-                                              GPU_DATA_FLOAT,
-                                              0,
-                                              true,
-                                              NULL);
+  /* Load grid tree into memory, if not loaded already. */
+  const bool was_loaded = BKE_volume_grid_is_loaded(grid);
+  BKE_volume_grid_load(volume, grid);
 
-  GPU_texture_bind(cache_grid->texture, 0);
-  GPU_texture_swizzle_channel_rrrr(cache_grid->texture);
-  GPU_texture_unbind(cache_grid->texture);
+  /* Compute dense voxel grid size. */
+  size_t dense_min[3], dense_max[3];
+  if (BKE_volume_grid_dense_bounds(grid, dense_min, dense_max)) {
+    cache_grid->resolution[0] = dense_max[0] - dense_min[0];
+    cache_grid->resolution[1] = dense_max[1] - dense_min[1];
+    cache_grid->resolution[2] = dense_max[2] - dense_min[2];
+  }
+  size_t num_voxels = cache_grid->resolution[0] * cache_grid->resolution[1] *
+                      cache_grid->resolution[2];
+  size_t elem_size = sizeof(float) * channels;
 
-  MEM_freeN(voxels);
+  /* Allocate and load voxels. */
+  float *voxels = (num_voxels > 0) ? MEM_malloc_arrayN(num_voxels, elem_size, __func__) : NULL;
+  if (voxels != NULL) {
+    BKE_volume_grid_dense_voxels(grid, dense_min, dense_max, voxels);
 
-  /* Compute transform. */
-  /* TODO: support full transform, compute bbox as part of dense conversion for perfomance. */
-  float min[3], max[3];
-  BKE_volume_grid_bounds(grid, min, max);
-  copy_v3_v3(cache_grid->loc, min);
-  sub_v3_v3v3(cache_grid->size, max, min);
-  mid_v3_v3v3(cache_grid->mid, min, max);
-  cache_grid->halfsize[0] = (max[0] - min[0]) / 2.0f;
-  cache_grid->halfsize[1] = (max[1] - min[1]) / 2.0f;
-  cache_grid->halfsize[2] = (max[2] - min[2]) / 2.0f;
+    /* Create GPU texture. */
+    /* TODO: support loading 3 channels. */
+    cache_grid->texture = GPU_texture_create_nD(cache_grid->resolution[0],
+                                                cache_grid->resolution[1],
+                                                cache_grid->resolution[2],
+                                                3,
+                                                voxels,
+                                                GPU_R8,
+                                                GPU_DATA_FLOAT,
+                                                0,
+                                                true,
+                                                NULL);
+
+    GPU_texture_bind(cache_grid->texture, 0);
+    GPU_texture_swizzle_channel_rrrr(cache_grid->texture);
+    GPU_texture_unbind(cache_grid->texture);
+
+    MEM_freeN(voxels);
+
+    /* Compute transform. */
+    /* TODO: support full transform, compute bbox as part of dense conversion for perfomance. */
+    float min[3], max[3];
+    BKE_volume_grid_bounds(grid, min, max);
+    copy_v3_v3(cache_grid->loc, min);
+    sub_v3_v3v3(cache_grid->size, max, min);
+    mid_v3_v3v3(cache_grid->mid, min, max);
+    cache_grid->halfsize[0] = (max[0] - min[0]) / 2.0f;
+    cache_grid->halfsize[1] = (max[1] - min[1]) / 2.0f;
+    cache_grid->halfsize[2] = (max[2] - min[2]) / 2.0f;
+  }
+
+  /* Free grid from memory if it wasn't previously loaded. */
+  if (!was_loaded) {
+    BKE_volume_grid_unload(grid);
+  }
 
   return cache_grid;
 }
