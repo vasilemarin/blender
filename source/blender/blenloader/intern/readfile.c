@@ -9454,7 +9454,7 @@ static BHead *read_libblock(FileData *fd,
   ID *id_old = NULL;
   bool do_id_swap = false;
 
-  if (id) {
+  if (id != NULL) {
     if (id_bhead->code != ID_LINK_PLACEHOLDER) {
       /* need a name for the mallocN, just for debugging and sane prints on leaks */
       allocname = dataname(idcode);
@@ -9468,9 +9468,7 @@ static BHead *read_libblock(FileData *fd,
       DEBUG_PRINTF(
           "%s: ID %s is unchanged: %d\n", __func__, id->name, fd->are_memchunks_identical);
 
-      if (fd->memfile != NULL && (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0 &&
-          fd->are_memchunks_identical && !ELEM(idcode, ID_WM, ID_SCR, ID_WS)) {
-        BLI_assert(fd->memfile != NULL);
+      if (fd->memfile != NULL) {
         BLI_assert(fd->old_idmap != NULL);
         /* This code should only ever be reached for local data-blocks. */
         BLI_assert(main->curlib == NULL);
@@ -9478,32 +9476,47 @@ static BHead *read_libblock(FileData *fd,
         /* Find the 'current' existing ID we want to reuse instead of the one we would read from
          * the undo memfile. */
         id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
-        if (id_old != NULL) {
+        bool can_finalize_and_return = false;
+
+        if (ELEM(idcode, ID_WM, ID_SCR, ID_WS)) {
+          /* Read WindowManager, Screen and WorkSpace IDs are never during undo (see
+           * `setup_app_data()` in `blendfile.c`).
+           * So we can just abort here, just ensuring libmapping is set accordingly. */
+          can_finalize_and_return = true;
+        }
+        else if ((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0 &&
+                 fd->are_memchunks_identical && id_old != NULL) {
           MEM_freeN(id);
-          id = id_old;
 
           /* Do not add LIB_TAG_NEW here, this should not be needed/used in undo case anyway (as
            * this is only for do_version-like code), but for sake of consistency, and also because
            * it will tell us which ID is re-used from old Main, and which one is actually new. */
-          id->tag = tag | LIB_TAG_NEED_LINK | LIB_TAG_UNDO_OLD_ID_REUSED;
-          id->lib = main->curlib;
-          id->us = ID_FAKE_USERS(id);
+          id_old->tag = tag | LIB_TAG_NEED_LINK | LIB_TAG_UNDO_OLD_ID_REUSED;
+          id_old->lib = main->curlib;
+          id_old->us = ID_FAKE_USERS(id_old);
           /* Do not reset id->icon_id here, memory allocated for it remains valid. */
-          id->newid = NULL; /* Needed because .blend may have been saved with crap value here... */
-          id->orig_id = NULL;
-
-          oldnewmap_insert(fd->libmap, id_bhead->old, id, id_bhead->code);
-          oldnewmap_insert(fd->libmap_undo_reused, id, id, id_bhead->code);
+          /* Needed because .blend may have been saved with crap value here... */
+          id_old->newid = NULL;
+          id_old->orig_id = NULL;
 
           Main *old_bmain = fd->old_mainlist->first;
           BLI_assert(old_bmain == BKE_main_idmap_main_get(fd->old_idmap));
           ListBase *old_lb = which_libbase(old_bmain, idcode);
           ListBase *new_lb = which_libbase(main, idcode);
-          BLI_remlink(old_lb, id);
-          BLI_addtail(new_lb, id);
+          BLI_remlink(old_lb, id_old);
+          BLI_addtail(new_lb, id_old);
+
+          can_finalize_and_return = true;
+        }
+
+        if (can_finalize_and_return) {
+          oldnewmap_insert(fd->libmap, id_bhead->old, id_old, id_bhead->code);
+          if (id_old != NULL) {
+            oldnewmap_insert(fd->libmap_undo_reused, id_old, id_old, id_bhead->code);
+          }
 
           if (r_id) {
-            *r_id = id;
+            *r_id = id_old;
           }
 
           oldnewmap_free_unused(fd->datamap);

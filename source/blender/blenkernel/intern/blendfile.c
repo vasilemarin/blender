@@ -475,13 +475,13 @@ bool BKE_blendfile_read_from_memfile(bContext *C,
 
   bfd = BLO_read_from_memfile(bmain, BKE_main_blendfile_path(bmain), memfile, params, reports);
   if (bfd) {
-    /* remove the unused screens and wm */
-    while (bfd->main->wm.first) {
-      BKE_id_free(bfd->main, bfd->main->wm.first);
-    }
-    while (bfd->main->screens.first) {
-      BKE_id_free(bfd->main, bfd->main->screens.first);
-    }
+    /* Removing the unused workspaces, screens and wm is useless here, setup_app_data will switch
+     * those lists with the ones from old bmain, which freeing is much more efficient than
+     * individual calls to `BKE_id_free()`.
+     * Further more, those are expected to be empty anyway with new memfile reading code. */
+    BLI_assert(BLI_listbase_is_empty(&bfd->main->wm));
+    BLI_assert(BLI_listbase_is_empty(&bfd->main->workspaces));
+    BLI_assert(BLI_listbase_is_empty(&bfd->main->screens));
 
     setup_app_blend_file_data(C, bfd, "<memory1>", params, reports);
     BLO_blendfiledata_free(bfd);
