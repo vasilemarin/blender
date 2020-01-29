@@ -9377,6 +9377,9 @@ static BHead *read_libblock(FileData *fd,
   ID *id;
   ListBase *lb;
   const char *allocname;
+
+  /* XXX Very weakly handled currently, see comment at the end of this function before trying to
+   * use it for anything new. */
   bool wrong_id = false;
 
   /* In undo case, most libs and linked data should be kept as is from previous state
@@ -9712,7 +9715,14 @@ static BHead *read_libblock(FileData *fd,
   oldnewmap_clear(fd->datamap);
 
   if (wrong_id) {
+    /* XXX This is probably working OK currently given the very limited scope of that flag.
+     * However, it is absolutely **not** handled correctly: it is freeing an ID pointer that has
+     * been added to the fd->libmap mapping, which in theory could lead to nice crashes...
+     * This should be properly solved at some point. */
     BKE_id_free(main, id);
+    if (r_id != NULL) {
+      *r_id = NULL;
+    }
   }
   else if (do_id_swap) {
     /* During memfile undo, if an ID changed and we cannot directly re-use existing one from old

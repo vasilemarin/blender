@@ -61,7 +61,10 @@
 
 #define UNDO_DISK 0
 
-bool BKE_memfile_undo_decode(MemFileUndoData *mfu, const int undo_direction, const bool use_old_bmain_data, bContext *C)
+bool BKE_memfile_undo_decode(MemFileUndoData *mfu,
+                             const int undo_direction,
+                             const bool use_old_bmain_data,
+                             bContext *C)
 {
   Main *bmain = CTX_data_main(C);
   char mainstr[sizeof(bmain->name)];
