@@ -134,25 +134,28 @@ static void setup_app_userdef(BlendFileData *bfd)
 static void setup_app_data(bContext *C,
                            BlendFileData *bfd,
                            const char *filepath,
-                           const bool is_startup,
+                           const struct BlendFileReadParams *params,
                            ReportList *reports)
 {
   Main *bmain = G_MAIN;
   Scene *curscene = NULL;
   const bool recover = (G.fileflags & G_FILE_RECOVER) != 0;
+  const bool is_startup = params->is_startup;
   enum {
     LOAD_UI = 1,
     LOAD_UI_OFF,
     LOAD_UNDO,
   } mode;
 
-  /* may happen with library files - UNDO file should never have NULL cursccene... */
-  if (ELEM(NULL, bfd->curscreen, bfd->curscene)) {
+  if (params->undo_direction != 0) {
+    BLI_assert(bfd->curscene != NULL);
+    mode = LOAD_UNDO;
+  }
+  /* may happen with library files - UNDO file should never have NULL curscene (but may have a
+   * NULL curscreen)... */
+  else if (ELEM(NULL, bfd->curscreen, bfd->curscene)) {
     BKE_report(reports, RPT_WARNING, "Library file, loading empty scene");
     mode = LOAD_UI_OFF;
-  }
-  else if (BLI_listbase_is_empty(&bfd->main->screens)) {
-    mode = LOAD_UNDO;
   }
   else if (G.fileflags & G_FILE_NO_UI) {
     mode = LOAD_UI_OFF;
@@ -386,7 +389,7 @@ static void setup_app_blend_file_data(bContext *C,
     setup_app_userdef(bfd);
   }
   if ((params->skip_flags & BLO_READ_SKIP_DATA) == 0) {
-    setup_app_data(C, bfd, filepath, params->is_startup, reports);
+    setup_app_data(C, bfd, filepath, params, reports);
   }
 }
 
