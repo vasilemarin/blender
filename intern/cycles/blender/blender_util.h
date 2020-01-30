@@ -36,6 +36,17 @@ void BKE_image_user_frame_calc(void *ima, void *iuser, int cfra);
 void BKE_image_user_file_path(void *iuser, void *ima, char *path);
 unsigned char *BKE_image_get_pixels_for_frame(void *image, int frame, int tile);
 float *BKE_image_get_float_pixels_for_frame(void *image, int frame, int tile);
+
+struct VolumeGrid;
+bool BKE_volume_grid_dense_bounds(const VolumeGrid *volume_grid, size_t min[3], size_t max[3]);
+void BKE_volume_grid_dense_transform_matrix(const VolumeGrid *volume_grid,
+                                            const size_t min[3],
+                                            const size_t max[3],
+                                            float mat[4][4]);
+void BKE_volume_grid_dense_voxels(const VolumeGrid *volume_grid,
+                                  const size_t min[3],
+                                  const size_t max[3],
+                                  float *voxels);
 }
 
 CCL_NAMESPACE_BEGIN
@@ -270,6 +281,19 @@ static inline void render_add_metadata(BL::RenderResult &b_rr, string name, stri
 }
 
 /* Utilities */
+
+static inline Transform get_transform(float mat[4][4])
+{
+  ProjectionTransform projection;
+
+  /* We assume both types to be just 16 floats, and transpose because blender
+   * use column major matrix order while we use row major. */
+  memcpy((void *)&projection, mat, sizeof(float) * 16);
+  projection = projection_transpose(projection);
+
+  /* Drop last row, matrix is assumed to be affine transform. */
+  return projection_to_transform(projection);
+}
 
 static inline Transform get_transform(const BL::Array<float, 16> &array)
 {

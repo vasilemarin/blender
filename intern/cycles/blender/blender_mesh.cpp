@@ -326,6 +326,90 @@ static void create_mesh_volume_attributes(Scene *scene, BL::Object &b_ob, Mesh *
         b_ob, mesh, scene->image_manager, ATTR_STD_VOLUME_VELOCITY, frame);
 }
 
+static void create_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *scene, Mesh *mesh)
+{
+  BL::Volume b_volume(b_ob.data());
+  b_volume.grids.load(b_data.ptr.data);
+
+  bool transform_added = false;
+
+  mesh->volume_isovalue = 1e-3f; /* TODO: make user setting. */
+
+  /* Find grid with matching name. */
+  BL::Volume::grids_iterator b_grid_iter;
+  for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
+    BL::VolumeGrid b_grid = *b_grid_iter;
+    ustring name = ustring(b_grid.name());
+    AttributeStandard std = ATTR_STD_NONE;
+
+    /* TODO: find nicer solution to detect standard attribute. */
+    if (name == Attribute::standard_name(ATTR_STD_VOLUME_DENSITY)) {
+      std = ATTR_STD_VOLUME_DENSITY;
+    }
+    else if (name == Attribute::standard_name(ATTR_STD_VOLUME_COLOR)) {
+      std = ATTR_STD_VOLUME_COLOR;
+    }
+    else if (name == Attribute::standard_name(ATTR_STD_VOLUME_FLAME)) {
+      std = ATTR_STD_VOLUME_FLAME;
+    }
+    else if (name == Attribute::standard_name(ATTR_STD_VOLUME_HEAT)) {
+      std = ATTR_STD_VOLUME_HEAT;
+    }
+    else if (name == Attribute::standard_name(ATTR_STD_VOLUME_TEMPERATURE)) {
+      std = ATTR_STD_VOLUME_TEMPERATURE;
+    }
+    else if (name == Attribute::standard_name(ATTR_STD_VOLUME_VELOCITY)) {
+      std = ATTR_STD_VOLUME_VELOCITY;
+    }
+
+    if ((std != ATTR_STD_NONE && mesh->need_attribute(scene, std)) ||
+        mesh->need_attribute(scene, name)) {
+      Attribute *attr = (std != ATTR_STD_NONE) ?
+                            mesh->attributes.add(std) :
+                            mesh->attributes.add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_VOXEL);
+      VoxelAttribute *volume_data = attr->data_voxel();
+      ImageMetaData metadata;
+      const bool animated = false;
+      const float frame = 0.0f;
+
+      volume_data->manager = scene->image_manager;
+      volume_data->slot = scene->image_manager->add_image(name.c_str(),
+                                                          b_volume.ptr.data,
+                                                          animated,
+                                                          frame,
+                                                          INTERPOLATION_LINEAR,
+                                                          EXTENSION_CLIP,
+                                                          IMAGE_ALPHA_AUTO,
+                                                          u_colorspace_raw,
+                                                          metadata);
+
+      /* TODO: support each grid having own transform. */
+      /* TODO: support full transform instead of only using boundbox. */
+      /* TODO: avoid computing bounds multiple times, perhaps by postponing
+       * setting this transform until voxels are loaded. */
+      if (!transform_added && mesh->need_attribute(scene, ATTR_STD_GENERATED_TRANSFORM)) {
+        Attribute *attr = mesh->attributes.add(ATTR_STD_GENERATED_TRANSFORM);
+        Transform *tfm = attr->data_transform();
+
+        b_grid.load();
+
+        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
+        size_t min[3], max[3];
+        if (BKE_volume_grid_dense_bounds(volume_grid, min, max)) {
+          float mat[4][4];
+          BKE_volume_grid_dense_transform_matrix(volume_grid, min, max, mat);
+          *tfm = transform_inverse(get_transform(mat));
+        }
+        else {
+          *tfm = transform_identity();
+        }
+
+        transform_added = true;
+      }
+    }
+  }
+}
+
 /* Create vertex color attributes. */
 static void attr_create_vertex_color(Scene *scene, Mesh *mesh, BL::Mesh &b_mesh, bool subdivision)
 {
@@ -1060,7 +1144,13 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph &b_depsgraph,
   mesh->used_shaders = used_shaders;
   mesh->name = ustring(b_ob_data.name().c_str());
 
-  if (requested_geometry_flags != Mesh::GEOMETRY_NONE) {
+  if (b_ob.type() == BL::Object::type_VOLUME) {
+    /* Volume object. Create only attributes, bounding mesh will then
+     * be automatically generated later. */
+    /* TODO: support disabling volumes in view layer. */
+    create_volume_object(b_data, b_ob, scene, mesh);
+  }
+  else if (requested_geometry_flags != Mesh::GEOMETRY_NONE) {
     /* Adaptive subdivision setup. Not for baking since that requires
      * exact mapping to the Blender mesh. */
     if (scene->bake_manager->get_baking()) {

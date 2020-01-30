@@ -1156,6 +1156,43 @@ void BlenderSession::builtin_image_info(const string &builtin_name,
       metadata.colorspace = u_colorspace_raw;
     }
   }
+  else if (b_id.is_a(&RNA_Volume)) {
+    /* Volume datablock. */
+    BL::Volume b_volume(b_id);
+
+    /* Find grid with matching name. */
+    BL::Volume::grids_iterator b_grid_iter;
+    for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
+      BL::VolumeGrid b_grid = *b_grid_iter;
+
+      if (b_grid.name() == builtin_name) {
+        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
+
+        /* Skip grid that we can parse as float channels. */
+        if (b_grid.channels() == 0) {
+          return;
+        }
+
+        /* Load grid, and free after reading voxels if it wasn't already loaded. */
+        metadata.builtin_free_cache = !b_grid.is_loaded();
+        b_grid.load();
+
+        /* Compute grid dimensions. */
+        size_t min[3], max[3];
+        if (!BKE_volume_grid_dense_bounds(volume_grid, min, max)) {
+          return;
+        }
+
+        /* Set metadata. */
+        metadata.width = max[0] - min[0];
+        metadata.height = max[1] - min[1];
+        metadata.depth = max[2] - min[2];
+        metadata.is_float = true;
+        metadata.channels = b_grid.channels();
+        return;
+      }
+    }
+  }
   else if (b_id.is_a(&RNA_Object)) {
     /* smoke volume data */
     BL::Object b_ob(b_id);
@@ -1336,6 +1373,32 @@ bool BlenderSession::builtin_image_float_pixels(const string &builtin_name,
     }
 
     return true;
+  }
+  else if (b_id.is_a(&RNA_Volume)) {
+    /* Volume datablock. */
+    BL::Volume b_volume(b_id);
+
+    /* Find grid with matching name. */
+    BL::Volume::grids_iterator b_grid_iter;
+    for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
+      BL::VolumeGrid b_grid = *b_grid_iter;
+
+      if (b_grid.name() == builtin_name) {
+        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
+
+        /* TODO: don't compute resolution twice */
+        size_t min[3], max[3];
+        if (BKE_volume_grid_dense_bounds(volume_grid, min, max)) {
+          BKE_volume_grid_dense_voxels(volume_grid, min, max, pixels);
+        }
+
+        if (free_cache) {
+          b_grid.unload();
+        }
+
+        return true;
+      }
+    }
   }
   else if (b_id.is_a(&RNA_Object)) {
     /* smoke volume data */

@@ -387,8 +387,9 @@ void MeshManager::create_volume_mesh(Scene *scene, Mesh *mesh, Progress &progres
       volume_params.resolution = resolution;
     }
     else if (volume_params.resolution != resolution) {
-      VLOG(1) << "Can't create volume mesh, all voxel grid resolutions must be equal\n";
-      return;
+      /* TODO: support this as it's common for OpenVDB. */
+      VLOG(1) << "Can't create accurate volume mesh, all voxel grid resolutions must be equal\n";
+      continue;
     }
 
     VoxelAttributeGrid voxel_grid;
@@ -432,6 +433,7 @@ void MeshManager::create_volume_mesh(Scene *scene, Mesh *mesh, Progress &progres
   float3 start_point = make_float3(0.0f, 0.0f, 0.0f);
   float3 cell_size = make_float3(1.0f / resolution.x, 1.0f / resolution.y, 1.0f / resolution.z);
 
+  /* TODO: support arbitrary transforms, not just scale + translate. */
   if (attr) {
     const Transform *tfm = attr->data_transform();
     const Transform itfm = transform_inverse(*tfm);

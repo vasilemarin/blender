@@ -67,7 +67,11 @@ bool BlenderSync::object_is_mesh(BL::Object &b_ob)
     return false;
   }
 
-  if (b_ob.type() == BL::Object::type_CURVE) {
+  if (b_ob.type() == BL::Object::type_VOLUME) {
+    /* Will be exported as mesh bounding box. */
+    return true;
+  }
+  else if (b_ob.type() == BL::Object::type_CURVE) {
     /* Skip exporting curves without faces, overhead can be
      * significant if there are many for path animation. */
     BL::Curve b_curve(b_ob.data());
