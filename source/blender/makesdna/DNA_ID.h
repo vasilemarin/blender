@@ -264,7 +264,7 @@ typedef struct ID {
   /* Used by undo code. Value of recalc is stored there when reading an ID from memfile, and not
    * touched by anything, which means it can be used as 'reference' recalc value for the next undo
    * step, when going backward (i.e. actual undo, redo can just use recalc value directly). */
-  int recalc_undo_future;
+  int recalc_undo_accumulated;
   IDProperty *properties;
 
   /** Reference linked ID which this one overrides. */

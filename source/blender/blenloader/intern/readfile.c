@@ -9591,14 +9591,21 @@ static BHead *read_libblock(FileData *fd,
    * the version the file has been saved with. */
   if (!fd->memfile) {
     id->recalc = 0;
-    id->recalc_undo_future = 0;
+    id->recalc_undo_accumulated = 0;
   }
   else {
-    /* We are coming from the future (i.e. do an actual undo, and not a redo), and we found an old
-     * (aka existing) ID: we use its 'last saved recalc flags' as 'future undo recalc flags' of our
-     * newly read ID. */
-    if (id_old != NULL && fd->undo_direction < 0) {
-      id->recalc = id_old->recalc_undo_future;
+    if (fd->undo_direction < 0) {
+      /* We are coming from the future (i.e. do an actual undo, and not a redo), and we found an
+       * old (aka existing) ID: we use its 'accumulated recalc flags since last memfile undo step
+       * saving' as recalc flags of our newly read ID. */
+      if (id_old != NULL) {
+        id->recalc = id_old->recalc_undo_accumulated;
+      }
+    }
+    else {
+      /* We are coming from the past (i.e. do a redo), and we found an, we use saved 'accumulated
+       * recalc flags since last memfile undo step saving' as recalc flags of our newly read ID. */
+      id->recalc = id->recalc_undo_accumulated;
     }
   }
 
