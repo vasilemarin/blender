@@ -9489,8 +9489,6 @@ static BHead *read_libblock(FileData *fd,
           can_finalize_and_return = true;
         }
         else if (id_old != NULL && fd->are_memchunks_identical) {
-          MEM_freeN(id);
-
           /* Do not add LIB_TAG_NEW here, this should not be needed/used in undo case anyway (as
            * this is only for do_version-like code), but for sake of consistency, and also because
            * it will tell us which ID is re-used from old Main, and which one is actually new. */
@@ -9526,6 +9524,7 @@ static BHead *read_libblock(FileData *fd,
             *r_id = id_old;
           }
 
+          MEM_freeN(id);
           oldnewmap_free_unused(fd->datamap);
           oldnewmap_clear(fd->datamap);
 
