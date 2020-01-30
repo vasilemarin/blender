@@ -201,6 +201,15 @@ bool check_id_has_anim_component(ID *id)
   return (adt->action != nullptr) || (!BLI_listbase_is_empty(&adt->nla_tracks));
 }
 
+bool check_id_has_driver_component(ID *id)
+{
+  AnimData *adt = BKE_animdata_from_id(id);
+  if (adt == nullptr) {
+    return false;
+  }
+  return !BLI_listbase_is_empty(&adt->drivers);
+}
+
 OperationCode bone_target_opcode(ID *target,
                                  const char *subtarget,
                                  ID *id,
@@ -309,7 +318,8 @@ void DepsgraphRelationBuilder::add_modifier_to_transform_relation(const DepsNode
 void DepsgraphRelationBuilder::add_customdata_mask(Object *object,
                                                    const DEGCustomDataMeshMasks &customdata_masks)
 {
-  if (customdata_masks != DEGCustomDataMeshMasks() && object != nullptr && object->type == OB_MESH) {
+  if (customdata_masks != DEGCustomDataMeshMasks() && object != nullptr &&
+      object->type == OB_MESH) {
     DEG::IDNode *id_node = graph_->find_id_node(&object->id);
 
     if (id_node == nullptr) {
@@ -562,8 +572,9 @@ void DepsgraphRelationBuilder::build_collection(LayerCollection *from_layer_coll
     return;
   }
   const bool group_done = built_map_.checkIsBuiltAndTag(collection);
-  OperationKey object_transform_final_key(
-      object != nullptr ? &object->id : nullptr, NodeType::TRANSFORM, OperationCode::TRANSFORM_FINAL);
+  OperationKey object_transform_final_key(object != nullptr ? &object->id : nullptr,
+                                          NodeType::TRANSFORM,
+                                          OperationCode::TRANSFORM_FINAL);
   ComponentKey duplicator_key(object != nullptr ? &object->id : nullptr, NodeType::DUPLI);
   if (!group_done) {
     LISTBASE_FOREACH (CollectionObject *, cob, &collection->gobject) {
@@ -1374,6 +1385,8 @@ void DepsgraphRelationBuilder::build_animation_images(ID *id)
   /* TODO: can we check for existence of node for performance? */
   if (BKE_image_user_id_has_animation(id)) {
     OperationKey image_animation_key(id, NodeType::ANIMATION, OperationCode::IMAGE_ANIMATION);
+    ComponentKey cow_key(id, NodeType::COPY_ON_WRITE);
+    add_relation(cow_key, image_animation_key, "CoW -> Image Animation");
     TimeSourceKey time_src_key;
     add_relation(time_src_key, image_animation_key, "TimeSrc -> Image Animation");
   }
@@ -2363,6 +2376,11 @@ void DepsgraphRelationBuilder::build_cachefile(CacheFile *cache_file)
     ComponentKey animation_key(&cache_file->id, NodeType::ANIMATION);
     ComponentKey datablock_key(&cache_file->id, NodeType::CACHE);
     add_relation(animation_key, datablock_key, "Datablock Animation");
+  }
+  if (check_id_has_driver_component(&cache_file->id)) {
+    ComponentKey animation_key(&cache_file->id, NodeType::PARAMETERS);
+    ComponentKey datablock_key(&cache_file->id, NodeType::CACHE);
+    add_relation(animation_key, datablock_key, "Drivers -> Cache Eval");
   }
 
   /* Cache file updates */

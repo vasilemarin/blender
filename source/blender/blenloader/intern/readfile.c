@@ -9455,6 +9455,8 @@ static BHead *read_libblock(FileData *fd,
   bool do_id_swap = false;
 
   if (id != NULL) {
+    const bool do_partial_undo = (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0;
+
     if (id_bhead->code != ID_LINK_PLACEHOLDER) {
       /* need a name for the mallocN, just for debugging and sane prints on leaks */
       allocname = dataname(idcode);
@@ -9469,13 +9471,15 @@ static BHead *read_libblock(FileData *fd,
           "%s: ID %s is unchanged: %d\n", __func__, id->name, fd->are_memchunks_identical);
 
       if (fd->memfile != NULL) {
-        BLI_assert(fd->old_idmap != NULL);
+        BLI_assert(fd->old_idmap != NULL || !do_partial_undo);
         /* This code should only ever be reached for local data-blocks. */
         BLI_assert(main->curlib == NULL);
 
         /* Find the 'current' existing ID we want to reuse instead of the one we would read from
          * the undo memfile. */
-        id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
+        id_old = do_partial_undo ?
+                     BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL) :
+                     NULL;
         bool can_finalize_and_return = false;
 
         if (ELEM(idcode, ID_WM, ID_SCR, ID_WS)) {
@@ -9484,8 +9488,7 @@ static BHead *read_libblock(FileData *fd,
            * So we can just abort here, just ensuring libmapping is set accordingly. */
           can_finalize_and_return = true;
         }
-        else if ((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0 &&
-                 fd->are_memchunks_identical && id_old != NULL) {
+        else if (id_old != NULL && fd->are_memchunks_identical) {
           MEM_freeN(id);
 
           /* Do not add LIB_TAG_NEW here, this should not be needed/used in undo case anyway (as
@@ -9536,8 +9539,7 @@ static BHead *read_libblock(FileData *fd,
     if (lb) {
       /* Some re-used old IDs might also use newly read ones, so we have to check for old memory
        * addresses for those as well. */
-      if (fd->memfile != NULL && (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0 &&
-          id->lib == NULL) {
+      if (fd->memfile != NULL && do_partial_undo && id->lib == NULL) {
         BLI_assert(fd->old_idmap != NULL);
         if (id_old == NULL) {
           id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
