@@ -22,7 +22,7 @@
 
 #include <cmath>
 
-#include "abc_archive.h"
+#include "abc_writer_archive.h"
 #include "abc_writer_camera.h"
 #include "abc_writer_curves.h"
 #include "abc_writer_hair.h"

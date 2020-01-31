@@ -41,9 +41,9 @@ set(INC_SYS
 )
 
 set(SRC
-  intern/abc_archive.cc
   intern/abc_customdata.cc
   intern/abc_exporter.cc
+  intern/abc_reader_archive.cc
   intern/abc_reader_camera.cc
   intern/abc_reader_curves.cc
   intern/abc_reader_mesh.cc
@@ -52,6 +52,7 @@ set(SRC
   intern/abc_reader_points.cc
   intern/abc_reader_transform.cc
   intern/abc_util.cc
+  intern/abc_writer_archive.cc
   intern/abc_writer_camera.cc
   intern/abc_writer_curves.cc
   intern/abc_writer_hair.cc
@@ -64,9 +65,9 @@ set(SRC
   intern/alembic_capi.cc
 
   ABC_alembic.h
-  intern/abc_archive.h
   intern/abc_customdata.h
   intern/abc_exporter.h
+  intern/abc_reader_archive.h
   intern/abc_reader_camera.h
   intern/abc_reader_curves.h
   intern/abc_reader_mesh.h
@@ -75,6 +76,7 @@ set(SRC
   intern/abc_reader_points.h
   intern/abc_reader_transform.h
   intern/abc_util.h
+  intern/abc_writer_archive.h
   intern/abc_writer_camera.h
   intern/abc_writer_curves.h
   intern/abc_writer_hair.h

@@ -22,7 +22,7 @@
 
 #include <Alembic/AbcMaterial/IMaterial.h>
 
-#include "abc_archive.h"
+#include "abc_reader_archive.h"
 #include "abc_reader_camera.h"
 #include "abc_reader_curves.h"
 #include "abc_reader_mesh.h"
