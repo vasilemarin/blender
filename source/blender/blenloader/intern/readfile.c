@@ -10186,7 +10186,7 @@ static void blo_undo_merge_and_fix_collisions_in_libmaps(FileData *fd)
       const void *old_new_oldpointers[2] = {orig_oldp, oldp};
       FOREACH_MAIN_ID_BEGIN (bmain, id) {
         if (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) {
-          /* We only want to update values of odl pointers in data read from memfile, not the one
+          /* We only want to update values of old pointers in data read from memfile, not the one
            * re-used from the old bmain. */
           continue;
         }
