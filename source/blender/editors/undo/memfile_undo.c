@@ -26,6 +26,7 @@
 #include "BLI_ghash.h"
 
 #include "DNA_object_enums.h"
+#include "DNA_object_types.h"
 
 #include "BKE_blender_undo.h"
 #include "BKE_context.h"
@@ -110,10 +111,29 @@ static int memfile_undosys_step_id_reused_cb(void *user_data,
 
   ID *id = *id_pointer;
   if (id != NULL && id->lib == NULL && (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) == 0) {
+    bool do_stop_iter = true;
+    if (GS(id_self->name) == ID_OB) {
+      Object *ob_self = (Object *)id_self;
+      if (ob_self->type == OB_ARMATURE) {
+        if (ob_self->data == id) {
+          BLI_assert(GS(id->name) == ID_AR);
+          if (ob_self->pose != NULL) {
+            /* We have a changed/re-read armature used by an unchanged armature object: our beloved
+             * Bone pointers from the object's pose need their usual special treatment. */
+            ob_self->pose->flag |= POSE_RECALC;
+          }
+        }
+        else {
+          /* Cannot stop iteration until we checked ob_self->data pointer... */
+          do_stop_iter = false;
+        }
+      }
+    }
+
     /* In case an old, re-used ID is using a newly read data-block (i.e. one of its ID pointers got
      * updated), we have to tell the depsgraph about it. */
     DEG_id_tag_update_ex(bmain, id_self, ID_RECALC_COPY_ON_WRITE);
-    return IDWALK_RET_STOP_ITER;
+    return do_stop_iter ? IDWALK_RET_STOP_ITER : IDWALK_RET_NOP;
   }
 
   return IDWALK_RET_NOP;
