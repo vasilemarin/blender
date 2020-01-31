@@ -33,9 +33,8 @@
 
 extern "C" {
 #include "DNA_object_types.h"
-#include "DNA_layer_types.h"
 
-#include "BLI_math.h"
+#include "BLI_math_geom.h"
 
 #include "PIL_time.h"
 }

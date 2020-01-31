@@ -19,22 +19,16 @@
  */
 
 #include "abc_writer_nurbs.h"
-
 #include "abc_writer_transform.h"
 #include "abc_util.h"
-
-#include "MEM_guardedalloc.h"
 
 extern "C" {
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
-#include "BLI_string.h"
 
 #include "BKE_curve.h"
-#include "BKE_object.h"
 }
 
 using Alembic::AbcGeom::FloatArraySample;

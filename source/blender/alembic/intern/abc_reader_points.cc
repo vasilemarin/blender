@@ -22,7 +22,6 @@
  */
 
 #include "abc_reader_points.h"
-
 #include "abc_reader_mesh.h"
 #include "abc_reader_transform.h"
 #include "abc_util.h"
@@ -31,16 +30,9 @@ extern "C" {
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 
-#include "BKE_cdderivedmesh.h"
-#include "BKE_lattice.h"
+#include "BKE_customdata.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
-#include "BKE_particle.h"
-#include "BKE_scene.h"
-
-#include "BLI_math.h"
-
-#include "DEG_depsgraph_query.h"
 }
 
 using Alembic::AbcGeom::kWrapExisting;

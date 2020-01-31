@@ -19,21 +19,14 @@
  */
 
 #include "abc_reader_transform.h"
-
-#include <OpenEXR/ImathBoxAlgo.h>
-
 #include "abc_util.h"
 
 extern "C" {
 #include "DNA_object_types.h"
 
-#include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_utildefines.h"
 
-#include "BKE_animsys.h"
 #include "BKE_object.h"
-
-#include "DEG_depsgraph_query.h"
 }
 
 using Alembic::Abc::ISampleSelector;

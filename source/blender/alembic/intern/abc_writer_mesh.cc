@@ -19,39 +19,22 @@
  */
 
 #include "abc_writer_mesh.h"
-
-#include <algorithm>
-
 #include "abc_writer_transform.h"
 #include "abc_util.h"
-
-#include "MEM_guardedalloc.h"
 
 extern "C" {
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_object_fluidsim_types.h"
-#include "DNA_object_types.h"
-
-#include "BLI_math_geom.h"
-#include "BLI_string.h"
 
 #include "BKE_animsys.h"
 #include "BKE_key.h"
 #include "BKE_library.h"
-#include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
-#include "BKE_object.h"
-
-#include "WM_api.h"
-#include "WM_types.h"
-
-#include "ED_mesh.h"
 
 #include "bmesh.h"
 #include "bmesh_tools.h"

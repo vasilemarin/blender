@@ -24,7 +24,6 @@
 #include "abc_writer_archive.h"
 extern "C" {
 #include "BKE_blender_version.h"
-#include "BKE_main.h"
 
 #include "BLI_path_util.h"
 #include "BLI_string.h"

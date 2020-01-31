@@ -22,26 +22,15 @@
  */
 
 #include "abc_writer_curves.h"
-
-#include <cstdio>
-
 #include "abc_reader_curves.h"
 #include "abc_writer_transform.h"
-#include "abc_util.h"
-
-#include "MEM_guardedalloc.h"
 
 extern "C" {
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 
-#include "BLI_listbase.h"
-
 #include "BKE_curve.h"
 #include "BKE_mesh.h"
-#include "BKE_object.h"
-
-#include "ED_curve.h"
 }
 
 using Alembic::AbcGeom::OCompoundProperty;

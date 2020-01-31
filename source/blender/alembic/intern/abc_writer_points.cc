@@ -22,21 +22,16 @@
  */
 
 #include "abc_writer_points.h"
-
 #include "abc_writer_mesh.h"
 #include "abc_writer_transform.h"
 #include "abc_util.h"
 
 extern "C" {
-#include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
+#include "DNA_particle_types.h"
 
-#include "BKE_cdderivedmesh.h"
 #include "BKE_lattice.h"
-#include "BKE_mesh.h"
-#include "BKE_object.h"
 #include "BKE_particle.h"
-#include "BKE_scene.h"
 
 #include "BLI_math.h"
 

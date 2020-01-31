@@ -19,7 +19,6 @@
  */
 
 #include "abc_reader_camera.h"
-
 #include "abc_reader_transform.h"
 #include "abc_util.h"
 
@@ -31,7 +30,6 @@ extern "C" {
 #include "BKE_object.h"
 
 #include "BLI_math.h"
-#include "BLI_string.h"
 }
 
 using Alembic::AbcGeom::CameraSample;

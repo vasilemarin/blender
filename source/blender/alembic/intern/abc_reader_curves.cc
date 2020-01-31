@@ -22,11 +22,10 @@
  */
 
 #include "abc_reader_curves.h"
-
-#include <cstdio>
-
 #include "abc_reader_transform.h"
 #include "abc_util.h"
+
+#include <cstdio>
 
 #include "MEM_guardedalloc.h"
 
@@ -39,8 +38,6 @@ extern "C" {
 #include "BKE_curve.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
-
-#include "ED_curve.h"
 }
 
 using Alembic::Abc::FloatArraySamplePtr;

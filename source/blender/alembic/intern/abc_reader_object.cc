@@ -19,24 +19,22 @@
  */
 
 #include "abc_reader_object.h"
-
 #include "abc_util.h"
 
 extern "C" {
 #include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_modifier_types.h"
-#include "DNA_object_types.h"
 #include "DNA_space_types.h" /* for FILE_MAX */
 
 #include "BKE_constraint.h"
-#include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 
+#include "BLI_utildefines.h"
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_geom.h"
 #include "BLI_string.h"
 }
 
