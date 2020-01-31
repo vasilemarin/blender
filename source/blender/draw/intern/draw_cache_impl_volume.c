@@ -199,12 +199,13 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
 
     MEM_freeN(voxels);
 
-    /* Compute transform. */
-    /* TODO: support full transform, compute bbox as part of dense conversion for perfomance. */
+    /* Compute transform matrix. */
+    BKE_volume_grid_dense_transform_matrix(
+        grid, dense_min, dense_max, cache_grid->texture_to_object);
+
+    /* TODO: support transform matrix in Eevee and remove this code. */
     float min[3], max[3];
     BKE_volume_grid_bounds(grid, min, max);
-    copy_v3_v3(cache_grid->loc, min);
-    sub_v3_v3v3(cache_grid->size, max, min);
     mid_v3_v3v3(cache_grid->mid, min, max);
     cache_grid->halfsize[0] = (max[0] - min[0]) / 2.0f;
     cache_grid->halfsize[1] = (max[1] - min[1]) / 2.0f;

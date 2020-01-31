@@ -256,12 +256,14 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
   /* Create shader. */
   GPUShader *sh = volume_shader_get(use_slice, false, cubic_interp);
 
+  /* Combined texture to object, and object to world transform. */
+  float texture_to_world[4][4];
+  mul_m4_m4m4(texture_to_world, ob->obmat, density->texture_to_object);
+
   /* Compute world space dimensions for step size. */
-  float ob_size[3];
-  mat4_to_size(ob_size, ob->obmat);
-  float world_space_size[3] = {fabsf(ob_size[0]) * density->size[0],
-                               fabsf(ob_size[1]) * density->size[1],
-                               fabsf(ob_size[2]) * density->size[2]};
+  float world_size[3];
+  mat4_to_size(world_size, texture_to_world);
+  abs_v3(world_size);
 
   /* Compute slice parameters. */
   double noise_ofs;
@@ -271,7 +273,7 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
   mul_v3_fl(slice_ct, max_ff(0.001f, slice_per_voxel));
   max_slice = max_fff(slice_ct[0], slice_ct[1], slice_ct[2]);
   invert_v3(slice_ct);
-  mul_v3_v3(slice_ct, world_space_size);
+  mul_v3_v3(slice_ct, world_size);
   step_length = len_v3(slice_ct);
 
   DRWShadingGroup *grp = DRW_shgroup_create(sh, vedata->psl->volume_pass);
@@ -293,19 +295,13 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
   DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
   DRW_shgroup_uniform_float_copy(grp, "densityScale", 10.0f * display_thickness);
 
-  /* Combined object and unit cube to bounding box transform. */
-  float unit_cube_to_bb[4][4], drawmat[4][4];
-  size_to_mat4(unit_cube_to_bb, density->size);
-  copy_v3_v3(unit_cube_to_bb[3], density->loc);
-  mul_m4_m4m4(drawmat, ob->obmat, unit_cube_to_bb);
-
   // TODO: DRW_shgroup_call_obmat is not working here, and also does not
   // support culling, so we hack around it like this.
   float backup_obmat[4][4], backup_imat[4][4];
   copy_m4_m4(backup_obmat, ob->obmat);
   copy_m4_m4(backup_imat, ob->imat);
-  copy_m4_m4(ob->obmat, drawmat);
-  invert_m4_m4(ob->imat, drawmat);
+  copy_m4_m4(ob->obmat, texture_to_world);
+  invert_m4_m4(ob->imat, texture_to_world);
   DRW_shgroup_call(grp, DRW_cache_cube_get(), ob);
   copy_m4_m4(ob->obmat, backup_obmat);
   copy_m4_m4(ob->imat, backup_imat);
