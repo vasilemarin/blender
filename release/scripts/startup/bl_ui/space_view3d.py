@@ -5244,6 +5244,9 @@ class VIEW3D_PT_object_type_visibility(Panel):
             ("surf", "Surface"),
             ("meta", "Meta"),
             ("font", "Text"),
+            ("hair", "Hair"),
+            ("pointcloud", "Point Cloud"),
+            ("volume", "Volume"),
             ("grease_pencil", "Grease Pencil"),
             (None, None),
             # Other
