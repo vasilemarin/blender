@@ -18,11 +18,11 @@
  * \ingroup balembic
  */
 
-#include "abc_hair.h"
+#include "abc_writer_hair.h"
 
 #include <cstdio>
 
-#include "abc_transform.h"
+#include "abc_writer_transform.h"
 #include "abc_util.h"
 
 #include "MEM_guardedalloc.h"

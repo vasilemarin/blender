@@ -18,9 +18,9 @@
  * \ingroup balembic
  */
 
-#include "abc_mball.h"
-#include "abc_mesh.h"
-#include "abc_transform.h"
+#include "abc_writer_mball.h"
+#include "abc_writer_mesh.h"
+#include "abc_writer_transform.h"
 
 #include "MEM_guardedalloc.h"
 

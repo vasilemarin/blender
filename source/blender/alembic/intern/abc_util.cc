@@ -20,12 +20,12 @@
 
 #include "abc_util.h"
 
-#include "abc_camera.h"
-#include "abc_curves.h"
-#include "abc_mesh.h"
-#include "abc_nurbs.h"
-#include "abc_points.h"
-#include "abc_transform.h"
+#include "abc_reader_camera.h"
+#include "abc_reader_curves.h"
+#include "abc_reader_mesh.h"
+#include "abc_reader_nurbs.h"
+#include "abc_reader_points.h"
+#include "abc_reader_transform.h"
 
 #include <Alembic/AbcMaterial/IMaterial.h>
 
