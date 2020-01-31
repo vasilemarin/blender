@@ -34,11 +34,11 @@
 
 #include "DNA_volume_types.h"
 
+#include "BKE_volume.h"
+
 #include "BLI_math_base.h"
 
 #ifdef RNA_RUNTIME
-
-#  include "BKE_volume.h"
 
 #  include "DEG_depsgraph.h"
 
@@ -67,6 +67,12 @@ static int rna_VolumeGrid_name_length(PointerRNA *ptr)
 {
   VolumeGrid *grid = ptr->data;
   return strlen(BKE_volume_grid_name(grid));
+}
+
+static int rna_VolumeGrid_data_type_get(PointerRNA *ptr)
+{
+  const VolumeGrid *grid = ptr->data;
+  return BKE_volume_grid_type(grid);
 }
 
 static int rna_VolumeGrid_channels_get(PointerRNA *ptr)
@@ -192,18 +198,37 @@ static void rna_def_volume_grid(BlenderRNA *brna)
       prop, "rna_VolumeGrid_name_get", "rna_VolumeGrid_name_length", NULL);
   RNA_def_property_ui_text(prop, "Name", "Volume grid name");
 
+  static const EnumPropertyItem data_type_items[] = {
+      {VOLUME_GRID_BOOLEAN, "BOOLEAN", 0, "Boolean", "Boolean"},
+      {VOLUME_GRID_FLOAT, "FLOAT", 0, "Float", "Single precision float"},
+      {VOLUME_GRID_DOUBLE, "DOUBLE", 0, "Double", "Double precision"},
+      {VOLUME_GRID_INT, "INT", 0, "Integer", "32 bit integer"},
+      {VOLUME_GRID_INT64, "INT64", 0, "Integer 64 bit", "64 bit integer"},
+      {VOLUME_GRID_MASK, "MASK", 0, "Mask", "No data, boolean mask of active voxels"},
+      {VOLUME_GRID_STRING, "STRING", 0, "String", "Text string"},
+      {VOLUME_GRID_VECTOR_FLOAT, "VECTOR_FLOAT", 0, "Float Vector", "3D float vector"},
+      {VOLUME_GRID_VECTOR_DOUBLE, "VECTOR_DOUBLE", 0, "Double Vector", "3D double vector"},
+      {VOLUME_GRID_VECTOR_INT, "VECTOR_INT", 0, "Integer Vector", "3D integer vector"},
+      {VOLUME_GRID_UNKNOWN, "UNKNOWN", 0, "Unknown", "Unsupported data type"},
+  };
+
+  prop = RNA_def_property(srna, "data_type", PROP_ENUM, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_enum_funcs(prop, "rna_VolumeGrid_data_type_get", NULL, NULL);
+  RNA_def_property_enum_items(prop, data_type_items);
+  RNA_def_property_ui_text(prop, "Data Type", "Data type of voxel values");
+
   prop = RNA_def_property(srna, "channels", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_int_funcs(prop, "rna_VolumeGrid_channels_get", NULL, NULL);
-  RNA_def_property_ui_text(prop, "Channels", "Number of channels in voxel data");
+  RNA_def_property_ui_text(prop, "Channels", "Number of dimensions of the grid data type");
 
-  /* TODO: naming, clarification of what index space is. */
   prop = RNA_def_property(srna, "matrix_object", PROP_FLOAT, PROP_MATRIX);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_multi_array(prop, 2, rna_matrix_dimsize_4x4);
   RNA_def_property_float_funcs(prop, "rna_VolumeGrid_matrix_object_get", NULL, NULL);
   RNA_def_property_ui_text(
-      prop, "Matrix Object", "Transformation from index space to world space");
+      prop, "Matrix Object", "Transformation matrix from voxel index to object space");
 
   prop = RNA_def_property(srna, "is_loaded", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
