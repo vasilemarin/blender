@@ -129,8 +129,9 @@ class BlenderSync {
                   bool object_updated,
                   bool show_self,
                   bool show_particles);
-  void sync_curves(
+  void sync_particle_hair(
       Mesh *mesh, BL::Mesh &b_mesh, BL::Object &b_ob, bool motion, int motion_step = 0);
+  void sync_hair(Mesh *mesh, BL::Object &b_ob, bool motion, int motion_step = 0);
   Object *sync_object(BL::Depsgraph &b_depsgraph,
                       BL::ViewLayer &b_view_layer,
                       BL::DepsgraphObjectInstance &b_instance,

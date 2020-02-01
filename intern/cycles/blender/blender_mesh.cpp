@@ -1150,6 +1150,11 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph &b_depsgraph,
     /* TODO: support disabling volumes in view layer. */
     create_volume_object(b_data, b_ob, scene, mesh);
   }
+  else if (b_ob.type() == BL::Object::type_HAIR) {
+    if (view_layer.use_hair) {
+      sync_hair(mesh, b_ob, false);
+    }
+  }
   else if (requested_geometry_flags != Mesh::GEOMETRY_NONE) {
     /* Adaptive subdivision setup. Not for baking since that requires
      * exact mapping to the Blender mesh. */
@@ -1180,7 +1185,7 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph &b_depsgraph,
       /* Sync hair curves. */
       if (view_layer.use_hair && show_particles &&
           mesh->subdivision_type == Mesh::SUBDIVISION_NONE) {
-        sync_curves(mesh, b_mesh, b_ob, false);
+        sync_particle_hair(mesh, b_mesh, b_ob, false);
       }
 
       free_object_to_mesh(b_data, b_ob, b_mesh);
@@ -1241,6 +1246,16 @@ void BlenderSync::sync_mesh_motion(BL::Depsgraph &b_depsgraph,
   BL::FluidDomainSettings b_fluid_domain = object_fluid_domain_find(b_ob);
   if (b_fluid_domain)
     return;
+
+  if (b_ob.type() == BL::Object::type_VOLUME) {
+    /* Volume object, motion blur is based on velocity grid. */
+    return;
+  }
+  else if (b_ob.type() == BL::Object::type_HAIR) {
+    /* Hair object. */
+    sync_hair(mesh, b_ob, true, motion_step);
+    return;
+  }
 
   if (ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
     /* get derived mesh */
@@ -1348,7 +1363,7 @@ void BlenderSync::sync_mesh_motion(BL::Depsgraph &b_depsgraph,
 
   /* hair motion */
   if (numkeys)
-    sync_curves(mesh, b_mesh, b_ob, true, motion_step);
+    sync_particle_hair(mesh, b_mesh, b_ob, true, motion_step);
 
   /* free derived mesh */
   free_object_to_mesh(b_data, b_ob, b_mesh);

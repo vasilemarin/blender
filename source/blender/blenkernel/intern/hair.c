@@ -79,7 +79,7 @@ static void hair_random(Hair *hair)
     for (int key = 0; key < numpoints; key++) {
       float t = key / (float)(numpoints - 1);
       copy_v3_v3(curve_co[key], co);
-      curve_radius[key] = 0.002f * (1.0f - t);
+      curve_radius[key] = 0.02f * (1.0f - t);
 
       float offset[3] = {2.0f * BLI_rng_get_float(rng) - 1.0f,
                          2.0f * BLI_rng_get_float(rng) - 1.0f,
