@@ -1184,7 +1184,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
 
-      Mesh *mesh_next = modwrap_applyModifier(md, &mectx, mesh_final);
+      Mesh *mesh_next = modwrap_modifyMesh(md, &mectx, mesh_final);
       ASSERT_IS_VALID_MESH(mesh_next);
 
       if (mesh_next) {
@@ -1220,7 +1220,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         CustomData_MeshMasks_update(&temp_cddata_masks, &nextmask);
         mesh_set_only_copy(mesh_orco, &temp_cddata_masks);
 
-        mesh_next = modwrap_applyModifier(md, &mectx_orco, mesh_orco);
+        mesh_next = modwrap_modifyMesh(md, &mectx_orco, mesh_orco);
         ASSERT_IS_VALID_MESH(mesh_next);
 
         if (mesh_next) {
@@ -1246,7 +1246,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         nextmask.pmask |= CD_MASK_ORIGINDEX;
         mesh_set_only_copy(mesh_orco_cloth, &nextmask);
 
-        mesh_next = modwrap_applyModifier(md, &mectx_orco, mesh_orco_cloth);
+        mesh_next = modwrap_modifyMesh(md, &mectx_orco, mesh_orco_cloth);
         ASSERT_IS_VALID_MESH(mesh_next);
 
         if (mesh_next) {
@@ -1603,7 +1603,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         mask.pmask |= CD_MASK_ORIGINDEX;
         mesh_set_only_copy(mesh_orco, &mask);
 
-        Mesh *mesh_next = modwrap_applyModifier(md, &mectx_orco, mesh_orco);
+        Mesh *mesh_next = modwrap_modifyMesh(md, &mectx_orco, mesh_orco);
         ASSERT_IS_VALID_MESH(mesh_next);
 
         if (mesh_next) {
@@ -1634,7 +1634,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
 
-      Mesh *mesh_next = modwrap_applyModifier(md, &mectx, mesh_final);
+      Mesh *mesh_next = modwrap_modifyMesh(md, &mectx, mesh_final);
       ASSERT_IS_VALID_MESH(mesh_next);
 
       if (mesh_next) {

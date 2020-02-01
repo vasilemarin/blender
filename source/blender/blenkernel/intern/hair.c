@@ -41,6 +41,7 @@
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
+#include "BKE_modifier.h"
 #include "BKE_object.h"
 
 #include "DEG_depsgraph_query.h"
@@ -228,17 +229,75 @@ Hair *BKE_hair_copy_for_eval(Hair *hair_src, bool reference)
   return result;
 }
 
-void BKE_hair_data_update(struct Depsgraph *UNUSED(depsgraph),
-                          struct Scene *UNUSED(scene),
-                          Object *object)
+static Hair *hair_evaluate_modifiers(struct Depsgraph *depsgraph,
+                                     struct Scene *scene,
+                                     Object *object,
+                                     Hair *hair_input)
+{
+  Hair *hair = hair_input;
+
+  /* Modifier evaluation modes. */
+  const bool use_render = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
+  const int required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
+  ModifierApplyFlag appflag = use_render ? MOD_APPLY_RENDER : MOD_APPLY_USECACHE;
+  const ModifierEvalContext mectx = {depsgraph, object, appflag};
+
+  /* Get effective list of modifiers to execute. Some effects like shape keys
+   * are added as virtual modifiers before the user created modifiers. */
+  VirtualModifierData virtualModifierData;
+  ModifierData *md = modifiers_getVirtualModifierList(object, &virtualModifierData);
+
+  /* Evaluate modifiers. */
+  for (; md; md = md->next) {
+    const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+
+    if (!modifier_isEnabled(scene, md, required_mode)) {
+      continue;
+    }
+
+    if ((mti->type == eModifierTypeType_OnlyDeform) &&
+        (mti->flags & eModifierTypeFlag_AcceptsVertexCosOnly)) {
+      /* Ensure we are not modifying the input. */
+      if (hair == hair_input) {
+        hair = BKE_hair_copy_for_eval(hair, true);
+      }
+
+      /* Ensure we are not overwriting referenced data. */
+      CustomData_duplicate_referenced_layer(&hair->pdata, CD_LOCATION, hair->totpoint);
+      BKE_hair_update_customdata_pointers(hair);
+
+      /* Created deformed coordinates array on demand. */
+      mti->deformVerts(md, &mectx, NULL, hair->co, hair->totpoint);
+    }
+    else if (mti->modifyHair) {
+      /* Ensure we are not modifying the input. */
+      if (hair == hair_input) {
+        hair = BKE_hair_copy_for_eval(hair, true);
+      }
+
+      Hair *hair_next = mti->modifyHair(md, &mectx, hair);
+
+      if (hair_next && hair_next != hair) {
+        /* If the modifier returned a new hair, release the old one. */
+        if (hair != hair_input) {
+          BKE_id_free(NULL, hair);
+        }
+        hair = hair_next;
+      }
+    }
+  }
+
+  return hair;
+}
+
+void BKE_hair_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Object *object)
 {
   /* Free any evaluated data and restore original data. */
   BKE_object_free_derived_caches(object);
 
-  /* Modifier evaluation goes here, using BKE_hair_new_for_eval or
-   * BKE_hair_copy_for_eval to create a new Hair. */
+  /* Evaluate modifiers. */
   Hair *hair = object->data;
-  Hair *hair_eval = hair;
+  Hair *hair_eval = hair_evaluate_modifiers(depsgraph, scene, object, hair);
 
   /* Assign evaluated object. */
   const bool is_owned = (hair != hair_eval);

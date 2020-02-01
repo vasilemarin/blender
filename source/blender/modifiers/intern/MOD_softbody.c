@@ -76,7 +76,7 @@ ModifierTypeInfo modifierType_Softbody = {
     /* structName */ "SoftbodyModifierData",
     /* structSize */ sizeof(SoftbodyModifierData),
     /* type */ eModifierTypeType_OnlyDeform,
-    /* flags */ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsLattice |
+    /* flags */ eModifierTypeFlag_AcceptsCVs | eModifierTypeFlag_AcceptsVertexCosOnly |
         eModifierTypeFlag_RequiresOriginalData | eModifierTypeFlag_Single,
 
     /* copyData */ NULL,
@@ -85,7 +85,10 @@ ModifierTypeInfo modifierType_Softbody = {
     /* deformMatrices */ NULL,
     /* deformVertsEM */ NULL,
     /* deformMatricesEM */ NULL,
-    /* applyModifier */ NULL,
+    /* modifyMesh */ NULL,
+    /* modifyHair */ NULL,
+    /* modifyPointCloud */ NULL,
+    /* modifyVolume */ NULL,
 
     /* initData */ NULL,
     /* requiredDataMask */ NULL,

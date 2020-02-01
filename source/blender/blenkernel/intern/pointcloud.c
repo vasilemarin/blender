@@ -40,8 +40,11 @@
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
+#include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_pointcloud.h"
+
+#include "DEG_depsgraph_query.h"
 
 /* PointCloud datablock */
 
@@ -192,17 +195,76 @@ PointCloud *BKE_pointcloud_copy_for_eval(struct PointCloud *pointcloud_src, bool
   return result;
 }
 
-void BKE_pointcloud_data_update(struct Depsgraph *UNUSED(depsgraph),
-                                struct Scene *UNUSED(scene),
-                                Object *object)
+static PointCloud *pointcloud_evaluate_modifiers(struct Depsgraph *depsgraph,
+                                                 struct Scene *scene,
+                                                 Object *object,
+                                                 PointCloud *pointcloud_input)
+{
+  PointCloud *pointcloud = pointcloud_input;
+
+  /* Modifier evaluation modes. */
+  const bool use_render = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
+  const int required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
+  ModifierApplyFlag appflag = use_render ? MOD_APPLY_RENDER : MOD_APPLY_USECACHE;
+  const ModifierEvalContext mectx = {depsgraph, object, appflag};
+
+  /* Get effective list of modifiers to execute. Some effects like shape keys
+   * are added as virtual modifiers before the user created modifiers. */
+  VirtualModifierData virtualModifierData;
+  ModifierData *md = modifiers_getVirtualModifierList(object, &virtualModifierData);
+
+  /* Evaluate modifiers. */
+  for (; md; md = md->next) {
+    const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+
+    if (!modifier_isEnabled(scene, md, required_mode)) {
+      continue;
+    }
+
+    if ((mti->type == eModifierTypeType_OnlyDeform) &&
+        (mti->flags & eModifierTypeFlag_AcceptsVertexCosOnly)) {
+      /* Ensure we are not modifying the input. */
+      if (pointcloud == pointcloud_input) {
+        pointcloud = BKE_pointcloud_copy_for_eval(pointcloud, true);
+      }
+
+      /* Ensure we are not overwriting referenced data. */
+      CustomData_duplicate_referenced_layer(&pointcloud->pdata, CD_LOCATION, pointcloud->totpoint);
+      BKE_pointcloud_update_customdata_pointers(pointcloud);
+
+      /* Created deformed coordinates array on demand. */
+      mti->deformVerts(md, &mectx, NULL, pointcloud->co, pointcloud->totpoint);
+    }
+    else if (mti->modifyPointCloud) {
+      /* Ensure we are not modifying the input. */
+      if (pointcloud == pointcloud_input) {
+        pointcloud = BKE_pointcloud_copy_for_eval(pointcloud, true);
+      }
+
+      PointCloud *pointcloud_next = mti->modifyPointCloud(md, &mectx, pointcloud);
+
+      if (pointcloud_next && pointcloud_next != pointcloud) {
+        /* If the modifier returned a new pointcloud, release the old one. */
+        if (pointcloud != pointcloud_input) {
+          BKE_id_free(NULL, pointcloud);
+        }
+        pointcloud = pointcloud_next;
+      }
+    }
+  }
+
+  return pointcloud;
+}
+
+void BKE_pointcloud_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Object *object)
 {
   /* Free any evaluated data and restore original data. */
   BKE_object_free_derived_caches(object);
 
-  /* Modifier evaluation goes here, using BKE_pointcloud_new_for_eval or
-   * BKE_pointcloud_copy_for_eval to create a new PointCloud. */
+  /* Evaluate modifiers. */
   PointCloud *pointcloud = object->data;
-  PointCloud *pointcloud_eval = pointcloud;
+  PointCloud *pointcloud_eval = pointcloud_evaluate_modifiers(
+      depsgraph, scene, object, pointcloud);
 
   /* Assign evaluated object. */
   const bool is_owned = (pointcloud != pointcloud_eval);

@@ -1094,7 +1094,7 @@ static void curve_calc_modifiers_post(Depsgraph *depsgraph,
       if (need_normal) {
         BKE_mesh_ensure_normals(modified);
       }
-      mesh_applied = mti->applyModifier(md, &mectx_apply, modified);
+      mesh_applied = mti->modifyMesh(md, &mectx_apply, modified);
 
       if (mesh_applied) {
         /* Modifier returned a new derived mesh */
