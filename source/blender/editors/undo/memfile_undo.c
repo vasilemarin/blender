@@ -145,6 +145,8 @@ static void memfile_undosys_step_decode(struct bContext *C,
                                         int undo_direction,
                                         bool UNUSED(is_final))
 {
+  BLI_assert(undo_direction != 0);
+
   bool use_old_bmain_data = true;
 
   if (undo_direction > 0) {
@@ -166,7 +168,6 @@ static void memfile_undosys_step_decode(struct bContext *C,
      * Note that non-memfile undo steps **should** not be an issue anymore, since we handle
      * fine-grained update flags now.
      */
-    BLI_assert(undo_direction < 0);
     UndoStep *us_next = us_p->next;
     if (us_next != NULL) {
       if (us_next->use_old_bmain_data == false) {
