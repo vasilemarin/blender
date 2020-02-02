@@ -647,6 +647,18 @@ if(WITH_OPENVDB)
       -DWITH_OPENVDB_BLOSC
     )
   endif()
+
+  if(WIN32)
+    add_definitions(
+      -DOPENVDB_STATICLIB
+    )
+  endif()
+
+  if(WITH_OPENVDB_3_ABI_COMPATIBLE)
+    add_definitions(
+      -DOPENVDB_3_ABI_COMPATIBLE
+    )
+  endif()
 endif()
 
 if(WITH_QUADRIFLOW)

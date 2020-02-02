@@ -210,6 +210,7 @@ static void rna_def_volume_grid(BlenderRNA *brna)
       {VOLUME_GRID_VECTOR_DOUBLE, "VECTOR_DOUBLE", 0, "Double Vector", "3D double vector"},
       {VOLUME_GRID_VECTOR_INT, "VECTOR_INT", 0, "Integer Vector", "3D integer vector"},
       {VOLUME_GRID_UNKNOWN, "UNKNOWN", 0, "Unknown", "Unsupported data type"},
+      {0, NULL, 0, NULL, NULL},
   };
 
   prop = RNA_def_property(srna, "data_type", PROP_ENUM, PROP_NONE);

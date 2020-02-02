@@ -553,6 +553,8 @@ VolumeGridType BKE_volume_grid_type(const VolumeGrid *volume_grid)
   else if (grid->isType<openvdb::MaskGrid>()) {
     return VOLUME_GRID_MASK;
   }
+#else
+  UNUSED_VARS(volume_grid);
 #endif
 
   return VOLUME_GRID_UNKNOWN;
@@ -664,6 +666,8 @@ bool BKE_volume_grid_dense_bounds(const VolumeGrid *volume_grid, size_t min[3], 
     max[2] = bbox.max().z() + 1;
     return true;
   }
+#else
+  UNUSED_VARS(volume_grid);
 #endif
 
   min[0] = 0;

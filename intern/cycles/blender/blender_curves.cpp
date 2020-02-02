@@ -1207,7 +1207,7 @@ static void export_hair_curves(Scene *scene, Mesh *mesh, BL::Hair b_hair)
     const int first_point_index = b_curve.first_point_index();
     const int num_points = b_curve.num_points();
 
-    float3 prev_co;
+    float3 prev_co = make_float3(0.0f, 0.0f, 0.0f);
     float length = 0.0f;
     if (attr_intercept) {
       points_length.clear();
