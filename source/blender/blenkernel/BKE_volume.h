@@ -62,6 +62,7 @@ struct BoundBox *BKE_volume_boundbox_get(struct Object *ob);
 struct Volume *BKE_volume_new_for_eval(const struct Volume *volume_src);
 struct Volume *BKE_volume_copy_for_eval(struct Volume *volume_src, bool reference);
 
+void BKE_volume_eval_geometry(struct Depsgraph *depsgraph, struct Volume *volume);
 void BKE_volume_data_update(struct Depsgraph *depsgraph,
                             struct Scene *scene,
                             struct Object *object);

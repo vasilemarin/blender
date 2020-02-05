@@ -23,37 +23,24 @@
 
 #pragma once
 
-#include "DNA_ID.h"
-
-#include "intern/eval/deg_eval_runtime_backup_animation.h"
-#include "intern/eval/deg_eval_runtime_backup_movieclip.h"
-#include "intern/eval/deg_eval_runtime_backup_object.h"
-#include "intern/eval/deg_eval_runtime_backup_scene.h"
-#include "intern/eval/deg_eval_runtime_backup_sound.h"
-#include "intern/eval/deg_eval_runtime_backup_volume.h"
+struct Volume;
+struct VolumeGridVector;
 
 namespace DEG {
 
 struct Depsgraph;
 
-class RuntimeBackup {
+/* Backup of volume datablocks runtime data. */
+class VolumeBackup {
  public:
-  explicit RuntimeBackup(const Depsgraph *depsgraph);
+  VolumeBackup(const Depsgraph *depsgraph);
 
-  /* NOTE: Will reset all runtime fields which has been backed up to nullptr. */
-  void init_from_id(ID *id);
+  void reset();
 
-  /* Restore fields to the given ID. */
-  void restore_to_id(ID *id);
+  void init_from_volume(Volume *volume);
+  void restore_to_volume(Volume *volume);
 
-  AnimationBackup animation_backup;
-  SceneBackup scene_backup;
-  SoundBackup sound_backup;
-  ObjectRuntimeBackup object_backup;
-  DrawDataList drawdata_backup;
-  DrawDataList *drawdata_ptr;
-  MovieClipBackup movieclip_backup;
-  VolumeBackup volume_backup;
+  VolumeGridVector *grids;
 };
 
 }  // namespace DEG

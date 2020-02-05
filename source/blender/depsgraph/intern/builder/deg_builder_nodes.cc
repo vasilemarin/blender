@@ -97,6 +97,7 @@ extern "C" {
 #include "BKE_shader_fx.h"
 #include "BKE_sound.h"
 #include "BKE_tracking.h"
+#include "BKE_volume.h"
 #include "BKE_world.h"
 
 #include "RNA_access.h"
@@ -1322,7 +1323,12 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata, bool
       break;
     }
     case ID_VO: {
-      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
+      /* Volume frame update. */
+      op_node = add_operation_node(
+          obdata,
+          NodeType::GEOMETRY,
+          OperationCode::GEOMETRY_EVAL,
+          function_bind(BKE_volume_eval_geometry, _1, (Volume *)obdata_cow));
       op_node->set_as_entry();
       break;
     }

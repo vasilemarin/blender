@@ -30,19 +30,36 @@
 struct PackedFile;
 struct VolumeGridVector;
 
+typedef struct Volume_Runtime {
+  /* OpenVDB Grids */
+  struct VolumeGridVector *grids;
+
+  /* Current frame in sequence for evaluated volume */
+  int frame;
+  int _pad;
+} Volume_Runtime;
+
 typedef struct Volume {
   ID id;
   struct AnimData *adt; /* animation data (must be immediately after id) */
 
+  /* File */
   char filepath[1024]; /* FILE_MAX */
-
   struct PackedFile *packedfile;
 
+  /* Sequence */
+  char is_sequence;
+  char sequence_mode;
+  char _pad1[2];
+  int frame_start;
+  int frame_duration;
+  int frame_offset;
+
+  /* Flag */
   int flag;
 
-  /* OpenVDB Voxel Grids */
+  /* Grids */
   int active_grid;
-  struct VolumeGridVector *grids;
 
   /* Material */
   struct Material **mat;
@@ -51,12 +68,23 @@ typedef struct Volume {
 
   /* Draw Cache */
   void *batch_cache;
+
+  /* Runtime Data */
+  Volume_Runtime runtime;
 } Volume;
 
 /* Volume.flag */
 enum {
   VO_DS_EXPAND = (1 << 0),
 };
+
+/* Volume.sequence_mode */
+typedef enum VolumeSequenceMode {
+  VOLUME_SEQUENCE_CLIP = 0,
+  VOLUME_SEQUENCE_EXTEND,
+  VOLUME_SEQUENCE_REPEAT,
+  VOLUME_SEQUENCE_PING_PONG,
+} VolumeSequenceMode;
 
 /* Only one material supported currently. */
 #define VOLUME_MATERIAL_NR 1

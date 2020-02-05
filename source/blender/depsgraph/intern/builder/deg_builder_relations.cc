@@ -63,6 +63,7 @@ extern "C" {
 #include "DNA_sound_types.h"
 #include "DNA_speaker_types.h"
 #include "DNA_texture_types.h"
+#include "DNA_volume_types.h"
 #include "DNA_world_types.h"
 #include "DNA_object_force_types.h"
 
@@ -2161,8 +2162,15 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
       break;
     case ID_PT:
       break;
-    case ID_VO:
+    case ID_VO: {
+      Volume *volume = (Volume *)obdata;
+      if (volume->is_sequence) {
+        TimeSourceKey time_key;
+        ComponentKey geometry_key(obdata, NodeType::GEOMETRY);
+        add_relation(time_key, geometry_key, "Volume sequence time");
+      }
       break;
+    }
     default:
       BLI_assert(!"Should not happen");
       break;

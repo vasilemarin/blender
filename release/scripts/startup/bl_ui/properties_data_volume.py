@@ -51,8 +51,8 @@ class DATA_PT_context_volume(DataButtonsPanel, Panel):
             layout.template_ID(space, "pin_id")
 
 
-class DATA_PT_volume(DataButtonsPanel, Panel):
-    bl_label = "Volume"
+class DATA_PT_volume_file(DataButtonsPanel, Panel):
+    bl_label = "OpenVDB File"
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
@@ -63,8 +63,21 @@ class DATA_PT_volume(DataButtonsPanel, Panel):
 
         layout.prop(volume, "filepath", text="")
 
+        if len(volume.filepath):
+            layout.use_property_split = True
+            layout.use_property_decorate = False
+
+            col = layout.column(align=True)
+            col.prop(volume, "is_sequence")
+            if volume.is_sequence:
+                col.prop(volume, "frame_duration", text="Frames")
+                col.prop(volume, "frame_start", text="Start")
+                col.prop(volume, "frame_offset", text="Offset")
+                col.prop(volume, "sequence_mode", text="Mode")
+
         error_msg = volume.grids.error_message
         if len(error_msg):
+          layout.separator()
           col = layout.column(align=True)
           col.label(text="Failed to load volume:")
           col.label(text=error_msg)
@@ -96,8 +109,8 @@ class DATA_PT_custom_props_volume(DataButtonsPanel, PropertyPanel, Panel):
 
 classes = (
     DATA_PT_context_volume,
-    DATA_PT_volume,
     DATA_PT_volume_grids,
+    DATA_PT_volume_file,
     DATA_PT_custom_props_volume,
     VOLUME_UL_grids,
 )

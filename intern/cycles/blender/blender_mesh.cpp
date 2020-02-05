@@ -370,7 +370,7 @@ static void create_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene 
       VoxelAttribute *volume_data = attr->data_voxel();
       ImageMetaData metadata;
       const bool animated = false;
-      const float frame = 0.0f;
+      const float frame = b_volume.grids.frame();
 
       volume_data->manager = scene->image_manager;
       volume_data->slot = scene->image_manager->add_image(name.c_str(),

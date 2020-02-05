@@ -32,6 +32,7 @@
 
 #include "rna_internal.h"
 
+#include "DNA_scene_types.h"
 #include "DNA_volume_types.h"
 
 #include "BKE_volume.h"
@@ -41,6 +42,7 @@
 #ifdef RNA_RUNTIME
 
 #  include "DEG_depsgraph.h"
+#  include "DEG_depsgraph_build.h"
 
 #  include "WM_types.h"
 #  include "WM_api.h"
@@ -53,6 +55,12 @@ static void rna_Volume_update_filepath(Main *UNUSED(bmain), Scene *UNUSED(scene)
   BKE_volume_unload(volume);
   DEG_id_tag_update(&volume->id, ID_RECALC_COPY_ON_WRITE);
   WM_main_add_notifier(NC_GEOM | ND_DATA, volume);
+}
+
+static void rna_Volume_update_is_sequence(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+  rna_Volume_update_filepath(bmain, scene, ptr);
+  DEG_relations_tag_update(bmain);
 }
 
 /* Grid */
@@ -280,6 +288,14 @@ static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_boolean_funcs(prop, "rna_VolumeGrids_is_loaded_get", NULL);
   RNA_def_property_ui_text(prop, "Is Loaded", "List of grids and metadata are loaded in memory");
 
+  prop = RNA_def_property(srna, "frame", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "runtime.frame");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop,
+                           "Frame",
+                           "Frame number that volume grids will be loaded at, based on scene time "
+                           "and volume parameters");
+
   /* API */
   FunctionRNA *func;
   PropertyRNA *parm;
@@ -303,7 +319,9 @@ static void rna_def_volume(BlenderRNA *brna)
   RNA_def_struct_ui_text(srna, "Volume", "Volume data-block for 3D volume grids");
   RNA_def_struct_ui_icon(srna, ICON_VOLUME_DATA);
 
+  /* File */
   prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "File Path", "Volume sample file used by this Volume data-block");
   RNA_def_property_update(prop, 0, "rna_Volume_update_filepath");
 
@@ -311,6 +329,55 @@ static void rna_def_volume(BlenderRNA *brna)
   RNA_def_property_pointer_sdna(prop, NULL, "packedfile");
   RNA_def_property_ui_text(prop, "Packed File", "");
 
+  /* Sequence */
+  prop = RNA_def_property(srna, "is_sequence", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(
+      prop, "Sequence", "Whether the cache is separated in a series of files");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_is_sequence");
+
+  /* TODO: these parameters are hard to understand. */
+  prop = RNA_def_property(srna, "frame_start", PROP_INT, PROP_TIME);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_range(prop, MINAFRAMEF, MAXFRAMEF);
+  RNA_def_property_ui_text(
+      prop, "Start Frame", "Global starting frame of the sequence, assuming first has a #1");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_filepath");
+
+  prop = RNA_def_property(srna, "frame_duration", PROP_INT, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_range(prop, 0, MAXFRAMEF);
+  RNA_def_property_ui_text(prop, "Frames", "Number of frames of the sequence to use");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_filepath");
+
+  prop = RNA_def_property(srna, "frame_offset", PROP_INT, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop, "Offset", "Offset the number of the frame to use in the animation");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_filepath");
+
+  static const EnumPropertyItem sequence_mode_items[] = {
+      {VOLUME_SEQUENCE_CLIP, "CLIP", 0, "Clip", "Hide frames outside the specified frame range"},
+      {VOLUME_SEQUENCE_EXTEND,
+       "EXTEND",
+       0,
+       "Extend",
+       "Repeat the start frame before, and the end frame after the frame range"},
+      {VOLUME_SEQUENCE_REPEAT, "REPEAT", 0, "Repeat", "Cycle the frames in the sequence"},
+      {VOLUME_SEQUENCE_PING_PONG,
+       "PING_PONG",
+       0,
+       "Ping-Pong",
+       "Repeat the frames, reversing the playback direction every other cycle"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  prop = RNA_def_property(srna, "sequence_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_enum_items(prop, sequence_mode_items);
+  RNA_def_property_ui_text(prop, "Sequence Mode", "Sequence playback mode");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_filepath");
+
+  /* Grids */
   prop = RNA_def_property(srna, "grids", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_struct_type(prop, "VolumeGrid");
   RNA_def_property_ui_text(prop, "Grids", "3D volume grids");
@@ -325,7 +392,7 @@ static void rna_def_volume(BlenderRNA *brna)
                                     NULL);
   rna_def_volume_grids(brna, prop);
 
-  /* materials */
+  /* Materials */
   prop = RNA_def_property(srna, "materials", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_collection_sdna(prop, NULL, "mat", "totcol");
   RNA_def_property_struct_type(prop, "Material");
@@ -334,7 +401,7 @@ static void rna_def_volume(BlenderRNA *brna)
   RNA_def_property_collection_funcs(
       prop, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "rna_IDMaterials_assign_int");
 
-  /* common */
+  /* Common */
   rna_def_animdata_common(srna);
 }
 

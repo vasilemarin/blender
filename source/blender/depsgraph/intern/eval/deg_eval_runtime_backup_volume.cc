@@ -21,39 +21,39 @@
  * \ingroup depsgraph
  */
 
-#pragma once
-
-#include "DNA_ID.h"
-
-#include "intern/eval/deg_eval_runtime_backup_animation.h"
-#include "intern/eval/deg_eval_runtime_backup_movieclip.h"
-#include "intern/eval/deg_eval_runtime_backup_object.h"
-#include "intern/eval/deg_eval_runtime_backup_scene.h"
-#include "intern/eval/deg_eval_runtime_backup_sound.h"
 #include "intern/eval/deg_eval_runtime_backup_volume.h"
+
+#include "BLI_utildefines.h"
+
+#include "DNA_volume_types.h"
+#include <stdio.h>
 
 namespace DEG {
 
-struct Depsgraph;
+VolumeBackup::VolumeBackup(const Depsgraph * /*depsgraph*/)
+{
+  reset();
+}
 
-class RuntimeBackup {
- public:
-  explicit RuntimeBackup(const Depsgraph *depsgraph);
+void VolumeBackup::reset()
+{
+  grids = nullptr;
+}
 
-  /* NOTE: Will reset all runtime fields which has been backed up to nullptr. */
-  void init_from_id(ID *id);
+void VolumeBackup::init_from_volume(Volume *volume)
+{
+  /* TODO: this is leaking! */
+  grids = volume->runtime.grids;
+  volume->runtime.grids = nullptr;
+}
 
-  /* Restore fields to the given ID. */
-  void restore_to_id(ID *id);
-
-  AnimationBackup animation_backup;
-  SceneBackup scene_backup;
-  SoundBackup sound_backup;
-  ObjectRuntimeBackup object_backup;
-  DrawDataList drawdata_backup;
-  DrawDataList *drawdata_ptr;
-  MovieClipBackup movieclip_backup;
-  VolumeBackup volume_backup;
-};
+void VolumeBackup::restore_to_volume(Volume *volume)
+{
+  /* TODO: why does it call restore without init? */
+  if (grids) {
+    volume->runtime.grids = grids;
+  }
+  reset();
+}
 
 }  // namespace DEG

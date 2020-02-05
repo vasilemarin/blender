@@ -25,6 +25,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_volume_types.h"
 
 #include "BLI_fileops.h"
@@ -42,6 +43,7 @@
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_packedFile.h"
+#include "BKE_scene.h"
 #include "BKE_volume.h"
 
 #include "DEG_depsgraph_query.h"
@@ -49,6 +51,8 @@
 #include "CLG_log.h"
 
 static CLG_LogRef LOG = {"bke.volume"};
+
+#define VOLUME_FRAME_NONE INT_MAX
 
 #ifdef WITH_OPENVDB
 #  include <mutex>
@@ -111,14 +115,17 @@ void BKE_volume_init(Volume *volume)
   volume->filepath[0] = '\0';
   volume->packedfile = NULL;
   volume->flag = 0;
+  volume->frame_start = 1;
+  volume->frame_offset = 0;
+  volume->frame_duration = 0;
   BKE_volume_init_grids(volume);
 }
 
 void BKE_volume_init_grids(Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  if (volume->grids == NULL) {
-    volume->grids = OBJECT_GUARDED_NEW(VolumeGridVector);
+  if (volume->runtime.grids == NULL) {
+    volume->runtime.grids = OBJECT_GUARDED_NEW(VolumeGridVector);
   }
 #else
   UNUSED_VARS(volume);
@@ -145,9 +152,9 @@ void BKE_volume_copy_data(Main *UNUSED(bmain),
 
   volume_dst->mat = (Material **)MEM_dupallocN(volume_src->mat);
 #ifdef WITH_OPENVDB
-  if (volume_src->grids) {
-    const VolumeGridVector &grids_src = *(volume_src->grids);
-    volume_dst->grids = OBJECT_GUARDED_NEW(VolumeGridVector, grids_src);
+  if (volume_src->runtime.grids) {
+    const VolumeGridVector &grids_src = *(volume_src->runtime.grids);
+    volume_dst->runtime.grids = OBJECT_GUARDED_NEW(VolumeGridVector, grids_src);
   }
 #endif
 }
@@ -170,15 +177,97 @@ void BKE_volume_free(Volume *volume)
   BKE_volume_batch_cache_free(volume);
   MEM_SAFE_FREE(volume->mat);
 #ifdef WITH_OPENVDB
-  OBJECT_GUARDED_SAFE_DELETE(volume->grids, VolumeGridVector);
+  OBJECT_GUARDED_SAFE_DELETE(volume->runtime.grids, VolumeGridVector);
 #endif
 }
+
+/* Sequence */
+
+static int volume_sequence_frame(const Depsgraph *depsgraph, const Volume *volume)
+{
+  if (!volume->is_sequence) {
+    return 0;
+  }
+
+  const int scene_frame = DEG_get_ctime(depsgraph);
+  const VolumeSequenceMode mode = (VolumeSequenceMode)volume->sequence_mode;
+  const int frame_duration = volume->frame_duration;
+  const int frame_start = volume->frame_start;
+  const int frame_offset = volume->frame_offset;
+
+  if (frame_duration == 0) {
+    return VOLUME_FRAME_NONE;
+  }
+
+  int frame = scene_frame - frame_start + 1;
+
+  switch (mode) {
+    case VOLUME_SEQUENCE_CLIP: {
+      if (frame < 1 || frame > frame_duration) {
+        return VOLUME_FRAME_NONE;
+      }
+      break;
+    }
+    case VOLUME_SEQUENCE_EXTEND: {
+      frame = clamp_i(frame, 1, frame_duration);
+      break;
+    }
+    case VOLUME_SEQUENCE_REPEAT: {
+      frame = frame % frame_duration;
+      if (frame < 0) {
+        frame += frame_duration;
+      }
+      if (frame == 0) {
+        frame = frame_duration;
+      }
+      break;
+    }
+    case VOLUME_SEQUENCE_PING_PONG: {
+      const int pingpong_duration = frame_duration * 2 - 2;
+      frame = frame % pingpong_duration;
+      if (frame < 0) {
+        frame += pingpong_duration;
+      }
+      if (frame == 0) {
+        frame = pingpong_duration;
+      }
+      if (frame > frame_duration) {
+        frame = frame_duration * 2 - frame;
+      }
+      break;
+    }
+  }
+
+  /* important to apply after else we cant loop on frames 100 - 110 for eg. */
+  frame += frame_offset;
+
+  return frame;
+}
+
+static void volume_filepath_get(const Main *bmain, const Volume *volume, char r_filepath[FILE_MAX])
+{
+  BLI_strncpy(r_filepath, volume->filepath, FILE_MAX);
+  BLI_path_abs(r_filepath, ID_BLEND_PATH(bmain, &volume->id));
+
+  int fframe;
+  int frame_len;
+
+  /* TODO: check for filepath validity earlier, to avoid unnecessary computations. */
+  if (volume->is_sequence && BLI_path_frame_get(r_filepath, &fframe, &frame_len)) {
+    char ext[32];
+    BLI_path_frame_strip(r_filepath, ext);
+    BLI_path_frame(r_filepath, volume->runtime.frame, frame_len);
+    BLI_path_extension_ensure(r_filepath, FILE_MAX, ext);
+  }
+}
+
+/* File Load */
 
 bool BKE_volume_is_loaded(const Volume *volume)
 {
 #ifdef WITH_OPENVDB
   /* Test if there is a file to load, or if already loaded. */
-  return (volume->filepath[0] == '\0' || volume->grids->filepath[0] != '\0');
+  return (volume->filepath[0] == '\0' || volume->runtime.grids->filepath[0] != '\0');
 #else
   UNUSED_VARS(volume);
   return true;
@@ -188,7 +277,12 @@ bool BKE_volume_is_loaded(const Volume *volume)
 bool BKE_volume_load(Volume *volume, Main *bmain)
 {
 #ifdef WITH_OPENVDB
-  VolumeGridVector &grids = *volume->grids;
+  VolumeGridVector &grids = *volume->runtime.grids;
+
+  if (volume->runtime.frame == VOLUME_FRAME_NONE) {
+    /* Skip loading this frame, outside of sequence range. */
+    return true;
+  }
 
   if (BKE_volume_is_loaded(volume)) {
     return grids.error_msg.empty();
@@ -200,9 +294,19 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
     return grids.error_msg.empty();
   }
 
-  /* Get absolute file path. */
-  STRNCPY(grids.filepath, volume->filepath);
-  BLI_path_abs(grids.filepath, ID_BLEND_PATH(bmain, &volume->id));
+  /* Get absolute file path at current frame. */
+  volume_filepath_get(bmain, volume, grids.filepath);
+
+  CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume->id.name + 2, grids.filepath);
+
+  /* Test if file exists. */
+  if (!BLI_exists(grids.filepath)) {
+    char filename[FILE_MAX];
+    BLI_split_file_part(grids.filepath, filename, sizeof(filename));
+    grids.error_msg = filename + std::string(" not found");
+    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume->id.name + 2, grids.error_msg.c_str());
+    return false;
+  }
 
   CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume->id.name + 2, grids.filepath);
 
@@ -246,7 +350,7 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
 void BKE_volume_unload(Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  VolumeGridVector &grids = *volume->grids;
+  VolumeGridVector &grids = *volume->runtime.grids;
   if (grids.filepath[0] != '\0') {
     CLOG_INFO(&LOG, 1, "Volume %s: unload", volume->id.name + 2);
     grids.clear();
@@ -384,6 +488,24 @@ static Volume *volume_evaluate_modifiers(struct Depsgraph *depsgraph,
   return volume;
 }
 
+void BKE_volume_eval_geometry(struct Depsgraph *depsgraph, Volume *volume)
+{
+  int frame = volume_sequence_frame(depsgraph, volume);
+
+  if (frame != volume->runtime.frame) {
+    BKE_volume_unload(volume);
+    volume->runtime.frame = frame;
+  }
+
+  /* TODO: can we avoid modifier re-evaluation when frame did not change? */
+
+  /* Flush back to original. */
+  if (DEG_is_active(depsgraph)) {
+    Volume *volume_orig = (Volume *)DEG_get_original_id(&volume->id);
+    volume_orig->runtime.frame = volume->runtime.frame;
+  }
+}
+
 void BKE_volume_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Object *object)
 {
   /* Free any evaluated data and restore original data. */
@@ -422,7 +544,7 @@ void BKE_volume_batch_cache_free(Volume *volume)
 int BKE_volume_num_grids(Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  return volume->grids->size();
+  return volume->runtime.grids->size();
 #else
   UNUSED_VARS(volume);
   return 0;
@@ -432,7 +554,7 @@ int BKE_volume_num_grids(Volume *volume)
 const char *BKE_volume_grids_error_msg(const Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  return volume->grids->error_msg.c_str();
+  return volume->runtime.grids->error_msg.c_str();
 #else
   UNUSED_VARS(volume);
   return "";
@@ -442,7 +564,7 @@ const char *BKE_volume_grids_error_msg(const Volume *volume)
 VolumeGrid *BKE_volume_grid_get(Volume *volume, int grid_index)
 {
 #ifdef WITH_OPENVDB
-  return &volume->grids->at(grid_index);
+  return &volume->runtime.grids->at(grid_index);
 #else
   UNUSED_VARS(volume, grid_index);
   return NULL;
@@ -478,7 +600,7 @@ VolumeGrid *BKE_volume_grid_find(Volume *volume, const char *name)
 bool BKE_volume_grid_load(Volume *volume, VolumeGrid *grid)
 {
 #ifdef WITH_OPENVDB
-  VolumeGridVector &grids = *volume->grids;
+  VolumeGridVector &grids = *volume->runtime.grids;
 
   if (BKE_volume_grid_is_loaded(grid)) {
     return grids.error_msg.empty();
