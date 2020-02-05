@@ -129,9 +129,11 @@ void DRW_volume_batch_cache_free(Volume *volume)
 }
 
 static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
-                                            VolumeBatchCache *cache,
-                                            const char *name)
+                                            VolumeGrid *grid,
+                                            VolumeBatchCache *cache)
 {
+  const char *name = BKE_volume_grid_name(grid);
+
   /* Return cached grid. */
   DRWVolumeGrid *cache_grid;
   for (cache_grid = cache->grids.first; cache_grid; cache_grid = cache_grid->next) {
@@ -147,12 +149,6 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
 
   // TODO: avoid global access, load earlier?
   BKE_volume_load(volume, G.main);
-
-  /* Load grid with matching name. */
-  VolumeGrid *grid = BKE_volume_grid_find(volume, name);
-  if (grid == NULL) {
-    return cache_grid;
-  }
 
   /* Test if we support textures with the number of channels. */
   size_t channels = BKE_volume_grid_channels(grid);
@@ -220,10 +216,10 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   return cache_grid;
 }
 
-DRWVolumeGrid *DRW_volume_batch_cache_get_grid(Volume *volume, const char *name)
+DRWVolumeGrid *DRW_volume_batch_cache_get_grid(Volume *volume, VolumeGrid *volume_grid)
 {
   VolumeBatchCache *cache = volume_batch_cache_get(volume);
-  DRWVolumeGrid *grid = volume_grid_cache_get(volume, cache, name);
+  DRWVolumeGrid *grid = volume_grid_cache_get(volume, volume_grid, cache);
   return (grid->texture != NULL) ? grid : NULL;
 }
 

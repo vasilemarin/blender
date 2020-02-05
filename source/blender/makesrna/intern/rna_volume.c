@@ -136,7 +136,7 @@ static int rna_Volume_grids_length(PointerRNA *ptr)
 
 /* Active Grid */
 
-static void rna_VolumeGrids_active_grid_index_range(
+static void rna_VolumeGrids_active_index_range(
     PointerRNA *ptr, int *min, int *max, int *UNUSED(softmin), int *UNUSED(softmax))
 {
   Volume *volume = (Volume *)ptr->data;
@@ -146,14 +146,14 @@ static void rna_VolumeGrids_active_grid_index_range(
   *max = max_ii(0, num_grids - 1);
 }
 
-static int rna_VolumeGrids_active_grid_index_get(PointerRNA *ptr)
+static int rna_VolumeGrids_active_index_get(PointerRNA *ptr)
 {
   Volume *volume = (Volume *)ptr->data;
   int num_grids = BKE_volume_num_grids(volume);
   return clamp_i(volume->active_grid, 0, max_ii(num_grids - 1, 0));
 }
 
-static void rna_VolumeGrids_active_grid_index_set(PointerRNA *ptr, int value)
+static void rna_VolumeGrids_active_index_set(PointerRNA *ptr, int value)
 {
   Volume *volume = (Volume *)ptr->data;
   volume->active_grid = value;
@@ -263,9 +263,9 @@ static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
 
   prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_funcs(prop,
-                             "rna_VolumeGrids_active_grid_index_get",
-                             "rna_VolumeGrids_active_grid_index_set",
-                             "rna_VolumeGrids_active_grid_index_range");
+                             "rna_VolumeGrids_active_index_get",
+                             "rna_VolumeGrids_active_index_set",
+                             "rna_VolumeGrids_active_index_range");
   RNA_def_property_ui_text(prop, "Active Grid Index", "Index of active volume grid");
 
   prop = RNA_def_property(srna, "error_message", PROP_STRING, PROP_NONE);

@@ -232,8 +232,12 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
 {
   /* Create 3D textures. */
   Volume *volume = ob->data;
-  DRWVolumeGrid *density = DRW_volume_batch_cache_get_grid(volume, "density");
-  if (density == NULL) {
+  VolumeGrid *volume_grid = BKE_volume_grid_active_get(volume);
+  if (volume_grid == NULL) {
+    return;
+  }
+  DRWVolumeGrid *grid = DRW_volume_batch_cache_get_grid(volume, volume_grid);
+  if (grid == NULL) {
     return;
   }
 
@@ -258,7 +262,7 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
 
   /* Combined texture to object, and object to world transform. */
   float texture_to_world[4][4];
-  mul_m4_m4m4(texture_to_world, ob->obmat, density->texture_to_object);
+  mul_m4_m4m4(texture_to_world, ob->obmat, grid->texture_to_object);
 
   /* Compute world space dimensions for step size. */
   float world_size[3];
@@ -269,7 +273,7 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
   double noise_ofs;
   BLI_halton_1d(3, 0.0, effect_info->jitter_index, &noise_ofs);
   float step_length, max_slice;
-  float slice_ct[3] = {density->resolution[0], density->resolution[1], density->resolution[2]};
+  float slice_ct[3] = {grid->resolution[0], grid->resolution[1], grid->resolution[2]};
   mul_v3_fl(slice_ct, max_ff(0.001f, slice_per_voxel));
   max_slice = max_fff(slice_ct[0], slice_ct[1], slice_ct[2]);
   invert_v3(slice_ct);
@@ -285,7 +289,7 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
 
   static float white[3] = {1.0f, 1.0f, 1.0f};
   // TODO: density is rgb color + a density, it's getting squared currently?
-  DRW_shgroup_uniform_texture(grp, "densityTexture", density->texture);
+  DRW_shgroup_uniform_texture(grp, "densityTexture", grid->texture);
   // TODO: implement shadow texture, like manta_smoke_calc_transparency
   DRW_shgroup_uniform_texture(grp, "shadowTexture", e_data.dummy_shadow_tex);
   DRW_shgroup_uniform_texture(grp, "flameTexture", e_data.dummy_tex);

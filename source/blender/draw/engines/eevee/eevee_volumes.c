@@ -32,9 +32,10 @@
 #include "DNA_volume_types.h"
 #include "DNA_world_types.h"
 
-#include "BKE_modifier.h"
-#include "BKE_mesh.h"
 #include "BKE_fluid.h"
+#include "BKE_mesh.h"
+#include "BKE_modifier.h"
+#include "BKE_volume.h"
 
 #include "ED_screen.h"
 
@@ -434,7 +435,11 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   if (ob->type == OB_VOLUME) {
     // TODO: check what the BASE_FROM_DUPLI test is for, do we need it too?
     Volume *volume = ob->data;
-    DRWVolumeGrid *density = DRW_volume_batch_cache_get_grid(volume, "density");
+    VolumeGrid *volume_density = BKE_volume_grid_find(volume, "density");
+    if (volume_density == NULL) {
+      return;
+    }
+    DRWVolumeGrid *density = DRW_volume_batch_cache_get_grid(volume, volume_density);
     if (density == NULL) {
       return;
     }

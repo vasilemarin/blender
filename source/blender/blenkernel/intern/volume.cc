@@ -429,6 +429,17 @@ VolumeGrid *BKE_volume_grid_get(Volume *volume, int grid_index)
 #endif
 }
 
+VolumeGrid *BKE_volume_grid_active_get(Volume *volume)
+{
+  const int num_grids = BKE_volume_num_grids(volume);
+  if (num_grids == 0) {
+    return NULL;
+  }
+
+  const int index = clamp_i(volume->active_grid, 0, num_grids - 1);
+  return BKE_volume_grid_get(volume, index);
+}
+
 VolumeGrid *BKE_volume_grid_find(Volume *volume, const char *name)
 {
   int num_grids = BKE_volume_num_grids(volume);

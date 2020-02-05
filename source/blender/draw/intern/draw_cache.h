@@ -30,6 +30,7 @@ struct Object;
 struct PTCacheEdit;
 struct ParticleSystem;
 struct Volume;
+struct VolumeGrid;
 
 void DRW_shape_cache_free(void);
 void DRW_shape_cache_reset(void);
@@ -228,6 +229,6 @@ typedef struct DRWVolumeGrid {
   float halfsize[3];
 } DRWVolumeGrid;
 
-DRWVolumeGrid *DRW_volume_batch_cache_get_grid(struct Volume *volume, const char *name);
+DRWVolumeGrid *DRW_volume_batch_cache_get_grid(struct Volume *volume, struct VolumeGrid *grid);
 
 #endif /* __DRAW_CACHE_H__ */
