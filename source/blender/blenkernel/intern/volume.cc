@@ -27,6 +27,7 @@
 #include "DNA_object_types.h"
 #include "DNA_volume_types.h"
 
+#include "BLI_fileops.h"
 #include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
@@ -44,6 +45,10 @@
 #include "BKE_volume.h"
 
 #include "DEG_depsgraph_query.h"
+
+#include "CLG_log.h"
+
+static CLG_LogRef LOG = {"bke.volume"};
 
 #ifdef WITH_OPENVDB
 #  include <mutex>
@@ -199,6 +204,17 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
   STRNCPY(grids.filepath, volume->filepath);
   BLI_path_abs(grids.filepath, ID_BLEND_PATH(bmain, &volume->id));
 
+  CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume->id.name + 2, grids.filepath);
+
+  /* Test if file exists. */
+  if (!BLI_exists(grids.filepath)) {
+    char filename[FILE_MAX];
+    BLI_split_file_part(grids.filepath, filename, sizeof(filename));
+    grids.error_msg = filename + std::string(" not found");
+    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume->id.name + 2, grids.error_msg.c_str());
+    return false;
+  }
+
   /* Open OpenVDB file. */
   openvdb::io::File file(grids.filepath);
   openvdb::GridPtrVec vdb_grids;
@@ -210,12 +226,13 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
   }
   catch (const openvdb::IoError &e) {
     grids.error_msg = e.what();
+    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume->id.name + 2, grids.error_msg.c_str());
   }
 
   /* Add grids read from file to own vector, filtering out any NULL pointers. */
   for (const openvdb::GridBase::Ptr vdb_grid : vdb_grids) {
     if (vdb_grid) {
-      volume->grids->emplace_back(vdb_grid, false);
+      grids.emplace_back(vdb_grid, false);
     }
   }
 
@@ -230,9 +247,12 @@ void BKE_volume_unload(Volume *volume)
 {
 #ifdef WITH_OPENVDB
   VolumeGridVector &grids = *volume->grids;
-  grids.clear();
-  grids.error_msg.clear();
-  grids.filepath[0] = '\0';
+  if (grids.filepath[0] != '\0') {
+    CLOG_INFO(&LOG, 1, "Volume %s: unload", volume->id.name + 2);
+    grids.clear();
+    grids.error_msg.clear();
+    grids.filepath[0] = '\0';
+  }
 #else
   UNUSED_VARS(volume);
 #endif
@@ -469,6 +489,8 @@ bool BKE_volume_grid_load(Volume *volume, VolumeGrid *grid)
   if (BKE_volume_grid_is_loaded(grid)) {
     return grids.error_msg.empty();
   }
+
+  CLOG_INFO(&LOG, 1, "Volume %s: load grid '%s'", volume->id.name + 2, BKE_volume_grid_name(grid));
 
   /* Read OpenVDB grid on-demand. */
   /* TODO: avoid repeating this for multiple grids when we know we will
