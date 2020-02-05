@@ -853,11 +853,12 @@ GPUBatch *DRW_cache_object_surface_get(Object *ob)
 
 int DRW_cache_object_material_count_get(struct Object *ob)
 {
-  short type = (BKE_object_get_evaluated_mesh(ob) != NULL) ? OB_MESH : ob->type;
+  Mesh *me = BKE_object_get_evaluated_mesh(ob);
+  short type = (me != NULL) ? OB_MESH : ob->type;
 
   switch (type) {
     case OB_MESH:
-      return DRW_mesh_material_count_get(ob->data);
+      return DRW_mesh_material_count_get((me != NULL) ? me : ob->data);
     case OB_CURVE:
     case OB_SURF:
     case OB_FONT:
@@ -3482,7 +3483,7 @@ void drw_batch_cache_generate_requested(Object *ob)
   const bool use_hide = ((ob->type == OB_MESH) &&
                          ((is_paint_mode && (ob == draw_ctx->obact) &&
                            DRW_object_use_hide_faces(ob)) ||
-                          ((mode == CTX_MODE_EDIT_MESH) && BKE_object_is_in_editmode(ob))));
+                          ((mode == CTX_MODE_EDIT_MESH) && DRW_object_is_in_edit_mode(ob))));
 
   struct Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob);
   switch (ob->type) {
