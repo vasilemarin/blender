@@ -1058,6 +1058,8 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph &b_depsgraph,
   BL::ID b_ob_data = b_ob.data();
   BL::ID key = (BKE_object_is_modified(b_ob)) ? b_ob_instance : b_ob_data;
   BL::Material material_override = view_layer.material_override;
+  Shader *default_shader = (b_ob.type() == BL::Object::type_VOLUME) ? scene->default_volume :
+                                                                      scene->default_surface;
 
   /* find shader indices */
   vector<Shader *> used_shaders;
@@ -1065,19 +1067,19 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph &b_depsgraph,
   BL::Object::material_slots_iterator slot;
   for (b_ob.material_slots.begin(slot); slot != b_ob.material_slots.end(); ++slot) {
     if (material_override) {
-      find_shader(material_override, used_shaders, scene->default_surface);
+      find_shader(material_override, used_shaders, default_shader);
     }
     else {
       BL::ID b_material(slot->material());
-      find_shader(b_material, used_shaders, scene->default_surface);
+      find_shader(b_material, used_shaders, default_shader);
     }
   }
 
   if (used_shaders.size() == 0) {
     if (material_override)
-      find_shader(material_override, used_shaders, scene->default_surface);
+      find_shader(material_override, used_shaders, default_shader);
     else
-      used_shaders.push_back(scene->default_surface);
+      used_shaders.push_back(default_shader);
   }
 
   /* test if we need to sync */

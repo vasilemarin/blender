@@ -107,6 +107,8 @@ Scene::Scene(const SceneParams &params_, Device *device)
     shader_manager = ShaderManager::create(this, params.shadingsystem);
   else
     shader_manager = ShaderManager::create(this, SHADINGSYSTEM_SVM);
+
+  shader_manager->add_default(this);
 }
 
 Scene::~Scene()

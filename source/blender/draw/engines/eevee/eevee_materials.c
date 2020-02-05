@@ -1436,7 +1436,12 @@ BLI_INLINE Material *eevee_object_material_get(Object *ob, int slot)
 {
   Material *ma = BKE_object_material_get(ob, slot + 1);
   if (ma == NULL) {
-    ma = BKE_material_default_empty();
+    if (ob->type == OB_VOLUME) {
+      ma = BKE_material_default_volume();
+    }
+    else {
+      ma = BKE_material_default_empty();
+    }
   }
   return ma;
 }

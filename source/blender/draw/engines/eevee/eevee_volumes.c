@@ -398,7 +398,12 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   Material *ma = BKE_object_material_get(ob, 1);
 
   if (ma == NULL) {
-    return;
+    if (ob->type == OB_VOLUME) {
+      ma = BKE_material_default_volume();
+    }
+    else {
+      return;
+    }
   }
 
   float size[3];

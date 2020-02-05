@@ -102,9 +102,6 @@ void OSLShaderManager::device_update(Device *device,
 
   device_free(device, dscene, scene);
 
-  /* determine which shaders are in use */
-  device_update_shaders_used(scene);
-
   /* create shaders */
   OSLGlobals *og = (OSLGlobals *)device->osl_memory();
   Shader *background_shader = scene->background->get_shader(scene);
