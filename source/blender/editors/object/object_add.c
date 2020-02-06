@@ -1484,7 +1484,7 @@ void OBJECT_OT_hair_add(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  ED_object_add_generic_props(ot, true);
+  ED_object_add_generic_props(ot, false);
 }
 
 /** \} */
@@ -1521,45 +1521,7 @@ void OBJECT_OT_pointcloud_add(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  ED_object_add_generic_props(ot, true);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Add Volume Operator
- * \{ */
-
-/* TODO: open file browser for VDB file immediately? */
-static int object_volume_add_exec(bContext *C, wmOperator *op)
-{
-  ushort local_view_bits;
-  float loc[3], rot[3];
-
-  if (!ED_object_add_generic_get_opts(C, op, 'Z', loc, rot, NULL, &local_view_bits, NULL)) {
-    return OPERATOR_CANCELLED;
-  }
-  Object *object = ED_object_add_type(C, OB_VOLUME, NULL, loc, rot, false, local_view_bits);
-  object->dtx |= OB_DRAWBOUNDOX; /* TODO: remove once there is actual drawing. */
-
-  return OPERATOR_FINISHED;
-}
-
-void OBJECT_OT_volume_add(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Add Volume";
-  ot->description = "Add a volume object to the scene";
-  ot->idname = "OBJECT_OT_volume_add";
-
-  /* api callbacks */
-  ot->exec = object_volume_add_exec;
-  ot->poll = ED_operator_objectmode;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  ED_object_add_generic_props(ot, true);
+  ED_object_add_generic_props(ot, false);
 }
 
 /** \} */

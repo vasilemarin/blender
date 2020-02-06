@@ -5533,6 +5533,12 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
   RNA_def_property_ui_icon(prop, ICON_FILE_TEXT, 0);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, NULL);
 
+  prop = RNA_def_property(srna, "use_filter_volume", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "filter", FILE_TYPE_VOLUME);
+  RNA_def_property_ui_text(prop, "Filter Volume", "Show 3D volume files");
+  RNA_def_property_ui_icon(prop, ICON_FILE_VOLUME, 0);
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, NULL);
+
   prop = RNA_def_property(srna, "use_filter_folder", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "filter", FILE_TYPE_FOLDER);
   RNA_def_property_ui_text(prop, "Filter Folder", "Show folders");

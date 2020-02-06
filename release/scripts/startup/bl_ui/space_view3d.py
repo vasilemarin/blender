@@ -2100,6 +2100,16 @@ class VIEW3D_MT_camera_add(Menu):
         layout.operator("object.camera_add", text="Camera", icon='OUTLINER_OB_CAMERA')
 
 
+class VIEW3D_MT_volume_add(Menu):
+    bl_idname = "VIEW3D_MT_volume_add"
+    bl_label = "Volume"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator("object.volume_import", text="Import OpenVDB...", icon='OUTLINER_DATA_VOLUME')
+        layout.operator("object.volume_add", text="Empty", icon='OUTLINER_DATA_VOLUME')
+
+
 class VIEW3D_MT_add(Menu):
     bl_label = "Add"
     bl_translation_context = i18n_contexts.operator_default
@@ -2124,7 +2134,7 @@ class VIEW3D_MT_add(Menu):
         layout.operator("object.text_add", text="Text", icon='OUTLINER_OB_FONT')
         layout.operator("object.hair_add", text="Hair", icon='OUTLINER_OB_HAIR')
         layout.operator("object.pointcloud_add", text="Point Cloud", icon='OUTLINER_OB_POINTCLOUD')
-        layout.operator("object.volume_add", text="Volume", icon='OUTLINER_OB_VOLUME')
+        layout.menu("VIEW3D_MT_volume_add", text="Volume", icon='OUTLINER_OB_VOLUME')
         layout.operator_menu_enum("object.gpencil_add", "type", text="Grease Pencil", icon='OUTLINER_OB_GREASEPENCIL')
 
         layout.separator()
@@ -6986,6 +6996,7 @@ classes = (
     VIEW3D_MT_light_add,
     VIEW3D_MT_lightprobe_add,
     VIEW3D_MT_camera_add,
+    VIEW3D_MT_volume_add,
     VIEW3D_MT_add,
     VIEW3D_MT_image_add,
     VIEW3D_MT_object,

@@ -85,7 +85,7 @@ class DATA_PT_volume_file(DataButtonsPanel, Panel):
 
 class VOLUME_UL_grids(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.prop(item, "name", text="", emboss=False, icon='OUTLINER_DATA_LATTICE')
+        layout.prop(item, "name", text="", emboss=False)
 
 
 class DATA_PT_volume_grids(DataButtonsPanel, Panel):

@@ -1642,7 +1642,6 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
     }
     else if (ob->type == OB_VOLUME) {
       /* Volume object. */
-      /* TODO: ensure volume objects have a volume material assigned by default. */
     }
     else if ((ob->dt >= OB_SOLID) || DRW_state_is_image_render()) {
       /* Get per-material split surface */
