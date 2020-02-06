@@ -117,7 +117,7 @@ typedef enum VolumeGridType {
 } VolumeGridType;
 
 bool BKE_volume_grid_load(struct Volume *volume, struct VolumeGrid *grid);
-void BKE_volume_grid_unload(struct VolumeGrid *volume);
+void BKE_volume_grid_unload(struct Volume *volume, struct VolumeGrid *grid);
 bool BKE_volume_grid_is_loaded(const struct VolumeGrid *grid);
 
 /* Metadata */

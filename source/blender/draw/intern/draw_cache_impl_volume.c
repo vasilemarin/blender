@@ -210,7 +210,7 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
 
   /* Free grid from memory if it wasn't previously loaded. */
   if (!was_loaded) {
-    BKE_volume_grid_unload(grid);
+    BKE_volume_grid_unload(volume, grid);
   }
 
   return cache_grid;

@@ -28,7 +28,9 @@
 #include "DNA_scene_types.h"
 #include "DNA_volume_types.h"
 
+#include "BLI_compiler_compat.h"
 #include "BLI_fileops.h"
+#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
@@ -55,27 +57,310 @@ static CLG_LogRef LOG = {"bke.volume"};
 #define VOLUME_FRAME_NONE INT_MAX
 
 #ifdef WITH_OPENVDB
+#  include <atomic>
 #  include <mutex>
+#  include <unordered_set>
+
 #  include <openvdb/openvdb.h>
 #  include <openvdb/tools/Dense.h>
 
-struct VolumeGrid {
-  VolumeGrid(const openvdb::GridBase::Ptr &vdb, const bool is_loaded)
-      : vdb(vdb), is_loaded(is_loaded)
+/* Global Volume File Cache
+ *
+ * Global cache of grids read from VDB files. This is used for sharing grids
+ * between multiple volume datablocks with the same filepath, and sharing grids
+ * between original and copy-on-write datablocks created by the depsgraph.
+ *
+ * There are two types of users. Some datablocks only need the grid metadata,
+ * example an original datablock volume showing the list of grids in the
+ * properties editor. Other datablocks also need the tree and voxel data, for
+ * rendering for example. So, depending on the users the grid in the cache may
+ * have a tree or not.
+ *
+ * When the number of users drops to zero, the grid data is immediately deleted.
+ *
+ * TODO: also add a cache for OpenVDB files rather than individual grids,
+ * so getting the list of grids is also cached?
+ * TODO: Further, we could cache openvdb::io::File so that loading a grid
+ * does not re-open it every time. But then we have to take care not to run
+ * out of file descriptors or prevent other applications from writing to it.
+ */
+
+struct VolumeFileCache {
+  /* Cache Entry */
+  struct Entry {
+    Entry(const std::string &filepath, const openvdb::GridBase::Ptr &grid)
+        : filepath(filepath),
+          grid_name(grid->getName()),
+          grid(grid),
+          is_loaded(false),
+          num_metadata_users(0),
+          num_tree_users(0)
+    {
+    }
+
+    Entry(const Entry &other)
+        : filepath(other.filepath),
+          grid_name(other.grid_name),
+          grid(other.grid),
+          is_loaded(other.is_loaded),
+          num_metadata_users(0),
+          num_tree_users(0)
+    {
+    }
+
+    bool operator()(const char *s1, const char *s2) const
+    {
+      return strcmp(s1, s2) == 0;
+    }
+
+    /* Unique key: filename + grid name. */
+    std::string filepath;
+    std::string grid_name;
+
+    /* OpenVDB grid. */
+    openvdb::GridBase::Ptr grid;
+    /* Has the grid tree been loaded? */
+    bool is_loaded;
+    /* Error message if an error occured during loading. */
+    std::string error_msg;
+    /* User counting. */
+    int num_metadata_users;
+    int num_tree_users;
+    /* Mutex for on-demand reading of tree. */
+    std::mutex mutex;
+  };
+
+  struct EntryHasher {
+    std::size_t operator()(const Entry &entry) const
+    {
+      std::hash<std::string> string_hasher;
+      return BLI_ghashutil_combine_hash(string_hasher(entry.filepath),
+                                        string_hasher(entry.grid_name));
+    }
+  };
+
+  struct EntryEqual {
+    bool operator()(const Entry &a, const Entry &b) const
+    {
+      return a.filepath == b.filepath && a.grid_name == b.grid_name;
+    }
+  };
+
+  /* Cache */
+  VolumeFileCache()
   {
   }
 
-  VolumeGrid(const VolumeGrid &other) : vdb(other.vdb), is_loaded(other.is_loaded)
+  ~VolumeFileCache()
   {
+    assert(cache.size() == 0);
+  }
+
+  Entry *add_metadata_user(const Entry &template_entry)
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    EntrySet::iterator it = cache.find(template_entry);
+    if (it == cache.end()) {
+      it = cache.emplace(template_entry).first;
+    }
+
+    /* Casting const away is weak, but it's convenient having key and value in one. */
+    Entry &entry = (Entry &)*it;
+    entry.num_metadata_users++;
+
+    /* Note: pointers to unordered_set values are not invalidated when adding
+     * or removing other values. */
+    return &entry;
+  }
+
+  void copy_user(Entry &entry, const bool tree_user)
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (tree_user) {
+      entry.num_tree_users++;
+    }
+    else {
+      entry.num_metadata_users++;
+    }
+  }
+
+  void remove_user(Entry &entry, const bool tree_user)
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (tree_user) {
+      entry.num_tree_users--;
+    }
+    else {
+      entry.num_metadata_users--;
+    }
+    update_for_remove_user(entry);
+  }
+
+  void change_to_tree_user(Entry &entry)
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    entry.num_tree_users++;
+    entry.num_metadata_users--;
+    update_for_remove_user(entry);
+  }
+
+  void change_to_metadata_user(Entry &entry)
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    entry.num_metadata_users++;
+    entry.num_tree_users--;
+    update_for_remove_user(entry);
+  }
+
+ protected:
+  void update_for_remove_user(Entry &entry)
+  {
+    if (entry.num_metadata_users + entry.num_tree_users == 0) {
+      cache.erase(entry);
+    }
+    else if (entry.num_tree_users == 0) {
+      entry.grid->clear();
+      entry.is_loaded = false;
+    }
+  }
+
+  /* Cache contents */
+  typedef std::unordered_set<Entry, EntryHasher, EntryEqual> EntrySet;
+  EntrySet cache;
+  /* Mutex for multithreaded access. */
+  std::mutex mutex;
+} GLOBAL_CACHE;
+
+/* VolumeGrid
+ *
+ * Wrapper around OpenVDB grid. Grids loaded from OpenVDB files are always
+ * stored in the global cache. Procedurally generated grids are not. */
+
+struct VolumeGrid {
+  VolumeGrid(const VolumeFileCache::Entry &template_entry) : entry(NULL), is_loaded(false)
+  {
+    entry = GLOBAL_CACHE.add_metadata_user(template_entry);
+    vdb = entry->grid;
+  }
+
+  VolumeGrid(const openvdb::GridBase::Ptr &vdb) : vdb(vdb), entry(NULL), is_loaded(true)
+  {
+  }
+
+  VolumeGrid(const VolumeGrid &other)
+      : vdb(other.vdb), entry(other.entry), is_loaded(other.is_loaded)
+  {
+    if (entry) {
+      GLOBAL_CACHE.copy_user(*entry, is_loaded);
+    }
+  }
+
+  ~VolumeGrid()
+  {
+    if (entry) {
+      GLOBAL_CACHE.remove_user(*entry, is_loaded);
+    }
+  }
+
+  void load(const char *volume_name, const char *filepath)
+  {
+    /* If already loaded or not file-backed, nothing to do. */
+    if (is_loaded || entry == NULL) {
+      return;
+    }
+
+    /* Double-checked lock. */
+    std::lock_guard<std::mutex> lock(entry->mutex);
+    if (is_loaded) {
+      return;
+    }
+
+    /* Change metadata user to tree user. */
+    GLOBAL_CACHE.change_to_tree_user(*entry);
+
+    /* If already loaded by another user, nothing further to do. */
+    if (entry->is_loaded) {
+      is_loaded = true;
+      return;
+    }
+
+    /* Load grid from file. */
+    CLOG_INFO(&LOG, 1, "Volume %s: load grid '%s'", volume_name, name());
+
+    openvdb::io::File file(filepath);
+
+    try {
+      file.setCopyMaxBytes(0);
+      file.open();
+      openvdb::GridBase::Ptr vdb_grid = file.readGrid(name());
+      entry->grid->setTree(vdb_grid->baseTreePtr());
+    }
+    catch (const openvdb::IoError &e) {
+      entry->error_msg = e.what();
+    }
+
+    std::atomic_thread_fence(std::memory_order_release);
+    entry->is_loaded = true;
+    is_loaded = true;
+  }
+
+  void unload(const char *volume_name)
+  {
+    /* Not loaded or not file-backed, nothing to do. */
+    if (!is_loaded || entry == NULL) {
+      return;
+    }
+
+    /* Double-checked lock. */
+    std::lock_guard<std::mutex> lock(entry->mutex);
+    if (!is_loaded) {
+      return;
+    }
+
+    CLOG_INFO(&LOG, 1, "Volume %s: unload grid '%s'", volume_name, name());
+
+    /* Change tree user to metadata user. */
+    GLOBAL_CACHE.change_to_metadata_user(*entry);
+
+    /* Indicate we no longer have a tree. The actual grid may still
+     * have it due to another user. */
+    std::atomic_thread_fence(std::memory_order_release);
+    is_loaded = false;
+  }
+
+  const char *name() const
+  {
+    /* Don't use vdb.getName() since it copies the string, we want a pointer to the
+     * original so it doesn't get freed out of scope. */
+    openvdb::StringMetadata::ConstPtr name_meta = vdb->getMetadata<openvdb::StringMetadata>(
+        openvdb::GridBase::META_GRID_NAME);
+    return (name_meta) ? name_meta->value().c_str() : "";
+  }
+
+  const char *error_message() const
+  {
+    if (is_loaded && entry && !entry->error_msg.empty()) {
+      return entry->error_msg.c_str();
+    }
+    else {
+      return NULL;
+    }
   }
 
   /* OpenVDB grid. */
   openvdb::GridBase::Ptr vdb;
-  /* Grid may have only metadata and no tree. */
+  /* File cache entry. */
+  VolumeFileCache::Entry *entry;
+  /* Indicates if the tree has been loaded for this grid. Note that vdb.tree()
+   * may actually be loaded by another user while this is false. But only after
+   * calling load() and is_loaded changes to true is it safe to access. */
   bool is_loaded;
-  /* Mutex for on-demand reading of tree. */
-  std::mutex mutex;
 };
+
+/* Volume Grid Vector
+ *
+ * List of grids contained in a volume datablock. This is runtime-only data,
+ * the actual grids are always saved in a VDB file. */
 
 struct VolumeGridVector : public std::vector<VolumeGrid> {
   VolumeGridVector()
@@ -295,27 +580,28 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
   }
 
   /* Get absolute file path at current frame. */
+  const char *volume_name = volume->id.name + 2;
   volume_filepath_get(bmain, volume, grids.filepath);
 
-  CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume->id.name + 2, grids.filepath);
+  CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume_name, grids.filepath);
 
   /* Test if file exists. */
   if (!BLI_exists(grids.filepath)) {
     char filename[FILE_MAX];
     BLI_split_file_part(grids.filepath, filename, sizeof(filename));
     grids.error_msg = filename + std::string(" not found");
-    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume->id.name + 2, grids.error_msg.c_str());
+    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume_name, grids.error_msg.c_str());
     return false;
   }
 
-  CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume->id.name + 2, grids.filepath);
+  CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume_name, grids.filepath);
 
   /* Test if file exists. */
   if (!BLI_exists(grids.filepath)) {
     char filename[FILE_MAX];
     BLI_split_file_part(grids.filepath, filename, sizeof(filename));
     grids.error_msg = filename + std::string(" not found");
-    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume->id.name + 2, grids.error_msg.c_str());
+    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume_name, grids.error_msg.c_str());
     return false;
   }
 
@@ -330,13 +616,14 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
   }
   catch (const openvdb::IoError &e) {
     grids.error_msg = e.what();
-    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume->id.name + 2, grids.error_msg.c_str());
+    CLOG_INFO(&LOG, 1, "Volume %s: %s", volume_name, grids.error_msg.c_str());
   }
 
   /* Add grids read from file to own vector, filtering out any NULL pointers. */
   for (const openvdb::GridBase::Ptr vdb_grid : vdb_grids) {
     if (vdb_grid) {
-      grids.emplace_back(vdb_grid, false);
+      VolumeFileCache::Entry template_entry(grids.filepath, vdb_grid);
+      grids.emplace_back(template_entry);
     }
   }
 
@@ -352,7 +639,8 @@ void BKE_volume_unload(Volume *volume)
 #ifdef WITH_OPENVDB
   VolumeGridVector &grids = *volume->runtime.grids;
   if (grids.filepath[0] != '\0') {
-    CLOG_INFO(&LOG, 1, "Volume %s: unload", volume->id.name + 2);
+    const char *volume_name = volume->id.name + 2;
+    CLOG_INFO(&LOG, 1, "Volume %s: unload", volume_name);
     grids.clear();
     grids.error_msg.clear();
     grids.filepath[0] = '\0';
@@ -601,46 +889,25 @@ bool BKE_volume_grid_load(Volume *volume, VolumeGrid *grid)
 {
 #ifdef WITH_OPENVDB
   VolumeGridVector &grids = *volume->runtime.grids;
-
-  if (BKE_volume_grid_is_loaded(grid)) {
-    return grids.error_msg.empty();
+  const char *volume_name = volume->id.name + 2;
+  grid->load(volume_name, grids.filepath);
+  const char *error_msg = grid->error_message();
+  if (error_msg) {
+    grids.error_msg = error_msg;
+    return false;
   }
-
-  /* Double-checked lock. */
-  std::lock_guard<std::mutex> lock(grid->mutex);
-  if (BKE_volume_grid_is_loaded(grid)) {
-    return grids.error_msg.empty();
-  }
-
-  CLOG_INFO(&LOG, 1, "Volume %s: load grid '%s'", volume->id.name + 2, BKE_volume_grid_name(grid));
-
-  /* Read OpenVDB grid on-demand. */
-  /* TODO: avoid repeating this for multiple grids when we know we will
-   * need them? How best to do it without keeping the file open forever? */
-  openvdb::io::File file(grids.filepath);
-
-  try {
-    file.setCopyMaxBytes(0);
-    file.open();
-    grid->vdb = file.readGrid(grid->vdb->getName());
-  }
-  catch (const openvdb::IoError &e) {
-    grids.error_msg = e.what();
-  }
-
-  grid->is_loaded = true;
-  return grids.error_msg.empty();
+  return true;
 #else
   UNUSED_VARS(volume, grid);
   return true;
 #endif
 }
 
-void BKE_volume_grid_unload(VolumeGrid *grid)
+void BKE_volume_grid_unload(Volume *volume, VolumeGrid *grid)
 {
 #ifdef WITH_OPENVDB
-  grid->is_loaded = false;
-  grid->vdb->clear();
+  const char *volume_name = volume->id.name + 2;
+  grid->unload(volume_name);
 #else
   UNUSED_VARS(grid);
 #endif
@@ -661,12 +928,7 @@ bool BKE_volume_grid_is_loaded(const VolumeGrid *grid)
 const char *BKE_volume_grid_name(const VolumeGrid *volume_grid)
 {
 #ifdef WITH_OPENVDB
-  /* Don't use grid.getName() since it copies the string, we want a pointer to the
-   * original so it doesn't get freed out of scope. */
-  const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
-  openvdb::StringMetadata::ConstPtr name_meta = grid->getMetadata<openvdb::StringMetadata>(
-      openvdb::GridBase::META_GRID_NAME);
-  return (name_meta) ? name_meta->value().c_str() : "";
+  return volume_grid->name();
 #else
   UNUSED_VARS(volume_grid);
   return "density";

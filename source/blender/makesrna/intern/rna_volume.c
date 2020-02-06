@@ -106,6 +106,11 @@ static bool rna_VolumeGrid_load(ID *id, VolumeGrid *grid)
   return BKE_volume_grid_load((Volume *)id, grid);
 }
 
+static void rna_VolumeGrid_unload(ID *id, VolumeGrid *grid)
+{
+  BKE_volume_grid_unload((Volume *)id, grid);
+}
+
 /* Grids Iterator */
 
 static void rna_Volume_grids_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -254,7 +259,8 @@ static void rna_def_volume_grid(BlenderRNA *brna)
   parm = RNA_def_boolean(func, "success", 0, "", "True if grid tree was successfully loaded");
   RNA_def_function_return(func, parm);
 
-  func = RNA_def_function(srna, "unload", "BKE_volume_grid_unload");
+  func = RNA_def_function(srna, "unload", "rna_VolumeGrid_unload");
+  RNA_def_function_flag(func, FUNC_USE_SELF_ID);
   RNA_def_function_ui_description(
       func, "Unload grid tree and voxel data from memory, leaving only metadata");
 }
