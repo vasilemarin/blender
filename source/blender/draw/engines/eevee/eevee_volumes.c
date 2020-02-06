@@ -395,7 +395,7 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   static const float white[3] = {1.0f, 1.0f, 1.0f};
 
   struct ModifierData *md = NULL;
-  Material *ma = give_current_material(ob, 1);
+  Material *ma = BKE_object_material_get(ob, 1);
 
   if (ma == NULL) {
     return;
