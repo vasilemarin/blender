@@ -2813,13 +2813,6 @@ static float fcurve_eval_between_keyframes(const FCurve *fcu,
   bezt = bezts + bezt_index;
   prevbezt = (bezt_index > 0) ? (bezt - 1) : bezt;
 
-  /* TODO(Sybren): remove the below code, as in this case the binary search has
-   * already marked the result as an exact match. */
-  const float eps = 1.e-8f;
-  if (fabsf(bezt->vec[1][0] - evaltime) < eps) {
-    return bezt->vec[1][1];
-  }
-
   /* evaltime should occur within the interval defined by these two keyframes. */
   if (evaltime < prevbezt->vec[1][0] || bezt->vec[1][0] < evaltime) {
     if (G.debug & G_DEBUG) {
