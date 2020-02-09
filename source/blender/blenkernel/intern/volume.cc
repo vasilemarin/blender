@@ -479,6 +479,13 @@ static int volume_sequence_frame(const Depsgraph *depsgraph, const Volume *volum
     return 0;
   }
 
+  char filepath[FILE_MAX];
+  STRNCPY(filepath, volume->filepath);
+  int path_frame, path_digits;
+  if (!(volume->is_sequence && BLI_path_frame_get(filepath, &path_frame, &path_digits))) {
+    return 0;
+  }
+
   const int scene_frame = DEG_get_ctime(depsgraph);
   const VolumeSequenceMode mode = (VolumeSequenceMode)volume->sequence_mode;
   const int frame_duration = volume->frame_duration;
@@ -539,14 +546,11 @@ static void volume_filepath_get(const Main *bmain, const Volume *volume, char r_
   BLI_strncpy(r_filepath, volume->filepath, FILE_MAX);
   BLI_path_abs(r_filepath, ID_BLEND_PATH(bmain, &volume->id));
 
-  int fframe;
-  int frame_len;
-
-  /* TODO: check for filepath validity earlier, to avoid unnecessary computations. */
-  if (volume->is_sequence && BLI_path_frame_get(r_filepath, &fframe, &frame_len)) {
+  int path_frame, path_digits;
+  if (volume->is_sequence && BLI_path_frame_get(r_filepath, &path_frame, &path_digits)) {
     char ext[32];
     BLI_path_frame_strip(r_filepath, ext);
-    BLI_path_frame(r_filepath, volume->runtime.frame, frame_len);
+    BLI_path_frame(r_filepath, volume->runtime.frame, path_digits);
     BLI_path_extension_ensure(r_filepath, FILE_MAX, ext);
   }
 }
