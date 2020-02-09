@@ -60,9 +60,6 @@ struct BoundBox *BKE_volume_boundbox_get(struct Object *ob);
 
 /* Depsgraph */
 
-struct Volume *BKE_volume_new_for_eval(const struct Volume *volume_src);
-struct Volume *BKE_volume_copy_for_eval(struct Volume *volume_src, bool reference);
-
 void BKE_volume_eval_geometry(struct Depsgraph *depsgraph, struct Volume *volume);
 void BKE_volume_data_update(struct Depsgraph *depsgraph,
                             struct Scene *scene,
@@ -105,7 +102,7 @@ VolumeGrid *BKE_volume_grid_find(struct Volume *volume, const char *name);
 /* Grid
  *
  * By default only grid metadata is loaded, for access to the tree and voxels
- * the BKE_volume_grid_load must be called first. */
+ * BKE_volume_grid_load must be called first. */
 
 typedef enum VolumeGridType {
   VOLUME_GRID_UNKNOWN = 0,
@@ -146,8 +143,44 @@ void BKE_volume_grid_dense_voxels(const struct VolumeGrid *volume_grid,
                                   const size_t max[3],
                                   float *voxels);
 
+/* Volume Editing
+ *
+ * These are intended for modifiers to use on evaluated datablocks.
+ *
+ * new_for_eval creates a volume datablock with no grids or file path, but
+ * preserves other settings such as viewport display options.
+ *
+ * copy_for_eval creates a volume datablock preserving everything except the
+ * file path. Grids are shared with the source datablock, not copied.
+ *
+ * Before modifying grids after copy_for_eval, call ensure_writable first.
+ * It will duplicate (or clear) the grid if it is shared with any other
+ * datablocks, so that it can be safely modified. */
+
+struct Volume *BKE_volume_new_for_eval(const struct Volume *volume_src);
+struct Volume *BKE_volume_copy_for_eval(struct Volume *volume_src, bool reference);
+
+struct VolumeGrid *BKE_volume_grid_add(struct Volume *volume,
+                                       const char *name,
+                                       VolumeGridType type);
+void BKE_volume_grid_remove(struct Volume *volume, struct VolumeGrid *grid);
+void BKE_volume_grid_ensure_writable(struct Volume *volume,
+                                     struct VolumeGrid *grid,
+                                     const bool clear);
+
 #ifdef __cplusplus
 }
+#endif
+
+/* OpenVDB Grid
+ *
+ * Access to OpenVDB grid for C++. This will call BKE_volume_grid_load if the
+ * grid has not already been loaded into memory. */
+
+#if defined(__cplusplus) && defined(WITH_OPENVDB)
+#  include <openvdb/openvdb.h>
+openvdb::GridBase::Ptr BKE_volume_grid_ensure_openvdb(struct Volume *volume,
+                                                      struct VolumeGrid *grid);
 #endif
 
 #endif

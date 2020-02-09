@@ -58,6 +58,7 @@ static CLG_LogRef LOG = {"bke.volume"};
 
 #ifdef WITH_OPENVDB
 #  include <atomic>
+#  include <list>
 #  include <mutex>
 #  include <unordered_set>
 
@@ -328,6 +329,31 @@ struct VolumeGrid {
     is_loaded = false;
   }
 
+  void clear_reference(const char *UNUSED(volume_name))
+  {
+    /* Clear any reference to a grid in the file cache. */
+    vdb = vdb->copyGridWithNewTree();
+    if (entry) {
+      GLOBAL_CACHE.remove_user(*entry, is_loaded);
+      entry = NULL;
+    }
+    is_loaded = true;
+  }
+
+  void duplicate_reference(const char *volume_name, const char *filepath)
+  {
+    /* Make a deep copy of the grid and remove any reference to a grid in the
+     * file cache. Load file grid into memory first if needed. */
+    load(volume_name, filepath);
+    // TODO: avoid deep copy if we are the only user
+    vdb = vdb->deepCopyGrid();
+    if (entry) {
+      GLOBAL_CACHE.remove_user(*entry, is_loaded);
+      entry = NULL;
+    }
+    is_loaded = true;
+  }
+
   const char *name() const
   {
     /* Don't use vdb.getName() since it copies the string, we want a pointer to the
@@ -362,7 +388,7 @@ struct VolumeGrid {
  * List of grids contained in a volume datablock. This is runtime-only data,
  * the actual grids are always saved in a VDB file. */
 
-struct VolumeGridVector : public std::vector<VolumeGrid> {
+struct VolumeGridVector : public std::list<VolumeGrid> {
   VolumeGridVector()
   {
     filepath[0] = '\0';
@@ -710,33 +736,6 @@ BoundBox *BKE_volume_boundbox_get(Object *ob)
 
 /* Dependency Graph */
 
-Volume *BKE_volume_new_for_eval(const Volume *volume_src)
-{
-  Volume *volume_dst = (Volume *)BKE_id_new_nomain(ID_VO, NULL);
-
-  STRNCPY(volume_dst->id.name, volume_src->id.name);
-  volume_dst->mat = (Material **)MEM_dupallocN(volume_src->mat);
-  volume_dst->totcol = volume_src->totcol;
-  BKE_volume_init_grids(volume_dst);
-
-  return volume_dst;
-}
-
-Volume *BKE_volume_copy_for_eval(Volume *volume_src, bool reference)
-{
-  int flags = LIB_ID_COPY_LOCALIZE;
-
-  if (reference) {
-    flags |= LIB_ID_COPY_CD_REFERENCE;
-  }
-
-  Volume *result;
-  BKE_id_copy_ex(NULL, &volume_src->id, (ID **)&result, flags);
-  result->filepath[0] = '\0';
-
-  return result;
-}
-
 static Volume *volume_evaluate_modifiers(struct Depsgraph *depsgraph,
                                          struct Scene *scene,
                                          Object *object,
@@ -886,7 +885,13 @@ const char *BKE_volume_grids_error_msg(const Volume *volume)
 VolumeGrid *BKE_volume_grid_get(Volume *volume, int grid_index)
 {
 #ifdef WITH_OPENVDB
-  return &volume->runtime.grids->at(grid_index);
+  VolumeGridVector &grids = *volume->runtime.grids;
+  for (VolumeGrid &grid : grids) {
+    if (grid_index-- == 0) {
+      return &grid;
+    }
+  }
+  return NULL;
 #else
   UNUSED_VARS(volume, grid_index);
   return NULL;
@@ -1226,3 +1231,122 @@ void BKE_volume_grid_dense_voxels(const VolumeGrid *volume_grid,
   UNUSED_VARS(volume_grid, min, max, voxels);
 #endif
 }
+
+/* Volume Editing */
+
+Volume *BKE_volume_new_for_eval(const Volume *volume_src)
+{
+  Volume *volume_dst = (Volume *)BKE_id_new_nomain(ID_VO, NULL);
+
+  STRNCPY(volume_dst->id.name, volume_src->id.name);
+  volume_dst->mat = (Material **)MEM_dupallocN(volume_src->mat);
+  volume_dst->totcol = volume_src->totcol;
+  BKE_volume_init_grids(volume_dst);
+
+  return volume_dst;
+}
+
+Volume *BKE_volume_copy_for_eval(Volume *volume_src, bool reference)
+{
+  int flags = LIB_ID_COPY_LOCALIZE;
+
+  if (reference) {
+    flags |= LIB_ID_COPY_CD_REFERENCE;
+  }
+
+  Volume *result;
+  BKE_id_copy_ex(NULL, &volume_src->id, (ID **)&result, flags);
+  result->filepath[0] = '\0';
+
+  return result;
+}
+
+VolumeGrid *BKE_volume_grid_add(Volume *volume, const char *name, VolumeGridType type)
+{
+#ifdef WITH_OPENVDB
+  VolumeGridVector &grids = *volume->runtime.grids;
+  BLI_assert(BKE_volume_grid_find(volume, name) == NULL);
+
+  openvdb::GridBase::Ptr vdb_grid;
+  switch (type) {
+    case VOLUME_GRID_FLOAT:
+      vdb_grid = openvdb::FloatGrid::create();
+      break;
+    case VOLUME_GRID_VECTOR_FLOAT:
+      vdb_grid = openvdb::Vec3fGrid::create();
+      break;
+    case VOLUME_GRID_BOOLEAN:
+      vdb_grid = openvdb::BoolGrid::create();
+      break;
+    case VOLUME_GRID_DOUBLE:
+      vdb_grid = openvdb::DoubleGrid::create();
+      break;
+    case VOLUME_GRID_INT:
+      vdb_grid = openvdb::Int32Grid::create();
+      break;
+    case VOLUME_GRID_INT64:
+      vdb_grid = openvdb::Int64Grid::create();
+      break;
+    case VOLUME_GRID_VECTOR_INT:
+      vdb_grid = openvdb::Vec3IGrid::create();
+      break;
+    case VOLUME_GRID_VECTOR_DOUBLE:
+      vdb_grid = openvdb::Vec3dGrid::create();
+      break;
+    case VOLUME_GRID_STRING:
+      vdb_grid = openvdb::StringGrid::create();
+      break;
+    case VOLUME_GRID_MASK:
+      vdb_grid = openvdb::MaskGrid::create();
+      break;
+    case VOLUME_GRID_UNKNOWN:
+      return NULL;
+  }
+
+  vdb_grid->setName(name);
+  grids.emplace_back(vdb_grid);
+  return &grids.back();
+#else
+  UNUSED_VARS(volume, name, type);
+  return NULL;
+#endif
+}
+
+void BKE_volume_grid_remove(Volume *volume, VolumeGrid *grid)
+{
+#ifdef WITH_OPENVDB
+  VolumeGridVector &grids = *volume->runtime.grids;
+  for (VolumeGridVector::iterator it = grids.begin(); it != grids.end(); it++) {
+    if (&*it == grid) {
+      grids.erase(it);
+      break;
+    }
+  }
+#else
+  UNUSED_VARS(volume, grid);
+#endif
+}
+
+void BKE_volume_grid_ensure_writable(Volume *volume, VolumeGrid *grid, bool clear)
+{
+#ifdef WITH_OPENVDB
+  const char *volume_name = volume->id.name + 2;
+  if (clear) {
+    grid->clear_reference(volume_name);
+  }
+  else {
+    VolumeGridVector &grids = *volume->runtime.grids;
+    grid->duplicate_reference(volume_name, grids.filepath);
+  }
+#else
+  UNUSED_VARS(volume, grid);
+#endif
+}
+
+#ifdef WITH_OPENVDB
+openvdb::GridBase::Ptr BKE_volume_grid_ensure_openvdb(Volume *volume, VolumeGrid *grid)
+{
+  BKE_volume_grid_load(volume, grid);
+  return grid->vdb;
+}
+#endif
