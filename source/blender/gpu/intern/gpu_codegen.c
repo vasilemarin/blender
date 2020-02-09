@@ -279,18 +279,6 @@ static const char *gpu_builtin_name(eGPUBuiltin builtin)
   else if (builtin == GPU_OBJECT_INFO) {
     return "unfobjectinfo";
   }
-  else if (builtin == GPU_VOLUME_DENSITY) {
-    return "sampdensity";
-  }
-  else if (builtin == GPU_VOLUME_COLOR) {
-    return "sampcolor";
-  }
-  else if (builtin == GPU_VOLUME_FLAME) {
-    return "sampflame";
-  }
-  else if (builtin == GPU_VOLUME_TEMPERATURE) {
-    return "unftemperature";
-  }
   else if (builtin == GPU_BARYCENTRIC_TEXCO) {
     return "unfbarycentrictex";
   }
@@ -340,7 +328,10 @@ static int codegen_process_uniforms_functions(GPUMaterial *material, DynStr *ds,
         /* create exactly one sampler for each texture */
         if (codegen_input_has_texture(input) && input->bindtex) {
           const char *type;
-          if (input->colorband || input->type == GPU_TEX1D_ARRAY) {
+          if (input->volume_grid) {
+            type = "sampler3D";
+          }
+          else if (input->colorband || input->type == GPU_TEX1D_ARRAY) {
             type = "sampler1DArray";
           }
           else if (input->type == GPU_TEX2D_ARRAY) {
@@ -359,13 +350,7 @@ static int codegen_process_uniforms_functions(GPUMaterial *material, DynStr *ds,
           builtins |= input->builtin;
           name = gpu_builtin_name(input->builtin);
 
-          if (BLI_str_startswith(name, "samp")) {
-            if ((input->builtin == GPU_VOLUME_DENSITY) || (input->builtin == GPU_VOLUME_COLOR) ||
-                (input->builtin == GPU_VOLUME_FLAME)) {
-              BLI_dynstr_appendf(ds, "uniform sampler3D %s;\n", name);
-            }
-          }
-          else if (BLI_str_startswith(name, "unf")) {
+          if (BLI_str_startswith(name, "unf")) {
             BLI_dynstr_appendf(ds, "uniform %s %s;\n", gpu_data_type_to_string(input->type), name);
           }
           else {
@@ -1114,10 +1099,15 @@ static ListBase gpu_nodes_requested_textures(ListBase *nodes)
         continue;
       }
 
+      const char *volume_grid = input->volume_grid ? input->volume_grid : "";
+
       GPUMaterialTexture *tex = textures.first;
       for (; tex; tex = tex->next) {
         if (tex->ima == input->ima && tex->colorband == input->colorband) {
-          break;
+          const char *tex_volume_grid = tex->volume_grid ? tex->volume_grid : "";
+          if (STREQ(tex_volume_grid, volume_grid)) {
+            break;
+          }
         }
       }
 
@@ -1126,6 +1116,7 @@ static ListBase gpu_nodes_requested_textures(ListBase *nodes)
         tex->ima = input->ima;
         tex->iuser = input->iuser;
         tex->colorband = input->colorband;
+        tex->volume_grid = (volume_grid[0]) ? BLI_strdup(volume_grid) : NULL;
         tex->id = num_textures++;
         BLI_snprintf(tex->shadername, sizeof(tex->shadername), "samp%d", tex->id);
         BLI_addtail(&textures, tex);

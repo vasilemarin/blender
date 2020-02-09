@@ -119,6 +119,10 @@ static void gpu_node_input_link(GPUNode *node, GPUNodeLink *link, const eGPUType
       input->ima = link->ima;
       input->iuser = link->iuser;
       break;
+    case GPU_NODE_LINK_VOLUME_GRID:
+      input->source = GPU_SOURCE_TEX;
+      input->volume_grid = link->volume_grid;
+      break;
     case GPU_NODE_LINK_ATTR:
       input->source = GPU_SOURCE_ATTR;
       input->attr_type = link->attr_type;
@@ -300,6 +304,29 @@ GPUNodeLink *GPU_color_band(GPUMaterial *mat, int size, float *pixels, float *ro
   return link;
 }
 
+GPUNodeLink *GPU_volume_attribute(GPUMaterial *mat, const char *name)
+{
+  /* NOTE: this could be optimized by automatically merging duplicate
+   * lookups of the same attribute. */
+  GPUNodeLink *link = gpu_node_link_create();
+  link->link_type = GPU_NODE_LINK_VOLUME_GRID;
+  link->volume_grid = name;
+
+  /* Two special cases, where we adjust the output values of smoke grids to
+   * bring the into standard range without having to modify the grid values. */
+  if (strcmp(name, "color") == 0) {
+    GPU_link(mat, "node_attribute_volume_color", link, &link);
+  }
+  else if (strcmp(name, "temperature") == 0) {
+    GPU_link(mat, "node_attribute_volume_temperature", link, &link);
+  }
+  else {
+    GPU_link(mat, "node_attribute_volume", link, &link);
+  }
+
+  return link;
+}
+
 GPUNodeLink *GPU_builtin(eGPUBuiltin builtin)
 {
   GPUNodeLink *link = gpu_node_link_create();
@@ -477,8 +504,12 @@ void gpu_node_graph_free_nodes(GPUNodeGraph *graph)
 void gpu_node_graph_free(GPUNodeGraph *graph)
 {
   gpu_node_graph_free_nodes(graph);
-  BLI_freelistN(&graph->attributes);
+
+  for (GPUMaterialTexture *tex = graph->textures.first; tex; tex = tex->next) {
+    MEM_SAFE_FREE(tex->volume_grid);
+  }
   BLI_freelistN(&graph->textures);
+  BLI_freelistN(&graph->attributes);
 }
 
 /* Prune Unused Nodes */

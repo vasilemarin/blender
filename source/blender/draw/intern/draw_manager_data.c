@@ -1235,6 +1235,7 @@ static DRWShadingGroup *drw_shgroup_material_inputs(DRWShadingGroup *grp,
       gputex = *tex->colorband;
     }
     else {
+      /* Volume grid handled in Eevee volume rendering. */
       continue;
     }
 

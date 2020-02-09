@@ -19,6 +19,8 @@
 
 /** \file
  * \ingroup gpu
+ *
+ * Intermediate node graph for generating GLSL shaders.
  */
 
 #ifndef __GPU_NODE_GRAPH_H__
@@ -52,6 +54,7 @@ typedef enum {
   GPU_NODE_LINK_ATTR,
   GPU_NODE_LINK_BUILTIN,
   GPU_NODE_LINK_COLORBAND,
+  GPU_NODE_LINK_VOLUME_GRID,
   GPU_NODE_LINK_CONSTANT,
   GPU_NODE_LINK_IMAGE_BLENDER,
   GPU_NODE_LINK_IMAGE_TILEMAP,
@@ -84,6 +87,8 @@ struct GPUNodeLink {
     eGPUBuiltin builtin;
     /* GPU_NODE_LINK_COLORBAND */
     struct GPUTexture **colorband;
+    /* GPU_NODE_LINK_VOLUME_GRID */
+    const char *volume_grid;
     /* GPU_NODE_LINK_OUTPUT */
     struct GPUOutput *output;
     /* GPU_NODE_LINK_ATTR */
@@ -118,9 +123,6 @@ typedef struct GPUInput {
 
   eGPUDataSource source; /* data source */
 
-  int shaderloc;       /* id from opengl */
-  char shadername[32]; /* name in shader */
-
   /* Content based on eGPUDataSource */
   union {
     /* GPU_SOURCE_CONSTANT | GPU_SOURCE_UNIFORM */
@@ -132,6 +134,7 @@ typedef struct GPUInput {
       struct GPUTexture **colorband; /* input texture, only set at runtime */
       struct Image *ima;             /* image */
       struct ImageUser *iuser;       /* image user */
+      const char *volume_grid;       /* volume grid */
       bool bindtex;                  /* input is responsible for binding the texture? */
       int texid;                     /* number for multitexture, starting from zero */
       eGPUType textype;              /* texture type (2D, 1D Array ...) */
