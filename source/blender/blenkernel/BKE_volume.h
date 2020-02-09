@@ -37,6 +37,7 @@ struct Main;
 struct Object;
 struct Scene;
 struct Volume;
+struct VolumeGridVector;
 
 /* Module */
 
@@ -66,6 +67,10 @@ void BKE_volume_eval_geometry(struct Depsgraph *depsgraph, struct Volume *volume
 void BKE_volume_data_update(struct Depsgraph *depsgraph,
                             struct Scene *scene,
                             struct Object *object);
+
+void BKE_volume_grids_backup_restore(struct Volume *volume,
+                                     struct VolumeGridVector *grids,
+                                     const char *filepath);
 
 /* Draw Cache */
 

@@ -35,12 +35,11 @@ class VolumeBackup {
  public:
   VolumeBackup(const Depsgraph *depsgraph);
 
-  void reset();
-
   void init_from_volume(Volume *volume);
   void restore_to_volume(Volume *volume);
 
   VolumeGridVector *grids;
+  char filepath[1024]; /* FILE_MAX */
 };
 
 }  // namespace DEG

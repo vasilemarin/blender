@@ -23,37 +23,38 @@
 
 #include "intern/eval/deg_eval_runtime_backup_volume.h"
 
+#include "BLI_assert.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "DNA_volume_types.h"
+
+#include "BKE_volume.h"
+
 #include <stdio.h>
 
 namespace DEG {
 
-VolumeBackup::VolumeBackup(const Depsgraph * /*depsgraph*/)
+VolumeBackup::VolumeBackup(const Depsgraph * /*depsgraph*/) : grids(nullptr)
 {
-  reset();
-}
-
-void VolumeBackup::reset()
-{
-  grids = nullptr;
 }
 
 void VolumeBackup::init_from_volume(Volume *volume)
 {
-  /* TODO: this is leaking! */
+  STRNCPY(filepath, volume->filepath);
+  BLI_STATIC_ASSERT(sizeof(filepath) == sizeof(volume->filepath),
+                    "VolumeBackup filepath length wrong");
+
   grids = volume->runtime.grids;
   volume->runtime.grids = nullptr;
 }
 
 void VolumeBackup::restore_to_volume(Volume *volume)
 {
-  /* TODO: why does it call restore without init? */
   if (grids) {
-    volume->runtime.grids = grids;
+    BKE_volume_grids_backup_restore(volume, grids, filepath);
+    grids = nullptr;
   }
-  reset();
 }
 
 }  // namespace DEG

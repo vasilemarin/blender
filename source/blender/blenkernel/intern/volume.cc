@@ -79,7 +79,7 @@ static CLG_LogRef LOG = {"bke.volume"};
  * When the number of users drops to zero, the grid data is immediately deleted.
  *
  * TODO: also add a cache for OpenVDB files rather than individual grids,
- * so getting the list of grids is also cached?
+ * so getting the list of grids is also cached.
  * TODO: Further, we could cache openvdb::io::File so that loading a grid
  * does not re-open it every time. But then we have to take care not to run
  * out of file descriptors or prevent other applications from writing to it.
@@ -373,6 +373,11 @@ struct VolumeGridVector : public std::vector<VolumeGrid> {
     memcpy(filepath, other.filepath, sizeof(filepath));
   }
 
+  bool is_loaded() const
+  {
+    return filepath[0] != '\0';
+  }
+
   /* Absolute file path that grids have been loaded from. */
   char filepath[FILE_MAX];
   /* File loading error message. */
@@ -552,7 +557,7 @@ bool BKE_volume_is_loaded(const Volume *volume)
 {
 #ifdef WITH_OPENVDB
   /* Test if there is a file to load, or if already loaded. */
-  return (volume->filepath[0] == '\0' || volume->runtime.grids->filepath[0] != '\0');
+  return (volume->filepath[0] == '\0' || volume->runtime.grids->is_loaded());
 #else
   UNUSED_VARS(volume);
   return true;
@@ -778,14 +783,12 @@ static Volume *volume_evaluate_modifiers(struct Depsgraph *depsgraph,
 
 void BKE_volume_eval_geometry(struct Depsgraph *depsgraph, Volume *volume)
 {
+  /* TODO: can we avoid modifier re-evaluation when frame did not change? */
   int frame = volume_sequence_frame(depsgraph, volume);
-
   if (frame != volume->runtime.frame) {
     BKE_volume_unload(volume);
     volume->runtime.frame = frame;
   }
-
-  /* TODO: can we avoid modifier re-evaluation when frame did not change? */
 
   /* Flush back to original. */
   if (DEG_is_active(depsgraph)) {
@@ -806,6 +809,33 @@ void BKE_volume_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Ob
   /* Assign evaluated object. */
   const bool is_owned = (volume != volume_eval);
   BKE_object_eval_assign_data(object, &volume_eval->id, is_owned);
+}
+
+void BKE_volume_grids_backup_restore(Volume *volume, VolumeGridVector *grids, const char *filepath)
+{
+#ifdef WITH_OPENVDB
+  /* Restore grids after datablock was re-copied from original by depsgraph,
+   * we don't want to load them again if possible. */
+  BLI_assert(volume->id.tag & LIB_TAG_COPIED_ON_WRITE);
+  BLI_assert(volume->runtime.grids != NULL && grids != NULL);
+
+  if (!grids->is_loaded()) {
+    /* No grids loaded in CoW datablock, nothing lost by discarding. */
+    OBJECT_GUARDED_DELETE(grids, VolumeGridVector);
+  }
+  else if (!STREQ(volume->filepath, filepath)) {
+    /* Filepath changed, discard grids from CoW datablock. */
+    OBJECT_GUARDED_DELETE(grids, VolumeGridVector);
+  }
+  else {
+    /* Keep grids from CoW datablock. We might still unload them a little
+     * later in BKE_volume_eval_geometry if the frame changes. */
+    OBJECT_GUARDED_DELETE(volume->runtime.grids, VolumeGridVector);
+    volume->runtime.grids = grids;
+  }
+#else
+  UNUSED_VARS(volume, grids);
+#endif
 }
 
 /* Draw Cache */
