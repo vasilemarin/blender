@@ -30,8 +30,8 @@
 
 #include "BKE_blender_undo.h"
 #include "BKE_context.h"
-#include "BKE_library.h"
-#include "BKE_library_query.h"
+#include "BKE_lib_id.h"
+#include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
 #include "BKE_undo_system.h"
