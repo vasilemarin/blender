@@ -9229,9 +9229,17 @@ static BHead *read_libblock(FileData *fd,
   id->newid = NULL; /* Needed because .blend may have been saved with crap value here... */
   id->orig_id = NULL;
 
-  const bool is_id_memaddress_unique = BKE_main_idmemset_register_id(main, id);
-  /* Note: this is likely to fail at some point with current undo/redo code! */
-  BLI_assert(is_id_memaddress_unique);
+  if (do_id_swap) {
+    const bool is_id_memaddress_already_registered = !BKE_main_idmemset_register_id(main, id_old);
+    /* Should never fail, since we re-used an existing ID it should have already been
+     * registered. */
+    BLI_assert(is_id_memaddress_already_registered);
+  }
+  else {
+    const bool is_id_memaddress_unique = BKE_main_idmemset_register_id(main, id);
+    /* Note: this is likely to fail at some point with current undo/redo code! */
+    BLI_assert(is_id_memaddress_unique);
+  }
 
   /* this case cannot be direct_linked: it's just the ID part */
   if (id_bhead->code == ID_LINK_PLACEHOLDER) {
