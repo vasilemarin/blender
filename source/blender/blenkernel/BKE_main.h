@@ -105,6 +105,9 @@ typedef struct Main {
    */
   char use_memfile_full_barrier;
 
+  struct GSet *used_id_memset;
+  short used_id_memset_tag;
+
   BlendThumbnail *blen_thumb;
 
   struct Library *curlib;
@@ -155,11 +158,22 @@ typedef struct Main {
   struct MainLock *lock;
 } Main;
 
+/* Main.used_id_memory_pointers_tag */
+enum {
+  MAIN_IDMEMSET_OWNER = 1 << 0,
+};
+
 struct Main *BKE_main_new(void);
 void BKE_main_free(struct Main *mainvar);
 
 void BKE_main_lock(struct Main *bmain);
 void BKE_main_unlock(struct Main *bmain);
+
+void BKE_main_idmemset_ensure(struct Main *bmain);
+void BKE_main_idmemset_release(struct Main *bmain);
+void BKE_main_idmemset_transfer_ownership(struct Main *bmain_dst, struct Main *bmain_src);
+void BKE_main_idmemset_usefrom(struct Main *bmain_user, struct Main *bmain_src);
+bool BKE_main_idmemset_register_id(struct Main *bmain, struct ID *id);
 
 void BKE_main_relations_create(struct Main *bmain, const short flag);
 void BKE_main_relations_free(struct Main *bmain);

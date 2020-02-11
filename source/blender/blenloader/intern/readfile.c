@@ -505,6 +505,8 @@ static void add_main_to_main(Main *mainvar, Main *from)
   ListBase *lbarray[MAX_LIBARRAY], *fromarray[MAX_LIBARRAY];
   int a;
 
+  BLI_assert(ELEM(from->used_id_memset, NULL, mainvar->used_id_memset));
+
   set_listbasepointers(mainvar, lbarray);
   a = set_listbasepointers(from, fromarray);
   while (a--) {
@@ -562,6 +564,7 @@ void blo_split_main(ListBase *mainlist, Main *main)
   int i = 0;
   for (Library *lib = main->libraries.first; lib; lib = lib->id.next, i++) {
     Main *libmain = BKE_main_new();
+    BKE_main_idmemset_usefrom(libmain, main);
     libmain->curlib = lib;
     libmain->versionfile = lib->versionfile;
     libmain->subversionfile = lib->subversionfile;
@@ -672,6 +675,7 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
   }
 
   m = BKE_main_new();
+  BKE_main_idmemset_usefrom(m, mainlist->first);
   BLI_addtail(mainlist, m);
 
   /* Add library data-block itself to 'main' Main, since libraries are **never** linked data.
@@ -8287,6 +8291,7 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 
   /* new main */
   newmain = BKE_main_new();
+  BKE_main_idmemset_usefrom(newmain, fd->mainlist->first);
   BLI_addtail(fd->mainlist, newmain);
   newmain->curlib = lib;
 
@@ -8872,7 +8877,7 @@ static void direct_link_linestyle(FileData *fd, FreestyleLineStyle *linestyle)
 static ID *create_placeholder(Main *mainvar, const short idcode, const char *idname, const int tag)
 {
   ListBase *lb = which_libbase(mainvar, idcode);
-  ID *ph_id = BKE_libblock_alloc_notest(idcode);
+  ID *ph_id = BKE_libblock_alloc_notest(mainvar, idcode);
 
   *((short *)ph_id->name) = idcode;
   BLI_strncpy(ph_id->name + 2, idname, sizeof(ph_id->name) - 2);
@@ -9162,6 +9167,12 @@ static BHead *read_libblock(FileData *fd,
             *r_id = id_old;
           }
 
+          const bool is_id_memaddress_already_registered = !BKE_main_idmemset_register_id(main,
+                                                                                          id_old);
+          /* Should never fail, since we re-used an existing ID it should have already been
+           * registered. */
+          BLI_assert(!is_id_memaddress_already_registered);
+
           MEM_freeN(id);
           oldnewmap_free_unused(fd->datamap);
           oldnewmap_clear(fd->datamap);
@@ -9217,6 +9228,10 @@ static BHead *read_libblock(FileData *fd,
   id->icon_id = 0;
   id->newid = NULL; /* Needed because .blend may have been saved with crap value here... */
   id->orig_id = NULL;
+
+  const bool is_id_memaddress_unique = BKE_main_idmemset_register_id(main, id);
+  /* Note: this is likely to fail at some point with current undo/redo code! */
+  BLI_assert(is_id_memaddress_unique);
 
   /* this case cannot be direct_linked: it's just the ID part */
   if (id_bhead->code == ID_LINK_PLACEHOLDER) {
@@ -9855,6 +9870,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
   bfd = MEM_callocN(sizeof(BlendFileData), "blendfiledata");
 
   bfd->main = BKE_main_new();
+  BKE_main_idmemset_ensure(bfd->main);
   bfd->main->versionfile = fd->fileversion;
 
   bfd->type = BLENFILETYPE_BLEND;
@@ -11603,6 +11619,7 @@ static void split_main_newid(Main *mainptr, Main *main_newid)
   main_newid->subversionfile = mainptr->subversionfile;
   BLI_strncpy(main_newid->name, mainptr->name, sizeof(main_newid->name));
   main_newid->curlib = mainptr->curlib;
+  BKE_main_idmemset_usefrom(main_newid, mainptr);
 
   ListBase *lbarray[MAX_LIBARRAY];
   ListBase *lbarray_newid[MAX_LIBARRAY];
