@@ -119,7 +119,6 @@ typedef struct FileData {
   struct OldNewMap *datamap;
   struct OldNewMap *globmap;
   struct OldNewMap *libmap;
-  struct OldNewMap *libmap_undo_reused; /* Used for undo. */
   struct OldNewMap *imamap;
   struct OldNewMap *movieclipmap;
   struct OldNewMap *scenemap;
@@ -168,7 +167,6 @@ void blo_make_packed_pointer_map(FileData *fd, struct Main *oldmain);
 void blo_end_packed_pointer_map(FileData *fd, struct Main *oldmain);
 void blo_add_library_pointer_map(ListBase *old_mainlist, FileData *fd);
 void blo_make_idmap_from_main(FileData *fd, struct Main *bmain);
-void blo_make_undo_reused_libmap(FileData *fd);
 
 void blo_filedata_free(FileData *fd);
 

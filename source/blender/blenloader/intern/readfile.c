@@ -1595,9 +1595,6 @@ void blo_filedata_free(FileData *fd)
     if (fd->libmap && !(fd->flags & FD_FLAGS_NOT_MY_LIBMAP)) {
       oldnewmap_free(fd->libmap);
     }
-    if (fd->libmap_undo_reused != NULL) {
-      oldnewmap_free(fd->libmap_undo_reused);
-    }
     if (fd->old_idmap != NULL) {
       BKE_main_idmap_destroy(fd->old_idmap);
     }
@@ -2247,13 +2244,6 @@ void blo_make_idmap_from_main(FileData *fd, Main *bmain)
     BKE_main_idmap_destroy(fd->old_idmap);
   }
   fd->old_idmap = BKE_main_idmap_create(bmain, false, NULL);
-}
-
-/* Create sibling mapping of libmap (i.e. old ID pointer values to new valid IDs), but for the
- * addresses from old main. */
-void blo_make_undo_reused_libmap(FileData *fd)
-{
-  fd->libmap_undo_reused = oldnewmap_new();
 }
 
 /** \} */
@@ -9167,9 +9157,6 @@ static BHead *read_libblock(FileData *fd,
 
         if (can_finalize_and_return) {
           oldnewmap_insert(fd->libmap, id_bhead->old, id_old, id_bhead->code);
-          if (id_old != NULL) {
-            oldnewmap_insert(fd->libmap_undo_reused, id_old, id_old, id_bhead->code);
-          }
 
           if (r_id) {
             *r_id = id_old;
@@ -9202,8 +9189,6 @@ static BHead *read_libblock(FileData *fd,
            * And linked IDs are handled separately as well. */
           do_id_swap = !ELEM(idcode, ID_WM, ID_SCR, ID_WS) &&
                        !(id_bhead->code == ID_LINK_PLACEHOLDER);
-          oldnewmap_insert(
-              fd->libmap_undo_reused, id_old, do_id_swap ? id_old : id, id_bhead->code);
         }
       }
 
@@ -9861,84 +9846,6 @@ static BHead *read_userdef(BlendFileData *bfd, FileData *fd, BHead *bhead)
 /** \name Read File (Internal)
  * \{ */
 
-static int blo_undo_merge_remap_colliding_pointers_cb(void *user_data,
-                                                      ID *UNUSED(id_self),
-                                                      ID **id_pointer,
-                                                      int UNUSED(cb_flag))
-{
-  void **old_new_oldpointers = user_data;
-  if (*id_pointer == old_new_oldpointers[0]) {
-    *id_pointer = old_new_oldpointers[1];
-  }
-
-  return IDWALK_RET_NOP;
-}
-
-static void blo_undo_merge_and_fix_collisions_in_libmaps(FileData *fd)
-{
-  for (int i = fd->libmap->nentries; i-- > 0;) {
-    OldNew *entry = &fd->libmap->entries[i];
-    const void *oldp = entry->oldp;
-
-    OldNew *reused_entry = oldnewmap_lookup_entry(fd->libmap_undo_reused, oldp);
-    /* If both entries are pointing to same new ID of same type (stored in `nr`), there is no
-     * collision. */
-    if (reused_entry != NULL && reused_entry->newp != entry->newp &&
-        reused_entry->nr != entry->nr) {
-      const void *orig_oldp = oldp;
-      /* We have a pointer collision, find a new free oldp value.
-       * Note that we can only check libmap_undo_reused here as well, in the (rather unlikely) case
-       * we'd reach another used oldp value in a libmap item not yet processed, it will simply be
-       * detected as used/colliding too when its turn comes. */
-      for (oldp = (const char *)oldp + 1;
-           oldnewmap_lookup_entry(fd->libmap_undo_reused, oldp) != NULL;
-           oldp = (const char *)oldp + 1)
-        ;
-
-      printf(
-          "%s: found same old pointer value used by both re-used IDs and newly read-from-memfile "
-          "IDs, remapped the laters from %p to %p\n",
-          __func__,
-          orig_oldp,
-          oldp);
-      printf("%s: Nothing to worry about, unless this leads to a crash!\n", __func__);
-
-      /* Now we need to remap all orig_oldp pointers in local main to the new oldp value. */
-      /* Note that we are not using regular ID remapping API, since we only care about pointer
-       * values here, current bmain is still totally unlinked so all the extra processing would be
-       * useless - and lead to crash. */
-      Main *bmain = fd->mainlist->first;
-      ID *id;
-      const void *old_new_oldpointers[2] = {orig_oldp, oldp};
-      FOREACH_MAIN_ID_BEGIN (bmain, id) {
-        if (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) {
-          /* We only want to update values of old pointers in data read from memfile, not the one
-           * re-used from the old bmain. */
-          continue;
-        }
-        BKE_library_foreach_ID_link(bmain,
-                                    id,
-                                    blo_undo_merge_remap_colliding_pointers_cb,
-                                    old_new_oldpointers,
-                                    IDWALK_NOP);
-      }
-      FOREACH_MAIN_ID_END;
-    }
-
-    /* Inserting into libmap_undo_reused, which will be our final, merged libmap.
-     * We are doing this in that direction (and not from libmap_undo_reused to libmap) because this
-     * helps us reducing the changes to reused IDs (the fewer of their pointers we have to remap to
-     * a new address, the less likely they are to be detected as 'changed' in later undo/redo
-     * steps). */
-    oldnewmap_insert(fd->libmap_undo_reused, oldp, entry->newp, entry->nr);
-  }
-
-  /* Finally, we put our final, merged and collision-free libmap at its rightful place. */
-  oldnewmap_free(fd->libmap);
-  fd->libmap = fd->libmap_undo_reused;
-  fd->libmap_undo_reused = NULL;
-}
-
 BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 {
   BHead *bhead = blo_bhead_first(fd);
@@ -10046,18 +9953,6 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
     read_libraries(fd, &mainlist);
 
     blo_join_main(&mainlist);
-
-    if (fd->memfile != NULL && (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0) {
-      /* In case of undo, we have to handle possible 'pointer collisions' between newly read
-       * data-blocks and those re-used from the old bmain. */
-      BLI_assert(fd->libmap_undo_reused != NULL);
-
-      blo_undo_merge_and_fix_collisions_in_libmaps(fd);
-    }
-    else {
-      BLI_assert(fd->libmap_undo_reused == NULL);
-      BLI_assert(fd->old_idmap == NULL);
-    }
 
     lib_link_all(fd, bfd->main);
 
