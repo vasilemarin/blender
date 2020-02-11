@@ -9171,7 +9171,7 @@ static BHead *read_libblock(FileData *fd,
                                                                                           id_old);
           /* Should never fail, since we re-used an existing ID it should have already been
            * registered. */
-          BLI_assert(!is_id_memaddress_already_registered);
+          BLI_assert(is_id_memaddress_already_registered);
 
           MEM_freeN(id);
           oldnewmap_free_unused(fd->datamap);
