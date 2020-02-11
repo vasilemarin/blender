@@ -9580,6 +9580,8 @@ static void do_versions_after_linking(Main *main, ReportList *reports)
 
 static void lib_link_all(FileData *fd, Main *bmain)
 {
+  const bool do_partial_undo = (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0;
+
   ID *id;
   FOREACH_MAIN_ID_BEGIN (bmain, id) {
     if ((id->tag & LIB_TAG_NEED_LINK) == 0) {
@@ -9590,6 +9592,16 @@ static void lib_link_all(FileData *fd, Main *bmain)
     if (fd->memfile != NULL && GS(id->name) == ID_WM) {
       /* No load UI for undo memfiles.
        * Only WM currently, SCR needs it still (see below), and so does WS? */
+      continue;
+    }
+
+    if (fd->memfile != NULL && do_partial_undo && (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) != 0) {
+      /* This ID has been re-used from 'old' bmain. Since it was therfore unchanged accross current
+       * undo step, and old IDs re-use their old memory address, we do not need to liblink it at
+       * all.
+       * NOTE: this is a risky bet that will need a lot of validation. Especiqlly as long as we use
+       * idnames to find back IDs accross undo/redo, there //may// be some specific situations that
+       * could lead us to using freed memory... */
       continue;
     }
 
