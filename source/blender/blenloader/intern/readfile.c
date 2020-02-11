@@ -2747,7 +2747,9 @@ static void direct_link_id_private_id(FileData *fd, ID *id, ID *id_old)
     Scene *scene = (Scene *)id;
     if (scene->master_collection != NULL) {
       scene->master_collection = newdataadr(fd, scene->master_collection);
-      direct_link_id(fd, &scene->master_collection->id, &((Scene *)id_old)->master_collection->id);
+      direct_link_id(fd,
+                     &scene->master_collection->id,
+                     id_old != NULL ? &((Scene *)id_old)->master_collection->id : NULL);
       direct_link_collection(fd, scene->master_collection);
     }
   }
