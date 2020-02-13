@@ -387,11 +387,6 @@ void EEVEE_volumes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   }
 }
 
-typedef struct EEVEE_InstanceVolumeMatrix {
-  DrawData dd;
-  float volume_mat[4][4];
-} EEVEE_InstanceVolumeMatrix;
-
 void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
                                     EEVEE_Data *vedata,
                                     Scene *scene,
@@ -441,6 +436,8 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
 
   DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
 
+  static const float zero_transform[4][4] = {{0.0f, 0.0f}};
+
   /* Volume Object */
   if (ob->type == OB_VOLUME) {
     // TODO: check what the BASE_FROM_DUPLI test is for, do we need it too?
@@ -473,9 +470,8 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
     const float flame_ignition = 1.5f;  // TODO: user setting?
     DRW_shgroup_uniform_vec2(grp, "unftemperature", &flame_ignition, 1);
 
-    /* Volume dimensions for texture sampling. */
-    DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", density->mid, 1);
-    DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", density->halfsize, 1);
+    /* Compute transform. */
+    DRW_shgroup_uniform_mat4(grp, "volumeObjectToLocal", density->object_to_texture);
   }
   /* Smoke Simulation */
   else if (((ob->base_flag & BASE_FROM_DUPLI) == 0) &&
@@ -525,11 +521,19 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
     /* Output is such that 0..1 maps to 0..1000K */
     DRW_shgroup_uniform_vec2(grp, "unftemperature", &mds->flame_ignition, 1);
 
-    /* Volume dimensions for texture sampling. */
-    float *texcoloc, *texcosize;
-    BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texcoloc, &texcosize);
-    DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texcoloc, 1);
-    DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texcosize, 1);
+    /* Compute transform matrix from object to texture space. */
+    float *texco_mid, *texco_halfsize;
+    BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texco_mid, &texco_halfsize);
+
+    float texco_loc[3], texco_size[3];
+    sub_v3_v3v3(texco_loc, texco_mid, texco_halfsize);
+    mul_v3_v3fl(texco_size, texco_halfsize, 2.0f);
+
+    size_to_mat4(mds->tex_transform, texco_size);
+    copy_v3_v3(mds->tex_transform[3], texco_loc);
+    invert_m4(mds->tex_transform);
+
+    DRW_shgroup_uniform_mat4(grp, "volumeObjectToLocal", mds->tex_transform);
   }
   else {
     DRW_shgroup_uniform_texture(grp, "sampdensity", e_data.dummy_density);
@@ -537,8 +541,7 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
     DRW_shgroup_uniform_texture(grp, "sampflame", e_data.dummy_flame);
     DRW_shgroup_uniform_vec3(grp, "volumeColor", white, 1);
     DRW_shgroup_uniform_vec2(grp, "unftemperature", (float[2]){0.0f, 1.0f}, 1);
-    DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", (float[3]){0.0f, 0.0f, 0.0f}, 1);
-    DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", (float[3]){1.0f, 1.0f, 1.0f}, 1);
+    DRW_shgroup_uniform_mat4(grp, "volumeObjectToLocal", zero_transform);
   }
 
   /* TODO Reduce to number of slices intersecting. */
