@@ -61,6 +61,7 @@ static struct {
   GPUTexture *depth_src;
 
   GPUTexture *dummy_density;
+  GPUTexture *dummy_color;
   GPUTexture *dummy_flame;
 
   GPUTexture *dummy_scatter;
@@ -140,10 +141,13 @@ static void eevee_create_shader_volumes(void)
                                                             e_data.volumetric_common_lib,
                                                             NULL);
 
-  float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-  e_data.dummy_density = DRW_texture_create_3d(1, 1, 1, GPU_RGBA8, DRW_TEX_WRAP, color);
+  const float density = 0.0f;
+  e_data.dummy_density = DRW_texture_create_3d(1, 1, 1, GPU_R8, DRW_TEX_WRAP, &density);
 
-  float flame = 0.0f;
+  const float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+  e_data.dummy_color = DRW_texture_create_3d(1, 1, 1, GPU_RGBA8, DRW_TEX_WRAP, color);
+
+  const float flame = 0.0f;
   e_data.dummy_flame = DRW_texture_create_3d(1, 1, 1, GPU_R8, DRW_TEX_WRAP, &flame);
 }
 
@@ -460,6 +464,7 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
 
     // TODO: why a texture reference? probably there is no way to dynamically update it.
     DRW_shgroup_uniform_texture_ref(grp, "sampdensity", &density->texture);
+    DRW_shgroup_uniform_texture_ref(grp, "sampcolor", &e_data.dummy_color);
     DRW_shgroup_uniform_texture_ref(grp, "sampflame", &e_data.dummy_flame);
 
     DRW_shgroup_uniform_vec3(grp, "volumeColor", white, 1);
@@ -504,7 +509,9 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
     }
 
     DRW_shgroup_uniform_texture_ref(
-        grp, "sampdensity", mds->tex ? &mds->tex : &e_data.dummy_density);
+        grp, "sampdensity", mds->tex_density ? &mds->tex_density : &e_data.dummy_density);
+    DRW_shgroup_uniform_texture_ref(
+        grp, "sampcolor", mds->tex_color ? &mds->tex_color : &e_data.dummy_color);
     DRW_shgroup_uniform_texture_ref(
         grp, "sampflame", mds->tex_flame ? &mds->tex_flame : &e_data.dummy_flame);
 
@@ -526,6 +533,7 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   }
   else {
     DRW_shgroup_uniform_texture(grp, "sampdensity", e_data.dummy_density);
+    DRW_shgroup_uniform_texture(grp, "sampcolor", e_data.dummy_color);
     DRW_shgroup_uniform_texture(grp, "sampflame", e_data.dummy_flame);
     DRW_shgroup_uniform_vec3(grp, "volumeColor", white, 1);
     DRW_shgroup_uniform_vec2(grp, "unftemperature", (float[2]){0.0f, 1.0f}, 1);
@@ -768,6 +776,7 @@ void EEVEE_volumes_free(void)
 
   DRW_TEXTURE_FREE_SAFE(e_data.dummy_density);
   DRW_TEXTURE_FREE_SAFE(e_data.dummy_flame);
+  DRW_TEXTURE_FREE_SAFE(e_data.dummy_color);
 
   DRW_SHADER_FREE_SAFE(e_data.volumetric_clear_sh);
   DRW_SHADER_FREE_SAFE(e_data.scatter_sh);
