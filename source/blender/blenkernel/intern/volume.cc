@@ -434,6 +434,8 @@ void BKE_volume_init(Volume *volume)
   volume->frame_start = 1;
   volume->frame_offset = 0;
   volume->frame_duration = 0;
+  /* TODO: why is this needed for common volume files? */
+  volume->display.density_scale = 10.0f;
   BKE_volume_init_grids(volume);
 }
 

@@ -31,8 +31,9 @@
 #include "BLI_dynstr.h"
 #include "BLI_string_utils.h"
 
-#include "BKE_object.h"
 #include "BKE_fluid.h"
+#include "BKE_global.h"
+#include "BKE_object.h"
 #include "BKE_volume.h"
 
 #include "GPU_draw.h"
@@ -41,9 +42,10 @@ enum {
   VOLUME_SH_SLICE = 0,
   VOLUME_SH_COBA,
   VOLUME_SH_CUBIC,
+  VOLUME_SH_SMOKE,
 };
 
-#define VOLUME_SH_MAX (1 << (VOLUME_SH_CUBIC + 1))
+#define VOLUME_SH_MAX (1 << (VOLUME_SH_SMOKE + 1))
 
 static struct {
   struct GPUShader *volume_sh[VOLUME_SH_MAX];
@@ -58,12 +60,13 @@ extern char datatoc_workbench_volume_frag_glsl[];
 extern char datatoc_common_view_lib_glsl[];
 extern char datatoc_gpu_shader_common_obinfos_lib_glsl[];
 
-static GPUShader *volume_shader_get(bool slice, bool coba, bool cubic)
+static GPUShader *volume_shader_get(bool slice, bool coba, bool cubic, bool smoke)
 {
   int id = 0;
   id += (slice) ? (1 << VOLUME_SH_SLICE) : 0;
   id += (coba) ? (1 << VOLUME_SH_COBA) : 0;
   id += (cubic) ? (1 << VOLUME_SH_CUBIC) : 0;
+  id += (smoke) ? (1 << VOLUME_SH_SMOKE) : 0;
 
   if (!e_data.volume_sh[id]) {
     DynStr *ds = BLI_dynstr_new();
@@ -76,6 +79,9 @@ static GPUShader *volume_shader_get(bool slice, bool coba, bool cubic)
     }
     if (cubic) {
       BLI_dynstr_append(ds, "#define USE_TRICUBIC\n");
+    }
+    if (smoke) {
+      BLI_dynstr_append(ds, "#define VOLUME_SMOKE\n");
     }
 
     char *defines = BLI_dynstr_get_cstring(ds);
@@ -158,7 +164,7 @@ static void workbench_volume_modifier_cache_populate(WORKBENCH_Data *vedata,
   const bool use_slice = (mds->slice_method == FLUID_DOMAIN_SLICE_AXIS_ALIGNED &&
                           mds->axis_slice_method == AXIS_SLICE_SINGLE);
   const bool cubic_interp = (mds->interp_method == VOLUME_INTERP_CUBIC);
-  GPUShader *sh = volume_shader_get(use_slice, mds->use_coba, cubic_interp);
+  GPUShader *sh = volume_shader_get(use_slice, mds->use_coba, cubic_interp, true);
 
   if (use_slice) {
     float invviewmat[4][4];
@@ -228,10 +234,20 @@ static void workbench_volume_modifier_cache_populate(WORKBENCH_Data *vedata,
   BLI_addtail(&wpd->smoke_domains, BLI_genericNodeN(mmd));
 }
 
+static void work_volume_material_color(WORKBENCH_PrivateData *wpd, Object *ob, float color[3])
+{
+  WORKBENCH_MaterialData material_template;
+  Material *ma = BKE_object_material_get(ob, 1);
+  int color_type = workbench_material_determine_color_type(wpd, NULL, ob, false);
+  workbench_material_update_data(wpd, ob, ma, &material_template, color_type);
+  copy_v3_v3(color, material_template.base_color);
+}
+
 static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Object *ob)
 {
   /* Create 3D textures. */
   Volume *volume = ob->data;
+  BKE_volume_load(volume, G.main);
   VolumeGrid *volume_grid = BKE_volume_grid_active_get(volume);
   if (volume_grid == NULL) {
     return;
@@ -241,24 +257,18 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
     return;
   }
 
-  // TODO: shaders assumes all textures to have the same bounding box.
-  // to solve this each texture would need its own loc + size transform.
-  // DRWVolumeGrid *temperature = DRW_volume_batch_cache_get_temperature(volume, "temperature");
-
   WORKBENCH_PrivateData *wpd = vedata->stl->g_data;
   WORKBENCH_EffectInfo *effect_info = vedata->stl->effects;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
   wpd->volumes_do = true;
 
-  // TODO: add user settings
-  const bool use_slice = false;
-  const bool cubic_interp = false;
-  const float slice_per_voxel = 5.0f;
-  const float display_thickness = 1000.0f;
-
   /* Create shader. */
-  GPUShader *sh = volume_shader_get(use_slice, false, cubic_interp);
+  GPUShader *sh = volume_shader_get(false, false, false, false);
+
+  /* Compute color. */
+  float color[3];
+  work_volume_material_color(wpd, ob, color);
 
   /* Combined texture to object, and object to world transform. */
   float texture_to_world[4][4];
@@ -269,17 +279,18 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
   mat4_to_size(world_size, texture_to_world);
   abs_v3(world_size);
 
-  /* Compute slice parameters. */
+  /* Compute step parameters. */
   double noise_ofs;
   BLI_halton_1d(3, 0.0, effect_info->jitter_index, &noise_ofs);
   float step_length, max_slice;
   float slice_ct[3] = {grid->resolution[0], grid->resolution[1], grid->resolution[2]};
-  mul_v3_fl(slice_ct, max_ff(0.001f, slice_per_voxel));
+  mul_v3_fl(slice_ct, max_ff(0.001f, 5.0f));
   max_slice = max_fff(slice_ct[0], slice_ct[1], slice_ct[2]);
   invert_v3(slice_ct);
   mul_v3_v3(slice_ct, world_size);
   step_length = len_v3(slice_ct);
 
+  /* Set uniforms. */
   DRWShadingGroup *grp = DRW_shgroup_create(sh, vedata->psl->volume_pass);
   DRW_shgroup_uniform_vec4(grp, "viewvecs[0]", (float *)wpd->viewvecs, 3);
   DRW_shgroup_uniform_int_copy(grp, "samplesLen", max_slice);
@@ -287,20 +298,16 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
   DRW_shgroup_uniform_float_copy(grp, "noiseOfs", noise_ofs);
   DRW_shgroup_state_enable(grp, DRW_STATE_CULL_FRONT);
 
-  static float white[3] = {1.0f, 1.0f, 1.0f};
-  // TODO: density is rgb color + a density, it's getting squared currently?
   DRW_shgroup_uniform_texture(grp, "densityTexture", grid->texture);
-  // TODO: implement shadow texture, like manta_smoke_calc_transparency
+  /* TODO: implement shadow texture, see manta_smoke_calc_transparency. */
   DRW_shgroup_uniform_texture(grp, "shadowTexture", e_data.dummy_shadow_tex);
-  DRW_shgroup_uniform_texture(grp, "flameTexture", e_data.dummy_tex);
-  DRW_shgroup_uniform_texture(grp, "flameColorTexture", e_data.dummy_coba_tex);
-  DRW_shgroup_uniform_vec3(grp, "activeColor", white, 1);
+  DRW_shgroup_uniform_vec3_copy(grp, "activeColor", color);
 
   DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
-  DRW_shgroup_uniform_float_copy(grp, "densityScale", 10.0f * display_thickness);
+  DRW_shgroup_uniform_float_copy(grp, "densityScale", volume->display.density_scale);
 
-  // TODO: DRW_shgroup_call_obmat is not working here, and also does not
-  // support culling, so we hack around it like this.
+  /* DRW_shgroup_call_obmat is not working here, and also does not
+   * support culling, so we hack around it like this. */
   float backup_obmat[4][4], backup_imat[4][4];
   copy_m4_m4(backup_obmat, ob->obmat);
   copy_m4_m4(backup_imat, ob->imat);

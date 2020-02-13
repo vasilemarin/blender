@@ -147,7 +147,8 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   cache_grid->name = BLI_strdup(name);
   BLI_addtail(&cache->grids, cache_grid);
 
-  // TODO: avoid global access, load earlier?
+  /* TODO: can we load this earlier, avoid accessing the global and take
+   * advantage of dependency graph multithreading? */
   BKE_volume_load(volume, G.main);
 
   /* Test if we support textures with the number of channels. */
@@ -177,20 +178,15 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
     BKE_volume_grid_dense_voxels(grid, dense_min, dense_max, voxels);
 
     /* Create GPU texture. */
-    /* TODO: support loading 3 channels. */
-    cache_grid->texture = GPU_texture_create_nD(cache_grid->resolution[0],
+    cache_grid->texture = GPU_texture_create_3d(cache_grid->resolution[0],
                                                 cache_grid->resolution[1],
                                                 cache_grid->resolution[2],
-                                                3,
+                                                (channels == 3) ? GPU_RGB16F : GPU_R16F,
                                                 voxels,
-                                                GPU_R8,
-                                                GPU_DATA_FLOAT,
-                                                0,
-                                                true,
                                                 NULL);
 
     GPU_texture_bind(cache_grid->texture, 0);
-    GPU_texture_swizzle_channel_rrrr(cache_grid->texture);
+    GPU_texture_swizzle_channel_auto(cache_grid->texture, channels);
     GPU_texture_unbind(cache_grid->texture);
 
     MEM_freeN(voxels);

@@ -49,6 +49,12 @@
 
 /* Updates */
 
+static void rna_Volume_update_display(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+  Volume *volume = (Volume *)ptr->owner_id;
+  WM_main_add_notifier(NC_GEOM | ND_DATA, volume);
+}
+
 static void rna_Volume_update_filepath(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
   Volume *volume = (Volume *)ptr->owner_id;
@@ -281,6 +287,7 @@ static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
                              "rna_VolumeGrids_active_index_set",
                              "rna_VolumeGrids_active_index_range");
   RNA_def_property_ui_text(prop, "Active Grid Index", "Index of active volume grid");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_display");
 
   prop = RNA_def_property(srna, "error_message", PROP_STRING, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -314,6 +321,23 @@ static void rna_def_volume_grids(BlenderRNA *brna, PropertyRNA *cprop)
 
   func = RNA_def_function(srna, "unload", "BKE_volume_unload");
   RNA_def_function_ui_description(func, "Unload all grid and voxel data from memory");
+}
+
+static void rna_def_volume_display(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "VolumeDisplay", NULL);
+  RNA_def_struct_ui_text(srna, "Volume Display", "Volume display settings for 3d viewport");
+  RNA_def_struct_sdna(srna, "VolumeDisplay");
+
+  prop = RNA_def_property(srna, "density_scale", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_range(prop, 0.00001, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.1, 100.0, 1, 3);
+  RNA_def_property_ui_text(prop, "Density Scale", "Thickness of volume drawing in the viewport");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_display");
 }
 
 static void rna_def_volume(BlenderRNA *brna)
@@ -407,6 +431,12 @@ static void rna_def_volume(BlenderRNA *brna)
   RNA_def_property_collection_funcs(
       prop, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "rna_IDMaterials_assign_int");
 
+  /* Display */
+  prop = RNA_def_property(srna, "display", PROP_POINTER, PROP_NONE);
+  RNA_def_property_pointer_sdna(prop, NULL, "display");
+  RNA_def_property_struct_type(prop, "VolumeDisplay");
+  RNA_def_property_ui_text(prop, "Display", "Volume display settings for 3d viewport");
+
   /* Common */
   rna_def_animdata_common(srna);
 }
@@ -414,6 +444,7 @@ static void rna_def_volume(BlenderRNA *brna)
 void RNA_def_volume(BlenderRNA *brna)
 {
   rna_def_volume_grid(brna);
+  rna_def_volume_display(brna);
   rna_def_volume(brna);
 }
 

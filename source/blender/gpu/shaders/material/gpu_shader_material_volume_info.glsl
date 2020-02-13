@@ -5,7 +5,7 @@ void node_attribute_volume_density(sampler3D tex, out vec4 outcol, out vec3 outv
 #else
   vec3 cos = vec3(0.0);
 #endif
-  outvec = texture(tex, cos).aaa;
+  outvec = texture(tex, cos).rgb;
   outcol = vec4(outvec, 1.0);
   outf = avg(outvec);
 }

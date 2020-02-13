@@ -39,6 +39,11 @@ typedef struct Volume_Runtime {
   int _pad;
 } Volume_Runtime;
 
+typedef struct VolumeDisplay {
+  float density_scale;
+  float _pad[3];
+} VolumeDisplay;
+
 typedef struct Volume {
   ID id;
   struct AnimData *adt; /* animation data (must be immediately after id) */
@@ -65,6 +70,9 @@ typedef struct Volume {
   struct Material **mat;
   short totcol;
   short _pad2[3];
+
+  /* Display */
+  VolumeDisplay display;
 
   /* Draw Cache */
   void *batch_cache;
