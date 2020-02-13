@@ -84,8 +84,15 @@ class DATA_PT_volume_file(DataButtonsPanel, Panel):
 
 
 class VOLUME_UL_grids(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.prop(item, "name", text="", emboss=False)
+    def draw_item(self, context, layout, data, grid, icon, active_data, active_propname, index):
+        name = grid.name
+        data_type = grid.bl_rna.properties['data_type'].enum_items[grid.data_type]
+
+        layout.label(text=name)
+        row = layout.row()
+        row.alignment = 'RIGHT'
+        row.active = False
+        row.label(text=data_type.name)
 
 
 class DATA_PT_volume_grids(DataButtonsPanel, Panel):
@@ -98,7 +105,7 @@ class DATA_PT_volume_grids(DataButtonsPanel, Panel):
         volume = context.volume
         volume.grids.load()
 
-        layout.template_list("VOLUME_UL_grids", "grids", volume, "grids", volume.grids, "active_index", rows=2)
+        layout.template_list("VOLUME_UL_grids", "grids", volume, "grids", volume.grids, "active_index", rows=3)
 
 
 class DATA_PT_custom_props_volume(DataButtonsPanel, PropertyPanel, Panel):
