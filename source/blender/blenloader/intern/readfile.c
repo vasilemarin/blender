@@ -2314,7 +2314,13 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname)
       }
       else {
         /* SDNA_CMP_EQUAL */
-        temp = MEM_mallocN(bh->len, blockname);
+        if (fd->memfile != NULL && !ELEM(bh->code, DATA, GLOB, DNA1, TEST, REND, USER, ENDB)) {
+          Main *bmain = fd->mainlist->first;
+          temp = BKE_main_idmemset_unique_alloc(bmain, MEM_mallocN, (size_t)bh->len, blockname);
+        }
+        else {
+          temp = MEM_mallocN(bh->len, blockname);
+        }
 #ifdef USE_BHEAD_READ_ON_DEMAND
         if (BHEADN_FROM_BHEAD(bh)->has_data) {
           memcpy(temp, (bh + 1), bh->len);
@@ -9239,11 +9245,6 @@ static BHead *read_libblock(FileData *fd,
     /* Should never fail, since we re-used an existing ID it should have already been
      * registered. */
     BLI_assert(is_id_memaddress_already_registered);
-  }
-  else {
-    const bool is_id_memaddress_unique = BKE_main_idmemset_register_id(main, id);
-    /* Note: this is likely to fail at some point with current undo/redo code! */
-    BLI_assert(is_id_memaddress_unique);
   }
 
   /* this case cannot be direct_linked: it's just the ID part */
