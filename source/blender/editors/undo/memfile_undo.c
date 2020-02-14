@@ -101,13 +101,12 @@ static bool memfile_undosys_step_encode(struct bContext *UNUSED(C),
   return true;
 }
 
-static int memfile_undosys_step_id_reused_cb(void *user_data,
-                                             ID *id_self,
-                                             ID **id_pointer,
-                                             int UNUSED(cb_flag))
+static int memfile_undosys_step_id_reused_cb(LibraryIDLinkCallbackData *cb_data)
 {
+  ID *id_self = cb_data->id_self;
+  ID **id_pointer = cb_data->id_pointer;
   BLI_assert((id_self->tag & LIB_TAG_UNDO_OLD_ID_REUSED) != 0);
-  Main *bmain = user_data;
+  Main *bmain = cb_data->user_data;
 
   ID *id = *id_pointer;
   if (id != NULL && id->lib == NULL && (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) == 0) {
