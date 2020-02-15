@@ -4,10 +4,6 @@
 
 #define NODETREE_EXEC
 
-#ifdef MESH_SHADER
-uniform mat4 volumeObjectToLocal;
-#endif
-
 flat in int slice;
 
 /* Warning: these are not attributes, these are global vars. */
@@ -34,7 +30,6 @@ void main()
   worldPosition = point_view_to_world(viewPosition);
 #ifdef MESH_SHADER
   volumeObjectLocalCoord = point_world_to_object(worldPosition);
-  volumeObjectLocalCoord = (volumeObjectToLocal * vec4(volumeObjectLocalCoord, 1.0)).xyz;
 
   if (any(lessThan(volumeObjectLocalCoord, vec3(0.0))) ||
       any(greaterThan(volumeObjectLocalCoord, vec3(1.0))))

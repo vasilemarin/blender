@@ -437,17 +437,15 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
 
   DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
 
-  static const float zero_transform[4][4] = {{0.0f, 0.0f}};
-
   ListBase textures = GPU_material_textures(mat);
+
+  float texture_to_object[4][4];
+  bool have_transform = false;
 
   /* Volume Object */
   if (ob->type == OB_VOLUME) {
     Volume *volume = ob->data;
     BKE_volume_load(volume, G.main);
-
-    /* TODO: ensure we are culling volumes out of view. */
-    bool have_transform = false;
 
     for (GPUMaterialTexture *tex = textures.first; tex; tex = tex->next) {
       if (tex->volume_grid == NULL) {
@@ -465,7 +463,7 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
       /* Volume dimensions for texture sampling. */
       if (!have_transform && drw_grid) {
         /* TODO: support different transform per grid. */
-        DRW_shgroup_uniform_mat4(grp, "volumeObjectToLocal", drw_grid->object_to_texture);
+        copy_m4_m4(texture_to_object, drw_grid->texture_to_object);
         have_transform = true;
       }
     }
@@ -538,20 +536,6 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
     /* Output is such that 0..1 maps to 0..1000K */
     float volume_temperature[2] = {mds->flame_ignition, mds->flame_max_temp};
     DRW_shgroup_uniform_vec2_copy(grp, "volumeTemperature", volume_temperature);
-
-    /* Compute transform matrix from object to texture space. */
-    float *texco_mid, *texco_halfsize;
-    BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texco_mid, &texco_halfsize);
-
-    float texco_loc[3], texco_size[3];
-    sub_v3_v3v3(texco_loc, texco_mid, texco_halfsize);
-    mul_v3_v3fl(texco_size, texco_halfsize, 2.0f);
-
-    size_to_mat4(mds->tex_transform, texco_size);
-    copy_v3_v3(mds->tex_transform[3], texco_loc);
-    invert_m4(mds->tex_transform);
-
-    DRW_shgroup_uniform_mat4(grp, "volumeObjectToLocal", mds->tex_transform);
   }
   else {
     for (GPUMaterialTexture *tex = textures.first; tex; tex = tex->next) {
@@ -560,12 +544,35 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
         continue;
       }
     }
-    DRW_shgroup_uniform_mat4(grp, "volumeObjectToLocal", zero_transform);
   }
+
+  if (!have_transform) {
+    /* Compute transform matrix from object to texture space. */
+    float *texco_mid, *texco_halfsize;
+    BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texco_mid, &texco_halfsize);
+
+    float texco_loc[3], texco_size[3];
+    sub_v3_v3v3(texco_loc, texco_mid, texco_halfsize);
+    mul_v3_v3fl(texco_size, texco_halfsize, 2.0f);
+
+    size_to_mat4(texture_to_object, texco_size);
+    copy_v3_v3(texture_to_object[3], texco_loc);
+  }
+
+  /* Hack to add additional transform. */
+  /* TODO: add proper way to pass custom matrix overriding object. */
+  float backup_obmat[4][4], backup_imat[4][4];
+  copy_m4_m4(backup_obmat, ob->obmat);
+  copy_m4_m4(backup_imat, ob->imat);
+  mul_m4_m4m4(ob->obmat, ob->obmat, texture_to_object);
+  invert_m4_m4(ob->imat, ob->obmat);
 
   /* TODO Reduce to number of slices intersecting. */
   /* TODO Preemptive culling. */
   DRW_shgroup_call_procedural_triangles(grp, ob, sldata->common_data.vol_tex_size[2]);
+
+  copy_m4_m4(ob->obmat, backup_obmat);
+  copy_m4_m4(ob->imat, backup_imat);
 
   vedata->stl->effects->enabled_effects |= (EFFECT_VOLUMETRIC | EFFECT_POST_BUFFER);
 }
