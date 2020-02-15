@@ -27,6 +27,7 @@
 #include "BLI_math.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
+#include "BLI_string_utils.h"
 #include "BLI_threads.h"
 #include "BLI_jitter_2d.h"
 
@@ -96,6 +97,8 @@
 #include "IMB_imbuf_types.h"
 
 #include "view3d_intern.h" /* own include */
+
+#define M_GOLDEN_RATION_CONJUGATE 0.618033988749895f
 
 /* -------------------------------------------------------------------- */
 /** \name General Functions
@@ -449,7 +452,7 @@ static void drawviewborder_triangle(
 
   if (w > h) {
     if (golden) {
-      ofs = w * (1.0f - (1.0f / 1.61803399f));
+      ofs = w * (1.0f - (1.0f / M_GOLDEN_RATION_CONJUGATE));
     }
     else {
       ofs = h * (h / w);
@@ -469,7 +472,7 @@ static void drawviewborder_triangle(
   }
   else {
     if (golden) {
-      ofs = h * (1.0f - (1.0f / 1.61803399f));
+      ofs = h * (1.0f - (1.0f / M_GOLDEN_RATION_CONJUGATE));
     }
     else {
       ofs = w * (w / h);
@@ -659,7 +662,7 @@ static void drawviewborder(Scene *scene, Depsgraph *depsgraph, ARegion *ar, View
     }
 
     if (ca->dtx & CAM_DTX_GOLDEN) {
-      drawviewborder_grid3(shdr_pos, x1, x2, y1, y2, 1.0f - (1.0f / 1.61803399f));
+      drawviewborder_grid3(shdr_pos, x1, x2, y1, y2, 1.0f - (1.0f / M_GOLDEN_RATION_CONJUGATE));
     }
 
     if (ca->dtx & CAM_DTX_GOLDEN_TRI_A) {
@@ -1255,21 +1258,44 @@ static void draw_viewport_name(ARegion *ar, View3D *v3d, int xoffset, int *yoffs
 {
   RegionView3D *rv3d = ar->regiondata;
   const char *name = view3d_get_name(v3d, rv3d);
+  const char *name_array[3] = {name, NULL, NULL};
+  int name_array_len = 1;
   const int font_id = BLF_default();
 
+  /* 6 is the maximum size of the axis roll text. */
   /* increase size for unicode languages (Chinese in utf-8...) */
 #ifdef WITH_INTERNATIONAL
-  char tmpstr[96];
+  char tmpstr[96 + 6];
 #else
-  char tmpstr[32];
+  char tmpstr[32 + 6];
 #endif
 
   BLF_enable(font_id, BLF_SHADOW);
   BLF_shadow(font_id, 5, (const float[4]){0.0f, 0.0f, 0.0f, 1.0f});
   BLF_shadow_offset(font_id, 1, -1);
 
+  if (RV3D_VIEW_IS_AXIS(rv3d->view) && (rv3d->view_axis_roll != RV3D_VIEW_AXIS_ROLL_0)) {
+    const char *axis_roll;
+    switch (rv3d->view_axis_roll) {
+      case RV3D_VIEW_AXIS_ROLL_90:
+        axis_roll = " 90\xC2\xB0";
+        break;
+      case RV3D_VIEW_AXIS_ROLL_180:
+        axis_roll = " 180\xC2\xB0";
+        break;
+      default:
+        axis_roll = " -90\xC2\xB0";
+        break;
+    }
+    name_array[name_array_len++] = axis_roll;
+  }
+
   if (v3d->localvd) {
-    BLI_snprintf(tmpstr, sizeof(tmpstr), IFACE_("%s (Local)"), name);
+    name_array[name_array_len++] = IFACE_(" (Local)");
+  }
+
+  if (name_array_len > 1) {
+    BLI_string_join_array(tmpstr, sizeof(tmpstr), name_array, name_array_len);
     name = tmpstr;
   }
 
@@ -1277,11 +1303,7 @@ static void draw_viewport_name(ARegion *ar, View3D *v3d, int xoffset, int *yoffs
 
   *yoffset -= U.widget_unit;
 
-#ifdef WITH_INTERNATIONAL
   BLF_draw_default(xoffset, *yoffset, 0.0f, name, sizeof(tmpstr));
-#else
-  BLF_draw_default_ascii(xoffset, *yoffset, 0.0f, name, sizeof(tmpstr));
-#endif
 
   BLF_disable(font_id, BLF_SHADOW);
 }
@@ -1947,45 +1969,23 @@ bool ED_view3d_clipping_test(const RegionView3D *rv3d, const float co[3], const 
   return view3d_clipping_test(co, is_local ? rv3d->clip_local : rv3d->clip);
 }
 
-/* Legacy 2.7x, now use shaders that use clip distance instead.
- * Remove once clipping is working properly. */
-#define USE_CLIP_PLANES
-
-void ED_view3d_clipping_set(RegionView3D *rv3d)
+void ED_view3d_clipping_set(RegionView3D *UNUSED(rv3d))
 {
-#ifdef USE_CLIP_PLANES
-  double plane[4];
-  const uint tot = (rv3d->viewlock & RV3D_BOXCLIP) ? 4 : 6;
-
-  for (unsigned a = 0; a < tot; a++) {
-    copy_v4db_v4fl(plane, rv3d->clip[a]);
-    glClipPlane(GL_CLIP_PLANE0 + a, plane);
-    glEnable(GL_CLIP_PLANE0 + a);
+  for (uint a = 0; a < 6; a++) {
     glEnable(GL_CLIP_DISTANCE0 + a);
   }
-#else
-  for (unsigned a = 0; a < 6; a++) {
-    glEnable(GL_CLIP_DISTANCE0 + a);
-  }
-#endif
 }
 
 /* Use these to temp disable/enable clipping when 'rv3d->rflag & RV3D_CLIPPING' is set. */
 void ED_view3d_clipping_disable(void)
 {
-  for (unsigned a = 0; a < 6; a++) {
-#ifdef USE_CLIP_PLANES
-    glDisable(GL_CLIP_PLANE0 + a);
-#endif
+  for (uint a = 0; a < 6; a++) {
     glDisable(GL_CLIP_DISTANCE0 + a);
   }
 }
 void ED_view3d_clipping_enable(void)
 {
-  for (unsigned a = 0; a < 6; a++) {
-#ifdef USE_CLIP_PLANES
-    glEnable(GL_CLIP_PLANE0 + a);
-#endif
+  for (uint a = 0; a < 6; a++) {
     glEnable(GL_CLIP_DISTANCE0 + a);
   }
 }

@@ -24,6 +24,10 @@
 #include "DNA_defs.h"
 #include "DNA_listBase.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* WARNING ALERT! TYPEDEF VALUES ARE WRITTEN IN FILES! SO DO NOT CHANGE!
  * (ONLY ADD NEW ITEMS AT THE END)
  */
@@ -699,6 +703,7 @@ typedef struct ArmatureModifierData {
 
 enum {
   MOD_HOOK_UNIFORM_SPACE = (1 << 0),
+  MOD_HOOK_INVERT_VGROUP = (1 << 1),
 };
 
 /* same as WarpModifierFalloff */
@@ -1318,11 +1323,10 @@ typedef struct WarpModifierData {
   char _pad[6];
 } WarpModifierData;
 
-#define MOD_WARP_VOLUME_PRESERVE 1
-
 /* WarpModifierData->flag */
 enum {
-  MOD_WARP_INVERT_VGROUP = (1 << 0),
+  MOD_WARP_VOLUME_PRESERVE = (1 << 0),
+  MOD_WARP_INVERT_VGROUP = (1 << 1),
 };
 
 typedef enum {
@@ -1382,7 +1386,8 @@ typedef struct WeightVGEditModifierData {
 
 /* WeightVGEdit flags. */
 enum {
-  /* (1 << 0), (1 << 1) and (1 << 2) are free for future use! */
+  /* (1 << 0) and (1 << 1) are free for future use! */
+  MOD_WVG_EDIT_INVERT_VGROUP_MASK = (1 << 2),
   /** Add vertices with higher weight than threshold to vgroup. */
   MOD_WVG_EDIT_ADD2VG = (1 << 3),
   /** Remove vertices with lower weight than threshold from vgroup. */
@@ -1425,8 +1430,10 @@ typedef struct WeightVGMixModifierData {
   /** Name of the UV map. MAX_CUSTOMDATA_LAYER_NAME. */
   char mask_tex_uvlayer_name[64];
 
+  char flag;
+
   /* Padding... */
-  char _pad1[4];
+  char _pad1[3];
 } WeightVGMixModifierData;
 
 /* How second vgroup's weights affect first ones. */
@@ -1459,6 +1466,11 @@ enum {
   MOD_WVG_SET_OR = 4,
   /** Affect only vertices in both vgroups. */
   MOD_WVG_SET_AND = 5,
+};
+
+/* WeightVGMix->flag */
+enum {
+  MOD_WVG_MIX_INVERT_VGROUP_MASK = (1 << 0),
 };
 
 typedef struct WeightVGProximityModifierData {
@@ -1517,6 +1529,7 @@ enum {
   MOD_WVG_PROXIMITY_GEOM_EDGES = (1 << 1),
   /* Use nearest faces of target obj, in MOD_WVG_PROXIMITY_GEOMETRY mode. */
   MOD_WVG_PROXIMITY_GEOM_FACES = (1 << 2),
+  MOD_WVG_PROXIMITY_INVERT_VGROUP_MASK = (1 << 3),
 };
 
 /* Defines common to all WeightVG modifiers. */
@@ -1728,9 +1741,13 @@ typedef struct UVWarpModifierData {
   ModifierData modifier;
 
   char axis_u, axis_v;
-  char _pad[6];
+  char _pad[2];
   /** Used for rotate/scale. */
   float center[2];
+
+  float offset[2];
+  float scale[2];
+  float rotation;
 
   /** Source. */
   struct Object *object_src;
@@ -1857,7 +1874,15 @@ typedef struct WeldModifierData {
   unsigned int max_interactions;
   /* Name of vertex group to use to mask, MAX_VGROUP_NAME. */
   char defgrp_name[64];
+
+  short flag;
+  char _pad[6];
 } WeldModifierData;
+
+/* WeldModifierData->flag */
+enum {
+  MOD_WELD_INVERT_VGROUP = (1 << 0),
+};
 
 typedef struct DataTransferModifierData {
   ModifierData modifier;
@@ -2041,5 +2066,9 @@ enum {
 
 #define MOD_MESHSEQ_READ_ALL \
   (MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */
