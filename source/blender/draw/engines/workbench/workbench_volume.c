@@ -308,16 +308,11 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata, Objec
   DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
   DRW_shgroup_uniform_float_copy(grp, "densityScale", volume->display.density_scale);
 
-  /* DRW_shgroup_call_obmat is not working here, and also does not
-   * support culling, so we hack around it like this. */
-  float backup_obmat[4][4], backup_imat[4][4];
-  copy_m4_m4(backup_obmat, ob->obmat);
-  copy_m4_m4(backup_imat, ob->imat);
-  copy_m4_m4(ob->obmat, texture_to_world);
-  invert_m4_m4(ob->imat, texture_to_world);
+  DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", grid->object_to_texture);
+  DRW_shgroup_uniform_mat4(grp, "volumeTextureToObject", grid->texture_to_object);
+
+  /* TODO: make culling work? */
   DRW_shgroup_call(grp, DRW_cache_cube_get(), ob);
-  copy_m4_m4(ob->obmat, backup_obmat);
-  copy_m4_m4(ob->imat, backup_imat);
 }
 
 void workbench_volume_cache_populate(WORKBENCH_Data *vedata,

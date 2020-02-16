@@ -7,6 +7,8 @@ uniform sampler3D shadowTexture;
 uniform sampler3D flameTexture;
 uniform sampler1D flameColorTexture;
 uniform sampler1D transferTexture;
+#else
+uniform mat4 volumeObjectToTexture;
 #endif
 
 uniform int samplesLen = 256;
@@ -234,9 +236,16 @@ void main()
   vec3 ls_ray_ori = point_view_to_object(vs_ray_ori);
   vec3 ls_ray_end = point_view_to_object(vs_ray_end);
 
+#  ifdef VOLUME_SMOKE
   ls_ray_dir = (OrcoTexCoFactors[0].xyz + ls_ray_dir * OrcoTexCoFactors[1].xyz) * 2.0 - 1.0;
   ls_ray_ori = (OrcoTexCoFactors[0].xyz + ls_ray_ori * OrcoTexCoFactors[1].xyz) * 2.0 - 1.0;
   ls_ray_end = (OrcoTexCoFactors[0].xyz + ls_ray_end * OrcoTexCoFactors[1].xyz) * 2.0 - 1.0;
+#  else
+  ls_ray_dir = (volumeObjectToTexture * vec4(ls_ray_dir, 1.0)).xyz * 2.0f - 1.0;
+  ls_ray_ori = (volumeObjectToTexture * vec4(ls_ray_ori, 1.0)).xyz * 2.0f - 1.0;
+  ls_ray_end = (volumeObjectToTexture * vec4(ls_ray_end, 1.0)).xyz * 2.0f - 1.0;
+#  endif
+
   ls_ray_dir -= ls_ray_ori;
 
   /* TODO: Align rays to volume center so that it mimics old behaviour of slicing the volume. */

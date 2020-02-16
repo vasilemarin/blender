@@ -438,8 +438,6 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
 
   ListBase textures = GPU_material_textures(mat);
-
-  float texture_to_object[4][4];
   bool have_transform = false;
 
   /* Volume Object */
@@ -463,7 +461,11 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
       /* Volume dimensions for texture sampling. */
       if (!have_transform && drw_grid) {
         /* TODO: support different transform per grid. */
-        copy_m4_m4(texture_to_object, drw_grid->texture_to_object);
+        static const float texco_loc[3] = {0.5f, 0.5f, 0.5f};
+        static const float texco_size[3] = {0.5f, 0.5f, 0.5f};
+        DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", drw_grid->object_to_texture);
+        DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texco_loc, 1);
+        DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texco_size, 1);
         have_transform = true;
       }
     }
@@ -547,32 +549,22 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   }
 
   if (!have_transform) {
-    /* Compute transform matrix from object to texture space. */
-    float *texco_mid, *texco_halfsize;
-    BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texco_mid, &texco_halfsize);
+    /* Texture space transform for smoke and meshes. */
+    static const float unit_mat[4][4] = {{1.0f, 0.0f, 0.0f, 0.0f},
+                                         {0.0f, 1.0f, 0.0f, 0.0f},
+                                         {0.0f, 0.0f, 1.0f, 0.0f},
+                                         {0.0f, 0.0f, 0.0f, 1.0f}};
+    float *texco_loc, *texco_size;
+    BKE_mesh_texspace_get_reference((struct Mesh *)ob->data, NULL, &texco_loc, &texco_size);
 
-    float texco_loc[3], texco_size[3];
-    sub_v3_v3v3(texco_loc, texco_mid, texco_halfsize);
-    mul_v3_v3fl(texco_size, texco_halfsize, 2.0f);
-
-    size_to_mat4(texture_to_object, texco_size);
-    copy_v3_v3(texture_to_object[3], texco_loc);
+    DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", unit_mat);
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texco_loc, 1);
+    DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texco_size, 1);
   }
-
-  /* Hack to add additional transform. */
-  /* TODO: add proper way to pass custom matrix overriding object. */
-  float backup_obmat[4][4], backup_imat[4][4];
-  copy_m4_m4(backup_obmat, ob->obmat);
-  copy_m4_m4(backup_imat, ob->imat);
-  mul_m4_m4m4(ob->obmat, ob->obmat, texture_to_object);
-  invert_m4_m4(ob->imat, ob->obmat);
 
   /* TODO Reduce to number of slices intersecting. */
   /* TODO Preemptive culling. */
   DRW_shgroup_call_procedural_triangles(grp, ob, sldata->common_data.vol_tex_size[2]);
-
-  copy_m4_m4(ob->obmat, backup_obmat);
-  copy_m4_m4(ob->imat, backup_imat);
 
   vedata->stl->effects->enabled_effects |= (EFFECT_VOLUMETRIC | EFFECT_POST_BUFFER);
 }

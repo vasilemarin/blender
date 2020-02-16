@@ -4,6 +4,10 @@ uniform float slicePosition;
 uniform int sliceAxis; /* -1 is no slice, 0 is X, 1 is Y, 2 is Z. */
 #endif
 
+#ifndef VOLUME_SMOKE
+uniform mat4 volumeTextureToObject;
+#endif
+
 in vec3 pos;
 
 RESOURCE_ID_VARYING
@@ -30,7 +34,12 @@ void main()
 #else
   vec3 final_pos = pos;
 #endif
+
+#ifdef VOLUME_SMOKE
   final_pos = ((final_pos * 0.5 + 0.5) - OrcoTexCoFactors[0].xyz) / OrcoTexCoFactors[1].xyz;
+#else
+  final_pos = (volumeTextureToObject * vec4(final_pos * 0.5 + 0.5, 1.0)).xyz;
+#endif
   gl_Position = point_object_to_ndc(final_pos);
 
   PASS_RESOURCE_ID

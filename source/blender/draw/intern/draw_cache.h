@@ -221,8 +221,9 @@ typedef struct DRWVolumeGrid {
   struct GPUTexture *texture;
   size_t resolution[3];
 
-  /* Transform from 0..1 texture space to object space. */
+  /* Transform between 0..1 texture space and object space. */
   float texture_to_object[4][4];
+  float object_to_texture[4][4];
 } DRWVolumeGrid;
 
 DRWVolumeGrid *DRW_volume_batch_cache_get_grid(struct Volume *volume, struct VolumeGrid *grid);
