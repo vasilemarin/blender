@@ -40,8 +40,9 @@ typedef struct Volume_Runtime {
 } Volume_Runtime;
 
 typedef struct VolumeDisplay {
-  float density_scale;
-  float _pad[3];
+  float density;
+  int wireframe_type;
+  int _pad[2];
 } VolumeDisplay;
 
 typedef struct Volume {
@@ -93,6 +94,14 @@ typedef enum VolumeSequenceMode {
   VOLUME_SEQUENCE_REPEAT,
   VOLUME_SEQUENCE_PING_PONG,
 } VolumeSequenceMode;
+
+/* VolumeDisplay.wireframe_type */
+typedef enum VolumeWireframeType {
+  VOLUME_WIREFRAME_NONE = 0,
+  VOLUME_WIREFRAME_BOUNDS = 1,
+  VOLUME_WIREFRAME_COARSE = 2,
+  VOLUME_WIREFRAME_FINE = 3,
+} VolumeWireframeType;
 
 /* Only one material supported currently. */
 #define VOLUME_MATERIAL_NR 1

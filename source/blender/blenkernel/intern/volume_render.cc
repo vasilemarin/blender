@@ -22,8 +22,12 @@
  *  \ingroup bke
  */
 
+#include "MEM_guardedalloc.h"
+
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
+
+#include "DNA_volume_types.h"
 
 #include "BKE_volume.h"
 #include "BKE_volume_render.h"
@@ -159,5 +163,182 @@ void BKE_volume_grid_dense_voxels(const Volume *volume,
   }
 #else
   UNUSED_VARS(volume, volume_grid, min, max, voxels);
+#endif
+}
+
+/* Wireframe */
+
+#ifdef WITH_OPENVDB
+struct VolumeWireframe {
+  std::vector<openvdb::Vec3f> verts;
+  std::vector<openvdb::Vec2I> edges;
+
+  template<typename GridType>
+  void add_grid(openvdb::GridBase::ConstPtr gridbase, const bool coarse)
+  {
+    using TreeType = typename GridType::TreeType;
+    using Depth2Type = typename TreeType::RootNodeType::ChildNodeType::ChildNodeType;
+    using NodeCIter = typename TreeType::NodeCIter;
+    using GridConstPtr = typename GridType::ConstPtr;
+
+    GridConstPtr grid = openvdb::gridConstPtrCast<GridType>(gridbase);
+    const openvdb::math::Transform &transform = grid->transform();
+    const int depth = (coarse) ? 2 : 3;
+
+    NodeCIter iter = grid->tree().cbeginNode();
+    iter.setMaxDepth(depth);
+
+    for (; iter; ++iter) {
+      if (iter.getDepth() == depth) {
+        openvdb::CoordBBox coordbbox;
+
+        if (depth == 2) {
+          /* Internal node at depth 2. */
+          const Depth2Type *node = nullptr;
+          iter.getNode(node);
+          if (node) {
+            node->evalActiveBoundingBox(coordbbox, false);
+          }
+          else {
+            continue;
+          }
+        }
+        else {
+          /* Leaf node. */
+          if (!iter.getBoundingBox(coordbbox)) {
+            continue;
+          }
+        }
+
+        /* +1 to convert from exclusive to include bounds. */
+        coordbbox.max() = coordbbox.max().offsetBy(1);
+        openvdb::BBoxd bbox = transform.indexToWorld(coordbbox);
+        add_node(bbox);
+      }
+    }
+  }
+
+  void add_node(const openvdb::BBoxd &bbox)
+  {
+    /* TODO: deduplicate edges, hide flat edges? */
+    openvdb::Vec3f min = bbox.min();
+    openvdb::Vec3f max = bbox.max();
+
+    const int vert_offset = verts.size();
+    const int edge_offset = edges.size();
+
+    /* Create vertices. */
+    verts.resize(vert_offset + 8);
+    verts[vert_offset + 0] = openvdb::Vec3f(min[0], min[1], min[2]);
+    verts[vert_offset + 1] = openvdb::Vec3f(max[0], min[1], min[2]);
+    verts[vert_offset + 2] = openvdb::Vec3f(max[0], max[1], min[2]);
+    verts[vert_offset + 3] = openvdb::Vec3f(min[0], max[1], min[2]);
+    verts[vert_offset + 4] = openvdb::Vec3f(min[0], min[1], max[2]);
+    verts[vert_offset + 5] = openvdb::Vec3f(max[0], min[1], max[2]);
+    verts[vert_offset + 6] = openvdb::Vec3f(max[0], max[1], max[2]);
+    verts[vert_offset + 7] = openvdb::Vec3f(min[0], max[1], max[2]);
+
+    /* Create edges. */
+    const int box_edges[12][2] = {{0, 1},
+                                  {1, 2},
+                                  {2, 3},
+                                  {3, 0},
+                                  {4, 5},
+                                  {5, 6},
+                                  {6, 7},
+                                  {7, 4},
+                                  {0, 4},
+                                  {1, 5},
+                                  {2, 6},
+                                  {3, 7}};
+
+    edges.resize(edge_offset + 12);
+    for (int i = 0; i < 12; i++) {
+      edges[edge_offset + i] = openvdb::Vec2I(vert_offset + box_edges[i][0],
+                                              vert_offset + box_edges[i][1]);
+    }
+  }
+};
+#endif
+
+void BKE_volume_grid_wireframe(const Volume *volume,
+                               VolumeGrid *volume_grid,
+                               BKE_volume_wireframe_cb cb,
+                               void *cb_userdata)
+{
+#ifdef WITH_OPENVDB
+  VolumeWireframe wireframe;
+
+  if (volume->display.wireframe_type == VOLUME_WIREFRAME_NONE) {
+    /* Nothing. */
+  }
+  else if (volume->display.wireframe_type == VOLUME_WIREFRAME_BOUNDS) {
+    /* Bounding box. */
+    float min[3], max[3];
+    BKE_volume_grid_bounds(volume_grid, min, max);
+
+    openvdb::BBoxd bbox(min, max);
+    wireframe.add_node(bbox);
+  }
+  else {
+    /* Tree nodes. */
+    openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
+    const bool coarse = (volume->display.wireframe_type == VOLUME_WIREFRAME_COARSE);
+
+    switch (BKE_volume_grid_type(volume_grid)) {
+      case VOLUME_GRID_BOOLEAN: {
+        wireframe.add_grid<openvdb::BoolGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_FLOAT: {
+        wireframe.add_grid<openvdb::FloatGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_DOUBLE: {
+        wireframe.add_grid<openvdb::DoubleGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_INT: {
+        wireframe.add_grid<openvdb::Int32Grid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_INT64: {
+        wireframe.add_grid<openvdb::Int64Grid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_MASK: {
+        wireframe.add_grid<openvdb::MaskGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_VECTOR_FLOAT: {
+        wireframe.add_grid<openvdb::Vec3fGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_VECTOR_DOUBLE: {
+        wireframe.add_grid<openvdb::Vec3dGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_VECTOR_INT: {
+        wireframe.add_grid<openvdb::Vec3IGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_STRING: {
+        wireframe.add_grid<openvdb::StringGrid>(grid, coarse);
+        break;
+      }
+      case VOLUME_GRID_UNKNOWN: {
+        break;
+      }
+    }
+  }
+
+  cb(cb_userdata,
+     (float(*)[3])wireframe.verts.data(),
+     (int(*)[2])wireframe.edges.data(),
+     wireframe.verts.size(),
+     wireframe.edges.size());
+#else
+  UNUSED_VARS(volume, volume_grid);
+  cb(cb_userdata, NULL, NULL, 0, 0);
 #endif
 }

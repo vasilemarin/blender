@@ -807,7 +807,7 @@ GPUBatch *DRW_cache_object_face_wireframe_get(Object *ob)
     case OB_POINTCLOUD:
       return NULL;
     case OB_VOLUME:
-      return NULL;
+      return DRW_cache_volume_face_wireframe_get(ob);
     default:
       return NULL;
   }
@@ -3232,6 +3232,16 @@ GPUBatch *DRW_cache_lattice_vert_overlay_get(Object *ob)
 GPUBatch *DRW_cache_pointcloud_get_dots(Object *object)
 {
   return DRW_pointcloud_batch_cache_get_dots(object);
+}
+
+/* -------------------------------------------------------------------- */
+/** \name Volume
+ * \{ */
+
+GPUBatch *DRW_cache_volume_face_wireframe_get(Object *ob)
+{
+  BLI_assert(ob->type == OB_VOLUME);
+  return DRW_volume_batch_cache_get_wireframes_face(ob->data);
 }
 
 /** \} */

@@ -434,7 +434,8 @@ void BKE_volume_init(Volume *volume)
   volume->frame_offset = 0;
   volume->frame_duration = 0;
   /* TODO: why is this needed for common volume files? */
-  volume->display.density_scale = 10.0f;
+  volume->display.density = 10.0f;
+  volume->display.wireframe_type = VOLUME_WIREFRAME_COARSE;
   BKE_volume_init_grids(volume);
 }
 
@@ -1080,18 +1081,16 @@ bool BKE_volume_grid_bounds(const VolumeGrid *volume_grid, float min[3], float m
 {
 #ifdef WITH_OPENVDB
   /* TODO: we can get this from grid metadata in some cases? */
-  /* TODO: coarse bounding box from tree instead of voxels may be enough? */
   const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
   BLI_assert(BKE_volume_grid_is_loaded(volume_grid));
 
-  if (grid->empty()) {
+  openvdb::CoordBBox coordbbox;
+  if (!grid->baseTree().evalLeafBoundingBox(coordbbox)) {
     INIT_MINMAX(min, max);
     return false;
   }
 
-  openvdb::CoordBBox coordbbox = grid->evalActiveVoxelBoundingBox();
   openvdb::BBoxd bbox = grid->transform().indexToWorld(coordbbox);
-
   min[0] = (float)bbox.min().x();
   min[1] = (float)bbox.min().y();
   min[2] = (float)bbox.min().z();

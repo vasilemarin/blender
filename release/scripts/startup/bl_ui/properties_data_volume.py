@@ -110,7 +110,6 @@ class DATA_PT_volume_grids(DataButtonsPanel, Panel):
 
 class DATA_PT_volume_viewport_display(DataButtonsPanel, Panel):
     bl_label = "Viewport Display"
-    bl_options = {'DEFAULT_CLOSED'}
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
@@ -120,7 +119,8 @@ class DATA_PT_volume_viewport_display(DataButtonsPanel, Panel):
 
         volume = context.volume
         display = volume.display
-        layout.prop(display, "density_scale")
+        layout.prop(display, "density")
+        layout.prop(display, "wireframe_type")
 
 
 class DATA_PT_custom_props_volume(DataButtonsPanel, PropertyPanel, Panel):

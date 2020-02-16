@@ -332,11 +332,36 @@ static void rna_def_volume_display(BlenderRNA *brna)
   RNA_def_struct_ui_text(srna, "Volume Display", "Volume display settings for 3d viewport");
   RNA_def_struct_sdna(srna, "VolumeDisplay");
 
-  prop = RNA_def_property(srna, "density_scale", PROP_FLOAT, PROP_NONE);
+  prop = RNA_def_property(srna, "density", PROP_FLOAT, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_range(prop, 0.00001, FLT_MAX);
   RNA_def_property_ui_range(prop, 0.1, 100.0, 1, 3);
-  RNA_def_property_ui_text(prop, "Density Scale", "Thickness of volume drawing in the viewport");
+  RNA_def_property_ui_text(prop, "Density", "Thickness of volume drawing in the viewport");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_display");
+
+  static const EnumPropertyItem wireframe_type_items[] = {
+      {VOLUME_WIREFRAME_NONE, "NONE", 0, "None", "Don't display volume in wireframe mode"},
+      {VOLUME_WIREFRAME_BOUNDS,
+       "BOUNDS",
+       0,
+       "Bounds",
+       "Display single bounding box for the entire grid"},
+      {VOLUME_WIREFRAME_COARSE,
+       "COARSE",
+       0,
+       "Coarse",
+       "Display bounding box coarse showign volume shape"},
+      {VOLUME_WIREFRAME_FINE,
+       "FINE",
+       0,
+       "Fine",
+       "Display box for each leaf nodes containing 8x8 voxels"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  prop = RNA_def_property(srna, "wireframe_type", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, wireframe_type_items);
+  RNA_def_property_ui_text(prop, "Wireframe", "Amount of detail for wireframe display");
   RNA_def_property_update(prop, 0, "rna_Volume_update_display");
 }
 

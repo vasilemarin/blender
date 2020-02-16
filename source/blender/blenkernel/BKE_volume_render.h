@@ -50,6 +50,16 @@ void BKE_volume_grid_dense_voxels(const struct Volume *volume,
                                   const size_t max[3],
                                   float *voxels);
 
+/* Wireframe */
+
+typedef void (*BKE_volume_wireframe_cb)(
+    void *userdata, float (*verts)[3], int (*edges)[2], int totvert, int totedge);
+
+void BKE_volume_grid_wireframe(const struct Volume *volume,
+                               struct VolumeGrid *volume_grid,
+                               BKE_volume_wireframe_cb cb,
+                               void *cb_userdata);
+
 #ifdef __cplusplus
 }
 #endif

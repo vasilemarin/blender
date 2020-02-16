@@ -52,7 +52,14 @@ static void volume_batch_cache_clear(Volume *volume);
 /* Volume GPUBatch Cache */
 
 typedef struct VolumeBatchCache {
+  /* 3D textures */
   ListBase grids;
+
+  /* Wireframe */
+  struct {
+    GPUVertBuf *pos_nor_in_order;
+    GPUBatch *batch;
+  } face_wire;
 
   /* settings to determine if cache is invalid */
   bool is_dirty;
@@ -121,12 +128,71 @@ static void volume_batch_cache_clear(Volume *volume)
     DRW_TEXTURE_FREE_SAFE(grid->texture);
   }
   BLI_freelistN(&cache->grids);
+
+  GPU_VERTBUF_DISCARD_SAFE(cache->face_wire.pos_nor_in_order);
+  GPU_BATCH_DISCARD_SAFE(cache->face_wire.batch);
 }
 
 void DRW_volume_batch_cache_free(Volume *volume)
 {
   volume_batch_cache_clear(volume);
   MEM_SAFE_FREE(volume->batch_cache);
+}
+
+static void drw_volume_wireframe_cb(
+    void *userdata, float (*verts)[3], int (*edges)[2], int totvert, int totedge)
+{
+  VolumeBatchCache *cache = userdata;
+
+  /* Create vertex buffer. */
+  static GPUVertFormat format = {0};
+  static uint pos_id, nor_id;
+  if (format.attr_len == 0) {
+    pos_id = GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+    nor_id = GPU_vertformat_attr_add(&format, "nor", GPU_COMP_I10, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
+  }
+
+  static float normal[3] = {1.0f, 0.0f, 0.0f};
+  GPUPackedNormal packed_normal = GPU_normal_convert_i10_v3(normal);
+
+  cache->face_wire.pos_nor_in_order = GPU_vertbuf_create_with_format(&format);
+  GPU_vertbuf_data_alloc(cache->face_wire.pos_nor_in_order, totvert);
+  GPU_vertbuf_attr_fill(cache->face_wire.pos_nor_in_order, pos_id, verts);
+  GPU_vertbuf_attr_fill_stride(cache->face_wire.pos_nor_in_order, nor_id, 0, &packed_normal);
+
+  /* Create wiredata. */
+  GPUVertBuf *vbo_wiredata = MEM_callocN(sizeof(GPUVertBuf), __func__);
+  DRW_vertbuf_create_wiredata(vbo_wiredata, totvert);
+
+  /* Create index buffer. */
+  GPUIndexBufBuilder elb;
+  GPU_indexbuf_init(&elb, GPU_PRIM_LINES, totedge, totvert);
+  for (int i = 0; i < totedge; i++) {
+    GPU_indexbuf_add_line_verts(&elb, edges[i][0], edges[i][1]);
+  }
+  GPUIndexBuf *ibo = GPU_indexbuf_build(&elb);
+
+  /* Create batch. */
+  cache->face_wire.batch = GPU_batch_create_ex(
+      GPU_PRIM_LINES, cache->face_wire.pos_nor_in_order, ibo, GPU_BATCH_OWNS_INDEX);
+  GPU_batch_vertbuf_add_ex(cache->face_wire.batch, vbo_wiredata, true);
+}
+
+GPUBatch *DRW_volume_batch_cache_get_wireframes_face(Volume *volume)
+{
+  VolumeBatchCache *cache = volume_batch_cache_get(volume);
+
+  if (cache->face_wire.batch == NULL) {
+    VolumeGrid *volume_grid = BKE_volume_grid_active_get(volume);
+    if (volume_grid == NULL) {
+      return NULL;
+    }
+
+    /* Create wireframe from OpenVDB tree. */
+    BKE_volume_grid_wireframe(volume, volume_grid, drw_volume_wireframe_cb, cache);
+  }
+
+  return cache->face_wire.batch;
 }
 
 static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,

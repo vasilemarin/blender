@@ -227,5 +227,6 @@ typedef struct DRWVolumeGrid {
 } DRWVolumeGrid;
 
 DRWVolumeGrid *DRW_volume_batch_cache_get_grid(struct Volume *volume, struct VolumeGrid *grid);
+struct GPUBatch *DRW_cache_volume_face_wireframe_get(struct Object *ob);
 
 #endif /* __DRAW_CACHE_H__ */
