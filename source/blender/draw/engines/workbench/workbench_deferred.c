@@ -1243,7 +1243,9 @@ void workbench_deferred_solid_cache_populate(WORKBENCH_Data *vedata, Object *ob)
   }
   else if (ob->type == OB_VOLUME) {
     /* Volume object. */
-    workbench_volume_cache_populate(vedata, scene, ob, NULL);
+    if (!(ob->dt <= OB_WIRE || (wpd->shading.type == OB_WIRE))) {
+      workbench_volume_cache_populate(vedata, scene, ob, NULL);
+    }
   }
 }
 
