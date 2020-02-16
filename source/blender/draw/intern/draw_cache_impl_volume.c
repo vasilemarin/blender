@@ -36,6 +36,7 @@
 
 #include "BKE_global.h"
 #include "BKE_volume.h"
+#include "BKE_volume_render.h"
 
 #include "GPU_batch.h"
 #include "GPU_texture.h"
@@ -163,7 +164,7 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
 
   /* Compute dense voxel grid size. */
   size_t dense_min[3], dense_max[3];
-  if (BKE_volume_grid_dense_bounds(grid, dense_min, dense_max)) {
+  if (BKE_volume_grid_dense_bounds(volume, grid, dense_min, dense_max)) {
     cache_grid->resolution[0] = dense_max[0] - dense_min[0];
     cache_grid->resolution[1] = dense_max[1] - dense_min[1];
     cache_grid->resolution[2] = dense_max[2] - dense_min[2];
@@ -175,7 +176,7 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   /* Allocate and load voxels. */
   float *voxels = (num_voxels > 0) ? MEM_malloc_arrayN(num_voxels, elem_size, __func__) : NULL;
   if (voxels != NULL) {
-    BKE_volume_grid_dense_voxels(grid, dense_min, dense_max, voxels);
+    BKE_volume_grid_dense_voxels(volume, grid, dense_min, dense_max, voxels);
 
     /* Create GPU texture. */
     cache_grid->texture = GPU_texture_create_3d(cache_grid->resolution[0],
@@ -194,7 +195,6 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
     /* Compute transform matrix. */
     BKE_volume_grid_dense_transform_matrix(
         grid, dense_min, dense_max, cache_grid->texture_to_object);
-    invert_m4_m4(cache_grid->object_to_texture, cache_grid->texture_to_object);
   }
 
   /* Free grid from memory if it wasn't previously loaded. */

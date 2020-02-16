@@ -63,7 +63,6 @@ static CLG_LogRef LOG = {"bke.volume"};
 #  include <unordered_set>
 
 #  include <openvdb/openvdb.h>
-#  include <openvdb/tools/Dense.h>
 
 /* Global Volume File Cache
  *
@@ -926,7 +925,7 @@ VolumeGrid *BKE_volume_grid_find(Volume *volume, const char *name)
 
 /* Grid Loading */
 
-bool BKE_volume_grid_load(Volume *volume, VolumeGrid *grid)
+bool BKE_volume_grid_load(const Volume *volume, VolumeGrid *grid)
 {
 #ifdef WITH_OPENVDB
   VolumeGridVector &grids = *volume->runtime.grids;
@@ -944,7 +943,7 @@ bool BKE_volume_grid_load(Volume *volume, VolumeGrid *grid)
 #endif
 }
 
-void BKE_volume_grid_unload(Volume *volume, VolumeGrid *grid)
+void BKE_volume_grid_unload(const Volume *volume, VolumeGrid *grid)
 {
 #ifdef WITH_OPENVDB
   const char *volume_name = volume->id.name + 2;
@@ -1107,133 +1106,6 @@ bool BKE_volume_grid_bounds(const VolumeGrid *volume_grid, float min[3], float m
 #endif
 }
 
-bool BKE_volume_grid_dense_bounds(const VolumeGrid *volume_grid, size_t min[3], size_t max[3])
-{
-#ifdef WITH_OPENVDB
-  const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
-  BLI_assert(BKE_volume_grid_is_loaded(volume_grid));
-
-  openvdb::CoordBBox bbox = grid->evalActiveVoxelBoundingBox();
-  if (!bbox.empty()) {
-    /* OpenVDB bbox is inclusive, so add 1 to convert. */
-    min[0] = bbox.min().x();
-    min[1] = bbox.min().y();
-    min[2] = bbox.min().z();
-    max[0] = bbox.max().x() + 1;
-    max[1] = bbox.max().y() + 1;
-    max[2] = bbox.max().z() + 1;
-    return true;
-  }
-#else
-  UNUSED_VARS(volume_grid);
-#endif
-
-  min[0] = 0;
-  min[1] = 0;
-  min[2] = 0;
-  max[0] = 0;
-  max[1] = 0;
-  max[2] = 0;
-  return false;
-}
-
-/* Transform matrix from unit cube to object space, for 3D texture sampling. */
-void BKE_volume_grid_dense_transform_matrix(const VolumeGrid *volume_grid,
-                                            const size_t min[3],
-                                            const size_t max[3],
-                                            float mat[4][4])
-{
-#ifdef WITH_OPENVDB
-  /* TODO: verify cell corner vs. center convention. */
-  float index_to_world[4][4];
-  BKE_volume_grid_transform_matrix(volume_grid, index_to_world);
-
-  float texture_to_index[4][4];
-  float loc[3] = {(float)min[0], (float)min[1], (float)min[2]};
-  float size[3] = {(float)(max[0] - min[0]), (float)(max[1] - min[1]), (float)(max[2] - min[2])};
-  size_to_mat4(texture_to_index, size);
-  copy_v3_v3(texture_to_index[3], loc);
-
-  mul_m4_m4m4(mat, index_to_world, texture_to_index);
-#else
-  UNUSED_VARS(volume_grid, min, max);
-  unit_m4(mat);
-#endif
-}
-
-void BKE_volume_grid_dense_voxels(const VolumeGrid *volume_grid,
-                                  const size_t min[3],
-                                  const size_t max[3],
-                                  float *voxels)
-{
-#ifdef WITH_OPENVDB
-  /* TODO: read half float data when grid was written that way? Or even when it wasn't? */
-  const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
-  BLI_assert(BKE_volume_grid_is_loaded(volume_grid));
-
-  /* Convert to OpenVDB inclusive bbox with -1. */
-  openvdb::CoordBBox bbox(min[0], min[1], min[2], max[0] - 1, max[1] - 1, max[2] - 1);
-
-  switch (BKE_volume_grid_type(volume_grid)) {
-    case VOLUME_GRID_BOOLEAN: {
-      openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::BoolGrid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_FLOAT: {
-      openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::FloatGrid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_DOUBLE: {
-      openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::DoubleGrid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_INT: {
-      openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::Int32Grid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_INT64: {
-      openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::Int64Grid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_MASK: {
-      openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::MaskGrid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_VECTOR_FLOAT: {
-      openvdb::tools::Dense<openvdb::Vec3f, openvdb::tools::LayoutXYZ> dense(
-          bbox, (openvdb::Vec3f *)voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::Vec3fGrid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_VECTOR_DOUBLE: {
-      openvdb::tools::Dense<openvdb::Vec3f, openvdb::tools::LayoutXYZ> dense(
-          bbox, (openvdb::Vec3f *)voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::Vec3dGrid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_VECTOR_INT: {
-      openvdb::tools::Dense<openvdb::Vec3f, openvdb::tools::LayoutXYZ> dense(
-          bbox, (openvdb::Vec3f *)voxels);
-      openvdb::tools::copyToDense(*openvdb::gridPtrCast<openvdb::Vec3IGrid>(grid), dense);
-      break;
-    }
-    case VOLUME_GRID_STRING:
-    case VOLUME_GRID_UNKNOWN: {
-      /* Zero channels to copy. */
-      break;
-    }
-  }
-#else
-  UNUSED_VARS(volume_grid, min, max, voxels);
-#endif
-}
-
 /* Volume Editing */
 
 Volume *BKE_volume_new_for_eval(const Volume *volume_src)
@@ -1329,9 +1201,25 @@ void BKE_volume_grid_remove(Volume *volume, VolumeGrid *grid)
 #endif
 }
 
-void BKE_volume_grid_ensure_writable(Volume *volume, VolumeGrid *grid, bool clear)
-{
+/* OpenVDB Grid Access */
+
 #ifdef WITH_OPENVDB
+openvdb::GridBase::ConstPtr BKE_volume_grid_openvdb_for_metadata(const VolumeGrid *grid)
+{
+  return grid->vdb;
+}
+
+openvdb::GridBase::ConstPtr BKE_volume_grid_openvdb_for_read(const Volume *volume,
+                                                             VolumeGrid *grid)
+{
+  BKE_volume_grid_load(volume, grid);
+  return grid->vdb;
+}
+
+openvdb::GridBase::Ptr BKE_volume_grid_openvdb_for_write(const Volume *volume,
+                                                         VolumeGrid *grid,
+                                                         const bool clear)
+{
   const char *volume_name = volume->id.name + 2;
   if (clear) {
     grid->clear_reference(volume_name);
@@ -1340,15 +1228,7 @@ void BKE_volume_grid_ensure_writable(Volume *volume, VolumeGrid *grid, bool clea
     VolumeGridVector &grids = *volume->runtime.grids;
     grid->duplicate_reference(volume_name, grids.filepath);
   }
-#else
-  UNUSED_VARS(volume, grid);
-#endif
-}
 
-#ifdef WITH_OPENVDB
-openvdb::GridBase::Ptr BKE_volume_grid_ensure_openvdb(Volume *volume, VolumeGrid *grid)
-{
-  BKE_volume_grid_load(volume, grid);
   return grid->vdb;
 }
 #endif

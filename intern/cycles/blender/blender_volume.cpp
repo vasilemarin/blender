@@ -145,11 +145,10 @@ static void sync_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *s
         Attribute *attr = mesh->attributes.add(ATTR_STD_GENERATED_TRANSFORM);
         Transform *tfm = attr->data_transform();
 
-        b_grid.load();
-
+        Volume *volume = (Volume *)b_volume.ptr.data;
         VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
         size_t min[3], max[3];
-        if (BKE_volume_grid_dense_bounds(volume_grid, min, max)) {
+        if (BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
           float mat[4][4];
           BKE_volume_grid_dense_transform_matrix(volume_grid, min, max, mat);
           *tfm = transform_inverse(get_transform(mat));

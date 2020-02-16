@@ -76,6 +76,7 @@ void BlenderSession::builtin_image_info(const string &builtin_name,
       BL::VolumeGrid b_grid = *b_grid_iter;
 
       if (b_grid.name() == builtin_name) {
+        Volume *volume = (Volume *)b_volume.ptr.data;
         VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
 
         /* Skip grid that we can parse as float channels. */
@@ -85,11 +86,10 @@ void BlenderSession::builtin_image_info(const string &builtin_name,
 
         /* Load grid, and free after reading voxels if it wasn't already loaded. */
         metadata.builtin_free_cache = !b_grid.is_loaded();
-        b_grid.load();
 
         /* Compute grid dimensions. */
         size_t min[3], max[3];
-        if (!BKE_volume_grid_dense_bounds(volume_grid, min, max)) {
+        if (!BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
           return;
         }
 
@@ -294,12 +294,13 @@ bool BlenderSession::builtin_image_float_pixels(const string &builtin_name,
       BL::VolumeGrid b_grid = *b_grid_iter;
 
       if (b_grid.name() == builtin_name) {
+        Volume *volume = (Volume *)b_volume.ptr.data;
         VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
 
         /* TODO: don't compute resolution twice */
         size_t min[3], max[3];
-        if (BKE_volume_grid_dense_bounds(volume_grid, min, max)) {
-          BKE_volume_grid_dense_voxels(volume_grid, min, max, pixels);
+        if (BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
+          BKE_volume_grid_dense_voxels(volume, volume_grid, min, max, pixels);
         }
 
         if (free_cache) {

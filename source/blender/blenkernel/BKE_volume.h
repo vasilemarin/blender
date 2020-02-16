@@ -25,7 +25,7 @@
 
 /** \file BKE_volume.h
  *  \ingroup bke
- *  \brief General operations for volumes.
+ *  \brief Volume datablock.
  */
 #ifdef __cplusplus
 extern "C" {
@@ -118,8 +118,8 @@ typedef enum VolumeGridType {
   VOLUME_GRID_VECTOR_INT,
 } VolumeGridType;
 
-bool BKE_volume_grid_load(struct Volume *volume, struct VolumeGrid *grid);
-void BKE_volume_grid_unload(struct Volume *volume, struct VolumeGrid *grid);
+bool BKE_volume_grid_load(const struct Volume *volume, struct VolumeGrid *grid);
+void BKE_volume_grid_unload(const struct Volume *volume, struct VolumeGrid *grid);
 bool BKE_volume_grid_is_loaded(const struct VolumeGrid *grid);
 
 /* Metadata */
@@ -128,20 +128,8 @@ VolumeGridType BKE_volume_grid_type(const struct VolumeGrid *grid);
 int BKE_volume_grid_channels(const struct VolumeGrid *grid);
 void BKE_volume_grid_transform_matrix(const struct VolumeGrid *grid, float mat[4][4]);
 
-/* Tree and Voxels */
+/* Bounds */
 bool BKE_volume_grid_bounds(const struct VolumeGrid *grid, float min[3], float max[3]);
-
-bool BKE_volume_grid_dense_bounds(const struct VolumeGrid *volume_grid,
-                                  size_t min[3],
-                                  size_t max[3]);
-void BKE_volume_grid_dense_transform_matrix(const struct VolumeGrid *volume_grid,
-                                            const size_t min[3],
-                                            const size_t max[3],
-                                            float mat[4][4]);
-void BKE_volume_grid_dense_voxels(const struct VolumeGrid *volume_grid,
-                                  const size_t min[3],
-                                  const size_t max[3],
-                                  float *voxels);
 
 /* Volume Editing
  *
@@ -151,11 +139,7 @@ void BKE_volume_grid_dense_voxels(const struct VolumeGrid *volume_grid,
  * preserves other settings such as viewport display options.
  *
  * copy_for_eval creates a volume datablock preserving everything except the
- * file path. Grids are shared with the source datablock, not copied.
- *
- * Before modifying grids after copy_for_eval, call ensure_writable first.
- * It will duplicate (or clear) the grid if it is shared with any other
- * datablocks, so that it can be safely modified. */
+ * file path. Grids are shared with the source datablock, not copied. */
 
 struct Volume *BKE_volume_new_for_eval(const struct Volume *volume_src);
 struct Volume *BKE_volume_copy_for_eval(struct Volume *volume_src, bool reference);
@@ -164,23 +148,24 @@ struct VolumeGrid *BKE_volume_grid_add(struct Volume *volume,
                                        const char *name,
                                        VolumeGridType type);
 void BKE_volume_grid_remove(struct Volume *volume, struct VolumeGrid *grid);
-void BKE_volume_grid_ensure_writable(struct Volume *volume,
-                                     struct VolumeGrid *grid,
-                                     const bool clear);
 
 #ifdef __cplusplus
 }
 #endif
 
-/* OpenVDB Grid
+/* OpenVDB Grid Access
  *
- * Access to OpenVDB grid for C++. This will call BKE_volume_grid_load if the
- * grid has not already been loaded into memory. */
+ * Access to OpenVDB grid for C++. These will automatically load grids from
+ * file or copy shared grids to make them writeable. */
 
 #if defined(__cplusplus) && defined(WITH_OPENVDB)
 #  include <openvdb/openvdb.h>
-openvdb::GridBase::Ptr BKE_volume_grid_ensure_openvdb(struct Volume *volume,
-                                                      struct VolumeGrid *grid);
+openvdb::GridBase::ConstPtr BKE_volume_grid_openvdb_for_metadata(const struct VolumeGrid *grid);
+openvdb::GridBase::ConstPtr BKE_volume_grid_openvdb_for_read(const struct Volume *volume,
+                                                             struct VolumeGrid *grid);
+openvdb::GridBase::Ptr BKE_volume_grid_openvdb_for_write(const struct Volume *volume,
+                                                         struct VolumeGrid *grid,
+                                                         const bool clear);
 #endif
 
 #endif
