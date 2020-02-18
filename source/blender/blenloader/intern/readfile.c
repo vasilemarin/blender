@@ -5468,8 +5468,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       blo_reportf_wrap(
           fd->reports,
           RPT_WARNING,
-          TIP_(
-              "Possible data loss when saving this file! %s modifier is deprecated (Object: %s)."),
+          TIP_("Possible data loss when saving this file! %s modifier is deprecated (Object: %s)"),
           md->name,
           ob->id.name + 2);
       md = modifier_replace_with_fluid(fd, ob, lb, md);
@@ -5479,8 +5478,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       blo_reportf_wrap(
           fd->reports,
           RPT_WARNING,
-          TIP_(
-              "Possible data loss when saving this file! %s modifier is deprecated (Object: %s)."),
+          TIP_("Possible data loss when saving this file! %s modifier is deprecated (Object: %s)"),
           md->name,
           ob->id.name + 2);
       md = modifier_replace_with_fluid(fd, ob, lb, md);
