@@ -44,19 +44,19 @@ static int node_shader_gpu_attribute(GPUMaterial *mat,
 
   if (GPU_material_is_volume_shader(mat)) {
     if (out[0].hasoutput) {
-      out[0].link = GPU_volume_attribute(mat, attr->name);
+      out[0].link = GPU_volume_grid(mat, attr->name);
     }
     if (out[1].hasoutput) {
-      out[1].link = GPU_volume_attribute(mat, attr->name);
+      out[1].link = GPU_volume_grid(mat, attr->name);
     }
     if (out[2].hasoutput) {
-      out[2].link = GPU_volume_attribute(mat, attr->name);
+      out[2].link = GPU_volume_grid(mat, attr->name);
     }
 
     return 1;
   }
   else {
-    GPUNodeLink *cd_attr = GPU_attribute(CD_AUTO_FROM_NAME, attr->name);
+    GPUNodeLink *cd_attr = GPU_attribute(mat, CD_AUTO_FROM_NAME, attr->name);
     GPU_stack_link(mat, node, "node_attribute", in, out, cd_attr);
 
     /* for each output. */

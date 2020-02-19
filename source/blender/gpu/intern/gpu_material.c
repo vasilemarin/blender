@@ -209,11 +209,6 @@ GPUPass *GPU_material_get_pass(GPUMaterial *material)
   return material->pass;
 }
 
-ListBase *GPU_material_get_inputs(GPUMaterial *material)
-{
-  return &material->graph.inputs;
-}
-
 /* Return can be NULL if it's a world material. */
 Material *GPU_material_get_material(GPUMaterial *material)
 {
@@ -574,6 +569,11 @@ ListBase GPU_material_textures(GPUMaterial *material)
   return material->graph.textures;
 }
 
+ListBase GPU_material_volume_grids(GPUMaterial *material)
+{
+  return material->graph.volume_grids;
+}
+
 void GPU_material_output_link(GPUMaterial *material, GPUNodeLink *link)
 {
   if (!material->graph.outlink) {
@@ -581,9 +581,9 @@ void GPU_material_output_link(GPUMaterial *material, GPUNodeLink *link)
   }
 }
 
-void gpu_material_add_node(GPUMaterial *material, GPUNode *node)
+GPUNodeGraph *gpu_material_node_graph(GPUMaterial *material)
 {
-  BLI_addtail(&material->graph.nodes, node);
+  return &material->graph;
 }
 
 GSet *gpu_material_used_libraries(GPUMaterial *material)
