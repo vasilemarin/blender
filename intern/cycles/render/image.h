@@ -25,6 +25,7 @@
 #include "util/util_image.h"
 #include "util/util_string.h"
 #include "util/util_thread.h"
+#include "util/util_transform.h"
 #include "util/util_unique_ptr.h"
 #include "util/util_vector.h"
 
@@ -44,6 +45,10 @@ class ImageMetaData {
   size_t width, height, depth;
   bool builtin_free_cache;
 
+  /* Optional transform for 3D images. */
+  bool use_transform_3d;
+  Transform transform_3d;
+
   /* Automatically set. */
   ImageDataType type;
   ustring colorspace;
@@ -57,6 +62,7 @@ class ImageMetaData {
         height(0),
         depth(0),
         builtin_free_cache(false),
+        use_transform_3d(false),
         type((ImageDataType)0),
         colorspace(u_colorspace_raw),
         compress_as_srgb(false)
@@ -67,8 +73,9 @@ class ImageMetaData {
   {
     return is_float == other.is_float && is_half == other.is_half && channels == other.channels &&
            width == other.width && height == other.height && depth == other.depth &&
-           type == other.type && colorspace == other.colorspace &&
-           compress_as_srgb == other.compress_as_srgb;
+           use_transform_3d == other.use_transform_3d &&
+           (!use_transform_3d || transform_3d == other.transform_3d) && type == other.type &&
+           colorspace == other.colorspace && compress_as_srgb == other.compress_as_srgb;
   }
 };
 

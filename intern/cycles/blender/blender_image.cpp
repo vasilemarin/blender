@@ -99,6 +99,11 @@ void BlenderSession::builtin_image_info(const string &builtin_name,
         metadata.depth = max[2] - min[2];
         metadata.is_float = true;
         metadata.channels = b_grid.channels();
+
+        float mat[4][4];
+        BKE_volume_grid_dense_transform_matrix(volume_grid, min, max, mat);
+        metadata.transform_3d = transform_inverse(get_transform(mat));
+        metadata.use_transform_3d = true;
         return;
       }
     }
@@ -139,6 +144,15 @@ void BlenderSession::builtin_image_info(const string &builtin_name,
     metadata.width = resolution.x * amplify;
     metadata.height = resolution.y * amplify;
     metadata.depth = resolution.z * amplify;
+
+    /* Create a matrix to transform from object space to mesh texture space.
+     * This does not work with deformations but that can probably only be done
+     * well with a volume grid mapping of coordinates. */
+    BL::Mesh b_mesh(b_ob.data());
+    float3 loc, size;
+    mesh_texture_space(b_mesh, loc, size);
+    metadata.transform_3d = transform_translate(-loc) * transform_scale(size);
+    metadata.use_transform_3d = true;
   }
   else {
     /* TODO(sergey): Check we're indeed in shader node tree. */

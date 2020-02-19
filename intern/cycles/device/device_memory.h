@@ -210,6 +210,8 @@ class device_memory {
   const char *name;
   InterpolationType interpolation;
   ExtensionType extension;
+  bool use_transform_3d;
+  Transform transform_3d;
 
   /* Pointers. */
   Device *device;

@@ -59,28 +59,12 @@ static void sync_smoke_volume(Scene *scene, BL::Object &b_ob, Mesh *mesh, float 
     volume_data->manager = image_manager;
     volume_data->slot = image_manager->add_image(key, frame, metadata);
   }
-
-  /* Create a matrix to transform from object space to mesh texture space.
-   * This does not work with deformations but that can probably only be done
-   * well with a volume grid mapping of coordinates. */
-  if (mesh->need_attribute(scene, ATTR_STD_GENERATED_TRANSFORM)) {
-    Attribute *attr = mesh->attributes.add(ATTR_STD_GENERATED_TRANSFORM);
-    Transform *tfm = attr->data_transform();
-
-    BL::Mesh b_mesh(b_ob.data());
-    float3 loc, size;
-    mesh_texture_space(b_mesh, loc, size);
-
-    *tfm = transform_translate(-loc) * transform_scale(size);
-  }
 }
 
 static void sync_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *scene, Mesh *mesh)
 {
   BL::Volume b_volume(b_ob.data());
   b_volume.grids.load(b_data.ptr.data);
-
-  bool transform_added = false;
 
   mesh->volume_isovalue = 1e-3f; /* TODO: make user setting. */
 
@@ -91,7 +75,6 @@ static void sync_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *s
     ustring name = ustring(b_grid.name());
     AttributeStandard std = ATTR_STD_NONE;
 
-    /* TODO: find nicer solution to detect standard attribute. */
     if (name == Attribute::standard_name(ATTR_STD_VOLUME_DENSITY)) {
       std = ATTR_STD_VOLUME_DENSITY;
     }
@@ -126,29 +109,6 @@ static void sync_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *s
 
       volume_data->manager = scene->image_manager;
       volume_data->slot = scene->image_manager->add_image(key, frame, metadata);
-
-      /* TODO: support each grid having own transform. */
-      /* TODO: support full transform instead of only using boundbox. */
-      /* TODO: avoid computing bounds multiple times, perhaps by postponing
-       * setting this transform until voxels are loaded. */
-      if (!transform_added && mesh->need_attribute(scene, ATTR_STD_GENERATED_TRANSFORM)) {
-        Attribute *attr = mesh->attributes.add(ATTR_STD_GENERATED_TRANSFORM);
-        Transform *tfm = attr->data_transform();
-
-        Volume *volume = (Volume *)b_volume.ptr.data;
-        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
-        size_t min[3], max[3];
-        if (BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
-          float mat[4][4];
-          BKE_volume_grid_dense_transform_matrix(volume_grid, min, max, mat);
-          *tfm = transform_inverse(get_transform(mat));
-        }
-        else {
-          *tfm = transform_identity();
-        }
-
-        transform_added = true;
-      }
     }
   }
 }

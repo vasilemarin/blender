@@ -373,6 +373,8 @@ void GeometryManager::create_volume_mesh(Scene *scene, Mesh *mesh, Progress &pro
   VolumeParams volume_params;
   volume_params.resolution = make_int3(0, 0, 0);
 
+  Transform transform = transform_identity();
+
   foreach (Attribute &attr, mesh->attributes.attributes) {
     if (attr.element != ATTR_ELEMENT_VOXEL) {
       continue;
@@ -396,6 +398,11 @@ void GeometryManager::create_volume_mesh(Scene *scene, Mesh *mesh, Progress &pro
     voxel_grid.data = static_cast<float *>(image_memory->host_pointer);
     voxel_grid.channels = image_memory->data_elements;
     voxel_grids.push_back(voxel_grid);
+
+    /* TODO: support multiple transforms. */
+    if (image_memory->use_transform_3d) {
+      transform = image_memory->transform_3d;
+    }
   }
 
   if (voxel_grids.empty()) {
@@ -428,18 +435,14 @@ void GeometryManager::create_volume_mesh(Scene *scene, Mesh *mesh, Progress &pro
   }
 
   /* Compute start point and cell size from transform. */
-  Attribute *attr = mesh->attributes.find(ATTR_STD_GENERATED_TRANSFORM);
   const int3 resolution = volume_params.resolution;
   float3 start_point = make_float3(0.0f, 0.0f, 0.0f);
   float3 cell_size = make_float3(1.0f / resolution.x, 1.0f / resolution.y, 1.0f / resolution.z);
 
   /* TODO: support arbitrary transforms, not just scale + translate. */
-  if (attr) {
-    const Transform *tfm = attr->data_transform();
-    const Transform itfm = transform_inverse(*tfm);
-    start_point = transform_point(&itfm, start_point);
-    cell_size = transform_direction(&itfm, cell_size);
-  }
+  const Transform itfm = transform_inverse(transform);
+  start_point = transform_point(&itfm, start_point);
+  cell_size = transform_direction(&itfm, cell_size);
 
   volume_params.start_point = start_point;
   volume_params.cell_size = cell_size;

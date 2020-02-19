@@ -33,6 +33,7 @@ device_memory::device_memory(Device *device, const char *name, MemoryType type)
       name(name),
       interpolation(INTERPOLATION_NONE),
       extension(EXTENSION_REPEAT),
+      use_transform_3d(false),
       device(device),
       device_pointer(0),
       host_pointer(0),

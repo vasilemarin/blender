@@ -718,6 +718,8 @@ static void image_set_device_memory(ImageManager::Image *img, device_memory *mem
   img->mem = mem;
   mem->interpolation = img->key.interpolation;
   mem->extension = img->key.extension;
+  mem->use_transform_3d = img->metadata.use_transform_3d;
+  mem->transform_3d = img->metadata.transform_3d;
 }
 
 void ImageManager::device_load_image(

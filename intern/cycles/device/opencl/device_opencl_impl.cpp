@@ -1296,6 +1296,8 @@ void OpenCLDevice::flush_texture_buffers()
 
       info.interpolation = mem->interpolation;
       info.extension = mem->extension;
+      info.use_transform_3d = mem->use_transform_3d;
+      info.transform_3d = mem->transform_3d;
     }
   }
 
