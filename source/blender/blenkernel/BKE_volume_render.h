@@ -38,16 +38,16 @@ struct VolumeGrid;
 
 bool BKE_volume_grid_dense_bounds(const struct Volume *volume,
                                   struct VolumeGrid *volume_grid,
-                                  size_t min[3],
-                                  size_t max[3]);
+                                  ssize_t min[3],
+                                  ssize_t max[3]);
 void BKE_volume_grid_dense_transform_matrix(const struct VolumeGrid *volume_grid,
-                                            const size_t min[3],
-                                            const size_t max[3],
+                                            const ssize_t min[3],
+                                            const ssize_t max[3],
                                             float mat[4][4]);
 void BKE_volume_grid_dense_voxels(const struct Volume *volume,
                                   struct VolumeGrid *volume_grid,
-                                  const size_t min[3],
-                                  const size_t max[3],
+                                  const ssize_t min[3],
+                                  const ssize_t max[3],
                                   float *voxels);
 
 /* Wireframe */

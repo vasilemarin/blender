@@ -229,7 +229,7 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   BKE_volume_grid_load(volume, grid);
 
   /* Compute dense voxel grid size. */
-  size_t dense_min[3], dense_max[3];
+  ssize_t dense_min[3], dense_max[3];
   if (BKE_volume_grid_dense_bounds(volume, grid, dense_min, dense_max)) {
     cache_grid->resolution[0] = dense_max[0] - dense_min[0];
     cache_grid->resolution[1] = dense_max[1] - dense_min[1];
