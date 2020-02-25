@@ -9174,13 +9174,6 @@ static BHead *read_libblock(FileData *fd,
     /* do after read_struct, for dna reconstruct */
     lb = which_libbase(main, idcode);
     if (lb) {
-      /* At this point, we know we are going to keep that newly read & allocated ID, so we need to
-       * reallocate it to ensure we actually get a unique memory address for it. */
-      if (!BKE_main_idmemhash_register_id(main, NULL, id)) {
-        id = BKE_main_idmemhash_unique_realloc(
-            main, NULL, id, MEM_reallocN_id, MEM_allocN_len(id), __func__);
-      }
-
       /* for ID_LINK_PLACEHOLDER check */
       oldnewmap_insert(fd->libmap, id_bhead->old, id, id_bhead->code);
 
@@ -9199,6 +9192,15 @@ static BHead *read_libblock(FileData *fd,
            * And linked IDs are handled separately as well. */
           do_id_swap = !ELEM(idcode, ID_WM, ID_SCR, ID_WS) &&
                        !(id_bhead->code == ID_LINK_PLACEHOLDER);
+        }
+      }
+
+      /* At this point, we know we are going to keep that newly read & allocated ID, so we need to
+       * reallocate it to ensure we actually get a unique memory address for it. */
+      if (!do_id_swap) {
+        if (!BKE_main_idmemhash_register_id(main, NULL, id)) {
+          id = BKE_main_idmemhash_unique_realloc(
+              main, NULL, id, MEM_reallocN_id, MEM_allocN_len(id), __func__);
         }
       }
 
