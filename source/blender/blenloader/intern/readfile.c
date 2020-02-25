@@ -97,6 +97,7 @@
 
 #include "BLI_endian_switch.h"
 #include "BLI_blenlib.h"
+#include "BLI_linklist.h"
 #include "BLI_math.h"
 #include "BLI_threads.h"
 #include "BLI_mempool.h"
@@ -2227,7 +2228,7 @@ void blo_make_idmap_from_main(FileData *fd, Main *bmain)
   if (fd->old_idmap != NULL) {
     BKE_main_idmap_destroy(fd->old_idmap);
   }
-  fd->old_idmap = BKE_main_idmap_create(bmain, false, NULL);
+  fd->old_idmap = BKE_main_idmap_create(bmain, true, NULL);
 }
 
 /** \} */
@@ -9091,6 +9092,7 @@ static BHead *read_libblock(FileData *fd,
 
   if (id != NULL) {
     const bool do_partial_undo = (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0;
+    LinkNode *used_id_chain = NULL;
 
     if (id_bhead->code != ID_LINK_PLACEHOLDER) {
       /* need a name for the mallocN, just for debugging and sane prints on leaks */
@@ -9109,12 +9111,21 @@ static BHead *read_libblock(FileData *fd,
         BLI_assert(fd->old_idmap != NULL || !do_partial_undo);
         /* This code should only ever be reached for local data-blocks. */
         BLI_assert(main->curlib == NULL);
+        BLI_assert(main->used_id_memhash != NULL &&
+                   main->used_id_memhash == ((Main *)fd->old_mainlist->first)->used_id_memhash);
 
         /* Find the 'current' existing ID we want to reuse instead of the one we would read from
          * the undo memfile. */
-        id_old = do_partial_undo ?
-                     BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL) :
-                     NULL;
+        if (do_partial_undo) {
+          LinkNode *used_id_chain_hook = BLI_ghash_lookup(main->used_id_memhash, id_bhead->old);
+          used_id_chain = used_id_chain_hook ? used_id_chain_hook->link : NULL;
+          id_old = used_id_chain != NULL ? used_id_chain->link : id_bhead->old;
+          if (!BKE_main_idmap_lookup_id(fd->old_idmap, id_old)) {
+            printf("Found an old, invalid id_old pointer for new %s\n", id->name);
+            id_old = NULL;
+            used_id_chain = NULL;
+          }
+        }
         bool can_finalize_and_return = false;
 
         if (ELEM(idcode, ID_WM, ID_SCR, ID_WS)) {
@@ -9157,6 +9168,9 @@ static BHead *read_libblock(FileData *fd,
 
         if (can_finalize_and_return) {
           oldnewmap_insert(fd->libmap, id_bhead->old, id_old, id_bhead->code);
+          for (; used_id_chain; used_id_chain = used_id_chain->next) {
+            oldnewmap_insert(fd->libmap, used_id_chain->link, id_old, id_bhead->code);
+          }
 
           if (r_id) {
             *r_id = id_old;
@@ -9174,15 +9188,19 @@ static BHead *read_libblock(FileData *fd,
     /* do after read_struct, for dna reconstruct */
     lb = which_libbase(main, idcode);
     if (lb) {
-      /* for ID_LINK_PLACEHOLDER check */
-      oldnewmap_insert(fd->libmap, id_bhead->old, id, id_bhead->code);
-
       /* Some re-used old IDs might also use newly read ones, so we have to check for old memory
        * addresses for those as well. */
       if (fd->memfile != NULL && do_partial_undo && id->lib == NULL) {
         BLI_assert(fd->old_idmap != NULL);
         if (id_old == NULL) {
-          id_old = BKE_main_idmap_lookup(fd->old_idmap, idcode, id->name + 2, NULL);
+          LinkNode *used_id_chain_hook = BLI_ghash_lookup(main->used_id_memhash, id_bhead->old);
+          used_id_chain = used_id_chain_hook ? used_id_chain_hook->link : NULL;
+          id_old = used_id_chain != NULL ? used_id_chain->link : id_bhead->old;
+          if (!BKE_main_idmap_lookup_id(fd->old_idmap, id_old)) {
+            printf("Found an old, invalid id_old pointer for new %s\n", id->name);
+            id_old = NULL;
+            used_id_chain = NULL;
+          }
         }
         if (id_old != NULL) {
           BLI_assert(MEM_allocN_len(id) == MEM_allocN_len(id_old));
@@ -9205,7 +9223,11 @@ static BHead *read_libblock(FileData *fd,
       }
 
       /* for ID_LINK_PLACEHOLDER check */
-      oldnewmap_insert(fd->libmap, id_bhead->old, do_id_swap ? id_old : id, id_bhead->code);
+      ID *id_target = do_id_swap ? id_old : id;
+      oldnewmap_insert(fd->libmap, id_bhead->old, id_target, id_bhead->code);
+      for (; used_id_chain; used_id_chain = used_id_chain->next) {
+        oldnewmap_insert(fd->libmap, used_id_chain->link, id_target, id_bhead->code);
+      }
 
       BLI_addtail(lb, id);
     }
