@@ -58,6 +58,9 @@ void BKE_volume_free(struct Volume *volume);
 
 struct BoundBox *BKE_volume_boundbox_get(struct Object *ob);
 
+bool BKE_volume_is_y_up(const struct Volume *volume);
+bool BKE_volume_is_points_only(const struct Volume *volume);
+
 /* Depsgraph */
 
 void BKE_volume_eval_geometry(struct Depsgraph *depsgraph, struct Volume *volume);
@@ -93,11 +96,11 @@ bool BKE_volume_load(struct Volume *volume, struct Main *bmain);
 void BKE_volume_unload(struct Volume *volume);
 bool BKE_volume_is_loaded(const struct Volume *volume);
 
-int BKE_volume_num_grids(struct Volume *volume);
+int BKE_volume_num_grids(const struct Volume *volume);
 const char *BKE_volume_grids_error_msg(const struct Volume *volume);
-VolumeGrid *BKE_volume_grid_get(struct Volume *volume, int grid_index);
-VolumeGrid *BKE_volume_grid_active_get(struct Volume *volume);
-VolumeGrid *BKE_volume_grid_find(struct Volume *volume, const char *name);
+VolumeGrid *BKE_volume_grid_get(const struct Volume *volume, int grid_index);
+VolumeGrid *BKE_volume_grid_active_get(const struct Volume *volume);
+VolumeGrid *BKE_volume_grid_find(const struct Volume *volume, const char *name);
 
 /* Grid
  *
@@ -116,6 +119,7 @@ typedef enum VolumeGridType {
   VOLUME_GRID_VECTOR_FLOAT,
   VOLUME_GRID_VECTOR_DOUBLE,
   VOLUME_GRID_VECTOR_INT,
+  VOLUME_GRID_POINTS,
 } VolumeGridType;
 
 bool BKE_volume_grid_load(const struct Volume *volume, struct VolumeGrid *grid);

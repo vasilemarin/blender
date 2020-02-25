@@ -63,6 +63,7 @@ static CLG_LogRef LOG = {"bke.volume"};
 #  include <unordered_set>
 
 #  include <openvdb/openvdb.h>
+#  include <openvdb/points/PointDataGrid.h>
 
 /* Global Volume File Cache
  *
@@ -403,10 +404,20 @@ struct VolumeGridVector : public std::list<VolumeGrid> {
     return filepath[0] != '\0';
   }
 
+  void clear_all()
+  {
+    std::list<VolumeGrid>::clear();
+    filepath[0] = '\0';
+    error_msg.clear();
+    metadata.reset();
+  }
+
   /* Absolute file path that grids have been loaded from. */
   char filepath[FILE_MAX];
   /* File loading error message. */
   std::string error_msg;
+  /* File Metadata. */
+  openvdb::MetaMap::Ptr metadata;
   /* Mutex for file loading of grids list. */
   std::mutex mutex;
 };
@@ -433,8 +444,7 @@ void BKE_volume_init(Volume *volume)
   volume->frame_start = 1;
   volume->frame_offset = 0;
   volume->frame_duration = 0;
-  /* TODO: why is this needed for common volume files? */
-  volume->display.density = 10.0f;
+  volume->display.density = 1.0f;
   volume->display.wireframe_type = VOLUME_WIREFRAME_COARSE;
   BKE_volume_init_grids(volume);
 }
@@ -650,6 +660,7 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
     file.setCopyMaxBytes(0);
     file.open();
     vdb_grids = *(file.readAllGridMetadata());
+    grids.metadata = file.getMetadata();
   }
   catch (const openvdb::IoError &e) {
     grids.error_msg = e.what();
@@ -678,9 +689,7 @@ void BKE_volume_unload(Volume *volume)
   if (grids.filepath[0] != '\0') {
     const char *volume_name = volume->id.name + 2;
     CLOG_INFO(&LOG, 1, "Volume %s: unload", volume_name);
-    grids.clear();
-    grids.error_msg.clear();
-    grids.filepath[0] = '\0';
+    grids.clear_all();
   }
 #else
   UNUSED_VARS(volume);
@@ -734,6 +743,43 @@ BoundBox *BKE_volume_boundbox_get(Object *ob)
   }
 
   return ob->runtime.bb;
+}
+
+bool BKE_volume_is_y_up(const Volume *volume)
+{
+  /* Simple heuristic for common files to open the right way up. */
+#ifdef WITH_OPENVDB
+  VolumeGridVector &grids = *volume->runtime.grids;
+  if (grids.metadata) {
+    openvdb::StringMetadata::ConstPtr creator =
+        grids.metadata->getMetadata<openvdb::StringMetadata>("creator");
+    if (!creator) {
+      creator = grids.metadata->getMetadata<openvdb::StringMetadata>("Creator");
+    }
+    return (creator && creator->str().rfind("Houdini", 0) == 0);
+  }
+#else
+  UNUSED_VARS(volume);
+#endif
+
+  return false;
+}
+
+bool BKE_volume_is_points_only(const Volume *volume)
+{
+  int num_grids = BKE_volume_num_grids(volume);
+  if (num_grids == 0) {
+    return false;
+  }
+
+  for (int i = 0; i < num_grids; i++) {
+    VolumeGrid *grid = BKE_volume_grid_get(volume, i);
+    if (BKE_volume_grid_type(grid) != VOLUME_GRID_POINTS) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /* Dependency Graph */
@@ -864,7 +910,7 @@ void BKE_volume_batch_cache_free(Volume *volume)
 
 /* Grids */
 
-int BKE_volume_num_grids(Volume *volume)
+int BKE_volume_num_grids(const Volume *volume)
 {
 #ifdef WITH_OPENVDB
   return volume->runtime.grids->size();
@@ -884,7 +930,7 @@ const char *BKE_volume_grids_error_msg(const Volume *volume)
 #endif
 }
 
-VolumeGrid *BKE_volume_grid_get(Volume *volume, int grid_index)
+VolumeGrid *BKE_volume_grid_get(const Volume *volume, int grid_index)
 {
 #ifdef WITH_OPENVDB
   VolumeGridVector &grids = *volume->runtime.grids;
@@ -900,7 +946,7 @@ VolumeGrid *BKE_volume_grid_get(Volume *volume, int grid_index)
 #endif
 }
 
-VolumeGrid *BKE_volume_grid_active_get(Volume *volume)
+VolumeGrid *BKE_volume_grid_active_get(const Volume *volume)
 {
   const int num_grids = BKE_volume_num_grids(volume);
   if (num_grids == 0) {
@@ -911,7 +957,7 @@ VolumeGrid *BKE_volume_grid_active_get(Volume *volume)
   return BKE_volume_grid_get(volume, index);
 }
 
-VolumeGrid *BKE_volume_grid_find(Volume *volume, const char *name)
+VolumeGrid *BKE_volume_grid_find(const Volume *volume, const char *name)
 {
   int num_grids = BKE_volume_num_grids(volume);
   for (int i = 0; i < num_grids; i++) {
@@ -1011,6 +1057,9 @@ VolumeGridType BKE_volume_grid_type(const VolumeGrid *volume_grid)
   else if (grid->isType<openvdb::MaskGrid>()) {
     return VOLUME_GRID_MASK;
   }
+  else if (grid->isType<openvdb::points::PointDataGrid>()) {
+    return VOLUME_GRID_POINTS;
+  }
 #else
   UNUSED_VARS(volume_grid);
 #endif
@@ -1041,6 +1090,7 @@ int BKE_volume_grid_channels(const VolumeGrid *grid)
       return 3;
     case VOLUME_GRID_VECTOR_INT:
       return 3;
+    case VOLUME_GRID_POINTS:
     case VOLUME_GRID_UNKNOWN:
       return 0;
   }
@@ -1172,6 +1222,7 @@ VolumeGrid *BKE_volume_grid_add(Volume *volume, const char *name, VolumeGridType
     case VOLUME_GRID_MASK:
       vdb_grid = openvdb::MaskGrid::create();
       break;
+    case VOLUME_GRID_POINTS:
     case VOLUME_GRID_UNKNOWN:
       return NULL;
   }

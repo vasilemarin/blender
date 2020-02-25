@@ -156,6 +156,7 @@ void BKE_volume_grid_dense_voxels(const Volume *volume,
       break;
     }
     case VOLUME_GRID_STRING:
+    case VOLUME_GRID_POINTS:
     case VOLUME_GRID_UNKNOWN: {
       /* Zero channels to copy. */
       break;
@@ -326,6 +327,7 @@ void BKE_volume_grid_wireframe(const Volume *volume,
         wireframe.add_grid<openvdb::StringGrid>(grid, coarse);
         break;
       }
+      case VOLUME_GRID_POINTS:
       case VOLUME_GRID_UNKNOWN: {
         break;
       }

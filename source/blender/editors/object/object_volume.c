@@ -27,6 +27,7 @@
 
 #include "BLI_fileops.h"
 #include "BLI_listbase.h"
+#include "BLI_math_base.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
@@ -38,6 +39,8 @@
 
 #include "BKE_context.h"
 #include "BKE_main.h"
+#include "BKE_report.h"
+#include "BKE_volume.h"
 
 #include "WM_types.h"
 #include "WM_api.h"
@@ -59,7 +62,6 @@ static Object *object_volume_add(bContext *C, wmOperator *op, const char *name)
     return false;
   }
   Object *object = ED_object_add_type(C, OB_VOLUME, name, loc, rot, false, local_view_bits);
-  object->dtx |= OB_DRAWBOUNDOX; /* TODO: remove once there is actual drawing. */
   return object;
 }
 
@@ -111,6 +113,18 @@ static int volume_import_exec(bContext *C, wmOperator *op)
     volume->frame_duration = (volume->is_sequence) ? range->length : 0;
     volume->frame_start = 1;
     volume->frame_offset = (volume->is_sequence) ? range->offset - 1 : 0;
+
+    BKE_volume_load(volume, bmain);
+    if (BKE_volume_is_y_up(volume)) {
+      object->rot[0] += M_PI_2;
+    }
+    if (BKE_volume_is_points_only(volume)) {
+      BKE_reportf(op->reports,
+                  RPT_WARNING,
+                  "Volume %s contains points, only voxel grids are supported",
+                  filename);
+    }
+    BKE_volume_unload(volume);
 
     imported = true;
   }
