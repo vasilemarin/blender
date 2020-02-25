@@ -394,7 +394,8 @@ struct VolumeGridVector : public std::list<VolumeGrid> {
     filepath[0] = '\0';
   }
 
-  VolumeGridVector(const VolumeGridVector &other) : error_msg(other.error_msg)
+  VolumeGridVector(const VolumeGridVector &other)
+      : std::list<VolumeGrid>(other), error_msg(other.error_msg), metadata(other.metadata)
   {
     memcpy(filepath, other.filepath, sizeof(filepath));
   }

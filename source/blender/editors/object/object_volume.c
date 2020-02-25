@@ -124,7 +124,6 @@ static int volume_import_exec(bContext *C, wmOperator *op)
                   "Volume %s contains points, only voxel grids are supported",
                   filename);
     }
-    BKE_volume_unload(volume);
 
     imported = true;
   }
