@@ -1605,8 +1605,8 @@ void blo_filedata_free(FileData *fd)
     if (fd->libmap && !(fd->flags & FD_FLAGS_NOT_MY_LIBMAP)) {
       oldnewmap_free(fd->libmap);
     }
-    if (fd->old_idmap != NULL) {
-      BKE_main_idmap_destroy(fd->old_idmap);
+    if (fd->old_valid_ids != NULL) {
+      BLI_gset_free(fd->old_valid_ids, NULL);
     }
     if (fd->bheadmap) {
       MEM_freeN(fd->bheadmap);
@@ -2221,14 +2221,22 @@ void blo_add_library_pointer_map(ListBase *old_mainlist, FileData *fd)
   fd->old_mainlist = old_mainlist;
 }
 
-/* Build idmap of old main (we only care about local data here, so we can do that after
+/* Build a GSet of old main (we only care about local data here, so we can do that after
  * split_main() call. */
-void blo_make_idmap_from_main(FileData *fd, Main *bmain)
+void blo_make_old_valid_ids_from_main(FileData *fd, Main *bmain)
 {
-  if (fd->old_idmap != NULL) {
-    BKE_main_idmap_destroy(fd->old_idmap);
+  if (fd->old_valid_ids != NULL) {
+    BLI_gset_clear(fd->old_valid_ids, NULL);
   }
-  fd->old_idmap = BKE_main_idmap_create(bmain, true, NULL);
+  else {
+    fd->old_valid_ids = BLI_gset_new(BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, __func__);
+  }
+
+  ID *id;
+  FOREACH_MAIN_ID_BEGIN (bmain, id) {
+    BLI_gset_add(fd->old_valid_ids, id);
+  }
+  FOREACH_MAIN_ID_END;
 }
 
 /** \} */
@@ -9088,6 +9096,7 @@ static BHead *read_libblock(FileData *fd,
   BHead *id_bhead = bhead;
   /* Used when undoing from memfile, we swap changed IDs into their old addresses when found. */
   ID *id_old = NULL;
+  void *id_old_memh = NULL;
   bool do_id_swap = false;
 
   if (id != NULL) {
@@ -9108,7 +9117,7 @@ static BHead *read_libblock(FileData *fd,
           "%s: ID %s is unchanged: %d\n", __func__, id->name, fd->are_memchunks_identical);
 
       if (fd->memfile != NULL) {
-        BLI_assert(fd->old_idmap != NULL || !do_partial_undo);
+        BLI_assert(fd->old_valid_ids != NULL || !do_partial_undo);
         /* This code should only ever be reached for local data-blocks. */
         BLI_assert(main->curlib == NULL);
         BLI_assert(main->used_id_memhash != NULL &&
@@ -9117,10 +9126,8 @@ static BHead *read_libblock(FileData *fd,
         /* Find the 'current' existing ID we want to reuse instead of the one we would read from
          * the undo memfile. */
         if (do_partial_undo) {
-          LinkNode *used_id_chain_hook = BLI_ghash_lookup(main->used_id_memhash, id_bhead->old);
-          used_id_chain = used_id_chain_hook ? used_id_chain_hook->link : NULL;
-          id_old = used_id_chain != NULL ? used_id_chain->link : id_bhead->old;
-          if (!BKE_main_idmap_lookup_id(fd->old_idmap, id_old)) {
+          id_old_memh = id_old = BKE_main_idmemhash_lookup_id(main, id_bhead->old, &used_id_chain);
+          if (!BLI_gset_haskey(fd->old_valid_ids, id_old)) {
             DEBUG_PRINTF("Found an old, invalid id_old pointer for new %s\n", id->name);
             id_old = NULL;
             used_id_chain = NULL;
@@ -9151,7 +9158,6 @@ static BHead *read_libblock(FileData *fd,
            */
 
           Main *old_bmain = fd->old_mainlist->first;
-          BLI_assert(old_bmain == BKE_main_idmap_main_get(fd->old_idmap));
           ListBase *old_lb = which_libbase(old_bmain, idcode);
           ListBase *new_lb = which_libbase(main, idcode);
           BLI_remlink(old_lb, id_old);
@@ -9192,12 +9198,10 @@ static BHead *read_libblock(FileData *fd,
       /* Some re-used old IDs might also use newly read ones, so we have to check for old memory
        * addresses for those as well. */
       if (fd->memfile != NULL && do_partial_undo && id->lib == NULL) {
-        BLI_assert(fd->old_idmap != NULL);
+        BLI_assert(fd->old_valid_ids != NULL);
         if (id_old == NULL) {
-          LinkNode *used_id_chain_hook = BLI_ghash_lookup(main->used_id_memhash, id_bhead->old);
-          used_id_chain = used_id_chain_hook ? used_id_chain_hook->link : NULL;
-          id_old = used_id_chain != NULL ? used_id_chain->link : id_bhead->old;
-          if (!BKE_main_idmap_lookup_id(fd->old_idmap, id_old)) {
+          id_old_memh = id_old = BKE_main_idmemhash_lookup_id(main, id_bhead->old, &used_id_chain);
+          if (!BLI_gset_haskey(fd->old_valid_ids, id_old)) {
             DEBUG_PRINTF("Found an old, invalid id_old pointer for new %s\n", id->name);
             id_old = NULL;
             used_id_chain = NULL;
@@ -9218,8 +9222,10 @@ static BHead *read_libblock(FileData *fd,
        * reallocate it to ensure we actually get a unique memory address for it. */
       if (!do_id_swap) {
         DEBUG_PRINTF("using newly-read ID %s to a new mem address\n", id->name);
-        if (!BKE_main_idmemhash_register_id(main, NULL, id)) {
-          id = BKE_main_idmemhash_unique_realloc(main, NULL, id);
+        /* Note that even if id_old_memh is not valid enymore (i.e. we cannot actually re-use that
+         * old ID), we still want to pass it here, to keep history chain consistent. */
+        if (!BKE_main_idmemhash_register_id(main, id_old_memh, id)) {
+          id = BKE_main_idmemhash_unique_realloc(main, id_old_memh, id);
         }
       }
       else {
@@ -9422,7 +9428,6 @@ static BHead *read_libblock(FileData *fd,
     BLI_assert((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0);
 
     Main *old_bmain = fd->old_mainlist->first;
-    BLI_assert(old_bmain == BKE_main_idmap_main_get(fd->old_idmap));
     BLI_assert(id_old != NULL);
 
     ListBase *old_lb = which_libbase(old_bmain, idcode);
