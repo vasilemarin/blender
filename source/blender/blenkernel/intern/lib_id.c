@@ -2438,9 +2438,6 @@ void BLI_libblock_ensure_unique_name(Main *bmain, const char *name)
     BKE_id_new_name_validate(lb, idtest, NULL);
     bmain->is_memfile_undo_written = false;
   }
-
-  /* ID renaming requires an 'undo barrier'. */
-  bmain->use_memfile_full_barrier = true;
 }
 
 /**
@@ -2452,9 +2449,6 @@ void BKE_libblock_rename(Main *bmain, ID *id, const char *name)
   if (BKE_id_new_name_validate(lb, id, name)) {
     bmain->is_memfile_undo_written = false;
   }
-
-  /* ID renaming requires an 'undo barrier'. */
-  bmain->use_memfile_full_barrier = true;
 }
 
 /**
