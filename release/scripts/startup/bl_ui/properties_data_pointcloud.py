@@ -63,7 +63,7 @@ class DATA_PT_pointcloud(DataButtonsPanel, Panel):
 class DATA_PT_custom_props_pointcloud(DataButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
     _context_path = "object.data"
-    _property_type = bpy.types.PointCloud
+    _property_type = bpy.types.PointCloud if hasattr(bpy.types, "PointCloud") else None
 
 
 classes = (

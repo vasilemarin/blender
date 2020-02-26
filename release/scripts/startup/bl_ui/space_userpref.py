@@ -376,7 +376,8 @@ class USERPREF_PT_edit_objects_duplicate_data(EditingPanel, CenterAlignMixIn, Pa
         col.prop(edit, "use_duplicate_curve", text="Curve")
         # col.prop(edit, "use_duplicate_fcurve", text="F-Curve")  # Not implemented.
         col.prop(edit, "use_duplicate_grease_pencil", text="Grease Pencil")
-        col.prop(edit, "use_duplicate_hair", text="Hair")
+        if hasattr(edit, "use_duplicate_hair"):
+            col.prop(edit, "use_duplicate_hair", text="Hair")
         col = flow.column()
         col.prop(edit, "use_duplicate_light", text="Light")
         col.prop(edit, "use_duplicate_lightprobe", text="Light Probe")
@@ -385,7 +386,8 @@ class USERPREF_PT_edit_objects_duplicate_data(EditingPanel, CenterAlignMixIn, Pa
         col.prop(edit, "use_duplicate_metaball", text="Metaball")
         col = flow.column()
         col.prop(edit, "use_duplicate_particle", text="Particle")
-        col.prop(edit, "use_duplicate_pointcloud", text="Point Cloud")
+        if hasattr(edit, "use_duplicate_pointcloud"):
+            col.prop(edit, "use_duplicate_pointcloud", text="Point Cloud")
         col.prop(edit, "use_duplicate_surface", text="Surface")
         col.prop(edit, "use_duplicate_text", text="Text")
         # col.prop(edit, "use_duplicate_texture", text="Texture")  # Not implemented.

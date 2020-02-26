@@ -75,8 +75,10 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_SPK, "SPEAKER", ICON_SPEAKER, "Speaker", ""},
     {ID_TXT, "TEXT", ICON_TEXT, "Text", ""},
     {ID_TE, "TEXTURE", ICON_TEXTURE_DATA, "Texture", ""},
+#ifdef WITH_NEW_OBJECT_TYPES
     {ID_HA, "HAIR", ICON_HAIR_DATA, "Hair", ""},
     {ID_PT, "POINTCLOUD", ICON_POINTCLOUD_DATA, "PointCloud", ""},
+#endif
     {ID_VO, "VOLUME", ICON_VOLUME_DATA, "Volume", ""},
     {ID_WM, "WINDOWMANAGER", ICON_WINDOW, "Window Manager", ""},
     {ID_WO, "WORLD", ICON_WORLD_DATA, "World", ""},
@@ -250,7 +252,9 @@ short RNA_type_to_ID_code(const StructRNA *type)
     return ID_LS;
   }
   if (base_type == &RNA_Hair) {
+#  ifdef WITH_NEW_OBJECT_TYPES
     return ID_HA;
+#  endif
   }
   if (base_type == &RNA_Lattice) {
     return ID_LT;
@@ -286,7 +290,9 @@ short RNA_type_to_ID_code(const StructRNA *type)
     return ID_PC;
   }
   if (base_type == &RNA_PointCloud) {
+#  ifdef WITH_NEW_OBJECT_TYPES
     return ID_PT;
+#  endif
   }
   if (base_type == &RNA_LightProbe) {
     return ID_LP;
@@ -350,7 +356,11 @@ StructRNA *ID_code_to_RNA_type(short idcode)
     case ID_GR:
       return &RNA_Collection;
     case ID_HA:
+#  ifdef WITH_NEW_OBJECT_TYPES
       return &RNA_Hair;
+#  else
+      return &RNA_ID;
+#  endif
     case ID_IM:
       return &RNA_Image;
     case ID_KE:
@@ -384,7 +394,11 @@ StructRNA *ID_code_to_RNA_type(short idcode)
     case ID_PC:
       return &RNA_PaintCurve;
     case ID_PT:
+#  ifdef WITH_NEW_OBJECT_TYPES
       return &RNA_PointCloud;
+#  else
+      return &RNA_ID;
+#  endif
     case ID_LP:
       return &RNA_LightProbe;
     case ID_SCE:

@@ -2132,8 +2132,10 @@ class VIEW3D_MT_add(Menu):
         layout.menu("VIEW3D_MT_surface_add", icon='OUTLINER_OB_SURFACE')
         layout.menu("VIEW3D_MT_metaball_add", text="Metaball", icon='OUTLINER_OB_META')
         layout.operator("object.text_add", text="Text", icon='OUTLINER_OB_FONT')
-        layout.operator("object.hair_add", text="Hair", icon='OUTLINER_OB_HAIR')
-        layout.operator("object.pointcloud_add", text="Point Cloud", icon='OUTLINER_OB_POINTCLOUD')
+        if hasattr(bpy.data, "hairs"):
+            layout.operator("object.hair_add", text="Hair", icon='OUTLINER_OB_HAIR')
+        if hasattr(bpy.data, "pointclouds"):
+            layout.operator("object.pointcloud_add", text="Point Cloud", icon='OUTLINER_OB_POINTCLOUD')
         layout.menu("VIEW3D_MT_volume_add", text="Volume", icon='OUTLINER_OB_VOLUME')
         layout.operator_menu_enum("object.gpencil_add", "type", text="Grease Pencil", icon='OUTLINER_OB_GREASEPENCIL')
 
@@ -5328,6 +5330,11 @@ class VIEW3D_PT_object_type_visibility(Panel):
         for attr, attr_name in attr_object_types:
             if attr is None:
                 col.separator()
+                continue
+
+            if attr == "hair" and not hasattr(bpy.data, "hairs"):
+                continue
+            elif attr == "pointcloud" and not hasattr(bpy.data, "pointclouds"):
                 continue
 
             attr_v = "show_object_viewport_" f"{attr:s}"

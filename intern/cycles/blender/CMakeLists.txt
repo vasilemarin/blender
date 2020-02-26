@@ -91,6 +91,10 @@ if(WITH_MOD_FLUID)
   add_definitions(-DWITH_FLUID)
 endif()
 
+if(WITH_NEW_OBJECT_TYPES)
+  add_definitions(-DWITH_NEW_OBJECT_TYPES)
+endif()
+
 blender_add_lib(bf_intern_cycles "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 # avoid link failure with clang 3.4 debug

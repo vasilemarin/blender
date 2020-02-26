@@ -1154,6 +1154,7 @@ void BlenderSync::sync_particle_hair(
   }
 }
 
+#ifdef WITH_NEW_OBJECT_TYPES
 static float4 hair_point_as_float4(BL::HairPoint b_point)
 {
   float4 mP = float3_to_float4(get_float3(b_point.co()));
@@ -1319,10 +1320,12 @@ static void export_hair_curves_motion(Hair *hair, BL::Hair b_hair, int motion_st
     export_hair_motion_validate_attribute(hair, motion_step, num_motion_keys, have_motion);
   }
 }
+#endif /* WITH_NEW_OBJECT_TYPES */
 
 /* Hair object. */
 void BlenderSync::sync_hair(Hair *hair, BL::Object &b_ob, bool motion, int motion_step)
 {
+#ifdef WITH_NEW_OBJECT_TYPES
   /* Convert Blender hair to Cycles curves. */
   BL::Hair b_hair(b_ob.data());
   if (motion) {
@@ -1331,6 +1334,7 @@ void BlenderSync::sync_hair(Hair *hair, BL::Object &b_ob, bool motion, int motio
   else {
     export_hair_curves(scene, hair, b_hair);
   }
+#endif /* WITH_NEW_OBJECT_TYPES */
 }
 
 void BlenderSync::sync_hair(BL::Depsgraph b_depsgraph,

@@ -397,8 +397,8 @@ class OUTLINER_PT_filter(Panel):
         if (
                 bpy.data.curves or
                 bpy.data.metaballs or
-                bpy.data.hairs or
-                bpy.data.pointclouds or
+                (hasattr(bpy.data, "hairs") and bpy.data.hairs) or
+                (hasattr(bpy.data, "pointclouds") and bpy.data.pointclouds) or
                 bpy.data.volumes or
                 bpy.data.lightprobes or
                 bpy.data.lattices or

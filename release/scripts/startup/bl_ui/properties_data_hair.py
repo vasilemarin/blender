@@ -63,7 +63,7 @@ class DATA_PT_hair(DataButtonsPanel, Panel):
 class DATA_PT_custom_props_hair(DataButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
     _context_path = "object.data"
-    _property_type = bpy.types.Hair
+    _property_type = bpy.types.Hair if hasattr(bpy.types, "Hair") else None
 
 
 classes = (

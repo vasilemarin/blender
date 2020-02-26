@@ -706,6 +706,7 @@ static bGPdata *rna_Main_gpencils_new(Main *bmain, const char *name)
   return gpd;
 }
 
+#  ifdef WITH_NEW_OBJECT_TYPES
 static Hair *rna_Main_hairs_new(Main *bmain, const char *name)
 {
   char safe_name[MAX_ID_NAME - 2];
@@ -725,6 +726,7 @@ static PointCloud *rna_Main_pointclouds_new(Main *bmain, const char *name)
   id_us_min(&pointcloud->id);
   return pointcloud;
 }
+#  endif
 
 static Volume *rna_Main_volumes_new(Main *bmain, const char *name)
 {
@@ -778,8 +780,10 @@ RNA_MAIN_ID_TAG_FUNCS_DEF(cachefiles, cachefiles, ID_CF)
 RNA_MAIN_ID_TAG_FUNCS_DEF(paintcurves, paintcurves, ID_PC)
 RNA_MAIN_ID_TAG_FUNCS_DEF(workspaces, workspaces, ID_WS)
 RNA_MAIN_ID_TAG_FUNCS_DEF(lightprobes, lightprobes, ID_LP)
+#  ifdef WITH_NEW_OBJECT_TYPES
 RNA_MAIN_ID_TAG_FUNCS_DEF(hairs, hairs, ID_HA)
 RNA_MAIN_ID_TAG_FUNCS_DEF(pointclouds, pointclouds, ID_PT)
+#  endif
 RNA_MAIN_ID_TAG_FUNCS_DEF(volumes, volumes, ID_VO)
 
 #  undef RNA_MAIN_ID_TAG_FUNCS_DEF

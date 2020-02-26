@@ -535,10 +535,12 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
       return &RNA_LightProbe;
     case OB_GPENCIL:
       return &RNA_GreasePencil;
+#  ifdef WITH_NEW_OBJECT_TYPES
     case OB_HAIR:
       return &RNA_Hair;
     case OB_POINTCLOUD:
       return &RNA_PointCloud;
+#  endif
     case OB_VOLUME:
       return &RNA_Volume;
     default:
