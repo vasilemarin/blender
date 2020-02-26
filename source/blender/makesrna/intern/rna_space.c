@@ -4138,10 +4138,12 @@ static void rna_def_space_view3d(BlenderRNA *brna)
         {"Surface", (1 << OB_SURF), {"show_object_viewport_surf", "show_object_select_surf"}},
         {"Meta", (1 << OB_MBALL), {"show_object_viewport_meta", "show_object_select_meta"}},
         {"Font", (1 << OB_FONT), {"show_object_viewport_font", "show_object_select_font"}},
+#  ifdef WITH_NEW_OBJECT_TYPES
         {"Hair", (1 << OB_HAIR), {"show_object_viewport_hair", "show_object_select_hair"}},
         {"Point Cloud",
          (1 << OB_POINTCLOUD),
          {"show_object_viewport_pointcloud", "show_object_select_pointcloud"}},
+#  endif
         {"Volume", (1 << OB_VOLUME), {"show_object_viewport_volume", "show_object_select_volume"}},
         {"Armature",
          (1 << OB_ARMATURE),
@@ -5405,12 +5407,14 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
       {FILTER_ID_TE, "TEXTURE", ICON_TEXTURE_DATA, "Textures", "Show/hide Texture data-blocks"},
       {FILTER_ID_TXT, "TEXT", ICON_TEXT, "Texts", "Show/hide Text data-blocks"},
       {FILTER_ID_VF, "FONT", ICON_FONT_DATA, "Fonts", "Show/hide Font data-blocks"},
+#  ifdef WITH_NEW_OBJECT_TYPES
       {FILTER_ID_HA, "HAIR", ICON_HAIR_DATA, "Hairs", "Show/hide Hair data-blocks"},
       {FILTER_ID_PT,
        "POINTCLOUD",
        ICON_POINTCLOUD_DATA,
        "Point Clouds",
        "Show/hide Point Cloud data-blocks"},
+#  endif
       {FILTER_ID_VO, "VOLUME", ICON_VOLUME_DATA, "Volumes", "Show/hide Volume data-blocks"},
       {FILTER_ID_WO, "WORLD", ICON_WORLD_DATA, "Worlds", "Show/hide World data-blocks"},
       {FILTER_ID_WS,

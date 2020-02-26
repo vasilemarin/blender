@@ -224,8 +224,10 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     OBTYPE_CU_SURF,
     {OB_MBALL, "META", 0, "Meta", ""},
     OBTYPE_CU_FONT,
+#ifdef WITH_NEW_OBJECT_TYPES
     {OB_HAIR, "HAIR", 0, "Hair", ""},
     {OB_POINTCLOUD, "POINTCLOUD", 0, "PointCloud", ""},
+#endif
     {OB_VOLUME, "VOLUME", 0, "Volume", ""},
     {0, "", 0, NULL, NULL},
     {OB_ARMATURE, "ARMATURE", 0, "Armature", ""},
