@@ -8849,7 +8849,7 @@ static void direct_link_linestyle(FileData *fd, FreestyleLineStyle *linestyle)
 static void lib_link_hair(FileData *fd, Main *UNUSED(main), Hair *hair)
 {
   for (int a = 0; a < hair->totcol; a++) {
-    hair->mat[a] = newlibadr_us(fd, hair->id.lib, hair->mat[a]);
+    hair->mat[a] = newlibadr(fd, hair->id.lib, hair->mat[a]);
   }
 }
 
@@ -8877,7 +8877,7 @@ static void direct_link_hair(FileData *fd, Hair *hair)
 static void lib_link_pointcloud(FileData *fd, Main *UNUSED(main), PointCloud *pointcloud)
 {
   for (int a = 0; a < pointcloud->totcol; a++) {
-    pointcloud->mat[a] = newlibadr_us(fd, pointcloud->id.lib, pointcloud->mat[a]);
+    pointcloud->mat[a] = newlibadr(fd, pointcloud->id.lib, pointcloud->mat[a]);
   }
 }
 
@@ -8904,7 +8904,7 @@ static void direct_link_pointcloud(FileData *fd, PointCloud *pointcloud)
 static void lib_link_volume(FileData *fd, Main *UNUSED(main), Volume *volume)
 {
   for (int a = 0; a < volume->totcol; a++) {
-    volume->mat[a] = newlibadr_us(fd, volume->id.lib, volume->mat[a]);
+    volume->mat[a] = newlibadr(fd, volume->id.lib, volume->mat[a]);
   }
 }
 
