@@ -633,40 +633,13 @@ if(WITH_OPENVDB)
      ../../../intern/openvdb
   )
   list(APPEND INC_SYS
-    ${BOOST_INCLUDE_DIR}
-    ${TBB_INCLUDE_DIRS}
-    ${OPENEXR_INCLUDE_DIRS}
     ${OPENVDB_INCLUDE_DIRS}
   )
   list(APPEND LIB
     bf_intern_openvdb
     ${OPENVDB_LIBRARIES}
-    ${OPENEXR_LIBRARIES}
-    ${BLOSC_LIBRARIES}
-    ${ZLIB_LIBRARIES}
-    ${BOOST_LIBRARIES}
-    ${TBB_LIBRARIES}
   )
-
-  add_definitions(-DWITH_OPENVDB)
-
-  if(WITH_OPENVDB_BLOSC)
-    add_definitions(
-      -DWITH_OPENVDB_BLOSC
-    )
-  endif()
-
-  if(WIN32)
-    add_definitions(
-      -DOPENVDB_STATICLIB
-    )
-  endif()
-
-  if(WITH_OPENVDB_3_ABI_COMPATIBLE)
-    add_definitions(
-      -DOPENVDB_3_ABI_COMPATIBLE
-    )
-  endif()
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
 endif()
 
 if(WITH_QUADRIFLOW)
