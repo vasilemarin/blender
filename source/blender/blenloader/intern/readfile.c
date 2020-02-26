@@ -9121,7 +9121,7 @@ static BHead *read_libblock(FileData *fd,
           used_id_chain = used_id_chain_hook ? used_id_chain_hook->link : NULL;
           id_old = used_id_chain != NULL ? used_id_chain->link : id_bhead->old;
           if (!BKE_main_idmap_lookup_id(fd->old_idmap, id_old)) {
-            printf("Found an old, invalid id_old pointer for new %s\n", id->name);
+            DEBUG_PRINTF("Found an old, invalid id_old pointer for new %s\n", id->name);
             id_old = NULL;
             used_id_chain = NULL;
           }
@@ -9167,6 +9167,7 @@ static BHead *read_libblock(FileData *fd,
         }
 
         if (can_finalize_and_return) {
+          DEBUG_PRINTF("Re-using existing ID %s instead of newly read one\n", id_old->name);
           oldnewmap_insert(fd->libmap, id_bhead->old, id_old, id_bhead->code);
           for (; used_id_chain; used_id_chain = used_id_chain->next) {
             oldnewmap_insert(fd->libmap, used_id_chain->link, id_old, id_bhead->code);
@@ -9197,7 +9198,7 @@ static BHead *read_libblock(FileData *fd,
           used_id_chain = used_id_chain_hook ? used_id_chain_hook->link : NULL;
           id_old = used_id_chain != NULL ? used_id_chain->link : id_bhead->old;
           if (!BKE_main_idmap_lookup_id(fd->old_idmap, id_old)) {
-            printf("Found an old, invalid id_old pointer for new %s\n", id->name);
+            DEBUG_PRINTF("Found an old, invalid id_old pointer for new %s\n", id->name);
             id_old = NULL;
             used_id_chain = NULL;
           }
@@ -9216,10 +9217,14 @@ static BHead *read_libblock(FileData *fd,
       /* At this point, we know we are going to keep that newly read & allocated ID, so we need to
        * reallocate it to ensure we actually get a unique memory address for it. */
       if (!do_id_swap) {
+        DEBUG_PRINTF("using newly-read ID %s to a new mem address\n", id->name);
         if (!BKE_main_idmemhash_register_id(main, NULL, id)) {
           id = BKE_main_idmemhash_unique_realloc(
               main, NULL, id, MEM_reallocN_id, MEM_allocN_len(id), __func__);
         }
+      }
+      else {
+        DEBUG_PRINTF("using newly-read ID %s to its old, already existing address\n", id->name);
       }
 
       /* for ID_LINK_PLACEHOLDER check */
