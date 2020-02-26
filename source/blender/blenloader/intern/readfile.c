@@ -9219,8 +9219,7 @@ static BHead *read_libblock(FileData *fd,
       if (!do_id_swap) {
         DEBUG_PRINTF("using newly-read ID %s to a new mem address\n", id->name);
         if (!BKE_main_idmemhash_register_id(main, NULL, id)) {
-          id = BKE_main_idmemhash_unique_realloc(
-              main, NULL, id, MEM_reallocN_id, MEM_allocN_len(id), __func__);
+          id = BKE_main_idmemhash_unique_realloc(main, NULL, id);
         }
       }
       else {
