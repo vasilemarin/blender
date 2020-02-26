@@ -40,16 +40,16 @@ float *BKE_image_get_float_pixels_for_frame(void *image, int frame, int tile);
 struct VolumeGrid;
 bool BKE_volume_grid_dense_bounds(const Volume *volume,
                                   VolumeGrid *volume_grid,
-                                  ssize_t min[3],
-                                  ssize_t max[3]);
+                                  int64_t min[3],
+                                  int64_t max[3]);
 void BKE_volume_grid_dense_transform_matrix(const VolumeGrid *volume_grid,
-                                            const ssize_t min[3],
-                                            const ssize_t max[3],
+                                            const int64_t min[3],
+                                            const int64_t max[3],
                                             float mat[4][4]);
 void BKE_volume_grid_dense_voxels(const Volume *volume,
                                   VolumeGrid *volume_grid,
-                                  const ssize_t min[3],
-                                  const ssize_t max[3],
+                                  const int64_t min[3],
+                                  const int64_t max[3],
                                   float *voxels);
 }
 

@@ -88,7 +88,7 @@ void BlenderSession::builtin_image_info(const string &builtin_name,
         metadata.builtin_free_cache = !b_grid.is_loaded();
 
         /* Compute grid dimensions. */
-        ssize_t min[3], max[3];
+        int64_t min[3], max[3];
         if (!BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
           return;
         }
@@ -312,7 +312,7 @@ bool BlenderSession::builtin_image_float_pixels(const string &builtin_name,
         VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
 
         /* TODO: don't compute resolution twice */
-        ssize_t min[3], max[3];
+        int64_t min[3], max[3];
         if (BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
           BKE_volume_grid_dense_voxels(volume, volume_grid, min, max, pixels);
         }
