@@ -318,6 +318,9 @@ typedef enum eScenePassType {
 #define RE_PASSNAME_SUBSURFACE_COLOR "SubsurfaceCol"
 
 #define RE_PASSNAME_FREESTYLE "Freestyle"
+#define RE_PASSNAME_BLOOM "BloomCol"
+#define RE_PASSNAME_VOLUME_TRANSMITTANCE "VolumeTransmCol"
+#define RE_PASSNAME_VOLUME_SCATTER "VolumeScatterCol"
 
 /* View - MultiView */
 typedef struct SceneRenderView {
@@ -594,12 +597,6 @@ typedef enum eBakePassFilter {
 
 #define R_BAKE_PASS_FILTER_ALL (~0)
 
-/* RenderEngineSettingsClay.options */
-typedef enum ClayFlagSettings {
-  CLAY_USE_AO = (1 << 0),
-  CLAY_USE_HSV = (1 << 1),
-} ClayFlagSettings;
-
 /* *************************************************************** */
 /* Render Data */
 
@@ -750,7 +747,10 @@ typedef struct RenderData {
 
   /* render engine */
   char engine[32];
-  char _pad2[4];
+  char _pad2[2];
+
+  /* Performance Options */
+  short perf_flag;
 
   /* Cycles baking */
   struct BakeData bake;
@@ -775,6 +775,11 @@ typedef struct RenderData {
   /* Motion blur shutter */
   struct CurveMapping mblur_shutter_curve;
 } RenderData;
+
+/* RenderData.quality_flag */
+typedef enum eQualityOption {
+  SCE_PERF_HQ_NORMALS = (1 << 0),
+} eQualityOption;
 
 /* RenderData.hair_type */
 typedef enum eHairType {
@@ -1921,25 +1926,6 @@ enum {
   R_COLOR_MANAGEMENT_UNUSED_1 = (1 << 1),
 };
 
-#ifdef DNA_DEPRECATED_ALLOW
-/* RenderData.subimtype flag options for imtype */
-enum {
-  R_OPENEXR_HALF = (1 << 0), /*deprecated*/
-  R_OPENEXR_ZBUF = (1 << 1), /*deprecated*/
-  R_PREVIEW_JPG = (1 << 2),  /*deprecated*/
-  R_CINEON_LOG = (1 << 3),   /*deprecated*/
-  R_TIFF_16BIT = (1 << 4),   /*deprecated*/
-
-  R_JPEG2K_12BIT = (1 << 5),
-  /* Jpeg2000 */             /*deprecated*/
-  R_JPEG2K_16BIT = (1 << 6), /*deprecated*/
-  R_JPEG2K_YCC = (1 << 7),
-  /* when disabled use RGB */      /*deprecated*/
-  R_JPEG2K_CINE_PRESET = (1 << 8), /*deprecated*/
-  R_JPEG2K_CINE_48FPS = (1 << 9),  /*deprecated*/
-};
-#endif
-
 /* bake_mode: same as RE_BAKE_xxx defines */
 /* RenderData.bake_flag */
 #define R_BAKE_CLEAR (1 << 0)
@@ -2316,7 +2302,7 @@ typedef enum eGPencil_Placement_Flags {
   GP_PROJECT_VIEWSPACE = (1 << 0),
 
   /* Viewport space, but relative to render canvas (Sequencer Preview Only) */
-  GP_PROJECT_CANVAS = (1 << 1),
+  /* GP_PROJECT_CANVAS = (1 << 1), */ /* UNUSED */
 
   /* Project into the screen's Z values */
   GP_PROJECT_DEPTH_VIEW = (1 << 2),
@@ -2422,8 +2408,8 @@ enum {
 /* SceneEEVEE->shadow_method */
 enum {
   SHADOW_ESM = 1,
-  SHADOW_VSM = 2,
-  SHADOW_METHOD_MAX = 3,
+  /* SHADOW_VSM = 2, */        /* UNUSED */
+  /* SHADOW_METHOD_MAX = 3, */ /* UNUSED */
 };
 
 /* SceneDisplay->render_aa, SceneDisplay->viewport_aa */

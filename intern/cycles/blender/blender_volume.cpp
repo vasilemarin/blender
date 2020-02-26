@@ -113,9 +113,12 @@ static void sync_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *s
   }
 }
 
-void BlenderSync::sync_volume(BL::Object &b_ob, Mesh *mesh)
+void BlenderSync::sync_volume(BL::Object &b_ob, Mesh *mesh, const vector<Shader *> &used_shaders)
 {
   bool old_has_voxel_attributes = mesh->has_voxel_attributes();
+
+  mesh->clear();
+  mesh->used_shaders = used_shaders;
 
   /* TODO: support disabling volumes in view layer. */
   if (b_ob.type() == BL::Object::type_VOLUME) {
