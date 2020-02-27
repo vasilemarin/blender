@@ -258,7 +258,7 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
 
     MEM_freeN(voxels);
 
-    /* Compute transform matrix. */
+    /* Compute transform matrices. */
     BKE_volume_grid_dense_transform_matrix(
         grid, dense_min, dense_max, cache_grid->texture_to_object);
     invert_m4_m4(cache_grid->object_to_texture, cache_grid->texture_to_object);

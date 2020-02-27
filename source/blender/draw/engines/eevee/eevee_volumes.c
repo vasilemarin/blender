@@ -397,6 +397,90 @@ void EEVEE_volumes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   }
 }
 
+static bool eevee_volume_object_cache_init(Object *ob, ListBase *gpu_grids, DRWShadingGroup *grp)
+{
+  Volume *volume = ob->data;
+  BKE_volume_load(volume, G.main);
+
+  /* Test if we need to use multiple transforms. */
+  DRWVolumeGrid *first_drw_grid = NULL;
+  bool multiple_transforms = true;
+
+  for (GPUMaterialVolumeGrid *gpu_grid = gpu_grids->first; gpu_grid; gpu_grid = gpu_grid->next) {
+    VolumeGrid *volume_grid = BKE_volume_grid_find(volume, gpu_grid->name);
+    DRWVolumeGrid *drw_grid = (volume_grid) ?
+                                  DRW_volume_batch_cache_get_grid(volume, volume_grid) :
+                                  NULL;
+
+    if (drw_grid) {
+      if (first_drw_grid == NULL) {
+        first_drw_grid = drw_grid;
+      }
+      else if (drw_grid &&
+               !equals_m4m4(drw_grid->object_to_texture, first_drw_grid->object_to_texture)) {
+        multiple_transforms = true;
+        break;
+      }
+    }
+  }
+
+  /* Bail out of no grids to render. */
+  if (first_drw_grid == NULL) {
+    return false;
+  }
+
+  /* Set transform matrix for the volume as a whole. This one is also used for
+   * clipping so must map the entire bounding box to 0..1. */
+  float bounds_to_object[4][4];
+
+  if (multiple_transforms) {
+    /* For multiple grids with different transform, we first transform from object space
+     * to bounds, then for each individual grid from bounds to texture. */
+    BoundBox *bb = BKE_volume_boundbox_get(ob);
+    float bb_size[3];
+    sub_v3_v3v3(bb_size, bb->vec[6], bb->vec[0]);
+    size_to_mat4(bounds_to_object, bb_size);
+    copy_v3_v3(bounds_to_object[3], bb->vec[0]);
+
+    invert_m4_m4(first_drw_grid->object_to_bounds, bounds_to_object);
+    DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", first_drw_grid->object_to_bounds);
+  }
+  else {
+    /* All grid transforms are equal, we can transform to texture space immediately. */
+    DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", first_drw_grid->object_to_texture);
+  }
+
+  /* Don't use orco transform here, only matrix. */
+  static const float texco_loc[3] = {0.5f, 0.5f, 0.5f};
+  static const float texco_size[3] = {0.5f, 0.5f, 0.5f};
+  DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texco_loc, 1);
+  DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texco_size, 1);
+
+  /* Bind volume grid textures. */
+  for (GPUMaterialVolumeGrid *gpu_grid = gpu_grids->first; gpu_grid; gpu_grid = gpu_grid->next) {
+    VolumeGrid *volume_grid = BKE_volume_grid_find(volume, gpu_grid->name);
+    DRWVolumeGrid *drw_grid = (volume_grid) ?
+                                  DRW_volume_batch_cache_get_grid(volume, volume_grid) :
+                                  NULL;
+
+    if (drw_grid == NULL) {
+      DRW_shgroup_uniform_texture(grp, gpu_grid->sampler_name, e_data.dummy_density);
+      continue;
+    }
+
+    DRW_shgroup_uniform_texture(grp, gpu_grid->sampler_name, drw_grid->texture);
+
+    if (multiple_transforms) {
+      /* Specify per-volume tranform matrix that is applied after the
+       * transform from object to bounds. */
+      mul_m4_m4m4(drw_grid->bounds_to_texture, drw_grid->object_to_texture, bounds_to_object);
+      DRW_shgroup_uniform_mat4(grp, gpu_grid->transform_name, drw_grid->bounds_to_texture);
+    }
+  }
+
+  return true;
+}
+
 void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
                                     EEVEE_Data *vedata,
                                     Scene *scene,
@@ -447,39 +531,10 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
   DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
 
   ListBase gpu_grids = GPU_material_volume_grids(mat);
-  bool have_transform = false;
 
   /* Volume Object */
   if (ob->type == OB_VOLUME) {
-    Volume *volume = ob->data;
-    BKE_volume_load(volume, G.main);
-
-    for (GPUMaterialVolumeGrid *gpu_grid = gpu_grids.first; gpu_grid; gpu_grid = gpu_grid->next) {
-      VolumeGrid *volume_grid = BKE_volume_grid_find(volume, gpu_grid->name);
-      DRWVolumeGrid *drw_grid = (volume_grid) ?
-                                    DRW_volume_batch_cache_get_grid(volume, volume_grid) :
-                                    NULL;
-
-      if (drw_grid == NULL) {
-        DRW_shgroup_uniform_texture(grp, gpu_grid->sampler_name, e_data.dummy_density);
-        continue;
-      }
-
-      DRW_shgroup_uniform_texture(grp, gpu_grid->sampler_name, drw_grid->texture);
-
-      /* Volume dimensions for texture sampling. */
-      if (!have_transform && drw_grid) {
-        /* TODO: support different transform per grid. */
-        static const float texco_loc[3] = {0.5f, 0.5f, 0.5f};
-        static const float texco_size[3] = {0.5f, 0.5f, 0.5f};
-        DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", drw_grid->object_to_texture);
-        DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texco_loc, 1);
-        DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texco_size, 1);
-        have_transform = true;
-      }
-    }
-
-    if (!have_transform) {
+    if (!eevee_volume_object_cache_init(ob, &gpu_grids, grp)) {
       return;
     }
   }
@@ -552,8 +607,8 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
     }
   }
 
-  if (!have_transform) {
-    /* Texture space transform for smoke and meshes. */
+  if (ob->type != OB_VOLUME) {
+    /* Transform for mesh volumes. */
     static const float unit_mat[4][4] = {{1.0f, 0.0f, 0.0f, 0.0f},
                                          {0.0f, 1.0f, 0.0f, 0.0f},
                                          {0.0f, 0.0f, 1.0f, 0.0f},
