@@ -30,7 +30,7 @@ class DataButtonsPanel:
     @classmethod
     def poll(cls, context):
         engine = context.scene.render.engine
-        return context.hair and (engine in cls.COMPAT_ENGINES)
+        return hasattr(context, 'hair') and context.hair and (engine in cls.COMPAT_ENGINES)
 
 
 class DATA_PT_context_hair(DataButtonsPanel, Panel):
