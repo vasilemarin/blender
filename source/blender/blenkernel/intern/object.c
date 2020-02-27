@@ -475,7 +475,6 @@ void BKE_object_free_derived_caches(Object *ob)
     if (ob->runtime.is_data_eval_owned) {
       ID *data_eval = ob->runtime.data_eval;
       if (GS(data_eval->name) == ID_ME) {
-        /* TODO: why exception? */
         BKE_mesh_eval_delete((Mesh *)data_eval);
       }
       else {
