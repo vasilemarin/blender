@@ -85,6 +85,7 @@
 #include "BKE_fcurve.h"
 #include "BKE_gpencil_modifier.h"
 #include "BKE_icons.h"
+#include "BKE_idtype.h"
 #include "BKE_key.h"
 #include "BKE_light.h"
 #include "BKE_layer.h"
@@ -143,6 +144,35 @@ static CLG_LogRef LOG = {"bke.object"};
 #ifdef VPARENT_THREADING_HACK
 static ThreadMutex vparent_lock = BLI_MUTEX_INITIALIZER;
 #endif
+
+static void object_init_data(ID *id)
+{
+  Object *ob = (Object *)id;
+  BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(ob, id));
+
+  MEMCPY_STRUCT_AFTER(ob, DNA_struct_default_get(Object), id);
+
+  ob->type = OB_EMPTY;
+
+  ob->trackflag = OB_POSY;
+  ob->upflag = OB_POSZ;
+
+  /* Animation Visualization defaults */
+  animviz_settings_init(&ob->avs);
+}
+
+IDTypeInfo IDType_ID_OB = {
+    .id_code = ID_OB,
+    .id_filter = FILTER_ID_OB,
+    .main_listbase_index = INDEX_ID_OB,
+    .struct_size = sizeof(Object),
+    .name = "Object",
+    .name_plural = "objects",
+    .translation_context = BLT_I18NCONTEXT_ID_ACTION,
+    .flags = IDTYPE_FLAGS_IS_LINKABLE,
+
+    .init_data = object_init_data,
+};
 
 void BKE_object_workob_clear(Object *workob)
 {
@@ -872,9 +902,7 @@ void *BKE_object_obdata_add_from_type(Main *bmain, int type, const char *name)
 
 void BKE_object_init(Object *ob, const short ob_type)
 {
-  BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(ob, id));
-
-  MEMCPY_STRUCT_AFTER(ob, DNA_struct_default_get(Object), id);
+  object_init_data(&ob->id);
 
   ob->type = ob_type;
 
@@ -886,13 +914,6 @@ void BKE_object_init(Object *ob, const short ob_type)
     ob->trackflag = OB_NEGZ;
     ob->upflag = OB_POSY;
   }
-  else {
-    ob->trackflag = OB_POSY;
-    ob->upflag = OB_POSZ;
-  }
-
-  /* Animation Visualization defaults */
-  animviz_settings_init(&ob->avs);
 }
 
 /* more general add: creates minimum required data, but without vertices etc. */

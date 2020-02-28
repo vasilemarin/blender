@@ -91,6 +91,7 @@
 #include "BKE_gpencil.h"
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
+#include "BKE_idtype.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_light.h"
@@ -1258,6 +1259,18 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name, const int fl
  */
 void BKE_libblock_init_empty(ID *id)
 {
+  const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_id(id);
+
+  printf("%s: ", __func__);
+
+  if (idtype_info != NULL && idtype_info->init_data != NULL) {
+    printf("Found IDTypeInfo for %c%c, using new code...\n", id->name[0], id->name[1]);
+    idtype_info->init_data(id);
+    return;
+  }
+
+  printf("No IDTypeInfo for %c%c, using old code...\n", id->name[0], id->name[1]);
+
   /* Note that only ID types that are not valid when filled of zero should have a callback here. */
   switch ((ID_Type)GS(id->name)) {
     case ID_SCE:
