@@ -1221,12 +1221,12 @@ size_t BKE_libblock_get_alloc_info(short type, const char **name)
  * Allocates and returns memory of the right size for the specified block type,
  * initialized to zero.
  */
-void *BKE_libblock_alloc_notest(Main *bmain, short type)
+void *BKE_libblock_alloc_notest(short type)
 {
   const char *name;
   size_t size = BKE_libblock_get_alloc_info(type, &name);
   if (size != 0) {
-    return BKE_main_idmemhash_unique_alloc(bmain, NULL, MEM_callocN, size, name);
+    return MEM_callocN(size, name);
   }
   BLI_assert(!"Request to allocate unknown data type");
   return NULL;
@@ -1242,7 +1242,7 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name, const int fl
 {
   BLI_assert((flag & LIB_ID_CREATE_NO_ALLOCATE) == 0);
 
-  ID *id = BKE_libblock_alloc_notest(bmain, type);
+  ID *id = BKE_libblock_alloc_notest(type);
 
   if (id) {
     if ((flag & LIB_ID_CREATE_NO_MAIN) != 0) {
