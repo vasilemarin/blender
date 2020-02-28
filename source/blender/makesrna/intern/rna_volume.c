@@ -396,7 +396,6 @@ static void rna_def_volume(BlenderRNA *brna)
       prop, "Sequence", "Whether the cache is separated in a series of files");
   RNA_def_property_update(prop, 0, "rna_Volume_update_is_sequence");
 
-  /* TODO: these parameters are hard to understand. */
   prop = RNA_def_property(srna, "frame_start", PROP_INT, PROP_TIME);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_range(prop, MINAFRAMEF, MAXFRAMEF);

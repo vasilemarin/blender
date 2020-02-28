@@ -718,9 +718,6 @@ static uiBut *template_id_def_new_but(uiBlock *block,
                             BLT_I18NCONTEXT_ID_MESH,
                             BLT_I18NCONTEXT_ID_CURVE,
                             BLT_I18NCONTEXT_ID_METABALL,
-                            BLT_I18NCONTEXT_ID_HAIR,
-                            BLT_I18NCONTEXT_ID_POINTCLOUD,
-                            BLT_I18NCONTEXT_ID_VOLUME,
                             BLT_I18NCONTEXT_ID_MATERIAL,
                             BLT_I18NCONTEXT_ID_TEXTURE,
                             BLT_I18NCONTEXT_ID_IMAGE,
@@ -741,7 +738,13 @@ static uiBut *template_id_def_new_but(uiBlock *block,
                             BLT_I18NCONTEXT_ID_GPENCIL,
                             BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
                             BLT_I18NCONTEXT_ID_WORKSPACE,
-                            BLT_I18NCONTEXT_ID_LIGHTPROBE, );
+                            BLT_I18NCONTEXT_ID_LIGHTPROBE,
+                            BLT_I18NCONTEXT_ID_HAIR,
+                            BLT_I18NCONTEXT_ID_POINTCLOUD,
+                            BLT_I18NCONTEXT_ID_VOLUME, );
+  /* Note: BLT_I18N_MSGID_MULTI_CTXT takes a maximum number of parameters,
+   * check the definition to see if a new call must be added when the limit
+   * is exceeded. */
 
   if (newop) {
     but = uiDefIconTextButO(block,

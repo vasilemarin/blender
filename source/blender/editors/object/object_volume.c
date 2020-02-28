@@ -38,6 +38,7 @@
 #include "RNA_define.h"
 
 #include "BKE_context.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_volume.h"
@@ -61,8 +62,7 @@ static Object *object_volume_add(bContext *C, wmOperator *op, const char *name)
   if (!ED_object_add_generic_get_opts(C, op, 'Z', loc, rot, NULL, &local_view_bits, NULL)) {
     return false;
   }
-  Object *object = ED_object_add_type(C, OB_VOLUME, name, loc, rot, false, local_view_bits);
-  return object;
+  return ED_object_add_type(C, OB_VOLUME, name, loc, rot, false, local_view_bits);
 }
 
 static int object_volume_add_exec(bContext *C, wmOperator *op)
@@ -114,15 +114,28 @@ static int volume_import_exec(bContext *C, wmOperator *op)
     volume->frame_start = 1;
     volume->frame_offset = (volume->is_sequence) ? range->offset - 1 : 0;
 
-    BKE_volume_load(volume, bmain);
-    if (BKE_volume_is_y_up(volume)) {
-      object->rot[0] += M_PI_2;
-    }
-    if (BKE_volume_is_points_only(volume)) {
+    if (!BKE_volume_load(volume, bmain)) {
       BKE_reportf(op->reports,
                   RPT_WARNING,
-                  "Volume %s contains points, only voxel grids are supported",
+                  "Volume \"%s\" failed to load: %s",
+                  filename,
+                  BKE_volume_grids_error_msg(volume));
+      BKE_id_delete(bmain, &object->id);
+      BKE_id_delete(bmain, &volume->id);
+      continue;
+    }
+    else if (BKE_volume_is_points_only(volume)) {
+      BKE_reportf(op->reports,
+                  RPT_WARNING,
+                  "Volume \"%s\" contains points, only voxel grids are supported",
                   filename);
+      BKE_id_delete(bmain, &object->id);
+      BKE_id_delete(bmain, &volume->id);
+      continue;
+    }
+
+    if (BKE_volume_is_y_up(volume)) {
+      object->rot[0] += M_PI_2;
     }
 
     imported = true;

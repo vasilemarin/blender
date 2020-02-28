@@ -24,8 +24,9 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_object_types.h"
+#include "DNA_defaults.h"
 #include "DNA_hair_types.h"
+#include "DNA_object_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
@@ -97,9 +98,7 @@ void BKE_hair_init(Hair *hair)
 {
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(hair, id));
 
-  hair->flag = 0;
-  hair->totpoint = 0;
-  hair->totcurve = 0;
+  MEMCPY_STRUCT_AFTER(hair, DNA_struct_default_get(Hair), id);
 
   CustomData_reset(&hair->pdata);
   CustomData_reset(&hair->cdata);

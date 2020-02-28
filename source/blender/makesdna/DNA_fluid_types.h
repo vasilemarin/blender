@@ -263,7 +263,6 @@ typedef struct FluidDomainSettings {
   struct GPUTexture *tex_velocity_x;
   struct GPUTexture *tex_velocity_y;
   struct GPUTexture *tex_velocity_z;
-  float tex_transform[4][4];
   struct Object *guide_parent;
   /** Vertex velocities of simulated fluid mesh. */
   struct FluidDomainVertexVelocity *mesh_velocities;

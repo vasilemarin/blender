@@ -24,6 +24,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_defaults.h"
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
 
@@ -70,8 +71,7 @@ void BKE_pointcloud_init(PointCloud *pointcloud)
 {
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(pointcloud, id));
 
-  pointcloud->flag = 0;
-  pointcloud->totpoint = 0;
+  MEMCPY_STRUCT_AFTER(pointcloud, DNA_struct_default_get(PointCloud), id);
 
   CustomData_reset(&pointcloud->pdata);
   CustomData_add_layer(&pointcloud->pdata, CD_LOCATION, CD_CALLOC, NULL, pointcloud->totpoint);

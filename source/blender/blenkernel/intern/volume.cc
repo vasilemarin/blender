@@ -24,6 +24,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_defaults.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_volume_types.h"
@@ -107,11 +108,6 @@ struct VolumeFileCache {
           num_metadata_users(0),
           num_tree_users(0)
     {
-    }
-
-    bool operator()(const char *s1, const char *s2) const
-    {
-      return strcmp(s1, s2) == 0;
     }
 
     /* Unique key: filename + grid name. */
@@ -345,7 +341,7 @@ struct VolumeGrid {
     /* Make a deep copy of the grid and remove any reference to a grid in the
      * file cache. Load file grid into memory first if needed. */
     load(volume_name, filepath);
-    // TODO: avoid deep copy if we are the only user
+    /* TODO: avoid deep copy if we are the only user. */
     vdb = vdb->deepCopyGrid();
     if (entry) {
       GLOBAL_CACHE.remove_user(*entry, is_loaded);
@@ -439,14 +435,8 @@ void BKE_volume_init(Volume *volume)
 {
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(volume, id));
 
-  volume->filepath[0] = '\0';
-  volume->packedfile = NULL;
-  volume->flag = 0;
-  volume->frame_start = 1;
-  volume->frame_offset = 0;
-  volume->frame_duration = 0;
-  volume->display.density = 1.0f;
-  volume->display.wireframe_type = VOLUME_WIREFRAME_COARSE;
+  MEMCPY_STRUCT_AFTER(volume, DNA_struct_default_get(Volume), id);
+
   BKE_volume_init_grids(volume);
 }
 
@@ -574,7 +564,7 @@ static int volume_sequence_frame(const Depsgraph *depsgraph, const Volume *volum
     }
   }
 
-  /* important to apply after else we cant loop on frames 100 - 110 for eg. */
+  /* Important to apply after, else we cant loop on e.g. frames 100 - 110. */
   frame += frame_offset;
 
   return frame;
@@ -641,8 +631,6 @@ bool BKE_volume_load(Volume *volume, Main *bmain)
     CLOG_INFO(&LOG, 1, "Volume %s: %s", volume_name, grids.error_msg.c_str());
     return false;
   }
-
-  CLOG_INFO(&LOG, 1, "Volume %s: load %s", volume_name, grids.filepath);
 
   /* Test if file exists. */
   if (!BLI_exists(grids.filepath)) {
@@ -714,24 +702,22 @@ BoundBox *BKE_volume_boundbox_get(Object *ob)
     bool have_minmax = false;
     INIT_MINMAX(min, max);
 
-    // TODO: avoid global access, load earlier?
-    BKE_volume_load(volume, G.main);
+    /* TODO: if we know the volume is going to be displayed, it may be good to
+     * load it as part of dependency graph evaluation for better threading. We
+     * could also share the bounding box computation in the global volume cache. */
+    if (BKE_volume_load(volume, G.main)) {
+      const int num_grids = BKE_volume_num_grids(volume);
 
-    const int num_grids = BKE_volume_num_grids(volume);
+      for (int i = 0; i < num_grids; i++) {
+        VolumeGrid *grid = BKE_volume_grid_get(volume, i);
+        float grid_min[3], grid_max[3];
 
-    for (int i = 0; i < num_grids; i++) {
-      VolumeGrid *grid = BKE_volume_grid_get(volume, i);
-      float grid_min[3], grid_max[3];
-
-      /* TODO: this is quite expensive, how often is it computed? Is there a faster
-       * way without actually reading grids? We should ensure copy-on-write does not
-       * compute this over and over for static files. */
-      BKE_volume_grid_load(volume, grid);
-
-      if (BKE_volume_grid_bounds(grid, grid_min, grid_max)) {
-        DO_MIN(grid_min, min);
-        DO_MAX(grid_max, max);
-        have_minmax = true;
+        BKE_volume_grid_load(volume, grid);
+        if (BKE_volume_grid_bounds(grid, grid_min, grid_max)) {
+          DO_MIN(grid_min, min);
+          DO_MAX(grid_max, max);
+          have_minmax = true;
+        }
       }
     }
 
@@ -1072,25 +1058,17 @@ int BKE_volume_grid_channels(const VolumeGrid *grid)
 {
   switch (BKE_volume_grid_type(grid)) {
     case VOLUME_GRID_BOOLEAN:
-      return 1;
     case VOLUME_GRID_FLOAT:
-      return 1;
     case VOLUME_GRID_DOUBLE:
-      return 1;
     case VOLUME_GRID_INT:
-      return 1;
     case VOLUME_GRID_INT64:
-      return 1;
     case VOLUME_GRID_MASK:
       return 1;
-    case VOLUME_GRID_STRING:
-      return 0;
     case VOLUME_GRID_VECTOR_FLOAT:
-      return 3;
     case VOLUME_GRID_VECTOR_DOUBLE:
-      return 3;
     case VOLUME_GRID_VECTOR_INT:
       return 3;
+    case VOLUME_GRID_STRING:
     case VOLUME_GRID_POINTS:
     case VOLUME_GRID_UNKNOWN:
       return 0;

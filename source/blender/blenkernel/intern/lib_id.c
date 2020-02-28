@@ -565,16 +565,19 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
       }
       return true;
     case ID_HA:
-      if (!test)
+      if (!test) {
         BKE_hair_make_local(bmain, (Hair *)id, lib_local);
+      }
       return true;
     case ID_PT:
-      if (!test)
+      if (!test) {
         BKE_pointcloud_make_local(bmain, (PointCloud *)id, lib_local);
+      }
       return true;
     case ID_VO:
-      if (!test)
+      if (!test) {
         BKE_volume_make_local(bmain, (Volume *)id, lib_local);
+      }
       return true;
     case ID_WS:
     case ID_SCR:

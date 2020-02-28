@@ -9680,14 +9680,15 @@ static void lib_link_all(FileData *fd, Main *bmain)
   BLO_main_validate_shapekeys(bmain, NULL);
 
   if (fd->memfile != NULL) {
-    /* When doing redo, we perform a tremendous amount of esoteric magic tricks to avoid having
-     * to re-read all library data-blocks. Unfortunately, that means that we do not clear
-     * Collections' parents lists, which then get improperly extended in some cases by
-     * lib_link_scene() and lib_link_collection() calls above (when one local collection is
-     * parent of linked ones). I do not really see a way to address that issue, besides brute
-     * force call below which invalidates and re-creates all parenting relationships between
-     * collections. Yet another example of why it is such a bad idea to keep that kind of
-     * double-linked relationships info 'permanently' in our data structures... */
+    /* When doing redo, we perform a tremendous amount of esoteric magic tricks to avoid having to
+     * re-read all library data-blocks.
+     * Unfortunately, that means that we do not clear Collections' parents lists, which then get
+     * improperly extended in some cases by lib_link_scene() and lib_link_collection() calls above
+     * (when one local collection is parent of linked ones).
+     * I do not really see a way to address that issue, besides brute force call below which
+     * invalidates and re-creates all parenting relationships between collections. Yet another
+     * example of why it is such a bad idea to keep that kind of double-linked relationships info
+     * 'permanently' in our data structures... */
     BKE_main_collections_parent_relations_rebuild(bmain);
   }
 }
