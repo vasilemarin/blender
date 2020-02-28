@@ -9640,10 +9640,7 @@ static void lib_link_all(FileData *fd, Main *bmain)
     if (fd->memfile != NULL && do_partial_undo && (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) != 0) {
       /* This ID has been re-used from 'old' bmain. Since it was therfore unchanged accross current
        * undo step, and old IDs re-use their old memory address, we do not need to liblink it at
-       * all.
-       * NOTE: this is a risky bet that will need a lot of validation. Especiqlly as long as we use
-       * idnames to find back IDs accross undo/redo, there //may// be some specific situations that
-       * could lead us to using freed memory... */
+       * all. */
       continue;
     }
 
