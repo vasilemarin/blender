@@ -67,6 +67,13 @@ void *BKE_libblock_alloc(struct Main *bmain, short type, const char *name, const
     ATTR_WARN_UNUSED_RESULT;
 void BKE_libblock_init_empty(struct ID *id) ATTR_NONNULL(1);
 
+/* *** ID's session_uuid management. *** */
+
+/* When an ID's uuid is of that value, it is unset/invalid (e.g. for runtime IDs, etc.). */
+#define BKE_MAIN_ID_UUID_UNSET 0
+
+void BKE_lib_libblock_uuid_generate(struct ID *id);
+
 void *BKE_id_new(struct Main *bmain, const short type, const char *name);
 void *BKE_id_new_nomain(const short type, const char *name);
 

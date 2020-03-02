@@ -1599,8 +1599,8 @@ void blo_filedata_free(FileData *fd)
     if (fd->libmap && !(fd->flags & FD_FLAGS_NOT_MY_LIBMAP)) {
       oldnewmap_free(fd->libmap);
     }
-    if (fd->old_valid_ids != NULL) {
-      BLI_gset_free(fd->old_valid_ids, NULL);
+    if (fd->old_idmap != NULL) {
+      BKE_main_idmap_destroy(fd->old_idmap);
     }
     if (fd->bheadmap) {
       MEM_freeN(fd->bheadmap);
@@ -2217,20 +2217,12 @@ void blo_add_library_pointer_map(ListBase *old_mainlist, FileData *fd)
 
 /* Build a GSet of old main (we only care about local data here, so we can do that after
  * split_main() call. */
-void blo_make_old_valid_ids_from_main(FileData *fd, Main *bmain)
+void blo_make_old_idmap_from_main(FileData *fd, Main *bmain)
 {
-  if (fd->old_valid_ids != NULL) {
-    BLI_gset_clear(fd->old_valid_ids, NULL);
+  if (fd->old_idmap != NULL) {
+    BKE_main_idmap_destroy(fd->old_idmap);
   }
-  else {
-    fd->old_valid_ids = BLI_gset_new(BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, __func__);
-  }
-
-  ID *id;
-  FOREACH_MAIN_ID_BEGIN (bmain, id) {
-    BLI_gset_add(fd->old_valid_ids, id);
-  }
-  FOREACH_MAIN_ID_END;
+  fd->old_idmap = BKE_main_idmap_create(bmain, false, NULL, MAIN_IDMAP_TYPE_UUID);
 }
 
 /** \} */
@@ -8132,7 +8124,8 @@ void blo_lib_link_restore(Main *oldmain,
                           Scene *curscene,
                           ViewLayer *cur_view_layer)
 {
-  struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain, true, oldmain);
+  struct IDNameLib_Map *id_map = BKE_main_idmap_create(
+      newmain, true, oldmain, MAIN_IDMAP_TYPE_NAME);
 
   for (WorkSpace *workspace = newmain->workspaces.first; workspace;
        workspace = workspace->id.next) {
@@ -8877,6 +8870,8 @@ static ID *create_placeholder(Main *mainvar, const short idcode, const char *idn
   BLI_addtail(lb, ph_id);
   id_sort_by_name(lb, ph_id, NULL);
 
+  BKE_lib_libblock_uuid_generate(ph_id);
+
   return ph_id;
 }
 
@@ -9085,12 +9080,10 @@ static BHead *read_libblock(FileData *fd,
   BHead *id_bhead = bhead;
   /* Used when undoing from memfile, we swap changed IDs into their old addresses when found. */
   ID *id_old = NULL;
-  void *id_old_memh = NULL;
   bool do_id_swap = false;
 
   if (id != NULL) {
     const bool do_partial_undo = (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0;
-    LinkNode *used_id_chain = NULL;
 
     if (id_bhead->code != ID_LINK_PLACEHOLDER) {
       /* need a name for the mallocN, just for debugging and sane prints on leaks */
@@ -9106,20 +9099,14 @@ static BHead *read_libblock(FileData *fd,
           "%s: ID %s is unchanged: %d\n", __func__, id->name, fd->are_memchunks_identical);
 
       if (fd->memfile != NULL) {
-        BLI_assert(fd->old_valid_ids != NULL || !do_partial_undo);
+        BLI_assert(fd->old_idmap != NULL || !do_partial_undo);
         /* This code should only ever be reached for local data-blocks. */
         BLI_assert(main->curlib == NULL);
 
         /* Find the 'current' existing ID we want to reuse instead of the one we would read from
          * the undo memfile. */
-        if (do_partial_undo) {
-          id_old_memh = id_old = id_bhead->old;
-          if (!BLI_gset_haskey(fd->old_valid_ids, id_old)) {
-            DEBUG_PRINTF("Found an old, invalid id_old pointer for new %s\n", id->name);
-            id_old = NULL;
-            used_id_chain = NULL;
-          }
-        }
+        id_old = do_partial_undo ? BKE_main_idmap_lookup_uuid(fd->old_idmap, id->session_uuid) :
+                                   NULL;
         bool can_finalize_and_return = false;
 
         if (ELEM(idcode, ID_WM, ID_SCR, ID_WS)) {
@@ -9156,9 +9143,7 @@ static BHead *read_libblock(FileData *fd,
         if (can_finalize_and_return) {
           DEBUG_PRINTF("Re-using existing ID %s instead of newly read one\n", id_old->name);
           oldnewmap_insert(fd->libmap, id_bhead->old, id_old, id_bhead->code);
-          for (; used_id_chain; used_id_chain = used_id_chain->next) {
-            oldnewmap_insert(fd->libmap, used_id_chain->link, id_old, id_bhead->code);
-          }
+          oldnewmap_insert(fd->libmap, id_old, id_old, id_bhead->code);
 
           if (r_id) {
             *r_id = id_old;
@@ -9179,15 +9164,8 @@ static BHead *read_libblock(FileData *fd,
       /* Some re-used old IDs might also use newly read ones, so we have to check for old memory
        * addresses for those as well. */
       if (fd->memfile != NULL && do_partial_undo && id->lib == NULL) {
-        BLI_assert(fd->old_valid_ids != NULL);
-        if (id_old == NULL) {
-          id_old_memh = id_old = id_bhead->old;
-          if (!BLI_gset_haskey(fd->old_valid_ids, id_old)) {
-            DEBUG_PRINTF("Found an old, invalid id_old pointer for new %s\n", id->name);
-            id_old = NULL;
-            used_id_chain = NULL;
-          }
-        }
+        BLI_assert(fd->old_idmap != NULL);
+        id_old = BKE_main_idmap_lookup_uuid(fd->old_idmap, id->session_uuid);
         if (id_old != NULL) {
           BLI_assert(MEM_allocN_len(id) == MEM_allocN_len(id_old));
           /* UI IDs are always re-used from old bmain at higher-level calling code, so never swap
@@ -9211,11 +9189,11 @@ static BHead *read_libblock(FileData *fd,
       /* for ID_LINK_PLACEHOLDER check */
       ID *id_target = do_id_swap ? id_old : id;
       oldnewmap_insert(fd->libmap, id_bhead->old, id_target, id_bhead->code);
-      for (; used_id_chain; used_id_chain = used_id_chain->next) {
-        oldnewmap_insert(fd->libmap, used_id_chain->link, id_target, id_bhead->code);
-      }
+      oldnewmap_insert(fd->libmap, id_old, id_target, id_bhead->code);
 
       BLI_addtail(lb, id);
+
+      BKE_lib_libblock_uuid_generate(id);
     }
     else {
       /* unknown ID type */

@@ -135,7 +135,7 @@ typedef struct FileData {
   ListBase *mainlist;
   /** Used for undo. */
   ListBase *old_mainlist;
-  struct GSet *old_valid_ids;
+  struct IDNameLib_Map *old_idmap;
 
   struct ReportList *reports;
 } FileData;
@@ -167,7 +167,7 @@ void blo_end_sound_pointer_map(FileData *fd, struct Main *oldmain);
 void blo_make_packed_pointer_map(FileData *fd, struct Main *oldmain);
 void blo_end_packed_pointer_map(FileData *fd, struct Main *oldmain);
 void blo_add_library_pointer_map(ListBase *old_mainlist, FileData *fd);
-void blo_make_old_valid_ids_from_main(FileData *fd, struct Main *bmain);
+void blo_make_old_idmap_from_main(FileData *fd, struct Main *bmain);
 
 void blo_filedata_free(FileData *fd);
 
