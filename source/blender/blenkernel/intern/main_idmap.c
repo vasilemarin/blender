@@ -119,7 +119,7 @@ struct IDNameLib_Map *BKE_main_idmap_create(struct Main *bmain,
     ID *id;
     id_map->uuid_map = BLI_ghash_int_new(__func__);
     FOREACH_MAIN_ID_BEGIN (bmain, id) {
-      BLI_assert(id->session_uuid != BKE_MAIN_ID_UUID_UNSET);
+      BLI_assert(id->session_uuid != MAIN_ID_SESSION_UUID_UNSET);
       void **id_ptr_v;
       const bool existing_key = BLI_ghash_ensure_p(
           id_map->uuid_map, POINTER_FROM_UINT(id->session_uuid), &id_ptr_v);

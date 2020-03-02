@@ -9199,6 +9199,12 @@ static BHead *read_libblock(FileData *fd,
 
       BLI_addtail(lb, id);
 
+      if (fd->memfile == NULL) {
+        /* When actually reading a file , we do want to reset/re-generate session uuids.
+         * In unod case, we want to re-use existing ones. */
+        id->session_uuid = MAIN_ID_SESSION_UUID_UNSET;
+      }
+
       BKE_lib_libblock_uuid_generate(id);
     }
     else {

@@ -1409,7 +1409,9 @@ static uint session_uuid = 0;
 /** Generate a session-wise uuid for the given \a id. */
 void BKE_lib_libblock_uuid_generate(ID *id)
 {
-  id->session_uuid = ++session_uuid;
+  if (id->session_uuid == MAIN_ID_SESSION_UUID_UNSET) {
+    id->session_uuid = ++session_uuid;
+  }
 }
 
 /**
