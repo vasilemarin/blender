@@ -181,7 +181,7 @@ short BKE_idcode_from_name(const char *name)
 /**
  * Convert an idcode into an idfilter (e.g. ID_OB -> FILTER_ID_OB).
  */
-int BKE_idcode_to_idfilter(const short idcode)
+uint64_t BKE_idcode_to_idfilter(const short idcode)
 {
 #define CASE_IDFILTER(_id) \
   case ID_##_id: \
@@ -232,7 +232,7 @@ int BKE_idcode_to_idfilter(const short idcode)
 /**
  * Convert an idfilter into an idcode (e.g. FILTER_ID_OB -> ID_OB).
  */
-short BKE_idcode_from_idfilter(const int idfilter)
+short BKE_idcode_from_idfilter(const uint64_t idfilter)
 {
 #define CASE_IDFILTER(_id) \
   case FILTER_ID_##_id: \
@@ -247,8 +247,10 @@ short BKE_idcode_from_idfilter(const int idfilter)
     CASE_IDFILTER(CU);
     CASE_IDFILTER(GD);
     CASE_IDFILTER(GR);
+    CASE_IDFILTER(HA);
     CASE_IDFILTER(IM);
     CASE_IDFILTER(LA);
+    CASE_IDFILTER(LP);
     CASE_IDFILTER(LS);
     CASE_IDFILTER(LT);
     CASE_IDFILTER(MA);
@@ -261,16 +263,14 @@ short BKE_idcode_from_idfilter(const int idfilter)
     CASE_IDFILTER(PA);
     CASE_IDFILTER(PAL);
     CASE_IDFILTER(PC);
-    CASE_IDFILTER(LP);
+    CASE_IDFILTER(PT);
     CASE_IDFILTER(SCE);
     CASE_IDFILTER(SPK);
     CASE_IDFILTER(SO);
     CASE_IDFILTER(TE);
     CASE_IDFILTER(TXT);
     CASE_IDFILTER(VF);
-    /* CASE_IDFILTER(HA); TODO overflow */
-    /* CASE_IDFILTER(PT); TODO overflow */
-    /* CASE_IDFILTER(VO); TODO overflow */
+    CASE_IDFILTER(VO);
     CASE_IDFILTER(WO);
     default:
       return 0;
@@ -297,11 +297,13 @@ int BKE_idcode_to_index(const short idcode)
     CASE_IDINDEX(CU);
     CASE_IDINDEX(GD);
     CASE_IDINDEX(GR);
+    CASE_IDINDEX(HA);
     CASE_IDINDEX(IM);
     CASE_IDINDEX(KE);
     CASE_IDINDEX(IP);
     CASE_IDINDEX(LA);
     CASE_IDINDEX(LI);
+    CASE_IDINDEX(LP);
     CASE_IDINDEX(LS);
     CASE_IDINDEX(LT);
     CASE_IDINDEX(MA);
@@ -314,7 +316,7 @@ int BKE_idcode_to_index(const short idcode)
     CASE_IDINDEX(PA);
     CASE_IDINDEX(PAL);
     CASE_IDINDEX(PC);
-    CASE_IDINDEX(LP);
+    CASE_IDINDEX(PT);
     CASE_IDINDEX(SCE);
     CASE_IDINDEX(SCR);
     CASE_IDINDEX(SPK);
@@ -322,8 +324,6 @@ int BKE_idcode_to_index(const short idcode)
     CASE_IDINDEX(TE);
     CASE_IDINDEX(TXT);
     CASE_IDINDEX(VF);
-    CASE_IDINDEX(HA);
-    CASE_IDINDEX(PT);
     CASE_IDINDEX(VO);
     CASE_IDINDEX(WM);
     CASE_IDINDEX(WO);
@@ -354,11 +354,13 @@ short BKE_idcode_from_index(const int index)
     CASE_IDCODE(CU);
     CASE_IDCODE(GD);
     CASE_IDCODE(GR);
+    CASE_IDCODE(HA);
     CASE_IDCODE(IM);
     CASE_IDCODE(KE);
     CASE_IDCODE(IP);
     CASE_IDCODE(LA);
     CASE_IDCODE(LI);
+    CASE_IDCODE(LP);
     CASE_IDCODE(LS);
     CASE_IDCODE(LT);
     CASE_IDCODE(MA);
@@ -371,7 +373,7 @@ short BKE_idcode_from_index(const int index)
     CASE_IDCODE(PA);
     CASE_IDCODE(PAL);
     CASE_IDCODE(PC);
-    CASE_IDCODE(LP);
+    CASE_IDCODE(PT);
     CASE_IDCODE(SCE);
     CASE_IDCODE(SCR);
     CASE_IDCODE(SPK);
@@ -379,8 +381,6 @@ short BKE_idcode_from_index(const int index)
     CASE_IDCODE(TE);
     CASE_IDCODE(TXT);
     CASE_IDCODE(VF);
-    CASE_IDCODE(HA);
-    CASE_IDCODE(PT);
     CASE_IDCODE(VO);
     CASE_IDCODE(WM);
     CASE_IDCODE(WO);

@@ -1652,8 +1652,7 @@ static bNodeType *rna_Node_register_base(Main *bmain,
   /* create a new node type */
   nt = MEM_callocN(sizeof(bNodeType), "node type");
   memcpy(nt, &dummynt, sizeof(dummynt));
-  /* make sure the node type struct is freed on unregister */
-  nt->needs_free = 1;
+  nt->free_self = (void (*)(bNodeType *))MEM_freeN;
 
   nt->ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, nt->idname, basetype);
   nt->ext.data = data;
@@ -2185,6 +2184,8 @@ static StructRNA *rna_NodeSocket_register(Main *UNUSED(bmain),
     nodeRegisterSocketType(st);
   }
 
+  st->free_self = (void (*)(bNodeSocketType * stype)) MEM_freeN;
+
   /* if RNA type is already registered, unregister first */
   if (st->ext_socket.srna) {
     StructRNA *srna = st->ext_socket.srna;
@@ -2498,6 +2499,8 @@ static StructRNA *rna_NodeSocketInterface_register(Main *UNUSED(bmain),
 
     nodeRegisterSocketType(st);
   }
+
+  st->free_self = (void (*)(bNodeSocketType * stype)) MEM_freeN;
 
   /* if RNA type is already registered, unregister first */
   if (st->ext_interface.srna) {
@@ -4163,6 +4166,11 @@ static void def_sh_vector_rotate(StructRNA *srna)
   RNA_def_property_enum_items(prop, rna_enum_vector_rotate_type_items);
   RNA_def_property_ui_text(prop, "Type", "Type of rotation");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_ShaderNode_socket_update");
+
+  prop = RNA_def_property(srna, "invert", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "custom2", 0);
+  RNA_def_property_ui_text(prop, "Invert", "Invert angle");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
 static void def_sh_attribute(StructRNA *srna)

@@ -22,6 +22,7 @@
 /** \file
  * \ingroup bke
  */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
