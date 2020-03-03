@@ -168,7 +168,7 @@ IDTypeInfo IDType_ID_OB = {
     .struct_size = sizeof(Object),
     .name = "Object",
     .name_plural = "objects",
-    .translation_context = BLT_I18NCONTEXT_ID_ACTION,
+    .translation_context = BLT_I18NCONTEXT_ID_OBJECT,
     .flags = IDTYPE_FLAGS_IS_LINKABLE,
 
     .init_data = object_init_data,
