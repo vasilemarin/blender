@@ -982,7 +982,7 @@ void BKE_libblock_management_main_add(Main *bmain, void *idv)
   bmain->is_memfile_undo_written = false;
   BKE_main_unlock(bmain);
 
-  BKE_lib_libblock_uuid_generate(id);
+  BKE_lib_libblock_session_uuid_ensure(id);
 }
 
 /** Remove a data-block from given main (set it to 'NO_MAIN' status). */
@@ -1269,7 +1269,7 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name, const int fl
       /* alphabetic insertion: is in new_id */
       BKE_main_unlock(bmain);
 
-      BKE_lib_libblock_uuid_generate(id);
+      BKE_lib_libblock_session_uuid_ensure(id);
 
       /* TODO to be removed from here! */
       if ((flag & LIB_ID_CREATE_NO_DEG_TAG) == 0) {
@@ -1405,12 +1405,18 @@ void BKE_libblock_init_empty(ID *id)
   }
 }
 
-static uint session_uuid = 0;
 /** Generate a session-wise uuid for the given \a id. */
-void BKE_lib_libblock_uuid_generate(ID *id)
+void BKE_lib_libblock_session_uuid_ensure(ID *id)
 {
+  static uint global_session_uuid = 0;
+
   if (id->session_uuid == MAIN_ID_SESSION_UUID_UNSET) {
-    id->session_uuid = ++session_uuid;
+    id->session_uuid = ++global_session_uuid;
+    /* In case overflow happens, still assign a valid ID. This way opening files many times works
+     * correctly. */
+    if (id->session_uuid == MAIN_ID_SESSION_UUID_UNSET) {
+      id->session_uuid = ++global_session_uuid;
+    }
   }
 }
 
