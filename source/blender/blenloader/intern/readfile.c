@@ -9393,16 +9393,19 @@ static BHead *read_libblock(FileData *fd,
     BLI_remlink(old_lb, id_old);
     BLI_remlink(new_lb, id);
 
+    /* We do not need any remapping from this call here, since no ID pointer is valid in the data
+     * currently (they are all pointing to old addresses, and need to go through `lib_link`
+     * process). So we can pass NULL for the Main pointer parameter. */
     BKE_id_full_swap(NULL, id, id_old);
 
     BLI_addtail(new_lb, id_old);
     BLI_addtail(old_lb, id);
   }
   else if (fd->memfile != NULL) {
-    printf("We had to fully re-recreate ID %s (old addr: %p, new addr: %p)...\n",
-           id->name,
-           id_old,
-           id);
+    DEBUG_PRINTF("We had to fully re-recreate ID %s (old addr: %p, new addr: %p)...\n",
+                 id->name,
+                 id_old,
+                 id);
   }
 
   return (bhead);
