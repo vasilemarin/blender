@@ -78,6 +78,7 @@ static void brush_defaults(Brush *brush)
   FROM_DEFAULT(weight);
   FROM_DEFAULT(size);
   FROM_DEFAULT(alpha);
+  FROM_DEFAULT(hardness);
   FROM_DEFAULT(autosmooth_factor);
   FROM_DEFAULT(topology_rake_factor);
   FROM_DEFAULT(crease_pinch_factor);
@@ -943,6 +944,7 @@ void BKE_brush_sculpt_reset(Brush *br)
       br->alpha = 0.5f;
       br->normal_radius_factor = 1.0f;
       br->spacing = 6;
+      br->hardness = 0.5f;
       br->flag |= BRUSH_SIZE_PRESSURE;
       br->flag &= ~BRUSH_SPACE_ATTEN;
       break;
@@ -1014,6 +1016,14 @@ void BKE_brush_sculpt_reset(Brush *br)
       br->flag &= ~BRUSH_SPACE;
       br->flag &= ~BRUSH_SPACE_ATTEN;
       break;
+    case SCULPT_TOOL_CLOTH:
+      br->cloth_mass = 1.0f;
+      br->cloth_damping = 0.01f;
+      br->cloth_sim_limit = 2.5f;
+      br->cloth_sim_falloff = 0.75f;
+      br->cloth_deform_type = BRUSH_CLOTH_DEFORM_DRAG;
+      br->flag &= ~(BRUSH_ALPHA_PRESSURE | BRUSH_SIZE_PRESSURE);
+      break;
     default:
       break;
   }
@@ -1080,6 +1090,15 @@ void BKE_brush_sculpt_reset(Brush *br)
       br->sub_col[0] = 0.750000;
       br->sub_col[1] = 0.750000;
       br->sub_col[2] = 0.750000;
+      break;
+
+    case SCULPT_TOOL_CLOTH:
+      br->add_col[0] = 1.0f;
+      br->add_col[1] = 0.5f;
+      br->add_col[2] = 0.1f;
+      br->sub_col[0] = 1.0f;
+      br->sub_col[1] = 0.5f;
+      br->sub_col[2] = 0.1f;
       break;
     default:
       break;

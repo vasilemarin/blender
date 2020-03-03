@@ -34,6 +34,10 @@
 
 #include "RNA_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* not very important, but the stack solver likes to know a maximum */
 #define MAX_SOCKET 512
 
@@ -141,6 +145,9 @@ typedef struct bNodeSocketType {
 
   /* for standard socket types in C */
   int type, subtype;
+
+  /* Callback to free the socket type. */
+  void (*free_self)(struct bNodeSocketType *stype);
 } bNodeSocketType;
 
 typedef void *(*NodeInitExecFunction)(struct bNodeExecContext *context,
@@ -167,7 +174,6 @@ typedef int (*NodeGPUExecFunction)(struct GPUMaterial *mat,
  */
 typedef struct bNodeType {
   void *next, *prev;
-  short needs_free; /* set for allocated types that need to be freed */
 
   char idname[64]; /* identifier name */
   int type;
@@ -246,6 +252,8 @@ typedef struct bNodeType {
   void (*insert_link)(struct bNodeTree *ntree, struct bNode *node, struct bNodeLink *link);
   /* Update the internal links list, for muting and disconnect operators. */
   void (*update_internal_links)(struct bNodeTree *, struct bNode *node);
+
+  void (*free_self)(struct bNodeType *ntype);
 
   /* **** execution callbacks **** */
   NodeInitExecFunction initexecfunc;
@@ -1293,5 +1301,9 @@ void BKE_nodetree_shading_params_eval(struct Depsgraph *depsgraph,
 
 extern struct bNodeType NodeTypeUndefined;
 extern struct bNodeSocketType NodeSocketTypeUndefined;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __BKE_NODE_H__ */

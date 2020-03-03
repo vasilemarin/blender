@@ -48,13 +48,6 @@ bool file_draw_check_exists(SpaceFile *sfile);
 struct wmOperator;
 struct wmOperatorType;
 
-typedef enum WalkSelectDirection {
-  FILE_SELECT_WALK_UP,
-  FILE_SELECT_WALK_DOWN,
-  FILE_SELECT_WALK_LEFT,
-  FILE_SELECT_WALK_RIGHT,
-} WalkSelectDirections;
-
 void FILE_OT_highlight(struct wmOperatorType *ot);
 void FILE_OT_sort_column_ui_context(struct wmOperatorType *ot);
 void FILE_OT_select(struct wmOperatorType *ot);
@@ -80,6 +73,7 @@ void FILE_OT_delete(struct wmOperatorType *ot);
 void FILE_OT_rename(struct wmOperatorType *ot);
 void FILE_OT_smoothscroll(struct wmOperatorType *ot);
 void FILE_OT_filepath_drop(struct wmOperatorType *ot);
+void FILE_OT_start_filter(struct wmOperatorType *ot);
 
 int file_exec(bContext *C, struct wmOperator *exec_op);
 int file_cancel_exec(bContext *C, struct wmOperator *unused);
