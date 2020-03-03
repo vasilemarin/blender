@@ -2154,6 +2154,22 @@ Depsgraph *BKE_scene_get_depsgraph(Main *bmain, Scene *scene, ViewLayer *view_la
   return (depsgraph_ptr != NULL) ? *depsgraph_ptr : NULL;
 }
 
+static char *scene_undo_depsgraph_gen_key(Scene *scene, ViewLayer *view_layer, char *key_full)
+{
+  if (key_full == NULL) {
+    key_full = MEM_callocN(MAX_ID_NAME + FILE_MAX + MAX_NAME, __func__);
+  }
+
+  size_t key_full_offset = BLI_strncpy_rlen(key_full, scene->id.name, MAX_ID_NAME);
+  if (scene->id.lib != NULL) {
+    key_full_offset += BLI_strncpy_rlen(key_full + key_full_offset, scene->id.lib->name, FILE_MAX);
+  }
+  key_full_offset += BLI_strncpy_rlen(key_full + key_full_offset, view_layer->name, MAX_NAME);
+  BLI_assert(key_full_offset < MAX_ID_NAME + FILE_MAX + MAX_NAME);
+
+  return key_full;
+}
+
 GHash *BKE_scene_undo_depsgraphs_extract(Main *bmain)
 {
   GHash *depsgraph_extract = BLI_ghash_new(
@@ -2172,12 +2188,7 @@ GHash *BKE_scene_undo_depsgraphs_extract(Main *bmain)
       Depsgraph **depsgraph = (Depsgraph **)BLI_ghash_lookup_p(scene->depsgraph_hash, &key);
 
       if (depsgraph != NULL && *depsgraph != NULL) {
-        char *key_full = MEM_callocN(MAX_ID_NAME + FILE_MAX + MAX_NAME, __func__);
-        BLI_strncpy(key_full, scene->id.name, MAX_ID_NAME);
-        if (scene->id.lib != NULL) {
-          BLI_strncpy(key_full + MAX_ID_NAME, scene->id.lib->name, FILE_MAX);
-        }
-        BLI_strncpy(key_full + MAX_ID_NAME + FILE_MAX, view_layer->name, MAX_NAME);
+        char *key_full = scene_undo_depsgraph_gen_key(scene, view_layer, NULL);
 
         /* We steal the depsgraph from the scene. */
         BLI_ghash_insert(depsgraph_extract, key_full, *depsgraph);
@@ -2197,11 +2208,7 @@ void BKE_scene_undo_depsgraphs_restore(Main *bmain, GHash *depsgraph_extract)
     for (ViewLayer *view_layer = scene->view_layers.first; view_layer != NULL;
          view_layer = view_layer->next) {
       char key_full[MAX_ID_NAME + FILE_MAX + MAX_NAME] = {0};
-      BLI_strncpy(key_full, scene->id.name, MAX_ID_NAME);
-      if (scene->id.lib != NULL) {
-        BLI_strncpy(key_full + MAX_ID_NAME, scene->id.lib->name, FILE_MAX);
-      }
-      BLI_strncpy(key_full + MAX_ID_NAME + FILE_MAX, view_layer->name, MAX_NAME);
+      scene_undo_depsgraph_gen_key(scene, view_layer, key_full);
 
       Depsgraph **depsgraph_extract_ptr = (Depsgraph **)BLI_ghash_lookup_p(depsgraph_extract,
                                                                            key_full);
