@@ -31,12 +31,24 @@ extern "C" {
 #endif
 
 struct ID;
+struct Main;
 
 enum {
   IDTYPE_FLAGS_IS_LINKABLE = 1 << 0,
 };
 
 typedef void (*IDTypeInitDataFunction)(struct ID *id);
+
+/** \param flag: Copying options (see BKE_lib_id.h's LIB_ID_COPY_... flags for more). */
+typedef void (*IDTypeCopyDataFunction)(struct Main *bmain,
+                                       struct ID *id_dst,
+                                       const struct ID *id_src,
+                                       const int flag);
+
+typedef void (*IDTypeFreeFunction)(struct ID *id);
+
+/** \param flag: See BKE_lib_id.h's LIB_ID_MAKELOCAL_... flags. */
+typedef void (*IDTypeMakeLocalFunction)(struct Main *bmain, struct ID *id, const int flag);
 
 typedef struct IDTypeInfo {
   /* Unique identifier of this type, either as a short or an array of two chars. */
@@ -64,6 +76,10 @@ typedef struct IDTypeInfo {
 
   /* ********** ID management callbacks ********** */
   IDTypeInitDataFunction init_data;
+  IDTypeCopyDataFunction copy_data;
+  IDTypeFreeFunction free;
+
+  IDTypeMakeLocalFunction make_local;
 } IDTypeInfo;
 
 /* Module initialization. */
