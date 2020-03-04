@@ -34,7 +34,10 @@ struct ID;
 struct Main;
 
 enum {
-  IDTYPE_FLAGS_IS_LINKABLE = 1 << 0,
+  /* Indicates that the given IDType does not support the matching feature. */
+  IDTYPE_FLAGS_NO_COPY = 1 << 0,
+  IDTYPE_FLAGS_NO_LIBLINKING = 1 << 1,
+  IDTYPE_FLAGS_NO_MAKELOCAL = 1 << 2,
 };
 
 typedef void (*IDTypeInitDataFunction)(struct ID *id);
@@ -45,10 +48,10 @@ typedef void (*IDTypeCopyDataFunction)(struct Main *bmain,
                                        const struct ID *id_src,
                                        const int flag);
 
-typedef void (*IDTypeFreeFunction)(struct ID *id);
+typedef void (*IDTypeFreeDataFunction)(struct ID *id);
 
 /** \param flag: See BKE_lib_id.h's LIB_ID_MAKELOCAL_... flags. */
-typedef void (*IDTypeMakeLocalFunction)(struct Main *bmain, struct ID *id, const int flag);
+typedef void (*IDTypeMakeLocalFunction)(struct Main *bmain, struct ID *id, const int flags);
 
 typedef struct IDTypeInfo {
   /* Unique identifier of this type, either as a short or an array of two chars. */
@@ -77,8 +80,7 @@ typedef struct IDTypeInfo {
   /* ********** ID management callbacks ********** */
   IDTypeInitDataFunction init_data;
   IDTypeCopyDataFunction copy_data;
-  IDTypeFreeFunction free;
-
+  IDTypeFreeDataFunction free_data;
   IDTypeMakeLocalFunction make_local;
 } IDTypeInfo;
 
