@@ -62,7 +62,7 @@ void BKE_idtype_init(void)
   id_type_init();
 }
 
-const IDTypeInfo *BKE_idtype_get_info_from_idcode(short id_code)
+const IDTypeInfo *BKE_idtype_get_info_from_idcode(const short id_code)
 {
   int id_index = BKE_idcode_to_index(id_code);
 
@@ -75,7 +75,7 @@ const IDTypeInfo *BKE_idtype_get_info_from_idcode(short id_code)
   }
 }
 
-const IDTypeInfo *BKE_idtype_get_info_from_id(ID *id)
+const IDTypeInfo *BKE_idtype_get_info_from_id(const ID *id)
 {
   return BKE_idtype_get_info_from_idcode(GS(id->name));
 }

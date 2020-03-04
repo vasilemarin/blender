@@ -78,17 +78,34 @@ typedef struct IDTypeInfo {
   int flags;
 
   /* ********** ID management callbacks ********** */
+  /**
+   * Initialize a new, empty calloc'ed data-block. May be NULL if there is nothing to do.
+   */
   IDTypeInitDataFunction init_data;
+
+  /**
+   * Copy the given data-block's data from source to destination. May be NULL if mere memcopy of
+   * the ID struct itself is enough.
+   */
   IDTypeCopyDataFunction copy_data;
+
+  /**
+   * Free the data of the data-block (NOT the ID itself). May be NULL if there is nothing to do.
+   */
   IDTypeFreeDataFunction free_data;
+
+  /**
+   * Make a linked data-block local. May be NULL if default behavior from
+   * `BKE_lib_id_make_local_generic()` is enough.
+   */
   IDTypeMakeLocalFunction make_local;
 } IDTypeInfo;
 
 /* Module initialization. */
 void BKE_idtype_init(void);
 
-const struct IDTypeInfo *BKE_idtype_get_info_from_idcode(short id_code);
-const struct IDTypeInfo *BKE_idtype_get_info_from_id(struct ID *id);
+const struct IDTypeInfo *BKE_idtype_get_info_from_idcode(const short id_code);
+const struct IDTypeInfo *BKE_idtype_get_info_from_id(const struct ID *id);
 
 extern IDTypeInfo IDType_ID_OB;
 
