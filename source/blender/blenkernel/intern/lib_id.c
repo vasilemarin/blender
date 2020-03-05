@@ -1466,7 +1466,6 @@ static uint global_session_uuid = 0;
 /** Reset the session-wise uuid counter (used when reading a new file e.g.). */
 void BKE_lib_libblock_session_uuid_reset()
 {
-  printf("Reset session-wise UUID counter\n");
   global_session_uuid = 0;
 }
 
@@ -1485,7 +1484,6 @@ void BKE_lib_libblock_session_uuid_ensure(ID *id)
     if (UNLIKELY(id->session_uuid == MAIN_ID_SESSION_UUID_UNSET)) {
       id->session_uuid = atomic_add_and_fetch_uint32(&global_session_uuid, 1);
     }
-    printf("\tassigned uuid %u to %s\n", id->session_uuid, id->name);
   }
 }
 
