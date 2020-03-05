@@ -148,7 +148,10 @@ static void memfile_undosys_step_decode(struct bContext *C,
 
   bool use_old_bmain_data = true;
 
-  if (undo_direction > 0) {
+  if (!U.experimental.use_undo_speedup) {
+    use_old_bmain_data = false;
+  }
+  else if (undo_direction > 0) {
     /* Redo case.
      * The only time we should have to force a complete redo is when current step is tagged as a
      * redo barrier.

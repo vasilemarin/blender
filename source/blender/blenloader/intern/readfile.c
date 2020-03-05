@@ -2752,7 +2752,7 @@ static void direct_link_id(FileData *fd, ID *id, ID *id_old)
     id->recalc = 0;
     id->recalc_undo_accumulated = 0;
   }
-  else {
+  else if ((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0) {
     if (fd->undo_direction < 0) {
       /* We are coming from the future (i.e. do an actual undo, and not a redo), and we found an
        * old (aka existing) ID: we use its 'accumulated recalc flags since last memfile undo step
