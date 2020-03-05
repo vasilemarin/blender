@@ -1488,18 +1488,32 @@ void BKE_libblock_init_empty(ID *id)
   }
 }
 
-/** Generate a session-wise uuid for the given \a id. */
+/* ********** ID session-wise UUID management. ********** */
+static uint global_session_uuid = 0;
+
+/** Reset the session-wise uuid counter (used when reading a new file e.g.). */
+void BKE_lib_libblock_session_uuid_reset()
+{
+  printf("Reset session-wise UUID counter\n");
+  global_session_uuid = 0;
+}
+
+/**
+ * Generate a session-wise uuid for the given \a id.
+ *
+ * \note "session-wise" here means while editing a given .blend file. Once a new .blend file is
+ * loaded or created, undo history is cleared/reset, and so is the uuid counter.
+ */
 void BKE_lib_libblock_session_uuid_ensure(ID *id)
 {
-  static uint global_session_uuid = 0;
-
   if (id->session_uuid == MAIN_ID_SESSION_UUID_UNSET) {
-    id->session_uuid = ++global_session_uuid;
+    id->session_uuid = atomic_add_and_fetch_uint32(&global_session_uuid, 1);
     /* In case overflow happens, still assign a valid ID. This way opening files many times works
      * correctly. */
-    if (id->session_uuid == MAIN_ID_SESSION_UUID_UNSET) {
-      id->session_uuid = ++global_session_uuid;
+    if (UNLIKELY(id->session_uuid == MAIN_ID_SESSION_UUID_UNSET)) {
+      id->session_uuid = atomic_add_and_fetch_uint32(&global_session_uuid, 1);
     }
+    printf("\tassigned uuid %u to %s\n", id->session_uuid, id->name);
   }
 }
 
