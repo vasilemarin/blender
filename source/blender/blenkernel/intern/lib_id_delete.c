@@ -127,17 +127,12 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
 {
   const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_id(id);
 
-  printf("%s: ", __func__);
-
   if (idtype_info != NULL) {
-    printf("Found IDTypeInfo for %c%c, using new code...\n", id->name[0], id->name[1]);
     if (idtype_info->free_data != NULL) {
       idtype_info->free_data(id);
     }
     return;
   }
-
-  printf("No IDTypeInfo for %c%c, using old code...\n", id->name[0], id->name[1]);
 
   const short type = GS(id->name);
   switch (type) {

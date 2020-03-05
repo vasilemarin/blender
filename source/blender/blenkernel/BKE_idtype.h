@@ -33,12 +33,17 @@ extern "C" {
 struct ID;
 struct Main;
 
+/** IDTypeInfo.flags. */
 enum {
-  /* Indicates that the given IDType does not support the matching feature. */
+  /** Indicates that the given IDType does not support copying. */
   IDTYPE_FLAGS_NO_COPY = 1 << 0,
+  /** Indicates that the given IDType does not support linking/appending from a library file. */
   IDTYPE_FLAGS_NO_LIBLINKING = 1 << 1,
+  /** Indicates that the given IDType does not support making a library-linked ID local. */
   IDTYPE_FLAGS_NO_MAKELOCAL = 1 << 2,
 };
+
+/* ********** Prototypes for IDTypeInfo callbacks. ********** */
 
 typedef void (*IDTypeInitDataFunction)(struct ID *id);
 
@@ -54,30 +59,45 @@ typedef void (*IDTypeFreeDataFunction)(struct ID *id);
 typedef void (*IDTypeMakeLocalFunction)(struct Main *bmain, struct ID *id, const int flags);
 
 typedef struct IDTypeInfo {
-  /* Unique identifier of this type, either as a short or an array of two chars. */
+  /* ********** General IDType data. ********** */
+
+  /**
+   * Unique identifier of this type, either as a short or an array of two chars, see DNA_ID.h's
+   * ID_XX enums.
+   */
   short id_code;
-  /* Bitflag matching id_type, used for filtering (e.g. in file browser). */
+  /**
+   * Bitflag matching id_code, used for filtering (e.g. in file browser), see DNA_ID.h's
+   * FILTER_ID_XX enums.
+   */
   int id_filter;
 
-  /* Define the position of this data-block type in the virtual list of all data in a Main that is
+  /**
+   * Define the position of this data-block type in the virtual list of all data in a Main that is
    * returned by `set_listbasepointers()`.
-   * Very important, this has to be unique and below INDEX_ID_MAX, see DNA_ID.h. */
+   * Very important, this has to be unique and below INDEX_ID_MAX, see DNA_ID.h.
+   */
   short main_listbase_index;
 
-  /* Memory size of a data-block of that type. */
+  /** Memory size of a data-block of that type. */
   size_t struct_size;
 
-  /* The user visible name for this data-block. */
+  /** The user visible name for this data-block, also used as default name for a new data-block. */
   const char *name;
-  /* Plural version of the user-visble name. */
+  /** Plural version of the user-visble name. */
   const char *name_plural;
-  /* Translation context to use for UI messages related to that type of data-block. */
+  /** Translation context to use for UI messages related to that type of data-block. */
   const char *translation_context;
 
-  /* Generic info flags about that data-block type. */
+  /** Generic info flags about that data-block type. */
   int flags;
 
   /* ********** ID management callbacks ********** */
+
+  /* TODO: Note about callbacks: Ideally we could also handle here `BKE_lib_query`'s behavior, as
+   * well as read/write of files. However, this is a bit more involved than basic ID management
+   * callbacks, so we'll check on this later. */
+
   /**
    * Initialize a new, empty calloc'ed data-block. May be NULL if there is nothing to do.
    */
@@ -101,13 +121,19 @@ typedef struct IDTypeInfo {
   IDTypeMakeLocalFunction make_local;
 } IDTypeInfo;
 
+/* ********** Declaration of each IDTypeInfo. ********** */
+
+/* Those are defined in the respective BKE files. */
+extern IDTypeInfo IDType_ID_OB;
+
+/* ********** Helpers/Utils API. ********** */
+
 /* Module initialization. */
 void BKE_idtype_init(void);
 
+/* General helpers. */
 const struct IDTypeInfo *BKE_idtype_get_info_from_idcode(const short id_code);
 const struct IDTypeInfo *BKE_idtype_get_info_from_id(const struct ID *id);
-
-extern IDTypeInfo IDType_ID_OB;
 
 #ifdef __cplusplus
 }

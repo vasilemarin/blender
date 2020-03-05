@@ -450,10 +450,7 @@ bool BKE_lib_id_make_local(Main *bmain, ID *id, const bool test, const int flags
 
   const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_id(id);
 
-  printf("%s: ", __func__);
-
   if (idtype_info != NULL) {
-    printf("Found IDTypeInfo for %c%c, using new code...\n", id->name[0], id->name[1]);
     if ((idtype_info->flags & IDTYPE_FLAGS_NO_MAKELOCAL) == 0) {
       if (!test) {
         if (idtype_info->make_local != NULL) {
@@ -467,8 +464,6 @@ bool BKE_lib_id_make_local(Main *bmain, ID *id, const bool test, const int flags
     }
     return false;
   }
-
-  printf("No IDTypeInfo for %c%c, using old code...\n", id->name[0], id->name[1]);
 
   switch ((ID_Type)GS(id->name)) {
     case ID_SCE:
@@ -715,11 +710,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
 
   const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_id(id);
 
-  printf("%s: ", __func__);
-
   if (idtype_info != NULL) {
-    printf("Found IDTypeInfo for %c%c, using new code...\n", id->name[0], id->name[1]);
-
     if ((idtype_info->flags & IDTYPE_FLAGS_NO_COPY) != 0) {
       return false;
     }
@@ -731,8 +722,6 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
     }
   }
   else {
-    printf("No IDTypeInfo for %c%c, using old code...\n", id->name[0], id->name[1]);
-
     if (!BKE_id_copy_is_allowed(id)) {
       return false;
     }
@@ -1345,17 +1334,12 @@ void BKE_libblock_init_empty(ID *id)
 {
   const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_id(id);
 
-  printf("%s: ", __func__);
-
   if (idtype_info != NULL) {
-    printf("Found IDTypeInfo for %c%c, using new code...\n", id->name[0], id->name[1]);
     if (idtype_info->init_data != NULL) {
       idtype_info->init_data(id);
     }
     return;
   }
-
-  printf("No IDTypeInfo for %c%c, using old code...\n", id->name[0], id->name[1]);
 
   /* Note that only ID types that are not valid when filled of zero should have a callback here. */
   switch ((ID_Type)GS(id->name)) {
