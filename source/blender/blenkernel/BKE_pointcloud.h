@@ -38,17 +38,8 @@ struct Object;
 struct PointCloud;
 struct Scene;
 
-void BKE_pointcloud_init(struct PointCloud *pointcloud);
 void *BKE_pointcloud_add(struct Main *bmain, const char *name);
-void BKE_pointcloud_copy_data(struct Main *bmain,
-                              struct PointCloud *pointcloud_dst,
-                              const struct PointCloud *pointcloud_src,
-                              const int flag);
 struct PointCloud *BKE_pointcloud_copy(struct Main *bmain, const struct PointCloud *pointcloud);
-void BKE_pointcloud_make_local(struct Main *bmain,
-                               struct PointCloud *pointcloud,
-                               const bool lib_local);
-void BKE_pointcloud_free(struct PointCloud *pointcloud);
 
 struct BoundBox *BKE_pointcloud_boundbox_get(struct Object *ob);
 

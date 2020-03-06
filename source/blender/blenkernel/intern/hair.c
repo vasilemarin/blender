@@ -36,6 +36,7 @@
 
 #include "BKE_animsys.h"
 #include "BKE_customdata.h"
+#include "BKE_idtype.h"
 #include "BKE_global.h"
 #include "BKE_hair.h"
 #include "BKE_lib_id.h"
@@ -44,6 +45,8 @@
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
+
+#include "BLT_translation.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -94,8 +97,9 @@ static void hair_random(Hair *hair)
   BLI_rng_free(rng);
 }
 
-void BKE_hair_init(Hair *hair)
+static void hair_init_data(ID *id)
 {
+  Hair *hair = (Hair *)id;
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(hair, id));
 
   MEMCPY_STRUCT_AFTER(hair, DNA_struct_default_get(Hair), id);
@@ -115,13 +119,15 @@ void *BKE_hair_add(Main *bmain, const char *name)
 {
   Hair *hair = BKE_libblock_alloc(bmain, ID_HA, name, 0);
 
-  BKE_hair_init(hair);
+  hair_init_data(&hair->id);
 
   return hair;
 }
 
-void BKE_hair_copy_data(Main *UNUSED(bmain), Hair *hair_dst, const Hair *hair_src, const int flag)
+static void hair_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, const int flag)
 {
+  Hair *hair_dst = (Hair *)id_dst;
+  const Hair *hair_src = (const Hair *)id_src;
   hair_dst->mat = MEM_dupallocN(hair_dst->mat);
 
   const eCDAllocType alloc_type = (flag & LIB_ID_COPY_CD_REFERENCE) ? CD_REFERENCE : CD_DUPLICATE;
@@ -139,14 +145,15 @@ Hair *BKE_hair_copy(Main *bmain, const Hair *hair)
   return hair_copy;
 }
 
-void BKE_hair_make_local(Main *bmain, Hair *hair, const bool lib_local)
+static void hair_make_local(Main *bmain, ID *id, const int flags)
 {
-  BKE_id_make_local_generic(bmain, &hair->id, true, lib_local);
+  BKE_lib_id_make_local_generic(bmain, id, flags);
 }
 
-void BKE_hair_free(Hair *hair)
+static void hair_free_data(ID *id)
 {
-  BKE_animdata_free((ID *)hair, false);
+  Hair *hair = (Hair *)id;
+  BKE_animdata_free(&hair->id, false);
 
   BKE_hair_batch_cache_free(hair);
 
@@ -155,6 +162,22 @@ void BKE_hair_free(Hair *hair)
 
   MEM_SAFE_FREE(hair->mat);
 }
+
+IDTypeInfo IDType_ID_HA = {
+    .id_code = ID_HA,
+    .id_filter = FILTER_ID_HA,
+    .main_listbase_index = INDEX_ID_HA,
+    .struct_size = sizeof(Hair),
+    .name = "Hair",
+    .name_plural = "hairs",
+    .translation_context = BLT_I18NCONTEXT_ID_HAIR,
+    .flags = 0,
+
+    .init_data = hair_init_data,
+    .copy_data = hair_copy_data,
+    .free_data = hair_free_data,
+    .make_local = hair_make_local,
+};
 
 BoundBox *BKE_hair_boundbox_get(Object *ob)
 {

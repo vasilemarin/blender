@@ -36,6 +36,7 @@
 
 #include "BKE_animsys.h"
 #include "BKE_customdata.h"
+#include "BKE_idtype.h"
 #include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
@@ -44,6 +45,8 @@
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_pointcloud.h"
+
+#include "BLT_translation.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -67,8 +70,9 @@ static void pointcloud_random(PointCloud *pointcloud)
   BLI_rng_free(rng);
 }
 
-void BKE_pointcloud_init(PointCloud *pointcloud)
+static void pointcloud_init_data(ID *id)
 {
+  PointCloud *pointcloud = (PointCloud *)id;
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(pointcloud, id));
 
   MEMCPY_STRUCT_AFTER(pointcloud, DNA_struct_default_get(PointCloud), id);
@@ -85,16 +89,15 @@ void *BKE_pointcloud_add(Main *bmain, const char *name)
 {
   PointCloud *pointcloud = BKE_libblock_alloc(bmain, ID_PT, name, 0);
 
-  BKE_pointcloud_init(pointcloud);
+  pointcloud_init_data(&pointcloud->id);
 
   return pointcloud;
 }
 
-void BKE_pointcloud_copy_data(Main *UNUSED(bmain),
-                              PointCloud *pointcloud_dst,
-                              const PointCloud *pointcloud_src,
-                              const int flag)
+static void pointcloud_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, const int flag)
 {
+  PointCloud *pointcloud_dst = (PointCloud *)id_dst;
+  const PointCloud *pointcloud_src = (const PointCloud *)id_src;
   pointcloud_dst->mat = MEM_dupallocN(pointcloud_dst->mat);
 
   const eCDAllocType alloc_type = (flag & LIB_ID_COPY_CD_REFERENCE) ? CD_REFERENCE : CD_DUPLICATE;
@@ -113,18 +116,35 @@ PointCloud *BKE_pointcloud_copy(Main *bmain, const PointCloud *pointcloud)
   return pointcloud_copy;
 }
 
-void BKE_pointcloud_make_local(Main *bmain, PointCloud *pointcloud, const bool lib_local)
+static void pointcloud_make_local(Main *bmain, ID *id, const int flags)
 {
-  BKE_id_make_local_generic(bmain, &pointcloud->id, true, lib_local);
+  BKE_lib_id_make_local_generic(bmain, id, flags);
 }
 
-void BKE_pointcloud_free(PointCloud *pointcloud)
+static void pointcloud_free_data(ID *id)
 {
-  BKE_animdata_free((ID *)pointcloud, false);
+  PointCloud *pointcloud = (PointCloud *)id;
+  BKE_animdata_free(&pointcloud->id, false);
   BKE_pointcloud_batch_cache_free(pointcloud);
   CustomData_free(&pointcloud->pdata, pointcloud->totpoint);
   MEM_SAFE_FREE(pointcloud->mat);
 }
+
+IDTypeInfo IDType_ID_PT = {
+    .id_code = ID_PT,
+    .id_filter = FILTER_ID_PT,
+    .main_listbase_index = INDEX_ID_PT,
+    .struct_size = sizeof(PointCloud),
+    .name = "PointCloud",
+    .name_plural = "pointclouds",
+    .translation_context = BLT_I18NCONTEXT_ID_POINTCLOUD,
+    .flags = 0,
+
+    .init_data = pointcloud_init_data,
+    .copy_data = pointcloud_copy_data,
+    .free_data = pointcloud_free_data,
+    .make_local = pointcloud_make_local,
+};
 
 BoundBox *BKE_pointcloud_boundbox_get(Object *ob)
 {

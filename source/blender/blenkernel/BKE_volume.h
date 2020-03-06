@@ -45,16 +45,9 @@ void BKE_volumes_init(void);
 
 /* Datablock Management */
 
-void BKE_volume_init(struct Volume *volume);
 void BKE_volume_init_grids(struct Volume *volume);
 void *BKE_volume_add(struct Main *bmain, const char *name);
-void BKE_volume_copy_data(struct Main *bmain,
-                          struct Volume *volume_dst,
-                          const struct Volume *volume_src,
-                          const int flag);
 struct Volume *BKE_volume_copy(struct Main *bmain, const struct Volume *volume);
-void BKE_volume_make_local(struct Main *bmain, struct Volume *volume, const bool lib_local);
-void BKE_volume_free(struct Volume *volume);
 
 struct BoundBox *BKE_volume_boundbox_get(struct Object *ob);
 

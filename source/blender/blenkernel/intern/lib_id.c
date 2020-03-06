@@ -609,19 +609,13 @@ bool BKE_lib_id_make_local(Main *bmain, ID *id, const bool test, const int flags
       }
       return true;
     case ID_HA:
-      if (!test) {
-        BKE_hair_make_local(bmain, (Hair *)id, lib_local);
-      }
+      BLI_assert(0);
       return true;
     case ID_PT:
-      if (!test) {
-        BKE_pointcloud_make_local(bmain, (PointCloud *)id, lib_local);
-      }
+      BLI_assert(0);
       return true;
     case ID_VO:
-      if (!test) {
-        BKE_volume_make_local(bmain, (Volume *)id, lib_local);
-      }
+      BLI_assert(0);
       return true;
     case ID_WS:
     case ID_SCR:
@@ -832,13 +826,13 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
         BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
         break;
       case ID_HA:
-        BKE_hair_copy_data(bmain, (Hair *)*r_newid, (Hair *)id, flag);
+        BLI_assert(0);
         break;
       case ID_PT:
-        BKE_pointcloud_copy_data(bmain, (PointCloud *)*r_newid, (PointCloud *)id, flag);
+        BLI_assert(0);
         break;
       case ID_VO:
-        BKE_volume_copy_data(bmain, (Volume *)*r_newid, (Volume *)id, flag);
+        BLI_assert(0);
         break;
       case ID_LI:
       case ID_SCR:
@@ -1461,13 +1455,13 @@ void BKE_libblock_init_empty(ID *id)
       BKE_cachefile_init((CacheFile *)id);
       break;
     case ID_HA:
-      BKE_hair_init((Hair *)id);
+      BLI_assert(0);
       break;
     case ID_PT:
-      BKE_pointcloud_init((PointCloud *)id);
+      BLI_assert(0);
       break;
     case ID_VO:
-      BKE_volume_init((Volume *)id);
+      BLI_assert(0);
       break;
     case ID_KE:
       /* Shapekeys are a complex topic too - they depend on their 'user' data type...

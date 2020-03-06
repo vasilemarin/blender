@@ -253,13 +253,13 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       BKE_workspace_free((WorkSpace *)id);
       break;
     case ID_HA:
-      BKE_hair_free((Hair *)id);
+      BLI_assert(0);
       break;
     case ID_PT:
-      BKE_pointcloud_free((PointCloud *)id);
+      BLI_assert(0);
       break;
     case ID_VO:
-      BKE_volume_free((Volume *)id);
+      BLI_assert(0);
       break;
   }
 }

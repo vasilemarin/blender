@@ -38,15 +38,8 @@ struct Main;
 struct Object;
 struct Scene;
 
-void BKE_hair_init(struct Hair *hair);
 void *BKE_hair_add(struct Main *bmain, const char *name);
-void BKE_hair_copy_data(struct Main *bmain,
-                        struct Hair *hair_dst,
-                        const struct Hair *hair_src,
-                        const int flag);
 struct Hair *BKE_hair_copy(struct Main *bmain, const struct Hair *hair);
-void BKE_hair_make_local(struct Main *bmain, struct Hair *hair, const bool lib_local);
-void BKE_hair_free(struct Hair *hair);
 
 struct BoundBox *BKE_hair_boundbox_get(struct Object *ob);
 

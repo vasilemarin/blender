@@ -38,6 +38,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_animsys.h"
+#include "BKE_idtype.h"
 #include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
@@ -48,6 +49,8 @@
 #include "BKE_packedFile.h"
 #include "BKE_scene.h"
 #include "BKE_volume.h"
+
+#include "BLT_translation.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -431,8 +434,9 @@ void BKE_volumes_init()
 
 /* Volume datablock */
 
-void BKE_volume_init(Volume *volume)
+static void volume_init_data(ID *id)
 {
+  Volume *volume = (Volume *)id;
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(volume, id));
 
   MEMCPY_STRUCT_AFTER(volume, DNA_struct_default_get(Volume), id);
@@ -455,16 +459,19 @@ void *BKE_volume_add(Main *bmain, const char *name)
 {
   Volume *volume = (Volume *)BKE_libblock_alloc(bmain, ID_VO, name, 0);
 
-  BKE_volume_init(volume);
+  volume_init_data(&volume->id);
 
   return volume;
 }
 
-void BKE_volume_copy_data(Main *UNUSED(bmain),
-                          Volume *volume_dst,
-                          const Volume *volume_src,
-                          const int UNUSED(flag))
+static void volume_copy_data(Main *UNUSED(bmain),
+                             ID *id_dst,
+                             const ID *id_src,
+                             const int UNUSED(flag))
 {
+  Volume *volume_dst = (Volume *)id_dst;
+  const Volume *volume_src = (const Volume *)id_src;
+
   if (volume_src->packedfile) {
     volume_dst->packedfile = BKE_packedfile_duplicate(volume_src->packedfile);
   }
@@ -485,20 +492,37 @@ Volume *BKE_volume_copy(Main *bmain, const Volume *volume)
   return volume_copy;
 }
 
-void BKE_volume_make_local(Main *bmain, Volume *volume, const bool lib_local)
+static void volume_make_local(Main *bmain, ID *id, const int flags)
 {
-  BKE_id_make_local_generic(bmain, &volume->id, true, lib_local);
+  BKE_lib_id_make_local_generic(bmain, id, flags);
 }
 
-void BKE_volume_free(Volume *volume)
+static void volume_free_data(ID *id)
 {
-  BKE_animdata_free((ID *)volume, false);
+  Volume *volume = (Volume *)id;
+  BKE_animdata_free(&volume->id, false);
   BKE_volume_batch_cache_free(volume);
   MEM_SAFE_FREE(volume->mat);
 #ifdef WITH_OPENVDB
   OBJECT_GUARDED_SAFE_DELETE(volume->runtime.grids, VolumeGridVector);
 #endif
 }
+
+IDTypeInfo IDType_ID_VO = {
+    .id_code = ID_VO,
+    .id_filter = FILTER_ID_VO,
+    .main_listbase_index = INDEX_ID_VO,
+    .struct_size = sizeof(Volume),
+    .name = "Volume",
+    .name_plural = "volumes",
+    .translation_context = BLT_I18NCONTEXT_ID_VOLUME,
+    .flags = 0,
+
+    .init_data = volume_init_data,
+    .copy_data = volume_copy_data,
+    .free_data = volume_free_data,
+    .make_local = volume_make_local,
+};
 
 /* Sequence */
 
