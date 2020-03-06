@@ -30,6 +30,7 @@
 
 #define _DNA_DEFAULT_PointCloud \
   { \
+    .flag = 0, \
   }
 
 /** \} */

@@ -30,6 +30,7 @@
 
 #define _DNA_DEFAULT_Hair \
   { \
+    .flag = 0, \
   }
 
 /** \} */
