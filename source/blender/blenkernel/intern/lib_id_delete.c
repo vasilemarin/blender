@@ -70,6 +70,7 @@
 #include "BKE_gpencil.h"
 #include "BKE_hair.h"
 #include "BKE_idprop.h"
+#include "BKE_idtype.h"
 #include "BKE_image.h"
 #include "BKE_ipo.h"
 #include "BKE_key.h"
@@ -130,16 +131,25 @@ void BKE_libblock_free_data(ID *id, const bool do_id_user)
 
 void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
 {
+  const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_id(id);
+
+  if (idtype_info != NULL) {
+    if (idtype_info->free_data != NULL) {
+      idtype_info->free_data(id);
+    }
+    return;
+  }
+
   const short type = GS(id->name);
   switch (type) {
     case ID_SCE:
-      BKE_scene_free_ex((Scene *)id, false);
+      BLI_assert(0);
       break;
     case ID_LI:
-      BKE_library_free((Library *)id);
+      BLI_assert(0);
       break;
     case ID_OB:
-      BKE_object_free((Object *)id);
+      BLI_assert(0);
       break;
     case ID_ME:
       BKE_mesh_free((Mesh *)id);
@@ -163,19 +173,19 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       BKE_lattice_free((Lattice *)id);
       break;
     case ID_LA:
-      BKE_light_free((Light *)id);
+      BLI_assert(0);
       break;
     case ID_CA:
-      BKE_camera_free((Camera *)id);
+      BLI_assert(0);
       break;
     case ID_IP: /* Deprecated. */
       BKE_ipo_free((Ipo *)id);
       break;
     case ID_KE:
-      BKE_key_free((Key *)id);
+      BLI_assert(0);
       break;
     case ID_WO:
-      BKE_world_free((World *)id);
+      BLI_assert(0);
       break;
     case ID_SCR:
       BKE_screen_free((bScreen *)id);
@@ -190,7 +200,7 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       BKE_speaker_free((Speaker *)id);
       break;
     case ID_LP:
-      BKE_lightprobe_free((LightProbe *)id);
+      BLI_assert(0);
       break;
     case ID_SO:
       BKE_sound_free((bSound *)id);
@@ -208,7 +218,7 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       ntreeFreeTree((bNodeTree *)id);
       break;
     case ID_BR:
-      BKE_brush_free((Brush *)id);
+      BLI_assert(0);
       break;
     case ID_PA:
       BKE_particlesettings_free((ParticleSettings *)id);

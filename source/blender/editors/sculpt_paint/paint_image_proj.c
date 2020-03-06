@@ -87,6 +87,7 @@
 #include "ED_screen.h"
 #include "ED_uvedit.h"
 #include "ED_view3d.h"
+#include "ED_view3d_offscreen.h"
 
 #include "GPU_extensions.h"
 #include "GPU_init_exit.h"
@@ -5682,7 +5683,7 @@ static bool project_paint_op(void *state, const float lastpos[2], const float po
     }
   }
 
-  /* calculate pivot for rotation around seletion if needed */
+  /* Calculate pivot for rotation around selection if needed. */
   if (U.uiflag & USER_ORBIT_SELECTION) {
     float w[3];
     int tri_index;

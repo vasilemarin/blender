@@ -172,7 +172,7 @@ static MDeformVert *defweight_prev_init(MDeformVert *dvert_prev,
   MDeformVert *dv_prev = &dvert_prev[index];
   if (dv_prev->flag == 1) {
     dv_prev->flag = 0;
-    defvert_copy(dv_prev, dv_curr);
+    BKE_defvert_copy(dv_prev, dv_curr);
   }
   return dv_prev;
 }
@@ -752,10 +752,10 @@ static void do_weight_paint_vertex_single(
   }
 
   if (wp->flag & VP_FLAG_VGROUP_RESTRICT) {
-    dw = defvert_find_index(dv, wpi->active.index);
+    dw = BKE_defvert_find_index(dv, wpi->active.index);
   }
   else {
-    dw = defvert_verify_index(dv, wpi->active.index);
+    dw = BKE_defvert_ensure_index(dv, wpi->active.index);
   }
 
   if (dw == NULL) {
@@ -766,7 +766,7 @@ static void do_weight_paint_vertex_single(
   if (index_mirr != -1) {
     dv_mirr = &me->dvert[index_mirr];
     if (wp->flag & VP_FLAG_VGROUP_RESTRICT) {
-      dw_mirr = defvert_find_index(dv_mirr, vgroup_mirr);
+      dw_mirr = BKE_defvert_find_index(dv_mirr, vgroup_mirr);
 
       if (dw_mirr == NULL) {
         index_mirr = vgroup_mirr = -1;
@@ -775,13 +775,13 @@ static void do_weight_paint_vertex_single(
     }
     else {
       if (index != index_mirr) {
-        dw_mirr = defvert_verify_index(dv_mirr, vgroup_mirr);
+        dw_mirr = BKE_defvert_ensure_index(dv_mirr, vgroup_mirr);
       }
       else {
         /* dv and dv_mirr are the same */
         int totweight_prev = dv_mirr->totweight;
         int dw_offset = (int)(dw - dv_mirr->dw);
-        dw_mirr = defvert_verify_index(dv_mirr, vgroup_mirr);
+        dw_mirr = BKE_defvert_ensure_index(dv_mirr, vgroup_mirr);
 
         /* if we added another, get our old one back */
         if (totweight_prev != dv_mirr->totweight) {
@@ -802,7 +802,7 @@ static void do_weight_paint_vertex_single(
       defweight_prev_init(dvert_prev, me->dvert, index_mirr);
     }
 
-    weight_prev = defvert_find_weight(dv_prev, wpi->active.index);
+    weight_prev = BKE_defvert_find_weight(dv_prev, wpi->active.index);
   }
   else {
     weight_prev = dw->weight;
@@ -1694,7 +1694,7 @@ static float wpaint_get_active_weight(const MDeformVert *dv, const WeightPaintIn
     return weight;
   }
   else {
-    return defvert_find_weight(dv, wpi->active.index);
+    return BKE_defvert_find_weight(dv, wpi->active.index);
   }
 }
 
@@ -2332,8 +2332,8 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
   swap_m4m4(vc->rv3d->persmat, mat);
 
-  /* calculate pivot for rotation around seletion if needed */
-  /* also needed for "View Selected" on last stroke */
+  /* Calculate pivot for rotation around selection if needed.
+   * also needed for "Frame Selected" on last stroke. */
   float loc_world[3];
   mul_v3_m4v3(loc_world, ob->obmat, ss->cache->true_location);
   paint_last_stroke_update(scene, loc_world);
@@ -2524,6 +2524,9 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
   }
   else {
     Depsgraph *depsgraph = CTX_data_depsgraph_on_load(C);
+    if (depsgraph) {
+      depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+    }
     wmWindowManager *wm = CTX_wm_manager(C);
     ED_object_vpaintmode_enter_ex(bmain, depsgraph, wm, scene, ob);
     BKE_paint_toolslots_brush_validate(bmain, &ts->vpaint->paint);
@@ -3309,8 +3312,8 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
         vpd->smear.color_prev, vpd->smear.color_curr, sizeof(uint) * ((Mesh *)ob->data)->totloop);
   }
 
-  /* calculate pivot for rotation around seletion if needed */
-  /* also needed for "View Selected" on last stroke */
+  /* Calculate pivot for rotation around selection if needed.
+   * also needed for "Frame Selected" on last stroke. */
   float loc_world[3];
   mul_v3_m4v3(loc_world, ob->obmat, ss->cache->true_location);
   paint_last_stroke_update(scene, loc_world);

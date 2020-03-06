@@ -576,10 +576,10 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
         if (dvert) {
           MDeformVert *dv = &dvert[i];
           if (defgrp_invert) {
-            scalar_short_vgroup = 1.0f - defvert_find_weight(dv, defgrp_index);
+            scalar_short_vgroup = 1.0f - BKE_defvert_find_weight(dv, defgrp_index);
           }
           else {
-            scalar_short_vgroup = defvert_find_weight(dv, defgrp_index);
+            scalar_short_vgroup = BKE_defvert_find_weight(dv, defgrp_index);
           }
           scalar_short_vgroup = (offset_fac_vg + (scalar_short_vgroup * offset_fac_vg_inv)) *
                                 scalar_short;
@@ -623,10 +623,10 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
         if (dvert) {
           MDeformVert *dv = &dvert[i];
           if (defgrp_invert) {
-            scalar_short_vgroup = 1.0f - defvert_find_weight(dv, defgrp_index);
+            scalar_short_vgroup = 1.0f - BKE_defvert_find_weight(dv, defgrp_index);
           }
           else {
-            scalar_short_vgroup = defvert_find_weight(dv, defgrp_index);
+            scalar_short_vgroup = BKE_defvert_find_weight(dv, defgrp_index);
           }
           scalar_short_vgroup = (offset_fac_vg + (scalar_short_vgroup * offset_fac_vg_inv)) *
                                 scalar_short;
@@ -738,14 +738,14 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
 
       if (defgrp_invert) {
         for (i = 0; i < numVerts; i++, dv++) {
-          scalar = 1.0f - defvert_find_weight(dv, defgrp_index);
+          scalar = 1.0f - BKE_defvert_find_weight(dv, defgrp_index);
           scalar = offset_fac_vg + (scalar * offset_fac_vg_inv);
           vert_angles[i] *= scalar;
         }
       }
       else {
         for (i = 0; i < numVerts; i++, dv++) {
-          scalar = defvert_find_weight(dv, defgrp_index);
+          scalar = BKE_defvert_find_weight(dv, defgrp_index);
           scalar = offset_fac_vg + (scalar * offset_fac_vg_inv);
           vert_angles[i] *= scalar;
         }

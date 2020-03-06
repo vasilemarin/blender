@@ -2296,9 +2296,9 @@ ID *BKE_node_tree_find_owner_ID(Main *bmain, struct bNodeTree *ntree)
   return NULL;
 }
 
-void ntreeMakeLocal(Main *bmain, bNodeTree *ntree, bool id_in_mainlist, const bool lib_local)
+void ntreeMakeLocal(Main *bmain, bNodeTree *ntree, const int flags)
 {
-  BKE_id_make_local_generic(bmain, &ntree->id, id_in_mainlist, lib_local);
+  BKE_lib_id_make_local_generic(bmain, &ntree->id, flags);
 }
 
 int ntreeNodeExists(bNodeTree *ntree, bNode *testnode)
@@ -2910,6 +2910,18 @@ void nodeSetSocketAvailability(bNodeSocket *sock, bool is_available)
   }
   else {
     sock->flag |= SOCK_UNAVAIL;
+  }
+}
+
+int nodeSocketLinkLimit(struct bNodeSocket *sock)
+{
+  bNodeSocketType *stype = sock->typeinfo;
+  if (stype != NULL && stype->use_link_limits_of_type) {
+    int limit = (sock->in_out == SOCK_IN) ? stype->input_link_limit : stype->output_link_limit;
+    return limit;
+  }
+  else {
+    return sock->limit;
   }
 }
 
@@ -3847,6 +3859,10 @@ static void register_undefined_types(void)
   /* extra type info for standard socket types */
   NodeSocketTypeUndefined.type = SOCK_CUSTOM;
   NodeSocketTypeUndefined.subtype = PROP_NONE;
+
+  NodeSocketTypeUndefined.use_link_limits_of_type = true;
+  NodeSocketTypeUndefined.input_link_limit = 0xFFF;
+  NodeSocketTypeUndefined.output_link_limit = 0xFFF;
 }
 
 static void registerCompositNodes(void)

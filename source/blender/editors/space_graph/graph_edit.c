@@ -351,7 +351,7 @@ void GRAPH_OT_view_all(wmOperatorType *ot)
 void GRAPH_OT_view_selected(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "View Selected";
+  ot->name = "Frame Selected";
   ot->idname = "GRAPH_OT_view_selected";
   ot->description = "Reset viewable area to show selected keyframe range";
 
@@ -610,7 +610,7 @@ static void insert_graph_keys(bAnimContext *ac, eGraphKeys_InsertKey_Types mode)
   SpaceGraph *sipo = (SpaceGraph *)ac->sl;
   Scene *scene = ac->scene;
   ToolSettings *ts = scene->toolsettings;
-  short flag = 0;
+  eInsertKeyFlags flag = 0;
 
   /* filter data */
   filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_CURVE_VISIBLE | ANIMFILTER_FOREDIT |
@@ -639,8 +639,8 @@ static void insert_graph_keys(bAnimContext *ac, eGraphKeys_InsertKey_Types mode)
     return;
   }
 
-  /* init keyframing flag */
-  flag = ANIM_get_keyframing_flags(scene, 1);
+  /* Init key-framing flag. */
+  flag = ANIM_get_keyframing_flags(scene, true);
 
   /* insert keyframes */
   if (mode & GRAPHKEYS_INSERTKEY_CURSOR) {
@@ -3476,7 +3476,7 @@ static int graph_driver_vars_copy_exec(bContext *C, wmOperator *op)
   PointerRNA ptr = CTX_data_pointer_get_type(C, "active_editable_fcurve", &RNA_FCurve);
 
   /* if this exists, call the copy driver vars API function */
-  FCurve *fcu = (FCurve *)ptr.data;
+  FCurve *fcu = ptr.data;
 
   if (fcu) {
     ok = ANIM_driver_vars_copy(op->reports, fcu);
@@ -3516,7 +3516,7 @@ static int graph_driver_vars_paste_exec(bContext *C, wmOperator *op)
   PointerRNA ptr = CTX_data_pointer_get_type(C, "active_editable_fcurve", &RNA_FCurve);
 
   /* if this exists, call the paste driver vars API function */
-  FCurve *fcu = (FCurve *)ptr.data;
+  FCurve *fcu = ptr.data;
 
   if (fcu) {
     ok = ANIM_driver_vars_paste(op->reports, fcu, replace);
