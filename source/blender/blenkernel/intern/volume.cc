@@ -509,19 +509,19 @@ static void volume_free_data(ID *id)
 }
 
 IDTypeInfo IDType_ID_VO = {
-    .id_code = ID_VO,
-    .id_filter = FILTER_ID_VO,
-    .main_listbase_index = INDEX_ID_VO,
-    .struct_size = sizeof(Volume),
-    .name = "Volume",
-    .name_plural = "volumes",
-    .translation_context = BLT_I18NCONTEXT_ID_VOLUME,
-    .flags = 0,
+    /* id_code */ ID_VO,
+    /* id_filter */ FILTER_ID_VO,
+    /* main_listbase_index */ INDEX_ID_VO,
+    /* struct_size */ sizeof(Volume),
+    /* name */ "Volume",
+    /* name_plural */ "volumes",
+    /* translation_context */ BLT_I18NCONTEXT_ID_VOLUME,
+    /* flags */ 0,
 
-    .init_data = volume_init_data,
-    .copy_data = volume_copy_data,
-    .free_data = volume_free_data,
-    .make_local = volume_make_local,
+    /* init_data */ volume_init_data,
+    /* copy_data */ volume_copy_data,
+    /* free_data */ volume_free_data,
+    /* make_local */ volume_make_local,
 };
 
 /* Sequence */
