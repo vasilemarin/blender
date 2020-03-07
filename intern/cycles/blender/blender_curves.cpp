@@ -1334,6 +1334,11 @@ void BlenderSync::sync_hair(Hair *hair, BL::Object &b_ob, bool motion, int motio
   else {
     export_hair_curves(scene, hair, b_hair);
   }
+#else
+  (void)hair;
+  (void)b_ob;
+  (void)motion;
+  (void)motion_step;
 #endif /* WITH_NEW_OBJECT_TYPES */
 }
 
