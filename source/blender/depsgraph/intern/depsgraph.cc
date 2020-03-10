@@ -285,10 +285,12 @@ Depsgraph *DEG_graph_new(Main *bmain, Scene *scene, ViewLayer *view_layer, eEval
   return reinterpret_cast<Depsgraph *>(deg_depsgraph);
 }
 
-void DEG_graph_update_bmain_pointers(struct Depsgraph *depsgraph,
-                                     Main *bmain,
-                                     Scene *scene,
-                                     ViewLayer *view_layer)
+/* Replace the "owner" pointers (currently Main/Scene/ViewLayer) of this depsgraph.
+ * Used during undo steps when we do want to re-use the old depsgraph data as much as possible. */
+void DEG_graph_replace_owners(struct Depsgraph *depsgraph,
+                              Main *bmain,
+                              Scene *scene,
+                              ViewLayer *view_layer)
 {
   DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
 
@@ -304,8 +306,6 @@ void DEG_graph_update_bmain_pointers(struct Depsgraph *depsgraph,
   if (do_update_register) {
     DEG::register_graph(deg_graph);
   }
-
-  DEG_graph_tag_relations_update(depsgraph);
 }
 
 /* Free graph's contents and graph itself */

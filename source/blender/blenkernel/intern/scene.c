@@ -2184,7 +2184,9 @@ void BKE_scene_undo_depsgraphs_restore(Main *bmain, GHash *depsgraph_extract)
       /* We steal the depsgraph back from our 'extract' storage to the scene. */
       Depsgraph *depsgraph = *depsgraph_extract_ptr;
 
-      DEG_graph_update_bmain_pointers(depsgraph, bmain, scene, view_layer);
+      DEG_graph_replace_owners(depsgraph, bmain, scene, view_layer);
+
+      DEG_graph_tag_relations_update(depsgraph);
 
       *depsgraph_scene_ptr = depsgraph;
       *depsgraph_extract_ptr = NULL;

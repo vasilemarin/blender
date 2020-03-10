@@ -92,10 +92,10 @@ Depsgraph *DEG_graph_new(struct Main *bmain,
                          struct ViewLayer *view_layer,
                          eEvaluationMode mode);
 
-void DEG_graph_update_bmain_pointers(struct Depsgraph *depsgraph,
-                                     struct Main *bmain,
-                                     struct Scene *scene,
-                                     struct ViewLayer *view_layer);
+void DEG_graph_replace_owners(struct Depsgraph *depsgraph,
+                              struct Main *bmain,
+                              struct Scene *scene,
+                              struct ViewLayer *view_layer);
 
 /* Free Depsgraph itself and all its data */
 void DEG_graph_free(Depsgraph *graph);
