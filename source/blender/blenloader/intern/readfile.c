@@ -2762,10 +2762,13 @@ static void direct_link_id(FileData *fd, ID *id, ID *id_old)
       }
     }
     else {
-      /* We are coming from the past (i.e. do a redo), and we found an, we use saved 'accumulated
+      /* We are coming from the past (i.e. do a redo), we use saved 'accumulated
        * recalc flags since last memfile undo step saving' as recalc flags of our newly read ID. */
       id->recalc = id->recalc_undo_accumulated;
     }
+    /* In any case, we need to flush the depsgraph's CoWs, as even if the ID address itself did not
+     * change, internal data most likely have. */
+    id->recalc |= ID_RECALC_COPY_ON_WRITE;
   }
 
   /* Link direct data of overrides. */
@@ -9211,6 +9214,24 @@ static BHead *read_libblock(FileData *fd,
           if (r_id) {
             *r_id = id_old;
           }
+
+          /* Even though we re-use the old ID as-is, it does not mean that we are 100% safe from
+           * needing some depsgraph updates for it (it could depend on another ID which address did
+           * not change, but which actual content might have been re-read from the memfile). */
+          if (fd->undo_direction < 0) {
+            /* We are coming from the future (i.e. do an actual undo, and not a redo), we use our
+             * old reused ID's 'accumulated recalc flags since last memfile undo step saving' as
+             * recalc flags. */
+            id_old->recalc = id_old->recalc_undo_accumulated;
+          }
+          else {
+            /* We are coming from the past (i.e. do a redo), we use the saved 'accumulated recalc
+             * flags since last memfile undo step saving' from the newly read ID as recalc flags.
+             */
+            id_old->recalc = id->recalc_undo_accumulated;
+          }
+          /* There is no need to flush the depsgraph's CoWs here, since that ID's data itself did
+           * not change. */
 
           MEM_freeN(id);
           oldnewmap_free_unused(fd->datamap);
