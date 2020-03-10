@@ -27,6 +27,8 @@
 #ifndef __DNA_DEFAULTS_H__
 #define __DNA_DEFAULTS_H__
 
+#include "BLI_utildefines.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

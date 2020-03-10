@@ -117,7 +117,7 @@ static void acf_generic_root_backdrop(bAnimContext *ac,
                                       float ymaxc)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   short expanded = ANIM_channel_setting_get(ac, ale, ACHANNEL_SETTING_EXPAND) != 0;
   short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
   float color[3];
@@ -148,7 +148,7 @@ static void acf_generic_dataexpand_backdrop(bAnimContext *ac,
                                             float ymaxc)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
   float color[3];
 
@@ -256,7 +256,7 @@ static void acf_generic_channel_backdrop(bAnimContext *ac,
                                          float ymaxc)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
   float color[3];
 
@@ -469,7 +469,7 @@ static void acf_summary_color(bAnimContext *UNUSED(ac),
 static void acf_summary_backdrop(bAnimContext *ac, bAnimListElem *ale, float yminc, float ymaxc)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   float color[3];
 
   /* set backdrop drawing color */
@@ -883,7 +883,7 @@ static void acf_group_color(bAnimContext *ac, bAnimListElem *ale, float r_color[
 static void acf_group_backdrop(bAnimContext *ac, bAnimListElem *ale, float yminc, float ymaxc)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   short expanded = ANIM_channel_setting_get(ac, ale, ACHANNEL_SETTING_EXPAND) != 0;
   short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
   float color[3];
@@ -1156,7 +1156,7 @@ static void acf_nla_controls_backdrop(bAnimContext *ac,
                                       float ymaxc)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   short expanded = ANIM_channel_setting_get(ac, ale, ACHANNEL_SETTING_EXPAND) != 0;
   short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
   float color[3];
@@ -3827,7 +3827,7 @@ static void acf_nlaaction_color(bAnimContext *UNUSED(ac), bAnimListElem *ale, fl
 static void acf_nlaaction_backdrop(bAnimContext *ac, bAnimListElem *ale, float yminc, float ymaxc)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   AnimData *adt = ale->adt;
   short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
   float color[4];
@@ -4260,7 +4260,7 @@ void ANIM_channel_draw(
     bAnimContext *ac, bAnimListElem *ale, float yminc, float ymaxc, size_t channel_index)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   short selected, offset;
   float y, ymid, ytext;
 
@@ -4991,7 +4991,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
                                size_t channel_index)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
-  View2D *v2d = &ac->ar->v2d;
+  View2D *v2d = &ac->region->v2d;
   float ymid;
   const short channel_height = round_fl_to_int(BLI_rctf_size_y(rect));
   const bool is_being_renamed = achannel_is_being_renamed(ac, acf, channel_index);
@@ -5121,7 +5121,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
      */
     if (acf->name_prop(ale, &ptr, &prop)) {
       const short margin_x = 3 * round_fl_to_int(UI_DPI_FAC);
-      const short width = ac->ar->winx - offset - (margin_x * 2);
+      const short width = ac->region->winx - offset - (margin_x * 2);
       uiBut *but;
 
       UI_block_emboss_set(block, UI_EMBOSS);
@@ -5144,7 +5144,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
                       NULL);
 
       /* copy what outliner does here, see outliner_buttons */
-      if (UI_but_active_only(C, ac->ar, block, but) == false) {
+      if (UI_but_active_only(C, ac->region, block, but) == false) {
         ac->ads->renameIndex = 0;
 
         /* send notifiers */
@@ -5355,10 +5355,16 @@ void ANIM_channel_draw_widgets(const bContext *C,
 
             /* Mask Layer. */
             UI_block_emboss_set(block, UI_EMBOSS_NONE);
-            prop = RNA_struct_find_property(&ptr, "mask_layer");
+            prop = RNA_struct_find_property(&ptr, "use_mask_layer");
             gp_rna_path = RNA_path_from_ID_to_property(&ptr, prop);
             if (RNA_path_resolve_property(&id_ptr, gp_rna_path, &ptr, &prop)) {
-              icon = (gpl->flag & GP_LAYER_USE_MASK) ? ICON_MOD_MASK : ICON_LAYER_ACTIVE;
+              icon = ICON_LAYER_ACTIVE;
+              if (gpl->flag & GP_LAYER_USE_MASK) {
+                icon = ICON_MOD_MASK;
+              }
+              else {
+                icon = ICON_LAYER_ACTIVE;
+              }
               uiDefAutoButR(block,
                             &ptr,
                             prop,

@@ -494,7 +494,7 @@ endif()
 
 if(WITH_CODEC_AVI)
   list(APPEND INC
-    ../avi
+    ../io/avi
   )
   add_definitions(-DWITH_AVI)
 endif()
@@ -615,7 +615,7 @@ endif()
 
 if(WITH_ALEMBIC)
   list(APPEND INC
-    ../alembic
+    ../io/alembic
   )
   add_definitions(-DWITH_ALEMBIC)
 endif()
