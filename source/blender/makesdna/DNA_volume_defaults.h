@@ -31,7 +31,8 @@
 #define _DNA_DEFAULT_VolumeDisplay \
   { \
     .density = 1.0f, \
-    .wireframe_type = VOLUME_WIREFRAME_COARSE, \
+    .wireframe_type = VOLUME_WIREFRAME_BOXES, \
+    .wireframe_detail = VOLUME_WIREFRAME_COARSE, \
   }
 
 #define _DNA_DEFAULT_Volume \

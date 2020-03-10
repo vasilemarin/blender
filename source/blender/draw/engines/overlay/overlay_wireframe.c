@@ -22,6 +22,7 @@
 
 #include "DNA_mesh_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_volume_types.h"
 
 #include "BKE_curve.h"
 #include "BKE_displist.h"
@@ -154,6 +155,19 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
 
     if (geom) {
       OVERLAY_extra_wire(cb, geom, ob->obmat, color);
+    }
+  }
+  else if (ob->type == OB_VOLUME && use_wire) {
+    /* Volume object as points exception. */
+    Volume *volume = ob->data;
+    if (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS) {
+      float *color;
+      OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);
+      DRW_object_wire_theme_get(ob, draw_ctx->view_layer, &color);
+
+      struct GPUBatch *geom = DRW_cache_object_face_wireframe_get(ob);
+      OVERLAY_extra_loose_points(cb, geom, ob->obmat, color);
+      return;
     }
   }
 

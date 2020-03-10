@@ -142,7 +142,8 @@ void DRW_volume_batch_cache_free(Volume *volume)
 static void drw_volume_wireframe_cb(
     void *userdata, float (*verts)[3], int (*edges)[2], int totvert, int totedge)
 {
-  VolumeBatchCache *cache = userdata;
+  Volume *volume = userdata;
+  VolumeBatchCache *cache = volume->batch_cache;
 
   /* Create vertex buffer. */
   static GPUVertFormat format = {0};
@@ -164,22 +165,34 @@ static void drw_volume_wireframe_cb(
   GPUVertBuf *vbo_wiredata = MEM_callocN(sizeof(GPUVertBuf), __func__);
   DRW_vertbuf_create_wiredata(vbo_wiredata, totvert);
 
-  /* Create index buffer. */
-  GPUIndexBufBuilder elb;
-  GPU_indexbuf_init(&elb, GPU_PRIM_LINES, totedge, totvert);
-  for (int i = 0; i < totedge; i++) {
-    GPU_indexbuf_add_line_verts(&elb, edges[i][0], edges[i][1]);
+  if (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS) {
+    /* Create batch. */
+    cache->face_wire.batch = GPU_batch_create(
+        GPU_PRIM_POINTS, cache->face_wire.pos_nor_in_order, NULL);
   }
-  GPUIndexBuf *ibo = GPU_indexbuf_build(&elb);
+  else {
+    /* Create edge index buffer. */
+    GPUIndexBufBuilder elb;
+    GPU_indexbuf_init(&elb, GPU_PRIM_LINES, totedge, totvert);
+    for (int i = 0; i < totedge; i++) {
+      GPU_indexbuf_add_line_verts(&elb, edges[i][0], edges[i][1]);
+    }
+    GPUIndexBuf *ibo = GPU_indexbuf_build(&elb);
 
-  /* Create batch. */
-  cache->face_wire.batch = GPU_batch_create_ex(
-      GPU_PRIM_LINES, cache->face_wire.pos_nor_in_order, ibo, GPU_BATCH_OWNS_INDEX);
+    /* Create batch. */
+    cache->face_wire.batch = GPU_batch_create_ex(
+        GPU_PRIM_LINES, cache->face_wire.pos_nor_in_order, ibo, GPU_BATCH_OWNS_INDEX);
+  }
+
   GPU_batch_vertbuf_add_ex(cache->face_wire.batch, vbo_wiredata, true);
 }
 
 GPUBatch *DRW_volume_batch_cache_get_wireframes_face(Volume *volume)
 {
+  if (volume->display.wireframe_type == VOLUME_WIREFRAME_NONE) {
+    return NULL;
+  }
+
   VolumeBatchCache *cache = volume_batch_cache_get(volume);
 
   if (cache->face_wire.batch == NULL) {
@@ -189,7 +202,7 @@ GPUBatch *DRW_volume_batch_cache_get_wireframes_face(Volume *volume)
     }
 
     /* Create wireframe from OpenVDB tree. */
-    BKE_volume_grid_wireframe(volume, volume_grid, drw_volume_wireframe_cb, cache);
+    BKE_volume_grid_wireframe(volume, volume_grid, drw_volume_wireframe_cb, volume);
   }
 
   return cache->face_wire.batch;

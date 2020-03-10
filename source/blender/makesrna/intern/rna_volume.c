@@ -351,22 +351,41 @@ static void rna_def_volume_display(BlenderRNA *brna)
        0,
        "Bounds",
        "Display single bounding box for the entire grid"},
+      {VOLUME_WIREFRAME_BOXES,
+       "BOXES",
+       0,
+       "Boxes",
+       "Display bounding boxes for nodes in the volume tree"},
+      {VOLUME_WIREFRAME_POINTS,
+       "POINTS",
+       0,
+       "Points",
+       "Display points for nodes in the volume tree"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  static const EnumPropertyItem wireframe_detail_items[] = {
       {VOLUME_WIREFRAME_COARSE,
        "COARSE",
        0,
        "Coarse",
-       "Display bounding box coarse showign volume shape"},
+       "Display one box or point for each intermediate tree node"},
       {VOLUME_WIREFRAME_FINE,
        "FINE",
        0,
        "Fine",
-       "Display box for each leaf nodes containing 8x8 voxels"},
+       "Display box for each leaf node containing 8x8 voxels"},
       {0, NULL, 0, NULL, NULL},
   };
 
   prop = RNA_def_property(srna, "wireframe_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, wireframe_type_items);
-  RNA_def_property_ui_text(prop, "Wireframe", "Amount of detail for wireframe display");
+  RNA_def_property_ui_text(prop, "Wireframe", "Type of wireframe display");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_display");
+
+  prop = RNA_def_property(srna, "wireframe_detail", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, wireframe_detail_items);
+  RNA_def_property_ui_text(prop, "Wireframe Detail", "Amount of detail for wireframe display");
   RNA_def_property_update(prop, 0, "rna_Volume_update_display");
 }
 

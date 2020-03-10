@@ -175,7 +175,7 @@ struct VolumeWireframe {
   std::vector<openvdb::Vec2I> edges;
 
   template<typename GridType>
-  void add_grid(openvdb::GridBase::ConstPtr gridbase, const bool coarse)
+  void add_grid(openvdb::GridBase::ConstPtr gridbase, const bool points, const bool coarse)
   {
     using TreeType = typename GridType::TreeType;
     using Depth2Type = typename TreeType::RootNodeType::ChildNodeType::ChildNodeType;
@@ -214,12 +214,23 @@ struct VolumeWireframe {
         /* +1 to convert from exclusive to include bounds. */
         coordbbox.max() = coordbbox.max().offsetBy(1);
         openvdb::BBoxd bbox = transform.indexToWorld(coordbbox);
-        add_node(bbox);
+
+        if (points) {
+          add_point(bbox);
+        }
+        else {
+          add_box(bbox);
+        }
       }
     }
   }
 
-  void add_node(const openvdb::BBoxd &bbox)
+  void add_point(const openvdb::BBoxd &bbox)
+  {
+    verts.push_back(bbox.getCenter());
+  }
+
+  void add_box(const openvdb::BBoxd &bbox)
   {
     /* TODO: deduplicate edges, hide flat edges? */
     openvdb::Vec3f min = bbox.min();
@@ -279,52 +290,53 @@ void BKE_volume_grid_wireframe(const Volume *volume,
     BKE_volume_grid_bounds(volume_grid, min, max);
 
     openvdb::BBoxd bbox(min, max);
-    wireframe.add_node(bbox);
+    wireframe.add_box(bbox);
   }
   else {
     /* Tree nodes. */
     openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
-    const bool coarse = (volume->display.wireframe_type == VOLUME_WIREFRAME_COARSE);
+    const bool points = (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS);
+    const bool coarse = (volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
 
     switch (BKE_volume_grid_type(volume_grid)) {
       case VOLUME_GRID_BOOLEAN: {
-        wireframe.add_grid<openvdb::BoolGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::BoolGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_FLOAT: {
-        wireframe.add_grid<openvdb::FloatGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::FloatGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_DOUBLE: {
-        wireframe.add_grid<openvdb::DoubleGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::DoubleGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_INT: {
-        wireframe.add_grid<openvdb::Int32Grid>(grid, coarse);
+        wireframe.add_grid<openvdb::Int32Grid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_INT64: {
-        wireframe.add_grid<openvdb::Int64Grid>(grid, coarse);
+        wireframe.add_grid<openvdb::Int64Grid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_MASK: {
-        wireframe.add_grid<openvdb::MaskGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::MaskGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_VECTOR_FLOAT: {
-        wireframe.add_grid<openvdb::Vec3fGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::Vec3fGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_VECTOR_DOUBLE: {
-        wireframe.add_grid<openvdb::Vec3dGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::Vec3dGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_VECTOR_INT: {
-        wireframe.add_grid<openvdb::Vec3IGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::Vec3IGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_STRING: {
-        wireframe.add_grid<openvdb::StringGrid>(grid, coarse);
+        wireframe.add_grid<openvdb::StringGrid>(grid, points, coarse);
         break;
       }
       case VOLUME_GRID_POINTS:

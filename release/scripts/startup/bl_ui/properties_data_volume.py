@@ -120,7 +120,10 @@ class DATA_PT_volume_viewport_display(DataButtonsPanel, Panel):
         volume = context.volume
         display = volume.display
         layout.prop(display, "density")
-        layout.prop(display, "wireframe_type")
+
+        col = layout.column(align=True)
+        col.prop(display, "wireframe_type")
+        col.prop(display, "wireframe_detail")
 
 
 class DATA_PT_custom_props_volume(DataButtonsPanel, PropertyPanel, Panel):
