@@ -9168,7 +9168,7 @@ static BHead *read_libblock(FileData *fd,
 
         /* Find the 'current' existing ID we want to reuse instead of the one we would read from
          * the undo memfile. */
-        DEBUG_PRINTF("\t Looking for ID %s with uuid %d instead of newly read one\n",
+        DEBUG_PRINTF("\t Looking for ID %s with uuid %u instead of newly read one\n",
                      id->name,
                      id->session_uuid);
         id_old = do_partial_undo ? BKE_main_idmap_lookup_uuid(fd->old_idmap, id->session_uuid) :
@@ -9249,7 +9249,7 @@ static BHead *read_libblock(FileData *fd,
        * addresses for those as well. */
       if (fd->memfile != NULL && do_partial_undo && id->lib == NULL) {
         BLI_assert(fd->old_idmap != NULL);
-        DEBUG_PRINTF("\t Looking for ID %s with uuid %d instead of newly read one\n",
+        DEBUG_PRINTF("\t Looking for ID %s with uuid %u instead of newly read one\n",
                      id->name,
                      id->session_uuid);
         id_old = BKE_main_idmap_lookup_uuid(fd->old_idmap, id->session_uuid);
