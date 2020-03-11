@@ -145,11 +145,8 @@ static void eevee_create_shader_volumes(void)
   e_data.volumetric_accum_sh = DRW_shader_create_fullscreen(datatoc_volumetric_accum_frag_glsl,
                                                             NULL);
 
-  const float density = 0.0f;
-  e_data.dummy_density = DRW_texture_create_3d(1, 1, 1, GPU_R8, DRW_TEX_WRAP, &density);
-
-  const float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-  e_data.dummy_color = DRW_texture_create_3d(1, 1, 1, GPU_RGBA8, DRW_TEX_WRAP, color);
+  const float density[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+  e_data.dummy_density = DRW_texture_create_3d(1, 1, 1, GPU_RGBA8, DRW_TEX_WRAP, density);
 
   const float flame = 0.0f;
   e_data.dummy_flame = DRW_texture_create_3d(1, 1, 1, GPU_R8, DRW_TEX_WRAP, &flame);
@@ -578,7 +575,7 @@ void EEVEE_volumes_cache_object_add(EEVEE_ViewLayerData *sldata,
       }
       else if (STREQ(gpu_grid->name, "color")) {
         DRW_shgroup_uniform_texture_ref(
-            grp, gpu_grid->sampler_name, mds->tex_color ? &mds->tex_color : &e_data.dummy_color);
+            grp, gpu_grid->sampler_name, mds->tex_color ? &mds->tex_color : &e_data.dummy_density);
       }
       else if (STREQ(gpu_grid->name, "flame") || STREQ(gpu_grid->name, "temperature")) {
         DRW_shgroup_uniform_texture_ref(

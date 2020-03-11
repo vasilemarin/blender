@@ -562,7 +562,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   if (!(((Mesh *)ob->data)->flag & ME_AUTOSMOOTH))
 #endif
   {
-    modifier_setError((ModifierData *)wnmd, "Enable 'Auto Smooth' option in mesh settings");
+    modifier_setError((ModifierData *)wnmd, "Enable 'Auto Smooth' in Object Data Properties");
     return mesh;
   }
 

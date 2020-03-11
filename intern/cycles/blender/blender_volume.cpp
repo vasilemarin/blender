@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2011-2013 Blender Foundation
  *
@@ -120,15 +119,16 @@ void BlenderSync::sync_volume(BL::Object &b_ob, Mesh *mesh, const vector<Shader 
   mesh->clear();
   mesh->used_shaders = used_shaders;
 
-  /* TODO: support disabling volumes in view layer. */
-  if (b_ob.type() == BL::Object::type_VOLUME) {
-    /* Volume object. Create only attributes, bounding mesh will then
-     * be automatically generated later. */
-    sync_volume_object(b_data, b_ob, scene, mesh);
-  }
-  else {
-    /* Smoke domain. */
-    sync_smoke_volume(scene, b_ob, mesh, b_scene.frame_current());
+  if (view_layer.use_volumes) {
+    if (b_ob.type() == BL::Object::type_VOLUME) {
+      /* Volume object. Create only attributes, bounding mesh will then
+       * be automatically generated later. */
+      sync_volume_object(b_data, b_ob, scene, mesh);
+    }
+    else {
+      /* Smoke domain. */
+      sync_smoke_volume(scene, b_ob, mesh, b_scene.frame_current());
+    }
   }
 
   /* Tag update. */

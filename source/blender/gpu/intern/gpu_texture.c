@@ -1648,17 +1648,6 @@ void GPU_texture_wrap_mode(GPUTexture *tex, bool use_repeat)
   }
 }
 
-void GPU_texture_swizzle_channel_rrrr(GPUTexture *tex)
-{
-  WARN_NOT_BOUND(tex);
-
-  glActiveTexture(GL_TEXTURE0 + tex->number);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_R, GL_RED);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_G, GL_RED);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_A, GL_RED);
-}
-
 void GPU_texture_swizzle_channel_auto(GPUTexture *tex, int channels)
 {
   WARN_NOT_BOUND(tex);
