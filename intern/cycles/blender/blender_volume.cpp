@@ -15,11 +15,19 @@
  */
 
 #include "render/colorspace.h"
+#include "render/image.h"
+#include "render/image_vdb.h"
 #include "render/mesh.h"
 #include "render/object.h"
 
 #include "blender/blender_sync.h"
 #include "blender/blender_util.h"
+
+#ifdef WITH_OPENVDB
+#  include <openvdb/openvdb.h>
+openvdb::GridBase::ConstPtr BKE_volume_grid_openvdb_for_read(const struct Volume *volume,
+                                                             struct VolumeGrid *grid);
+#endif
 
 CCL_NAMESPACE_BEGIN
 
@@ -211,99 +219,67 @@ static void sync_smoke_volume(Scene *scene, BL::Object &b_ob, Mesh *mesh, float 
   }
 }
 
-class BlenderVolumeLoader : public ImageLoader {
+class BlenderVolumeLoader : public VDBImageLoader {
  public:
-  BlenderVolumeLoader(const BL::Volume &b_volume, const string &grid_name)
-      : b_volume(b_volume), grid_name(grid_name), unload(false)
+  BlenderVolumeLoader(BL::Volume b_volume, const string &grid_name)
+      : VDBImageLoader(grid_name),
+        b_volume(b_volume),
+        b_volume_grid(PointerRNA_NULL),
+        unload(false)
   {
+    /* Find grid with matching name. */
+    BL::Volume::grids_iterator b_grid_iter;
+    for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
+      if (b_grid_iter->name() == grid_name) {
+        b_volume_grid = *b_grid_iter;
+      }
+    }
   }
 
   bool load_metadata(ImageMetaData &metadata) override
   {
-    /* Find grid with matching name. */
-    BL::Volume::grids_iterator b_grid_iter;
-    for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
-      BL::VolumeGrid b_grid = *b_grid_iter;
-
-      if (b_grid.name() == grid_name) {
-        Volume *volume = (Volume *)b_volume.ptr.data;
-        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
-
-        /* Skip grid that we can parse as float channels. */
-        if (b_grid.channels() == 0) {
-          return false;
-        }
-
-        /* Compute grid dimensions. */
-        if (!BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
-          return false;
-        }
-
-        /* Load grid, and free after reading voxels if it wasn't already loaded. */
-        unload = !b_grid.is_loaded();
-
-        /* Set metadata. */
-        metadata.width = max[0] - min[0];
-        metadata.height = max[1] - min[1];
-        metadata.depth = max[2] - min[2];
-        metadata.channels = b_grid.channels();
-
-        if (metadata.channels == 1) {
-          metadata.type = IMAGE_DATA_TYPE_FLOAT;
-        }
-        else {
-          metadata.type = IMAGE_DATA_TYPE_FLOAT4;
-        }
-
-        float mat[4][4];
-        BKE_volume_grid_dense_transform_matrix(volume_grid, min, max, mat);
-        metadata.transform_3d = transform_inverse(get_transform(mat));
-        metadata.use_transform_3d = true;
-        return true;
-      }
+    if (!b_volume_grid) {
+      return false;
     }
 
-    return false;
+    unload = !b_volume_grid.is_loaded();
+
+    Volume *volume = (Volume *)b_volume.ptr.data;
+    VolumeGrid *volume_grid = (VolumeGrid *)b_volume_grid.ptr.data;
+    grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
+
+    return VDBImageLoader::load_metadata(metadata);
   }
 
-  bool load_pixels(const ImageMetaData &, void *pixels, const size_t, const bool) override
+  bool load_pixels(const ImageMetaData &metadata,
+                   void *pixels,
+                   const size_t pixel_size,
+                   const bool associate_alpha) override
   {
-    /* Find grid with matching name. */
-    BL::Volume::grids_iterator b_grid_iter;
-    for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
-      BL::VolumeGrid b_grid = *b_grid_iter;
-
-      if (b_grid.name() == grid_name) {
-        Volume *volume = (Volume *)b_volume.ptr.data;
-        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
-
-        BKE_volume_grid_dense_voxels(volume, volume_grid, min, max, (float *)pixels);
-
-        if (unload) {
-          b_grid.unload();
-        }
-
-        return true;
-      }
+    if (!b_volume_grid) {
+      return false;
     }
 
-    return false;
-  }
-
-  string name() const override
-  {
-    return grid_name;
+    return VDBImageLoader::load_pixels(metadata, pixels, pixel_size, associate_alpha);
   }
 
   bool equals(const ImageLoader &other) const override
   {
+    /* TODO: detect multiple volume datablocks with the same filepath. */
     const BlenderVolumeLoader &other_loader = (const BlenderVolumeLoader &)other;
-    return b_volume == other_loader.b_volume && grid_name == other_loader.grid_name;
+    return b_volume == other_loader.b_volume && b_volume_grid == other_loader.b_volume_grid;
+  }
+
+  void cleanup() override
+  {
+    VDBImageLoader::cleanup();
+    if (b_volume_grid && unload) {
+      b_volume_grid.unload();
+    }
   }
 
   BL::Volume b_volume;
-  string grid_name;
-  int64_t min[3], max[3];
+  BL::VolumeGrid b_volume_grid;
   bool unload;
 };
 

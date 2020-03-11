@@ -96,6 +96,16 @@ if(WITH_NEW_OBJECT_TYPES)
   add_definitions(-DWITH_NEW_OBJECT_TYPES)
 endif()
 
+if(WITH_OPENVDB)
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
+  list(APPEND INC_SYS
+    ${OPENVDB_INCLUDE_DIRS}
+  )
+  list(APPEND LIB
+    ${OPENVDB_LIBRARIES}
+  )
+endif()
+
 blender_add_lib(bf_intern_cycles "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 # avoid link failure with clang 3.4 debug
