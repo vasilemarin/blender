@@ -251,11 +251,11 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == &RNA_FreestyleLineStyle) {
     return ID_LS;
   }
-  if (base_type == &RNA_Hair) {
 #  ifdef WITH_NEW_OBJECT_TYPES
+  if (base_type == &RNA_Hair) {
     return ID_HA;
-#  endif
   }
+#  endif
   if (base_type == &RNA_Lattice) {
     return ID_LT;
   }
@@ -289,11 +289,11 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == &RNA_PaintCurve) {
     return ID_PC;
   }
-  if (base_type == &RNA_PointCloud) {
 #  ifdef WITH_NEW_OBJECT_TYPES
+  if (base_type == &RNA_PointCloud) {
     return ID_PT;
-#  endif
   }
+#  endif
   if (base_type == &RNA_LightProbe) {
     return ID_LP;
   }
