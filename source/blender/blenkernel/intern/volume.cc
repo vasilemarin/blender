@@ -1108,19 +1108,14 @@ void BKE_volume_grid_transform_matrix(const VolumeGrid *volume_grid, float mat[4
   const openvdb::GridBase::Ptr &grid = volume_grid->vdb;
   const openvdb::math::Transform &transform = grid->transform();
 
-  if (transform.isLinear()) {
-    openvdb::math::Mat4f matrix = transform.baseMap()->getAffineMap()->getMat4();
-    /* Blender column-major and OpenVDB right-multiplication conventions match. */
-    for (int col = 0; col < 4; col++) {
-      for (int row = 0; row < 4; row++) {
-        mat[col][row] = matrix(col, row);
-      }
+  /* Perspective not supported for now, getAffineMap() will leave out the
+   * perspective part of the transform. */
+  openvdb::math::Mat4f matrix = transform.baseMap()->getAffineMap()->getMat4();
+  /* Blender column-major and OpenVDB right-multiplication conventions match. */
+  for (int col = 0; col < 4; col++) {
+    for (int row = 0; row < 4; row++) {
+      mat[col][row] = matrix(col, row);
     }
-  }
-  else {
-    /* TODO: perspective not supported for now, but what do we fall back to?
-     * Do we skip the grid entirely? */
-    unit_m4(mat);
   }
 #else
   unit_m4(mat);
