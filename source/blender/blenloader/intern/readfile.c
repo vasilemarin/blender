@@ -2771,6 +2771,13 @@ static void direct_link_id(FileData *fd, ID *id, ID *id_old)
     /* In any case, we need to flush the depsgraph's CoWs, as even if the ID address itself did not
      * change, internal data most likely have. */
     id->recalc |= ID_RECALC_COPY_ON_WRITE;
+
+    /* We need to 'accumulate' the accumulated recalc flags of all undo steps until we actually
+     * perform a depsgraph update, otherwise we'd only ever use the flags from one of the steps,
+     * and never get proper flags matching all others. */
+    if (id_old != NULL) {
+      id->recalc_undo_accumulated |= id_old->recalc_undo_accumulated;
+    }
   }
 
   /* Link direct data of overrides. */
@@ -9238,6 +9245,11 @@ static BHead *read_libblock(FileData *fd,
             }
             /* There is no need to flush the depsgraph's CoWs here, since that ID's data itself did
              * not change. */
+
+            /* We need to 'accumulate' the accumulated recalc flags of all undo steps until we
+             * actually perform a depsgraph update, otherwise we'd only ever use the flags from one
+             * of the steps, and never get proper flags matching all others. */
+            id_old->recalc_undo_accumulated |= id->recalc_undo_accumulated;
           }
 
           MEM_freeN(id);
