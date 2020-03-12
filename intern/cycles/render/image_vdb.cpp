@@ -94,7 +94,7 @@ bool VDBImageLoader::load_metadata(ImageMetaData &metadata)
   Transform index_to_object;
   for (int col = 0; col < 4; col++) {
     for (int row = 0; row < 3; row++) {
-      index_to_object[row][col] = grid_matrix[row][col];
+      index_to_object[row][col] = grid_matrix[col][row];
     }
   }
 

@@ -381,7 +381,7 @@ void GeometryManager::create_volume_mesh(Mesh *mesh, Progress &progress)
     }
 
     ImageHandle &handle = attr.data_voxel();
-    device_memory *image_memory = handle.image_memory();
+    device_texture *image_memory = handle.image_memory();
     int3 resolution = make_int3(
         image_memory->data_width, image_memory->data_height, image_memory->data_depth);
 
@@ -400,8 +400,8 @@ void GeometryManager::create_volume_mesh(Mesh *mesh, Progress &progress)
     voxel_grids.push_back(voxel_grid);
 
     /* TODO: support multiple transforms. */
-    if (image_memory->use_transform_3d) {
-      transform = image_memory->transform_3d;
+    if (image_memory->info.use_transform_3d) {
+      transform = image_memory->info.transform_3d;
     }
   }
 

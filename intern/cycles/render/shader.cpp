@@ -484,7 +484,6 @@ void ShaderManager::update_shaders_used(Scene *scene)
   }
 
   scene->default_surface->used = true;
-  scene->default_volume->used = true;
   scene->default_light->used = true;
   scene->default_background->used = true;
   scene->default_empty->used = true;
