@@ -23,6 +23,161 @@
 
 CCL_NAMESPACE_BEGIN
 
+/* TODO: verify this is not loading unnecessary attributes. */
+class BlenderSmokeLoader : public ImageLoader {
+ public:
+  BlenderSmokeLoader(const BL::Object &b_ob, AttributeStandard attribute)
+      : b_ob(b_ob), attribute(attribute)
+  {
+  }
+
+  bool load_metadata(ImageMetaData &metadata) override
+  {
+    BL::FluidDomainSettings b_domain = object_fluid_gas_domain_find(b_ob);
+
+    if (!b_domain) {
+      return false;
+    }
+
+    if (attribute == ATTR_STD_VOLUME_DENSITY || attribute == ATTR_STD_VOLUME_FLAME ||
+        attribute == ATTR_STD_VOLUME_HEAT || attribute == ATTR_STD_VOLUME_TEMPERATURE) {
+      metadata.type = IMAGE_DATA_TYPE_FLOAT;
+      metadata.channels = 1;
+    }
+    else if (attribute == ATTR_STD_VOLUME_COLOR) {
+      metadata.type = IMAGE_DATA_TYPE_FLOAT4;
+      metadata.channels = 4;
+    }
+    else if (attribute == ATTR_STD_VOLUME_VELOCITY) {
+      metadata.type = IMAGE_DATA_TYPE_FLOAT4;
+      metadata.channels = 3;
+    }
+    else {
+      return false;
+    }
+
+    int3 resolution = get_int3(b_domain.domain_resolution());
+    int amplify = (b_domain.use_noise()) ? b_domain.noise_scale() : 1;
+
+    /* Velocity and heat data is always low-resolution. */
+    if (attribute == ATTR_STD_VOLUME_VELOCITY || attribute == ATTR_STD_VOLUME_HEAT) {
+      amplify = 1;
+    }
+
+    metadata.width = resolution.x * amplify;
+    metadata.height = resolution.y * amplify;
+    metadata.depth = resolution.z * amplify;
+
+    /* Create a matrix to transform from object space to mesh texture space.
+     * This does not work with deformations but that can probably only be done
+     * well with a volume grid mapping of coordinates. */
+    BL::Mesh b_mesh(b_ob.data());
+    float3 loc, size;
+    mesh_texture_space(b_mesh, loc, size);
+    metadata.transform_3d = transform_translate(-loc) * transform_scale(size);
+    metadata.use_transform_3d = true;
+
+    return true;
+  }
+
+  bool load_pixels(const ImageMetaData &, void *pixels, const size_t, const bool) override
+  {
+    /* smoke volume data */
+    BL::FluidDomainSettings b_domain = object_fluid_gas_domain_find(b_ob);
+
+    if (!b_domain) {
+      return false;
+    }
+#ifdef WITH_FLUID
+    int3 resolution = get_int3(b_domain.domain_resolution());
+    int length, amplify = (b_domain.use_noise()) ? b_domain.noise_scale() : 1;
+
+    /* Velocity and heat data is always low-resolution. */
+    if (attribute == ATTR_STD_VOLUME_VELOCITY || attribute == ATTR_STD_VOLUME_HEAT) {
+      amplify = 1;
+    }
+
+    const int width = resolution.x * amplify;
+    const int height = resolution.y * amplify;
+    const int depth = resolution.z * amplify;
+    const size_t num_pixels = ((size_t)width) * height * depth;
+
+    float *fpixels = (float *)pixels;
+
+    if (attribute == ATTR_STD_VOLUME_DENSITY) {
+      FluidDomainSettings_density_grid_get_length(&b_domain.ptr, &length);
+      if (length == num_pixels) {
+        FluidDomainSettings_density_grid_get(&b_domain.ptr, fpixels);
+        return true;
+      }
+    }
+    else if (attribute == ATTR_STD_VOLUME_FLAME) {
+      /* this is in range 0..1, and interpreted by the OpenGL smoke viewer
+       * as 1500..3000 K with the first part faded to zero density */
+      FluidDomainSettings_flame_grid_get_length(&b_domain.ptr, &length);
+      if (length == num_pixels) {
+        FluidDomainSettings_flame_grid_get(&b_domain.ptr, fpixels);
+        return true;
+      }
+    }
+    else if (attribute == ATTR_STD_VOLUME_COLOR) {
+      /* the RGB is "premultiplied" by density for better interpolation results */
+      FluidDomainSettings_color_grid_get_length(&b_domain.ptr, &length);
+      if (length == num_pixels * 4) {
+        FluidDomainSettings_color_grid_get(&b_domain.ptr, fpixels);
+        return true;
+      }
+    }
+    else if (attribute == ATTR_STD_VOLUME_VELOCITY) {
+      FluidDomainSettings_velocity_grid_get_length(&b_domain.ptr, &length);
+      if (length == num_pixels * 3) {
+        FluidDomainSettings_velocity_grid_get(&b_domain.ptr, fpixels);
+        return true;
+      }
+    }
+    else if (attribute == ATTR_STD_VOLUME_HEAT) {
+      FluidDomainSettings_heat_grid_get_length(&b_domain.ptr, &length);
+      if (length == num_pixels) {
+        FluidDomainSettings_heat_grid_get(&b_domain.ptr, fpixels);
+        return true;
+      }
+    }
+    else if (attribute == ATTR_STD_VOLUME_TEMPERATURE) {
+      FluidDomainSettings_temperature_grid_get_length(&b_domain.ptr, &length);
+      if (length == num_pixels) {
+        FluidDomainSettings_temperature_grid_get(&b_domain.ptr, fpixels);
+        return true;
+      }
+    }
+    else {
+      fprintf(stderr,
+              "Cycles error: unknown volume attribute %s, skipping\n",
+              Attribute::standard_name(attribute));
+      fpixels[0] = 0.0f;
+      return false;
+    }
+#else
+    (void)pixels;
+#endif
+    fprintf(stderr, "Cycles error: unexpected smoke volume resolution, skipping\n");
+    return false;
+  }
+
+  string name() const override
+  {
+    return Attribute::standard_name(attribute);
+  }
+
+  bool equals(const ImageLoader &other) const override
+  {
+    const BlenderSmokeLoader &other_loader = (const BlenderSmokeLoader &)other;
+    return b_ob == other_loader.b_ob && attribute == other_loader.attribute;
+  }
+
+  BL::Object b_ob;
+  AttributeStandard attribute;
+};
+
 static void sync_smoke_volume(Scene *scene, BL::Object &b_ob, Mesh *mesh, float frame)
 {
   BL::FluidDomainSettings b_domain = object_fluid_gas_domain_find(b_ob);
@@ -30,7 +185,6 @@ static void sync_smoke_volume(Scene *scene, BL::Object &b_ob, Mesh *mesh, float 
     return;
   }
 
-  ImageManager *image_manager = scene->image_manager;
   AttributeStandard attributes[] = {ATTR_STD_VOLUME_DENSITY,
                                     ATTR_STD_VOLUME_COLOR,
                                     ATTR_STD_VOLUME_FLAME,
@@ -48,17 +202,110 @@ static void sync_smoke_volume(Scene *scene, BL::Object &b_ob, Mesh *mesh, float 
     mesh->volume_isovalue = b_domain.clipping();
 
     Attribute *attr = mesh->attributes.add(std);
-    VoxelAttribute *volume_data = attr->data_voxel();
-    ImageMetaData metadata;
 
-    ImageKey key;
-    key.filename = Attribute::standard_name(std);
-    key.builtin_data = b_ob.ptr.data;
+    ImageLoader *loader = new BlenderSmokeLoader(b_ob, std);
+    ImageParams params;
+    params.frame = frame;
 
-    volume_data->manager = image_manager;
-    volume_data->slot = image_manager->add_image(key, frame, metadata);
+    attr->data_voxel() = scene->image_manager->add_image(loader, params);
   }
 }
+
+class BlenderVolumeLoader : public ImageLoader {
+ public:
+  BlenderVolumeLoader(const BL::Volume &b_volume, const string &grid_name)
+      : b_volume(b_volume), grid_name(grid_name), unload(false)
+  {
+  }
+
+  bool load_metadata(ImageMetaData &metadata) override
+  {
+    /* Find grid with matching name. */
+    BL::Volume::grids_iterator b_grid_iter;
+    for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
+      BL::VolumeGrid b_grid = *b_grid_iter;
+
+      if (b_grid.name() == grid_name) {
+        Volume *volume = (Volume *)b_volume.ptr.data;
+        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
+
+        /* Skip grid that we can parse as float channels. */
+        if (b_grid.channels() == 0) {
+          return false;
+        }
+
+        /* Compute grid dimensions. */
+        if (!BKE_volume_grid_dense_bounds(volume, volume_grid, min, max)) {
+          return false;
+        }
+
+        /* Load grid, and free after reading voxels if it wasn't already loaded. */
+        unload = !b_grid.is_loaded();
+
+        /* Set metadata. */
+        metadata.width = max[0] - min[0];
+        metadata.height = max[1] - min[1];
+        metadata.depth = max[2] - min[2];
+        metadata.channels = b_grid.channels();
+
+        if (metadata.channels == 1) {
+          metadata.type = IMAGE_DATA_TYPE_FLOAT;
+        }
+        else {
+          metadata.type = IMAGE_DATA_TYPE_FLOAT4;
+        }
+
+        float mat[4][4];
+        BKE_volume_grid_dense_transform_matrix(volume_grid, min, max, mat);
+        metadata.transform_3d = transform_inverse(get_transform(mat));
+        metadata.use_transform_3d = true;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool load_pixels(const ImageMetaData &, void *pixels, const size_t, const bool) override
+  {
+    /* Find grid with matching name. */
+    BL::Volume::grids_iterator b_grid_iter;
+    for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
+      BL::VolumeGrid b_grid = *b_grid_iter;
+
+      if (b_grid.name() == grid_name) {
+        Volume *volume = (Volume *)b_volume.ptr.data;
+        VolumeGrid *volume_grid = (VolumeGrid *)b_grid.ptr.data;
+
+        BKE_volume_grid_dense_voxels(volume, volume_grid, min, max, (float *)pixels);
+
+        if (unload) {
+          b_grid.unload();
+        }
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  string name() const override
+  {
+    return grid_name;
+  }
+
+  bool equals(const ImageLoader &other) const override
+  {
+    const BlenderVolumeLoader &other_loader = (const BlenderVolumeLoader &)other;
+    return b_volume == other_loader.b_volume && grid_name == other_loader.grid_name;
+  }
+
+  BL::Volume b_volume;
+  string grid_name;
+  int64_t min[3], max[3];
+  bool unload;
+};
 
 static void sync_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *scene, Mesh *mesh)
 {
@@ -98,16 +345,12 @@ static void sync_volume_object(BL::BlendData &b_data, BL::Object &b_ob, Scene *s
       Attribute *attr = (std != ATTR_STD_NONE) ?
                             mesh->attributes.add(std) :
                             mesh->attributes.add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_VOXEL);
-      VoxelAttribute *volume_data = attr->data_voxel();
-      ImageMetaData metadata;
-      const float frame = b_volume.grids.frame();
 
-      ImageKey key;
-      key.filename = name.c_str();
-      key.builtin_data = b_volume.ptr.data;
+      ImageLoader *loader = new BlenderVolumeLoader(b_volume, name.string());
+      ImageParams params;
+      params.frame = b_volume.grids.frame();
 
-      volume_data->manager = scene->image_manager;
-      volume_data->slot = scene->image_manager->add_image(key, frame, metadata);
+      attr->data_voxel() = scene->image_manager->add_image(loader, params);
     }
   }
 }

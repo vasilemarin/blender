@@ -163,7 +163,7 @@ class ShaderManager {
  public:
   bool need_update;
 
-  static ShaderManager *create(Scene *scene, int shadingsystem);
+  static ShaderManager *create(int shadingsystem);
   virtual ~ShaderManager();
 
   virtual void reset(Scene *scene) = 0;

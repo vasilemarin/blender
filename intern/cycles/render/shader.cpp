@@ -415,7 +415,7 @@ ShaderManager::~ShaderManager()
 {
 }
 
-ShaderManager *ShaderManager::create(Scene *scene, int shadingsystem)
+ShaderManager *ShaderManager::create(int shadingsystem)
 {
   ShaderManager *manager;
 
