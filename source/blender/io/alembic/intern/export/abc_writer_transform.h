@@ -13,34 +13,28 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2019 Blender Foundation.
+ * The Original Code is Copyright (C) 2020 Blender Foundation.
  * All rights reserved.
  */
-#ifndef __USD_EXPORTER_CONTEXT_H__
-#define __USD_EXPORTER_CONTEXT_H__
+#pragma once
 
-#include "usd.h"
+#include "abc_writer_abstract.h"
 
-#include <pxr/usd/sdf/path.h>
-#include <pxr/usd/usd/common.h>
+#include <Alembic/AbcGeom/OXform.h>
 
-struct Depsgraph;
-struct Object;
+namespace ABC {
 
-namespace USD {
+class ABCTransformWriter : public ABCAbstractWriter {
+ private:
+  Alembic::AbcGeom::OXform abc_xform_;
 
-class USDHierarchyIterator;
+ public:
+  ABCTransformWriter(const ABCWriterConstructorArgs &args);
 
-/* Passed to Writer constructors.
- * TODO(Sybren): Rename this struct to avoid confusion with HierarchyContext. */
-struct USDExporterContext {
-  Depsgraph *depsgraph;
-  const pxr::UsdStageRefPtr stage;
-  const pxr::SdfPath usd_path;
-  const USDHierarchyIterator *hierarchy_iterator;
-  const USDExportParams &export_params;
+ protected:
+  void do_write(HierarchyContext &context) override;
+  bool check_is_animated(const HierarchyContext &context) const override;
+  const Alembic::Abc::OObject get_alembic_object() const override;
 };
 
-}  // namespace USD
-
-#endif /* __USD_EXPORTER_CONTEXT_H__ */
+}  // namespace ABC

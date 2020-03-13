@@ -90,6 +90,11 @@ struct HierarchyContext {
    * exported objects, in which case this string is empty even though 'duplicator' is set. */
   std::string original_export_path;
 
+  /* These two combined make it possible for the Alembic exporter to store references to the
+   * Alembic C++ objects and to obtain the parent's Alembic object. */
+  const HierarchyContext *parent_context;
+  void *custom_data;
+
   bool operator<(const HierarchyContext &other) const;
 
   /* Return a HierarchyContext representing the root of the export hierarchy. */

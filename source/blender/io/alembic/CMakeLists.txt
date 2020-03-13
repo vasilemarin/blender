@@ -20,6 +20,7 @@
 
 set(INC
   .
+  ../usd/intern
   ../../blenkernel
   ../../blenlib
   ../../blenloader
@@ -42,7 +43,7 @@ set(INC_SYS
 
 set(SRC
   intern/abc_customdata.cc
-  intern/abc_exporter.cc
+  # intern/abc_exporter.cc
   intern/abc_reader_archive.cc
   intern/abc_reader_camera.cc
   intern/abc_reader_curves.cc
@@ -52,16 +53,16 @@ set(SRC
   intern/abc_reader_points.cc
   intern/abc_reader_transform.cc
   intern/abc_util.cc
-  intern/abc_writer_archive.cc
-  intern/abc_writer_camera.cc
-  intern/abc_writer_curves.cc
-  intern/abc_writer_hair.cc
-  intern/abc_writer_mball.cc
-  intern/abc_writer_mesh.cc
-  intern/abc_writer_nurbs.cc
-  intern/abc_writer_object.cc
-  intern/abc_writer_points.cc
-  intern/abc_writer_transform.cc
+  # intern/abc_writer_archive.cc
+  # intern/abc_writer_camera.cc
+  # intern/abc_writer_curves.cc
+  # intern/abc_writer_hair.cc
+  # intern/abc_writer_mball.cc
+  # intern/abc_writer_mesh.cc
+  # intern/abc_writer_nurbs.cc
+  # intern/abc_writer_object.cc
+  # intern/abc_writer_points.cc
+  # intern/abc_writer_transform.cc
   intern/alembic_capi.cc
 
   ABC_alembic.h
@@ -76,16 +77,29 @@ set(SRC
   intern/abc_reader_points.h
   intern/abc_reader_transform.h
   intern/abc_util.h
-  intern/abc_writer_archive.h
-  intern/abc_writer_camera.h
-  intern/abc_writer_curves.h
-  intern/abc_writer_hair.h
-  intern/abc_writer_mball.h
-  intern/abc_writer_mesh.h
-  intern/abc_writer_nurbs.h
-  intern/abc_writer_object.h
-  intern/abc_writer_points.h
-  intern/abc_writer_transform.h
+  # intern/abc_writer_archive.h
+  # intern/abc_writer_camera.h
+  # intern/abc_writer_curves.h
+  # intern/abc_writer_hair.h
+  # intern/abc_writer_mball.h
+  # intern/abc_writer_mesh.h
+  # intern/abc_writer_nurbs.h
+  # intern/abc_writer_object.h
+  # intern/abc_writer_points.h
+  # intern/abc_writer_transform.h
+
+
+  intern/export/abc_archive.cc
+  intern/export/abc_export_capi.cc
+  intern/export/abc_hierarchy_iterator.cc
+  intern/export/abc_writer_abstract.cc
+  intern/export/abc_writer_transform.cc
+
+  intern/export/abc_archive.h
+  intern/export/abc_hierarchy_iterator.h
+  intern/export/abc_writer_abstract.h
+  intern/export/abc_writer_transform.h
+
 )
 
 set(LIB

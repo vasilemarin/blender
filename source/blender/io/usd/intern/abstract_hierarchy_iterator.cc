@@ -344,6 +344,9 @@ void AbstractHierarchyIterator::visit_object(Object *object,
   context->animation_check_include_parent = false;
   context->export_path = "";
   context->original_export_path = "";
+  context->parent_context = nullptr;
+  context->custom_data = nullptr;
+
   copy_m4_m4(context->matrix_world, object->obmat);
 
   export_graph_[std::make_pair(export_parent, nullptr)].insert(context);
@@ -362,6 +365,8 @@ void AbstractHierarchyIterator::visit_dupli_object(DupliObject *dupli_object,
   context->weak_export = false;
   context->export_path = "";
   context->original_export_path = "";
+  context->parent_context = nullptr;
+  context->custom_data = nullptr;
 
   /* If the dupli-object's parent is also instanced by this object, use that as the
    * export parent. Otherwise use the dupli-parent as export parent. */
@@ -478,7 +483,9 @@ void AbstractHierarchyIterator::make_writers(const HierarchyContext *parent_cont
   }
 
   for (HierarchyContext *context : graph_children(parent_context)) {
+    // Update the context so that it is correct for this parent-child relation.
     copy_m4_m4(context->parent_matrix_inv_world, parent_matrix_inv_world);
+    context->parent_context = parent_context;
 
     // Get or create the transform writer.
     transform_writer = ensure_writer(context, &AbstractHierarchyIterator::create_transform_writer);
