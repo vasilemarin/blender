@@ -46,6 +46,13 @@ typedef struct VolumeDisplay {
   int _pad[1];
 } VolumeDisplay;
 
+typedef struct VolumeRender {
+  int precision;
+  int space;
+  float step_size;
+  float clipping;
+} VolumeRender;
+
 typedef struct Volume {
   ID id;
   struct AnimData *adt; /* animation data (must be immediately after id) */
@@ -73,7 +80,8 @@ typedef struct Volume {
   short totcol;
   short _pad2[3];
 
-  /* Display */
+  /* Render & Display Settings */
+  VolumeRender render;
   VolumeDisplay display;
 
   /* Draw Cache */
@@ -109,6 +117,12 @@ typedef enum VolumeWireframeDetail {
   VOLUME_WIREFRAME_COARSE = 0,
   VOLUME_WIREFRAME_FINE = 1,
 } VolumeWireframeDetail;
+
+/* VolumeRender.space */
+typedef enum VolumeRenderSpace {
+  VOLUME_SPACE_OBJECT = 0,
+  VOLUME_SPACE_WORLD = 1,
+} VolumeRenderSpace;
 
 /* Only one material supported currently. */
 #define VOLUME_MATERIAL_NR 1

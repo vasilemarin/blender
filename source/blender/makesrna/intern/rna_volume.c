@@ -334,7 +334,7 @@ static void rna_def_volume_display(BlenderRNA *brna)
   PropertyRNA *prop;
 
   srna = RNA_def_struct(brna, "VolumeDisplay", NULL);
-  RNA_def_struct_ui_text(srna, "Volume Display", "Volume display settings for 3d viewport");
+  RNA_def_struct_ui_text(srna, "Volume Display", "Volume object display settings for 3d viewport");
   RNA_def_struct_sdna(srna, "VolumeDisplay");
 
   prop = RNA_def_property(srna, "density", PROP_FLOAT, PROP_NONE);
@@ -386,6 +386,57 @@ static void rna_def_volume_display(BlenderRNA *brna)
   prop = RNA_def_property(srna, "wireframe_detail", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, wireframe_detail_items);
   RNA_def_property_ui_text(prop, "Wireframe Detail", "Amount of detail for wireframe display");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_display");
+}
+
+static void rna_def_volume_render(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "VolumeRender", NULL);
+  RNA_def_struct_ui_text(srna, "Volume Render", "Volume object render settings");
+  RNA_def_struct_sdna(srna, "VolumeRender");
+
+  static const EnumPropertyItem space_items[] = {
+      {VOLUME_SPACE_OBJECT,
+       "OBJECT",
+       0,
+       "Object",
+       "Keep volume opacity and detail the same regardless of object scale"},
+      {VOLUME_SPACE_WORLD,
+       "WORLD",
+       0,
+       "World",
+       "Specify volume step size and density in world space"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  prop = RNA_def_property(srna, "space", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, space_items);
+  RNA_def_property_ui_text(
+      prop, "Space", "Specify volume density and step size  in object or world space");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_display");
+
+  prop = RNA_def_property(srna, "step_size", PROP_FLOAT, PROP_DISTANCE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_range(prop, 0.00001, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.001, 100.0, 1, 3);
+  RNA_def_property_ui_text(prop,
+                           "Step Size",
+                           "Distance between volume samples. Higher values render more detail at "
+                           "the cost of performance. If set to zero, the step size is "
+                           "automatically determined based on voxel size");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_display");
+
+  prop = RNA_def_property(srna, "clipping", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "clipping");
+  RNA_def_property_range(prop, 0.0, 1.0);
+  RNA_def_property_ui_range(prop, 0.0, 1.0, 0.1, 3);
+  RNA_def_property_ui_text(
+      prop,
+      "Clipping",
+      "Value under which voxels are considered empty space to optimize rendering");
   RNA_def_property_update(prop, 0, "rna_Volume_update_display");
 }
 
@@ -485,6 +536,12 @@ static void rna_def_volume(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "VolumeDisplay");
   RNA_def_property_ui_text(prop, "Display", "Volume display settings for 3d viewport");
 
+  /* Render */
+  prop = RNA_def_property(srna, "render", PROP_POINTER, PROP_NONE);
+  RNA_def_property_pointer_sdna(prop, NULL, "render");
+  RNA_def_property_struct_type(prop, "VolumeRender");
+  RNA_def_property_ui_text(prop, "Render", "Volume render settings for 3d viewport");
+
   /* Common */
   rna_def_animdata_common(srna);
 }
@@ -493,6 +550,7 @@ void RNA_def_volume(BlenderRNA *brna)
 {
   rna_def_volume_grid(brna);
   rna_def_volume_display(brna);
+  rna_def_volume_render(brna);
   rna_def_volume(brna);
 }
 

@@ -35,6 +35,7 @@
 #include "BKE_global.h"
 #include "BKE_object.h"
 #include "BKE_volume.h"
+#include "BKE_volume_render.h"
 
 #include "GPU_draw.h"
 
@@ -225,6 +226,10 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata,
   mul_v3_v3(slice_ct, world_size);
   step_length = len_v3(slice_ct);
 
+  /* Compute density scale. */
+  const float density_scale = volume->display.density *
+                              BKE_volume_density_scale(volume, ob->obmat);
+
   /* Set uniforms. */
   DRWShadingGroup *grp = DRW_shgroup_create(sh, vedata->psl->volume_ps);
   DRW_shgroup_uniform_block(grp, "world_block", wpd->world_ubo);
@@ -239,7 +244,7 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata,
   DRW_shgroup_uniform_vec3_copy(grp, "activeColor", color);
 
   DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
-  DRW_shgroup_uniform_float_copy(grp, "densityScale", volume->display.density);
+  DRW_shgroup_uniform_float_copy(grp, "densityScale", density_scale);
 
   DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", grid->object_to_texture);
   DRW_shgroup_uniform_mat4(grp, "volumeTextureToObject", grid->texture_to_object);

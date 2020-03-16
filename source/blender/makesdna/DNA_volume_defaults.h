@@ -35,6 +35,13 @@
     .wireframe_detail = VOLUME_WIREFRAME_COARSE, \
   }
 
+#define _DNA_DEFAULT_VolumeRender \
+  { \
+    .space = VOLUME_SPACE_OBJECT, \
+    .step_size = 0.0f, \
+    .clipping = 0.001f, \
+  }
+
 #define _DNA_DEFAULT_Volume \
   { \
     .filepath[0] = '\0', \
@@ -42,6 +49,7 @@
     .frame_offset = 0, \
     .frame_duration = 0, \
     .display = _DNA_DEFAULT_VolumeDisplay, \
+    .render = _DNA_DEFAULT_VolumeRender, \
   }
 
 /** \} */

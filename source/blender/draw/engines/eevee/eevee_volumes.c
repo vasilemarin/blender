@@ -37,6 +37,7 @@
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_volume.h"
+#include "BKE_volume_render.h"
 
 #include "ED_screen.h"
 
@@ -452,6 +453,10 @@ static bool eevee_volume_object_cache_init(Object *ob, ListBase *gpu_grids, DRWS
   static const float texco_size[3] = {0.5f, 0.5f, 0.5f};
   DRW_shgroup_uniform_vec3(grp, "volumeOrcoLoc", texco_loc, 1);
   DRW_shgroup_uniform_vec3(grp, "volumeOrcoSize", texco_size, 1);
+
+  /* Set density scale. */
+  const float density_scale = BKE_volume_density_scale(volume, ob->obmat);
+  DRW_shgroup_uniform_float_copy(grp, "volumeDensityScale", density_scale);
 
   /* Bind volume grid textures. */
   for (GPUMaterialVolumeGrid *gpu_grid = gpu_grids->first; gpu_grid; gpu_grid = gpu_grid->next) {

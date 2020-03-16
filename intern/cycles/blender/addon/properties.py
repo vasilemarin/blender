@@ -1063,7 +1063,7 @@ class CyclesWorldSettings(bpy.types.PropertyGroup):
         name="Step Size",
         description="Distance between volume shader samples when rendering the volume "
                     "(lower values give more accurate and detailed results, but also increased render time)",
-        default=0.1,
+        default=1.0,
         min=0.0000001, max=100000.0, soft_min=0.1, soft_max=100.0, precision=4
     )
 

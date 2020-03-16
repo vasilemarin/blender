@@ -30,6 +30,8 @@
 
 #include "BLI_sys_types.h"
 
+#include "DNA_volume_types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,7 +48,7 @@ bool BKE_volume_grid_dense_bounds(const struct Volume *volume,
 void BKE_volume_grid_dense_transform_matrix(const struct VolumeGrid *volume_grid,
                                             const int64_t min[3],
                                             const int64_t max[3],
-                                            float mat[4][4]);
+                                            float matrix[4][4]);
 void BKE_volume_grid_dense_voxels(const struct Volume *volume,
                                   struct VolumeGrid *volume_grid,
                                   const int64_t min[3],
@@ -62,6 +64,10 @@ void BKE_volume_grid_wireframe(const struct Volume *volume,
                                struct VolumeGrid *volume_grid,
                                BKE_volume_wireframe_cb cb,
                                void *cb_userdata);
+
+/* Render */
+
+float BKE_volume_density_scale(const struct Volume *volume, const float matrix[4][4]);
 
 #ifdef __cplusplus
 }
