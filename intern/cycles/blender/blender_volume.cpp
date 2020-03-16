@@ -227,6 +227,7 @@ class BlenderVolumeLoader : public VDBImageLoader {
         b_volume_grid(PointerRNA_NULL),
         unload(false)
   {
+#ifdef WITH_OPENVDB
     /* Find grid with matching name. */
     BL::Volume::grids_iterator b_grid_iter;
     for (b_volume.grids.begin(b_grid_iter); b_grid_iter != b_volume.grids.end(); ++b_grid_iter) {
@@ -234,6 +235,7 @@ class BlenderVolumeLoader : public VDBImageLoader {
         b_volume_grid = *b_grid_iter;
       }
     }
+#endif
   }
 
   bool load_metadata(ImageMetaData &metadata) override
@@ -244,9 +246,11 @@ class BlenderVolumeLoader : public VDBImageLoader {
 
     unload = !b_volume_grid.is_loaded();
 
+#ifdef WITH_OPENVDB
     Volume *volume = (Volume *)b_volume.ptr.data;
     VolumeGrid *volume_grid = (VolumeGrid *)b_volume_grid.ptr.data;
     grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
+#endif
 
     return VDBImageLoader::load_metadata(metadata);
   }

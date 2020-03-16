@@ -113,6 +113,7 @@ bool VDBImageLoader::load_metadata(ImageMetaData &metadata)
 
 bool VDBImageLoader::load_pixels(const ImageMetaData &, void *pixels, const size_t, const bool)
 {
+#ifdef WITH_OPENVDB
   if (grid->isType<openvdb::FloatGrid>()) {
     openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, (float *)pixels);
     openvdb::tools::copyToDense(*openvdb::gridConstPtrCast<openvdb::FloatGrid>(grid), dense);
@@ -154,6 +155,10 @@ bool VDBImageLoader::load_pixels(const ImageMetaData &, void *pixels, const size
   }
 
   return true;
+#else
+  (void)pixels;
+  return false;
+#endif
 }
 
 string VDBImageLoader::name() const
@@ -163,14 +168,21 @@ string VDBImageLoader::name() const
 
 bool VDBImageLoader::equals(const ImageLoader &other) const
 {
+#ifdef WITH_OPENVDB
   const VDBImageLoader &other_loader = (const VDBImageLoader &)other;
   return grid == other_loader.grid;
+#else
+  (void)other;
+  return true;
+#endif
 }
 
 void VDBImageLoader::cleanup()
 {
+#ifdef WITH_OPENVDB
   /* Free OpenVDB grid memory as soon as we can. */
   grid.reset();
+#endif
 }
 
 CCL_NAMESPACE_END
