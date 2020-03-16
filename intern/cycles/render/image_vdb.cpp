@@ -94,7 +94,7 @@ bool VDBImageLoader::load_metadata(ImageMetaData &metadata)
   Transform index_to_object;
   for (int col = 0; col < 4; col++) {
     for (int row = 0; row < 3; row++) {
-      index_to_object[row][col] = grid_matrix[col][row];
+      index_to_object[row][col] = (float)grid_matrix[col][row];
     }
   }
 
@@ -111,10 +111,7 @@ bool VDBImageLoader::load_metadata(ImageMetaData &metadata)
 #endif
 }
 
-bool VDBImageLoader::load_pixels(const ImageMetaData &metadata,
-                                 void *pixels,
-                                 const size_t,
-                                 const bool associate_alpha)
+bool VDBImageLoader::load_pixels(const ImageMetaData &, void *pixels, const size_t, const bool)
 {
   if (grid->isType<openvdb::FloatGrid>()) {
     openvdb::tools::Dense<float, openvdb::tools::LayoutXYZ> dense(bbox, (float *)pixels);

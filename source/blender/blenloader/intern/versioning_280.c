@@ -2539,7 +2539,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
                 V3D_SHOW_MODE_SHADE_OVERRIDE = (1 << 15),
               };
               View3D *v3d = (View3D *)sl;
-              float alpha = v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE ? 0.0f : 1.0f;
+              float alpha = (v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE) ? 0.0f : 1.0f;
               v3d->overlay.texture_paint_mode_opacity = alpha;
               v3d->overlay.vertex_paint_mode_opacity = alpha;
               v3d->overlay.weight_paint_mode_opacity = alpha;
@@ -4644,10 +4644,12 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
             }
             case eGpencilModifierType_Noise: {
               NoiseGpencilModifierData *mmd = (NoiseGpencilModifierData *)md;
-              mmd->factor /= 25.0f;
-              mmd->factor_thickness = mmd->factor;
-              mmd->factor_strength = mmd->factor;
-              mmd->factor_uvs = mmd->factor;
+              float factor = mmd->factor / 25.0f;
+              mmd->factor = (mmd->flag & GP_NOISE_MOD_LOCATION) ? factor : 0.0f;
+              mmd->factor_thickness = (mmd->flag & GP_NOISE_MOD_STRENGTH) ? factor : 0.0f;
+              mmd->factor_strength = (mmd->flag & GP_NOISE_MOD_THICKNESS) ? factor : 0.0f;
+              mmd->factor_uvs = (mmd->flag & GP_NOISE_MOD_UV) ? factor : 0.0f;
+
               mmd->noise_scale = (mmd->flag & GP_NOISE_FULL_STROKE) ? 0.0f : 1.0f;
 
               if (mmd->curve_intensity == NULL) {
