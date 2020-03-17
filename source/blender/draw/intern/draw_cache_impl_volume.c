@@ -242,14 +242,13 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   BKE_volume_grid_load(volume, grid);
 
   /* Compute dense voxel grid size. */
-  int64_t dense_min[3], dense_max[3];
+  int64_t dense_min[3], dense_max[3], resolution[3] = {0};
   if (BKE_volume_grid_dense_bounds(volume, grid, dense_min, dense_max)) {
-    cache_grid->resolution[0] = dense_max[0] - dense_min[0];
-    cache_grid->resolution[1] = dense_max[1] - dense_min[1];
-    cache_grid->resolution[2] = dense_max[2] - dense_min[2];
+    resolution[0] = dense_max[0] - dense_min[0];
+    resolution[1] = dense_max[1] - dense_min[1];
+    resolution[2] = dense_max[2] - dense_min[2];
   }
-  size_t num_voxels = cache_grid->resolution[0] * cache_grid->resolution[1] *
-                      cache_grid->resolution[2];
+  size_t num_voxels = resolution[0] * resolution[1] * resolution[2];
   size_t elem_size = sizeof(float) * channels;
 
   /* Allocate and load voxels. */
@@ -258,9 +257,9 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
     BKE_volume_grid_dense_voxels(volume, grid, dense_min, dense_max, voxels);
 
     /* Create GPU texture. */
-    cache_grid->texture = GPU_texture_create_3d(cache_grid->resolution[0],
-                                                cache_grid->resolution[1],
-                                                cache_grid->resolution[2],
+    cache_grid->texture = GPU_texture_create_3d(resolution[0],
+                                                resolution[1],
+                                                resolution[2],
                                                 (channels == 3) ? GPU_RGB16F : GPU_R16F,
                                                 voxels,
                                                 NULL);

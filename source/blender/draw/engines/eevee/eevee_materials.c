@@ -1880,15 +1880,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
                          !DRW_state_is_image_render();
 
   /* First get materials for this mesh. */
-  if (ELEM(ob->type,
-           OB_MESH,
-           OB_CURVE,
-           OB_SURF,
-           OB_FONT,
-           OB_MBALL,
-           OB_HAIR,
-           OB_POINTCLOUD,
-           OB_VOLUME)) {
+  if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
     const int materials_len = DRW_cache_object_material_count_get(ob);
 
     struct EeveeMaterialShadingGroups *shgrps_array = BLI_array_alloca(shgrps_array,
@@ -1945,15 +1937,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
     bool use_volume_material = (gpumat_array[0] &&
                                 GPU_material_has_volume_output(gpumat_array[0]));
 
-    if (ob->type == OB_HAIR) {
-      /* Hair object. */
-      eevee_hair_cache_populate(vedata, sldata, ob, NULL, NULL, HAIR_MATERIAL_NR, cast_shadow);
-      use_volume_material = false;
-    }
-    else if (ob->type == OB_VOLUME) {
-      /* Volume object. */
-    }
-    else if ((ob->dt >= OB_SOLID) || DRW_state_is_image_render()) {
+    if ((ob->dt >= OB_SOLID) || DRW_state_is_image_render()) {
       /* Get per-material split surface */
       struct GPUBatch **mat_geom = NULL;
 
@@ -2084,6 +2068,14 @@ void EEVEE_particle_hair_cache_populate(EEVEE_Data *vedata,
       }
     }
   }
+}
+
+void EEVEE_object_hair_cache_populate(EEVEE_Data *vedata,
+                                      EEVEE_ViewLayerData *sldata,
+                                      Object *ob,
+                                      bool *cast_shadow)
+{
+  eevee_hair_cache_populate(vedata, sldata, ob, NULL, NULL, HAIR_MATERIAL_NR, cast_shadow);
 }
 
 void EEVEE_materials_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)

@@ -149,19 +149,6 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
       OVERLAY_extra_wire(cb, geom, ob->obmat, color);
     }
   }
-  else if (ob->type == OB_VOLUME && use_wire) {
-    /* Volume object as points exception. */
-    Volume *volume = ob->data;
-    if (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS) {
-      float *color;
-      OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);
-      DRW_object_wire_theme_get(ob, draw_ctx->view_layer, &color);
-
-      struct GPUBatch *geom = DRW_cache_object_face_wireframe_get(ob);
-      OVERLAY_extra_loose_points(cb, geom, ob->obmat, color);
-      return;
-    }
-  }
 
   /* Fast path for duplis. */
   if (dupli && !init_dupli) {
@@ -173,6 +160,20 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     }
     else {
       /* Nothing to draw for this dupli. */
+      return;
+    }
+  }
+
+  if (use_wire && ob->type == OB_VOLUME) {
+    /* Volume object as points exception. */
+    Volume *volume = ob->data;
+    if (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS) {
+      float *color;
+      OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);
+      DRW_object_wire_theme_get(ob, draw_ctx->view_layer, &color);
+
+      struct GPUBatch *geom = DRW_cache_object_face_wireframe_get(ob);
+      OVERLAY_extra_loose_points(cb, geom, ob->obmat, color);
       return;
     }
   }

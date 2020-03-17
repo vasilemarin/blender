@@ -219,7 +219,9 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata,
   double noise_ofs;
   BLI_halton_1d(3, 0.0, wpd->taa_sample, &noise_ofs);
   float step_length, max_slice;
-  float slice_ct[3] = {grid->resolution[0], grid->resolution[1], grid->resolution[2]};
+  int resolution[3];
+  GPU_texture_get_mipmap_size(grid->texture, 0, resolution);
+  float slice_ct[3] = {resolution[0], resolution[1], resolution[2]};
   mul_v3_fl(slice_ct, max_ff(0.001f, 5.0f));
   max_slice = max_fff(slice_ct[0], slice_ct[1], slice_ct[2]);
   invert_v3(slice_ct);
@@ -249,7 +251,6 @@ static void workbench_volume_object_cache_populate(WORKBENCH_Data *vedata,
   DRW_shgroup_uniform_mat4(grp, "volumeObjectToTexture", grid->object_to_texture);
   DRW_shgroup_uniform_mat4(grp, "volumeTextureToObject", grid->texture_to_object);
 
-  /* TODO: make culling work? */
   DRW_shgroup_call(grp, DRW_cache_cube_get(), ob);
 }
 

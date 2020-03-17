@@ -353,12 +353,10 @@ void workbench_cache_populate(void *ved, Object *ob)
     }
   }
   else if (ob->type == OB_HAIR) {
-    /* Hair object. */
     int color_type = workbench_color_type_get(wpd, ob, NULL, NULL, NULL);
     workbench_cache_hair_populate(wpd, ob, NULL, NULL, color_type, false, HAIR_MATERIAL_NR);
   }
   else if (ob->type == OB_VOLUME) {
-    /* Volume object. */
     if (wpd->shading.type != OB_WIRE) {
       int color_type = workbench_color_type_get(wpd, ob, NULL, NULL, NULL);
       workbench_volume_cache_populate(vedata, wpd->scene, ob, NULL, color_type);

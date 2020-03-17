@@ -8,13 +8,10 @@ uniform sampler2D depthBuffer;
 
 uniform sampler3D densityTexture;
 uniform sampler3D shadowTexture;
-#ifdef VOLUME_SMOKE
 uniform sampler3D flameTexture;
 uniform sampler1D flameColorTexture;
 uniform sampler1D transferTexture;
-#else
 uniform mat4 volumeObjectToTexture;
-#endif
 
 uniform int samplesLen = 256;
 uniform float noiseOfs = 0.0;
@@ -22,10 +19,10 @@ uniform float stepLength;   /* Step length in local space. */
 uniform float densityScale; /* Simple Opacity multiplicator. */
 uniform vec3 activeColor;
 
-#ifdef VOLUME_SLICE
 uniform float slicePosition;
 uniform int sliceAxis; /* -1 is no slice, 0 is X, 1 is Y, 2 is Z. */
 
+#ifdef VOLUME_SLICE
 in vec3 localPos;
 #endif
 
@@ -115,23 +112,9 @@ void volume_properties(vec3 ls_pos, out vec3 scattering, out float extinction)
   extinction = max(1e-4, tval.a * 50.0);
 #else
 #  ifdef VOLUME_SMOKE
-  /* Fluid modifier. */
   float flame = sample_volume_texture(flameTexture, co).r;
   vec4 emission = texture(flameColorTexture, flame);
-  float shadows = sample_volume_texture(shadowTexture, co).r;
-  vec4 density = sample_volume_texture(densityTexture, co); /* rgb: color, a: density */
-
-  scattering = density.rgb * densityScale;
-  extinction = max(1e-4, dot(scattering, vec3(0.33333)));
-  scattering *= activeColor;
-
-  /* Scale shadows in log space and clamp them to avoid completely black shadows. */
-  scattering *= exp(clamp(log(shadows) * densityScale * 0.1, -2.5, 0.0)) * M_PI;
-
-  /* 800 is arbitrary and here to mimic old viewport. TODO make it a parameter */
-  scattering += pow(emission.rgb, vec3(2.2)) * emission.a * 800.0;
-#  else
-  /* Volume object. */
+#  endif
   vec3 density = sample_volume_texture(densityTexture, co).rgb;
   float shadows = sample_volume_texture(shadowTexture, co).r;
 
@@ -141,6 +124,10 @@ void volume_properties(vec3 ls_pos, out vec3 scattering, out float extinction)
 
   /* Scale shadows in log space and clamp them to avoid completely black shadows. */
   scattering *= exp(clamp(log(shadows) * densityScale * 0.1, -2.5, 0.0)) * M_PI;
+
+#  ifdef VOLUME_SMOKE
+  /* 800 is arbitrary and here to mimic old viewport. TODO make it a parameter */
+  scattering += pow(emission.rgb, vec3(2.2)) * emission.a * 800.0;
 #  endif
 #endif
 }

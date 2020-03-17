@@ -220,9 +220,8 @@ typedef struct DRWVolumeGrid {
   /* Grid name. */
   char *name;
 
-  /* 3D texture and resolution. */
+  /* 3D texture. */
   struct GPUTexture *texture;
-  size_t resolution[3];
 
   /* Transform between 0..1 texture space and object space. */
   float texture_to_object[4][4];

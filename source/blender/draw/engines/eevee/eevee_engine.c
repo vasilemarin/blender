@@ -124,16 +124,14 @@ void EEVEE_cache_populate(void *vedata, Object *ob)
   }
 
   if (DRW_object_is_renderable(ob) && (ob_visibility & OB_VISIBLE_SELF)) {
-    if (ELEM(ob->type,
-             OB_MESH,
-             OB_CURVE,
-             OB_SURF,
-             OB_FONT,
-             OB_MBALL,
-             OB_HAIR,
-             OB_POINTCLOUD,
-             OB_VOLUME)) {
+    if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
       EEVEE_materials_cache_populate(vedata, sldata, ob, &cast_shadow);
+    }
+    else if (ob->type == OB_HAIR) {
+      EEVEE_object_hair_cache_populate(vedata, sldata, ob, &cast_shadow);
+    }
+    else if (ob->type == OB_VOLUME) {
+      EEVEE_volumes_cache_object_add(sldata, vedata, draw_ctx->scene, ob);
     }
     else if (!USE_SCENE_LIGHT(draw_ctx->v3d)) {
       /* do not add any scene light sources to the cache */
