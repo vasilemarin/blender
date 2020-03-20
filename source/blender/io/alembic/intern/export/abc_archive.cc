@@ -246,5 +246,13 @@ bool ABCArchive::is_shape_frame(double frame) const
 {
   return shape_frames_.find(frame) != shape_frames_.end();
 }
+ExportSubset ABCArchive::export_subset_for_frame(double frame) const
+{
+  ExportSubset subset = {
+      .transforms = is_xform_frame(frame),
+      .shapes = is_shape_frame(frame),
+  };
+  return subset;
+}
 
 }  // namespace ABC

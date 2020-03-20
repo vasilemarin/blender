@@ -115,6 +115,8 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
       scene->r.subframe = frame - scene->r.cfra;
       BKE_scene_graph_update_for_newframe(data->depsgraph, data->bmain);
 
+      ExportSubset export_subset = abc_archive.export_subset_for_frame(frame);
+      iter.set_export_subset(export_subset);
       iter.iterate_and_write();
 
       // TODO(Sybren): reinstate:

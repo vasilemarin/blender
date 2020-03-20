@@ -24,16 +24,19 @@
 #pragma once
 
 #include "ABC_alembic.h"
+#include "abstract_hierarchy_iterator.h"
 
+#include <Alembic/Abc/OArchive.h>
 #include <fstream>
 #include <set>
 #include <string>
-#include <Alembic/Abc/OArchive.h>
 
 struct Main;
 struct Scene;
 
 namespace ABC {
+
+using USD::ExportSubset;
 
 /* Container for an Alembic archive and time sampling info.
  *
@@ -61,6 +64,8 @@ class ABCArchive {
 
   bool is_xform_frame(double frame) const;
   bool is_shape_frame(double frame) const;
+
+  ExportSubset export_subset_for_frame(double frame) const;
 
  private:
   std::ofstream abc_ostream_;
