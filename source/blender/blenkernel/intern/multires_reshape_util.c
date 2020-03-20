@@ -26,9 +26,9 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_mesh_types.h"
-#include "DNA_scene_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
 #include "BLI_task.h"
 
@@ -36,8 +36,8 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_multires.h"
 #include "BKE_subdiv.h"
-#include "BKE_subdiv_eval.h"
 #include "BKE_subdiv_ccg.h"
+#include "BKE_subdiv_eval.h"
 #include "BKE_subdiv_foreach.h"
 #include "BKE_subdiv_mesh.h"
 
@@ -53,21 +53,21 @@ Subdiv *multires_reshape_create_subdiv(Depsgraph *depsgraph,
                                        /*const*/ Object *object,
                                        const MultiresModifierData *mmd)
 {
-  Mesh *coarse_mesh;
+  Mesh *base_mesh;
 
   if (depsgraph != NULL) {
     Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
     Object *object_eval = DEG_get_evaluated_object(depsgraph, object);
-    coarse_mesh = mesh_get_eval_deform(depsgraph, scene_eval, object_eval, &CD_MASK_BAREMESH);
+    base_mesh = mesh_get_eval_deform(depsgraph, scene_eval, object_eval, &CD_MASK_BAREMESH);
   }
   else {
-    coarse_mesh = (Mesh *)object->data;
+    base_mesh = (Mesh *)object->data;
   }
 
   SubdivSettings subdiv_settings;
   BKE_multires_subdiv_settings_init(&subdiv_settings, mmd);
-  Subdiv *subdiv = BKE_subdiv_new_from_mesh(&subdiv_settings, coarse_mesh);
-  if (!BKE_subdiv_eval_update_from_mesh(subdiv, coarse_mesh, NULL)) {
+  Subdiv *subdiv = BKE_subdiv_new_from_mesh(&subdiv_settings, base_mesh);
+  if (!BKE_subdiv_eval_update_from_mesh(subdiv, base_mesh, NULL)) {
     BKE_subdiv_free(subdiv);
     return NULL;
   }
@@ -163,6 +163,10 @@ bool multires_reshape_context_create_from_object(MultiresReshapeContext *reshape
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Mesh *base_mesh = (Mesh *)object->data;
 
+  reshape_context->depsgraph = depsgraph;
+  reshape_context->object = object;
+  reshape_context->mmd = mmd;
+
   reshape_context->base_mesh = base_mesh;
 
   reshape_context->subdiv = multires_reshape_create_subdiv(depsgraph, object, mmd);
@@ -214,6 +218,7 @@ bool multires_reshape_context_create_from_subdivide(MultiresReshapeContext *resh
 
   Mesh *base_mesh = (Mesh *)object->data;
 
+  reshape_context->mmd = mmd;
   reshape_context->base_mesh = base_mesh;
 
   reshape_context->subdiv = multires_reshape_create_subdiv(NULL, object, mmd);
@@ -301,8 +306,8 @@ int multires_reshape_grid_to_corner(const MultiresReshapeContext *reshape_contex
 
 bool multires_reshape_is_quad_face(const MultiresReshapeContext *reshape_context, int face_index)
 {
-  const MPoly *coarse_poly = &reshape_context->base_mesh->mpoly[face_index];
-  return (coarse_poly->totloop == 4);
+  const MPoly *base_poly = &reshape_context->base_mesh->mpoly[face_index];
+  return (base_poly->totloop == 4);
 }
 
 /* For the given grid index get index of corresponding ptex face. */
@@ -377,8 +382,7 @@ void multires_reshape_tangent_matrix_for_corner(const MultiresReshapeContext *re
                                                 float r_tangent_matrix[3][3])
 {
   /* For a quad faces we would need to flip the tangent, since they will use
-   * use different coordinates within displacement grid comparent to ptex
-   * face. */
+   * use different coordinates within displacement grid compared to the ptex face. */
   const bool is_quad = multires_reshape_is_quad_face(reshape_context, face_index);
   const int tangent_corner = is_quad ? corner : 0;
   BKE_multires_construct_tangent_matrix(r_tangent_matrix, dPdu, dPdv, tangent_corner);

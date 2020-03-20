@@ -36,6 +36,12 @@ struct Subdiv;
 struct SubdivCCG;
 
 typedef struct MultiresReshapeContext {
+  /* NOTE: Only available when context is initialized from object. */
+  struct Depsgraph *depsgraph;
+  struct Object *object;
+
+  struct MultiresModifierData *mmd;
+
   /* Base mesh from original object.
    * NOTE: Does NOT include any leading modifiers in it. */
   struct Mesh *base_mesh;
@@ -101,22 +107,27 @@ typedef struct MultiresReshapeContext {
   int *face_ptex_offset;
 } MultiresReshapeContext;
 
-/* Coordinate which identifies element of a grid.
- * This is directly related on how CD_MDISPS stores dispalcement.
+/**
+ * Coordinate which identifies element of a grid.
+ * This is directly related on how #CD_MDISPS stores displacement.
  */
 typedef struct GridCoord {
   int grid_index;
   float u, v;
 } GridCoord;
 
-/* COordinate within ptex, which is what OpenSubdiv API operates on.  */
+/**
+ * Coordinate within ptex, which is what OpenSubdiv API operates on.
+ */
 typedef struct PTexCoord {
   int ptex_face_index;
   float u, v;
 } PTexCoord;
 
-/* Element of a grid data stored in the destination mesh.
- * This is where reshaped coordinates and mask values will be written to. */
+/**
+ * Element of a grid data stored in the destination mesh.
+ * This is where reshaped coordinates and mask values will be written to.
+ */
 typedef struct ReshapeGridElement {
   float *displacement;
   float *mask;
@@ -137,6 +148,9 @@ struct Subdiv *multires_reshape_create_subdiv(struct Depsgraph *depsgraph,
                                               struct Object *object,
                                               const struct MultiresModifierData *mmd);
 
+/* NOTE: Initialized base mesh to object's mesh, the Subdiv is created from the deformed
+ * mesh prior to the multires modifier if depsgraph is not NULL. If the depsgraph is NULL
+ * then Subdiv is created from base mesh (without any deformation applied). */
 bool multires_reshape_context_create_from_object(MultiresReshapeContext *reshape_context,
                                                  struct Depsgraph *depsgraph,
                                                  struct Object *object,
@@ -256,7 +270,7 @@ void multires_reshape_assign_final_coords_from_orig_mdisps(
  * Displacement smooth.
  */
 
-/* Operates on a displacement grids (CD_MDISPS) which contains object space coordinates stopred for
+/* Operates on a displacement grids (CD_MDISPS) which contains object space coordinates stored for
  * the reshape level.
  *
  * The result is grids which are defining mesh with a smooth surface and details starting from
@@ -264,7 +278,7 @@ void multires_reshape_assign_final_coords_from_orig_mdisps(
 void multires_reshape_smooth_object_grids_with_details(
     const MultiresReshapeContext *reshape_context);
 
-/* Operates on a displacement grids (CD_MDISPS) which contains object spacecoordinates stopred for
+/* Operates on a displacement grids (CD_MDISPS) which contains object space-coordinates stored for
  * the reshape level.
  *
  * Makes it so surface on top level looks smooth. Details are not preserved
@@ -287,9 +301,9 @@ void multires_reshape_object_grids_to_tangent_displacement(
  */
 
 /* Update mesh coordinates to the final positions of displacement in object space.
- * This is effectively desired position of base mesh vertices after caneling out displacement.
+ * This is effectively desired position of base mesh vertices after canceling out displacement.
  *
- * NOTE: Expects that mesh's CD_MDISPS has been set ot object space positions. */
+ * NOTE: Expects that mesh's CD_MDISPS has been set to object space positions. */
 void multires_reshape_apply_base_update_mesh_coords(MultiresReshapeContext *reshape_context);
 
 /* Perform better fitting of the base mesh so its subdivided version brings vertices to their
@@ -297,6 +311,12 @@ void multires_reshape_apply_base_update_mesh_coords(MultiresReshapeContext *resh
 void multires_reshape_apply_base_refit_base_mesh(MultiresReshapeContext *reshape_context);
 
 /* Refine subdivision surface to the new positions of the base mesh. */
-void multires_reshape_apply_base_refine_subdiv(MultiresReshapeContext *reshape_context);
+void multires_reshape_apply_base_refine_from_base(MultiresReshapeContext *reshape_context);
+
+/* Refine subdivision surface to the new positions of the deformed mesh (base mesh with all
+ * modifiers leading the multires applied).
+ *
+ * NOTE: Will re-evaluate all leading modifiers, so it's not cheap. */
+void multires_reshape_apply_base_refine_from_deform(MultiresReshapeContext *reshape_context);
 
 #endif /* __BKE_INTERN_MULTIRES_RESHAPE_H__ */

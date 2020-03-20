@@ -21,11 +21,11 @@
  * \ingroup edanimation
  */
 
-#include <stdio.h>
-#include <stddef.h>
-#include <string.h>
-#include <math.h>
 #include <float.h>
+#include <math.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -40,9 +40,9 @@
 #include "DNA_constraint_types.h"
 #include "DNA_key_types.h"
 #include "DNA_material_types.h"
-#include "DNA_scene_types.h"
 #include "DNA_object_types.h"
 #include "DNA_rigidbody_types.h"
+#include "DNA_scene_types.h"
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
@@ -50,7 +50,7 @@
 #include "BKE_context.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
-#include "BKE_idcode.h"
+#include "BKE_idtype.h"
 #include "BKE_key.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -62,10 +62,10 @@
 #include "DEG_depsgraph_query.h"
 
 #include "ED_anim_api.h"
-#include "ED_keyframing.h"
 #include "ED_keyframes_edit.h"
-#include "ED_screen.h"
+#include "ED_keyframing.h"
 #include "ED_object.h"
+#include "ED_screen.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -1657,7 +1657,7 @@ int delete_keyframe(Main *bmain,
                   RPT_WARNING,
                   "Not deleting keyframe for locked F-Curve '%s' for %s '%s'",
                   fcu->rna_path,
-                  BKE_idcode_to_name(GS(id->name)),
+                  BKE_idtype_idcode_to_name(GS(id->name)),
                   id->name + 2);
       continue;
     }
@@ -1761,7 +1761,7 @@ static int clear_keyframe(Main *bmain,
                   RPT_WARNING,
                   "Not clearing all keyframes from locked F-Curve '%s' for %s '%s'",
                   fcu->rna_path,
-                  BKE_idcode_to_name(GS(id->name)),
+                  BKE_idtype_idcode_to_name(GS(id->name)),
                   id->name + 2);
       continue;
     }
@@ -2567,7 +2567,7 @@ static int delete_key_button_exec(bContext *C, wmOperator *op)
               RPT_WARNING,
               "Not deleting keyframe for locked F-Curve for NLA Strip influence on %s - %s '%s'",
               strip->name,
-              BKE_idcode_to_name(GS(id->name)),
+              BKE_idtype_idcode_to_name(GS(id->name)),
               id->name + 2);
         }
         else {

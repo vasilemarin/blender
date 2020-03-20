@@ -21,33 +21,33 @@
  * \ingroup spfile
  */
 
-#include <string.h>
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
 
 /* path/file handling stuff */
 #ifdef WIN32
-#  include <io.h>
-#  include <direct.h>
 #  include "BLI_winstuff.h"
+#  include <direct.h>
+#  include <io.h>
 #else
-#  include <unistd.h>
-#  include <sys/times.h>
 #  include <dirent.h>
+#  include <sys/times.h>
+#  include <unistd.h>
 #endif
 
-#include "DNA_space_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 #include "DNA_userdef_types.h"
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_utildefines.h"
 #include "BLI_fnmatch.h"
+#include "BLI_utildefines.h"
 
 #include "BLO_readfile.h"
 
@@ -217,6 +217,9 @@ short ED_fileselect_set_params(SpaceFile *sfile)
     }
     if ((prop = RNA_struct_find_property(op->ptr, "filter_usd"))) {
       params->filter |= RNA_property_boolean_get(op->ptr, prop) ? FILE_TYPE_USD : 0;
+    }
+    if ((prop = RNA_struct_find_property(op->ptr, "filter_volume"))) {
+      params->filter |= RNA_property_boolean_get(op->ptr, prop) ? FILE_TYPE_VOLUME : 0;
     }
     if ((prop = RNA_struct_find_property(op->ptr, "filter_glob"))) {
       /* Protection against pyscripts not setting proper size limit... */
@@ -639,7 +642,7 @@ FileAttributeColumnType file_attribute_column_type_find_isect(const View2D *v2d,
 
 float file_string_width(const char *str)
 {
-  uiStyle *style = UI_style_get();
+  const uiStyle *style = UI_style_get();
   float width;
 
   UI_fontstyle_set(&style->widget);
@@ -661,12 +664,12 @@ float file_font_pointsize(void)
 #if 0
   float s;
   char tmp[2] = "X";
-  uiStyle *style = UI_style_get();
+  const uiStyle *style = UI_style_get();
   UI_fontstyle_set(&style->widget);
   s = BLF_height(style->widget.uifont_id, tmp);
   return style->widget.points;
 #else
-  uiStyle *style = UI_style_get();
+  const uiStyle *style = UI_style_get();
   UI_fontstyle_set(&style->widget);
   return style->widget.points * UI_DPI_FAC;
 #endif
