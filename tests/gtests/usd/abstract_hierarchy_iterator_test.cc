@@ -200,4 +200,118 @@ TEST_F(USDHierarchyIteratorTest, ExportHierarchyTest)
   // The scene has no hair or particle systems.
   EXPECT_EQ(0, iterator->hair_writers.size());
   EXPECT_EQ(0, iterator->particle_writers.size());
+
+  // On the second iteration, everything should be written as well.
+  // This tests the default value of iterator->export_subset_.
+  iterator->transform_writers.clear();
+  iterator->data_writers.clear();
+  iterator->iterate_and_write();
+  EXPECT_EQ(expected_transforms, iterator->transform_writers);
+  EXPECT_EQ(expected_data, iterator->data_writers);
+}
+
+TEST_F(USDHierarchyIteratorTest, ExportSubsetTest)
+{
+  // The scene has no hair or particle systems, and this is already covered by ExportHierarchyTest,
+  // so not included here. Update this test when hair & particle systems are included.
+
+  /* Load the test blend file. */
+  if (!blendfile_load("usd/usd_hierarchy_export_test.blend")) {
+    return;
+  }
+  depsgraph_create(DAG_EVAL_RENDER);
+  iterator_create();
+
+  // Mapping from object name to set of export paths.
+  writing_writers expected_transforms = {
+      {"OBCamera", {"/Camera"}},
+      {"OBDupli1", {"/Dupli1"}},
+      {"OBDupli2", {"/ParentOfDupli2/Dupli2"}},
+      {"OBGEO_Ear_L",
+       {"/Dupli1/GEO_Head-0/GEO_Ear_L-1",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head/GEO_Ear_L",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0/GEO_Ear_L-1"}},
+      {"OBGEO_Ear_R",
+       {"/Dupli1/GEO_Head-0/GEO_Ear_R-2",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head/GEO_Ear_R",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0/GEO_Ear_R-2"}},
+      {"OBGEO_Head",
+       {"/Dupli1/GEO_Head-0",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0"}},
+      {"OBGEO_Nose",
+       {"/Dupli1/GEO_Head-0/GEO_Nose-3",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head/GEO_Nose",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0/GEO_Nose-3"}},
+      {"OBGround plane", {"/Ground plane"}},
+      {"OBOutsideDupliGrandParent", {"/Ground plane/OutsideDupliGrandParent"}},
+      {"OBOutsideDupliParent", {"/Ground plane/OutsideDupliGrandParent/OutsideDupliParent"}},
+      {"OBParentOfDupli2", {"/ParentOfDupli2"}}};
+
+  writing_writers expected_data = {
+      {"OBCamera", {"/Camera/Camera"}},
+      {"OBGEO_Ear_L",
+       {"/Dupli1/GEO_Head-0/GEO_Ear_L-1/Ear",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head/GEO_Ear_L/Ear",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0/GEO_Ear_L-1/Ear"}},
+      {"OBGEO_Ear_R",
+       {"/Dupli1/GEO_Head-0/GEO_Ear_R-2/Ear",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head/GEO_Ear_R/Ear",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0/GEO_Ear_R-2/Ear"}},
+      {"OBGEO_Head",
+       {"/Dupli1/GEO_Head-0/Face",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head/Face",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0/Face"}},
+      {"OBGEO_Nose",
+       {"/Dupli1/GEO_Head-0/GEO_Nose-3/Nose",
+        "/Ground plane/OutsideDupliGrandParent/OutsideDupliParent/GEO_Head/GEO_Nose/Nose",
+        "/ParentOfDupli2/Dupli2/GEO_Head-0/GEO_Nose-3/Nose"}},
+      {"OBGround plane", {"/Ground plane/Plane"}},
+      {"OBParentOfDupli2", {"/ParentOfDupli2/Icosphere"}},
+  };
+
+  // Even when only asking an export of transforms, on the first frame everything should be
+  // exported.
+  iterator->set_export_subset({
+      .transforms = true,
+      .shapes = false,
+  });
+  iterator->iterate_and_write();
+  EXPECT_EQ(expected_transforms, iterator->transform_writers);
+  EXPECT_EQ(expected_data, iterator->data_writers);
+
+  // Clear data to prepare for the next iteration.
+  iterator->transform_writers.clear();
+  iterator->data_writers.clear();
+
+  // Second iteration, should only write transforms now.
+  iterator->iterate_and_write();
+  EXPECT_EQ(expected_transforms, iterator->transform_writers);
+  EXPECT_EQ(0, iterator->data_writers.size());
+
+  // Clear data to prepare for the next iteration.
+  iterator->transform_writers.clear();
+  iterator->data_writers.clear();
+
+  // Third iteration, should only write data now.
+  iterator->set_export_subset({
+      .transforms = false,
+      .shapes = true,
+  });
+  iterator->iterate_and_write();
+  EXPECT_EQ(0, iterator->transform_writers.size());
+  EXPECT_EQ(expected_data, iterator->data_writers);
+
+  // Clear data to prepare for the next iteration.
+  iterator->transform_writers.clear();
+  iterator->data_writers.clear();
+
+  // Fourth iteration, should export everything now.
+  iterator->set_export_subset({
+      .transforms = true,
+      .shapes = true,
+  });
+  iterator->iterate_and_write();
+  EXPECT_EQ(expected_transforms, iterator->transform_writers);
+  EXPECT_EQ(expected_data, iterator->data_writers);
 }

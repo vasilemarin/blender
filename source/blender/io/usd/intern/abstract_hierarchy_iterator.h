@@ -124,6 +124,12 @@ class AbstractHierarchyWriter {
   virtual bool check_is_animated(const HierarchyContext &context) const;
 };
 
+/* Determines which subset of the writers actually gets to write. */
+struct ExportSubset {
+  bool transforms : 1;
+  bool shapes : 1;
+};
+
 /* AbstractHierarchyIterator iterates over objects in a dependency graph, and constructs export
  * writers. These writers are then called to perform the actual writing to a USD or Alembic file.
  *
@@ -152,6 +158,7 @@ class AbstractHierarchyIterator {
   ExportPathMap duplisource_export_path_;
   Depsgraph *depsgraph_;
   WriterMap writers_;
+  ExportSubset export_subset_;
 
  public:
   explicit AbstractHierarchyIterator(Depsgraph *depsgraph);
@@ -159,11 +166,20 @@ class AbstractHierarchyIterator {
 
   /* Iterate over the depsgraph, create writers, and tell the writers to write.
    * Main entry point for the AbstractHierarchyIterator, must be called for every to-be-exported
-   * frame. */
+   * (sub)frame. */
   void iterate_and_write();
 
   /* Release all writers. Call after all frames have been exported. */
   void release_writers();
+
+  /* Determine which subset of writers is used for exporting.
+   * Set this before calling iterate_and_write().
+   *
+   * Note that writers are created for each iterated object, regardless of this option. When a
+   * writer is created it will also write the current iteration, to ensure the hierarchy is
+   * complete. The `export_subset` option is only in effect when the writer already existed from a
+   * previous iteration. */
+  void set_export_subset(ExportSubset export_subset_);
 
   /* Convert the given name to something that is valid for the exported file format.
    * This base implementation is a no-op; override in a concrete subclass. */
@@ -198,6 +214,7 @@ class AbstractHierarchyIterator {
   void determine_duplication_references(const HierarchyContext *parent_context,
                                         std::string indent);
 
+  /* These three functions create writers and call their write() method. */
   void make_writers(const HierarchyContext *parent_context);
   void make_writer_object_data(const HierarchyContext *context);
   void make_writers_particle_systems(const HierarchyContext *context);
@@ -210,10 +227,12 @@ class AbstractHierarchyIterator {
 
   typedef AbstractHierarchyWriter *(AbstractHierarchyIterator::*create_writer_func)(
       const HierarchyContext *);
-  /* Ensure that a writer exists; if it doesn't, call create_func(context). The create_func
-   * function should be one of the create_XXXX_writer(context) functions declared below. */
-  AbstractHierarchyWriter *ensure_writer(HierarchyContext *context,
-                                         create_writer_func create_func);
+  /* Ensure that a writer exists; if it doesn't, call create_func(context).
+   *
+   * The create_func function should be one of the create_XXXX_writer(context) functions declared
+   * below. Returns a pair <writer, created>. */
+  std::pair<AbstractHierarchyWriter *, bool> ensure_writer(HierarchyContext *context,
+                                                           create_writer_func create_func);
 
  protected:
   /* Construct a valid path for the export file format. This class concatenates by using '/' as a
