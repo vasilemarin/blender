@@ -43,7 +43,7 @@ extern "C" {
 namespace ABC {
 
 ABCHierarchyIterator::ABCHierarchyIterator(Depsgraph *depsgraph,
-                                           ABCArchive &abc_archive,
+                                           ABCArchive *abc_archive,
                                            const AlembicExportParams &params)
     : AbstractHierarchyIterator(depsgraph), abc_archive_(abc_archive), params_(params)
 {

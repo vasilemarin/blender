@@ -44,7 +44,7 @@ class ABCHierarchyIterator;
 
 struct ABCWriterConstructorArgs {
   Depsgraph *depsgraph;
-  ABCArchive &abc_archive;
+  ABCArchive *abc_archive;
   const std::string abc_path;
   const ABCHierarchyIterator *hierarchy_iterator;
   const AlembicExportParams &export_params;
@@ -52,12 +52,12 @@ struct ABCWriterConstructorArgs {
 
 class ABCHierarchyIterator : public AbstractHierarchyIterator {
  private:
-  ABCArchive &abc_archive_;
+  ABCArchive *abc_archive_;
   const AlembicExportParams &params_;
 
  public:
   ABCHierarchyIterator(Depsgraph *depsgraph,
-                       ABCArchive &abc_archive_,
+                       ABCArchive *abc_archive_,
                        const AlembicExportParams &params);
 
   virtual std::string make_valid_name(const std::string &name) const override;

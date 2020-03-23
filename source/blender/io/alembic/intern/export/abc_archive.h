@@ -47,7 +47,7 @@ class ABCArchive {
   typedef std::set<double> Frames;
 
  public:
-  Alembic::Abc::OArchive archive;
+  Alembic::Abc::OArchive *archive;
 
   ABCArchive(const Main *bmain,
              const Scene *scene,

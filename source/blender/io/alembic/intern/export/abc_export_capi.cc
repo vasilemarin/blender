@@ -95,7 +95,7 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
   // OBox3dProperty archive_bounds_prop = Alembic::AbcGeom::CreateOArchiveBounds(
   //     m_writer->archive(), m_trans_sampling_index);
 
-  ABCHierarchyIterator iter(data->depsgraph, abc_archive, data->params);
+  ABCHierarchyIterator iter(data->depsgraph, &abc_archive, data->params);
 
   if (export_animation) {
     // Writing the animated frames is not 100% of the work, but it's our best guess.

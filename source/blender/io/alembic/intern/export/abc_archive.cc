@@ -75,11 +75,10 @@ static MetaData create_abc_metadata(const Main *bmain, double scene_fps)
   return abc_metadata;
 }
 
-/* OArchive is just a wrapper for a pointer, so it can be copied. */
-static OArchive create_archive(std::ofstream *abc_ostream,
-                               const std::string &filename,
-                               MetaData &abc_metadata,
-                               bool write_ogawa)
+static OArchive *create_archive(std::ofstream *abc_ostream,
+                                const std::string &filename,
+                                MetaData &abc_metadata,
+                                bool write_ogawa)
 {
   /* Use stream to support unicode character paths on Windows. */
   if (write_ogawa) {
@@ -105,7 +104,7 @@ static OArchive create_archive(std::ofstream *abc_ostream,
 #endif
 
   Alembic::AbcCoreOgawa::WriteArchive archive_writer;
-  return OArchive(archive_writer(abc_ostream, abc_metadata), kWrapExisting, policy);
+  return new OArchive(archive_writer(abc_ostream, abc_metadata), kWrapExisting, policy);
 }
 
 /* Construct list of shutter samples.
@@ -177,6 +176,7 @@ ABCArchive::ABCArchive(const Main *bmain,
                        const Scene *scene,
                        AlembicExportParams params,
                        std::string filename)
+    : archive(nullptr)
 {
   double scene_fps = FPS;
   MetaData abc_metadata = create_abc_metadata(bmain, scene_fps);
@@ -190,7 +190,7 @@ ABCArchive::ABCArchive(const Main *bmain,
   TimeSamplingPtr ts_shapes;
 
   ts_xform = create_time_sampling(scene_fps, params, params.frame_samples_xform);
-  time_sampling_index_transforms_ = archive.addTimeSampling(*ts_xform);
+  time_sampling_index_transforms_ = archive->addTimeSampling(*ts_xform);
 
   const bool export_animation = params.frame_start != params.frame_end;
   if (!export_animation || params.frame_samples_shape == params.frame_samples_xform) {
@@ -199,7 +199,7 @@ ABCArchive::ABCArchive(const Main *bmain,
   }
   else {
     ts_shapes = create_time_sampling(scene_fps, params, params.frame_samples_shape);
-    time_sampling_index_shapes_ = archive.addTimeSampling(*ts_shapes);
+    time_sampling_index_shapes_ = archive->addTimeSampling(*ts_shapes);
   }
 
   // Construct the frames to export.
@@ -213,6 +213,7 @@ ABCArchive::ABCArchive(const Main *bmain,
 
 ABCArchive::~ABCArchive()
 {
+  delete archive;
 }
 
 uint32_t ABCArchive::time_sampling_index_transforms() const

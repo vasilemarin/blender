@@ -49,7 +49,7 @@ void ABCTransformWriter::do_write(HierarchyContext &context)
   copy_m44_axis_swap(parent_relative_matrix, parent_relative_matrix, ABC_YUP_FROM_ZUP);
 
   if (!abc_xform_.valid()) {
-    uint32_t ts_index = args_.abc_archive.time_sampling_index_transforms();
+    uint32_t ts_index = args_.abc_archive->time_sampling_index_transforms();
     abc_xform_ = OXform(get_alembic_parent(context), context.export_name, ts_index);
     context.custom_data = this;
   }

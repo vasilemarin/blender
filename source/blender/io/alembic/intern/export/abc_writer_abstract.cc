@@ -75,7 +75,7 @@ const OObject ABCAbstractWriter::get_alembic_parent(HierarchyContext &context) c
   if (!parent.valid()) {
     /* An invalid parent object means "no parent", which should be translated to Alembic's top
      * archive object. */
-    return args_.abc_archive.archive.getTop();
+    return args_.abc_archive->archive->getTop();
   }
 
   return parent;
