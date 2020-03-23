@@ -151,6 +151,7 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
 
     em = me->edit_mesh;
 
+    BLI_assert(DEG_is_original_object(obedit));
     EDBM_mesh_normals_update(em);
     BKE_editmesh_looptri_calc(em);
 
@@ -486,12 +487,6 @@ void OBJECT_OT_proxy_make(wmOperatorType *ot)
 }
 
 /********************** Clear Parent Operator ******************* */
-
-typedef enum eObClearParentTypes {
-  CLEAR_PARENT_ALL = 0,
-  CLEAR_PARENT_KEEP_TRANSFORM,
-  CLEAR_PARENT_INVERSE,
-} eObClearParentTypes;
 
 EnumPropertyItem prop_clear_parent_types[] = {
     {CLEAR_PARENT_ALL,

@@ -71,6 +71,7 @@
 
 #include "BLI_utildefines.h"
 
+#include "BLI_alloca.h"
 #include "BLI_blenlib.h"
 #include "BLI_ghash.h"
 #include "BLI_linklist.h"
@@ -624,58 +625,18 @@ static void id_swap(Main *bmain, ID *id_a, ID *id_b, const bool do_full_id)
 {
   BLI_assert(GS(id_a->name) == GS(id_b->name));
 
+  const IDTypeInfo *id_type = BKE_idtype_get_info_from_id(id_a);
+  BLI_assert(id_type != NULL);
+  const size_t id_struct_size = id_type->struct_size;
+
   const ID id_a_back = *id_a;
   const ID id_b_back = *id_b;
 
-#define CASE_SWAP(_gs, _type) \
-  case _gs: \
-    SWAP(_type, *(_type *)id_a, *(_type *)id_b); \
-    break
+  char *id_swap_buff = alloca(id_struct_size);
 
-  switch ((ID_Type)GS(id_a->name)) {
-    CASE_SWAP(ID_SCE, Scene);
-    CASE_SWAP(ID_LI, Library);
-    CASE_SWAP(ID_OB, Object);
-    CASE_SWAP(ID_ME, Mesh);
-    CASE_SWAP(ID_CU, Curve);
-    CASE_SWAP(ID_MB, MetaBall);
-    CASE_SWAP(ID_MA, Material);
-    CASE_SWAP(ID_TE, Tex);
-    CASE_SWAP(ID_IM, Image);
-    CASE_SWAP(ID_LT, Lattice);
-    CASE_SWAP(ID_LA, Light);
-    CASE_SWAP(ID_LP, LightProbe);
-    CASE_SWAP(ID_CA, Camera);
-    CASE_SWAP(ID_KE, Key);
-    CASE_SWAP(ID_WO, World);
-    CASE_SWAP(ID_SCR, bScreen);
-    CASE_SWAP(ID_VF, VFont);
-    CASE_SWAP(ID_TXT, Text);
-    CASE_SWAP(ID_SPK, Speaker);
-    CASE_SWAP(ID_SO, bSound);
-    CASE_SWAP(ID_GR, Collection);
-    CASE_SWAP(ID_AR, bArmature);
-    CASE_SWAP(ID_AC, bAction);
-    CASE_SWAP(ID_NT, bNodeTree);
-    CASE_SWAP(ID_BR, Brush);
-    CASE_SWAP(ID_PA, ParticleSettings);
-    CASE_SWAP(ID_WM, wmWindowManager);
-    CASE_SWAP(ID_WS, WorkSpace);
-    CASE_SWAP(ID_GD, bGPdata);
-    CASE_SWAP(ID_MC, MovieClip);
-    CASE_SWAP(ID_MSK, Mask);
-    CASE_SWAP(ID_LS, FreestyleLineStyle);
-    CASE_SWAP(ID_PAL, Palette);
-    CASE_SWAP(ID_PC, PaintCurve);
-    CASE_SWAP(ID_CF, CacheFile);
-    CASE_SWAP(ID_HA, Hair);
-    CASE_SWAP(ID_PT, PointCloud);
-    CASE_SWAP(ID_VO, Volume);
-    case ID_IP:
-      break; /* Deprecated. */
-  }
-
-#undef CASE_SWAP
+  memcpy(id_swap_buff, id_a, id_struct_size);
+  memcpy(id_a, id_b, id_struct_size);
+  memcpy(id_b, id_swap_buff, id_struct_size);
 
   if (!do_full_id) {
     /* Restore original ID's internal data. */
@@ -997,58 +958,19 @@ void BKE_main_lib_objects_recalc_all(Main *bmain)
  */
 size_t BKE_libblock_get_alloc_info(short type, const char **name)
 {
-#define CASE_RETURN(id_code, type) \
-  case id_code: \
-    do { \
-      if (name != NULL) { \
-        *name = #type; \
-      } \
-      return sizeof(type); \
-    } while (0)
+  const IDTypeInfo *id_type = BKE_idtype_get_info_from_idcode(type);
 
-  switch ((ID_Type)type) {
-    CASE_RETURN(ID_SCE, Scene);
-    CASE_RETURN(ID_LI, Library);
-    CASE_RETURN(ID_OB, Object);
-    CASE_RETURN(ID_ME, Mesh);
-    CASE_RETURN(ID_CU, Curve);
-    CASE_RETURN(ID_MB, MetaBall);
-    CASE_RETURN(ID_MA, Material);
-    CASE_RETURN(ID_TE, Tex);
-    CASE_RETURN(ID_IM, Image);
-    CASE_RETURN(ID_LT, Lattice);
-    CASE_RETURN(ID_LA, Light);
-    CASE_RETURN(ID_CA, Camera);
-    CASE_RETURN(ID_IP, Ipo);
-    CASE_RETURN(ID_KE, Key);
-    CASE_RETURN(ID_WO, World);
-    CASE_RETURN(ID_SCR, bScreen);
-    CASE_RETURN(ID_VF, VFont);
-    CASE_RETURN(ID_TXT, Text);
-    CASE_RETURN(ID_SPK, Speaker);
-    CASE_RETURN(ID_LP, LightProbe);
-    CASE_RETURN(ID_SO, bSound);
-    CASE_RETURN(ID_GR, Collection);
-    CASE_RETURN(ID_AR, bArmature);
-    CASE_RETURN(ID_AC, bAction);
-    CASE_RETURN(ID_NT, bNodeTree);
-    CASE_RETURN(ID_BR, Brush);
-    CASE_RETURN(ID_PA, ParticleSettings);
-    CASE_RETURN(ID_WM, wmWindowManager);
-    CASE_RETURN(ID_GD, bGPdata);
-    CASE_RETURN(ID_MC, MovieClip);
-    CASE_RETURN(ID_MSK, Mask);
-    CASE_RETURN(ID_LS, FreestyleLineStyle);
-    CASE_RETURN(ID_PAL, Palette);
-    CASE_RETURN(ID_PC, PaintCurve);
-    CASE_RETURN(ID_CF, CacheFile);
-    CASE_RETURN(ID_WS, WorkSpace);
-    CASE_RETURN(ID_HA, Hair);
-    CASE_RETURN(ID_PT, PointCloud);
-    CASE_RETURN(ID_VO, Volume);
+  if (id_type == NULL) {
+    if (name != NULL) {
+      *name = NULL;
+    }
+    return 0;
   }
-  return 0;
-#undef CASE_RETURN
+
+  if (name != NULL) {
+    *name = id_type->name;
+  }
+  return id_type->struct_size;
 }
 
 /**

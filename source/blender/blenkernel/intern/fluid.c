@@ -110,21 +110,23 @@ struct Scene;
 #  define ADD_IF_LOWER_NEG(a, b) (max_ff((a) + (b), min_ff((a), (b))))
 #  define ADD_IF_LOWER(a, b) (((b) > 0) ? ADD_IF_LOWER_POS((a), (b)) : ADD_IF_LOWER_NEG((a), (b)))
 
-void BKE_fluid_reallocate_fluid(FluidDomainSettings *mds, int res[3], int free_old)
+bool BKE_fluid_reallocate_fluid(FluidDomainSettings *mds, int res[3], int free_old)
 {
   if (free_old && mds->fluid) {
     manta_free(mds->fluid);
   }
   if (!min_iii(res[0], res[1], res[2])) {
     mds->fluid = NULL;
-    return;
+  }
+  else {
+    mds->fluid = manta_init(res, mds->mmd);
+
+    mds->res_noise[0] = res[0] * mds->noise_scale;
+    mds->res_noise[1] = res[1] * mds->noise_scale;
+    mds->res_noise[2] = res[2] * mds->noise_scale;
   }
 
-  mds->fluid = manta_init(res, mds->mmd);
-
-  mds->res_noise[0] = res[0] * mds->noise_scale;
-  mds->res_noise[1] = res[1] * mds->noise_scale;
-  mds->res_noise[2] = res[2] * mds->noise_scale;
+  return (mds->fluid != NULL);
 }
 
 void BKE_fluid_reallocate_copy_fluid(FluidDomainSettings *mds,
@@ -536,14 +538,12 @@ static bool BKE_fluid_modifier_init(
     /* Initially dt is equal to frame length (dt can change with adaptive-time stepping though). */
     mds->dt = mds->frame_length;
     mds->time_per_frame = 0;
-    mds->time_total = (scene_framenr - 1) * mds->frame_length;
-
-    /* Allocate fluid. */
-    BKE_fluid_reallocate_fluid(mds, mds->res, 0);
+    mds->time_total = abs(scene_framenr - mds->cache_frame_start) * mds->frame_length;
 
     mmd->time = scene_framenr;
 
-    return true;
+    /* Allocate fluid. */
+    return BKE_fluid_reallocate_fluid(mds, mds->res, 0);
   }
   else if (mmd->type & MOD_FLUID_TYPE_FLOW) {
     if (!mmd->flow) {
@@ -3561,17 +3561,13 @@ static int manta_step(
   BLI_mutex_lock(&object_update_lock);
 
   /* Loop as long as time_per_frame (sum of sub dt's) does not exceed actual framelength. */
-  while (time_per_frame < frame_length) {
+  while (time_per_frame + FLT_EPSILON < frame_length) {
     manta_adapt_timestep(mds->fluid);
     dt = manta_get_timestep(mds->fluid);
 
     /* Save adapted dt so that MANTA object can access it (important when adaptive domain creates
      * new MANTA object). */
     mds->dt = dt;
-
-    /* Count for how long this while loop is running. */
-    time_per_frame += dt;
-    time_total += dt;
 
     /* Calculate inflow geometry. */
     update_flowsfluids(depsgraph, scene, ob, mds, time_per_frame, frame_length, frame, dt);
@@ -3596,10 +3592,14 @@ static int manta_step(
     if (mds->total_cells > 1) {
       update_effectors(depsgraph, scene, ob, mds, dt);
       manta_bake_data(mds->fluid, mmd, frame);
-
-      mds->time_per_frame = time_per_frame;
-      mds->time_total = time_total;
     }
+
+    /* Count for how long this while loop is running. */
+    time_per_frame += dt;
+    time_total += dt;
+
+    mds->time_per_frame = time_per_frame;
+    mds->time_total = time_total;
 
     /* If user requested stop, quit baking */
     if (G.is_break && !mode_replay) {
@@ -3701,14 +3701,18 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
   bool is_startframe;
   is_startframe = (scene_framenr == mds->cache_frame_start);
 
-  /* Reset fluid if no fluid present (obviously)
-   * or if timeline gets reset to startframe */
+  /* Reset fluid if no fluid present. */
   if (!mds->fluid) {
     BKE_fluid_modifier_reset_ex(mmd, false);
-    BKE_fluid_modifier_init(mmd, depsgraph, ob, scene, me);
-  }
 
-  /* Guiding parent res pointer needs initialization */
+    /* Fluid domain init must not fail in order to continue modifier evaluation. */
+    if (!BKE_fluid_modifier_init(mmd, depsgraph, ob, scene, me)) {
+      return;
+    }
+  }
+  BLI_assert(mds->fluid);
+
+  /* Guiding parent res pointer needs initialization. */
   guide_parent = mds->guide_parent;
   if (guide_parent) {
     mmd_parent = (FluidModifierData *)modifiers_findByType(guide_parent, eModifierType_Fluid);
@@ -3717,12 +3721,13 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
     }
   }
 
-  /* ensure that time parameters are initialized correctly before every step */
+  /* Ensure that time parameters are initialized correctly before every step. */
   float fps = scene->r.frs_sec / scene->r.frs_sec_base;
   mds->frame_length = DT_DEFAULT * (25.0f / fps) * mds->time_scale;
   mds->dt = mds->frame_length;
   mds->time_per_frame = 0;
-  mds->time_total = (scene_framenr - 1) * mds->frame_length;
+  /* Get distance between cache start and current frame for total time. */
+  mds->time_total = abs(scene_framenr - mds->cache_frame_start) * mds->frame_length;
 
   objs = BKE_collision_objects_create(
       depsgraph, ob, mds->fluid_group, &numobj, eModifierType_Fluid);
@@ -3738,7 +3743,7 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
     MEM_freeN(objs);
   }
 
-  /* Ensure cache directory is not relative */
+  /* Ensure cache directory is not relative. */
   const char *relbase = modifier_path_relbase_from_global(ob);
   BLI_path_abs(mds->cache_directory, relbase);
 
@@ -3796,7 +3801,7 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
   /* Ensure positivity of previous frame. */
   CLAMP(prev_frame, 1, prev_frame);
 
-  /* Cache mode specific settings */
+  /* Cache mode specific settings. */
   switch (mode) {
     case FLUID_DOMAIN_CACHE_FINAL:
       /* Just load the data that has already been baked */
@@ -3867,8 +3872,13 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
 
     /* Read particles cache. */
     if (with_liquid && with_particles) {
-      /* Update particle data from file is faster than via Python (manta_read_particles()). */
-      has_particles = manta_update_particle_structures(mds->fluid, mmd, particles_frame);
+      if (!baking_data && !baking_particles && !mode_replay) {
+        /* Update particle data from file is faster than via Python (manta_read_particles()). */
+        has_particles = manta_update_particle_structures(mds->fluid, mmd, particles_frame);
+      }
+      else {
+        has_particles = manta_read_particles(mds->fluid, mmd, particles_frame);
+      }
     }
 
     /* Read guide cache. */
