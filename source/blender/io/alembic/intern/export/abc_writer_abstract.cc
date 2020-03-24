@@ -48,7 +48,8 @@ bool ABCAbstractWriter::is_supported(const HierarchyContext * /*context*/) const
 void ABCAbstractWriter::write(HierarchyContext &context)
 {
   if (!frame_has_been_written_) {
-    is_animated_ = true /* TODO(Sybren): args_.export_params.export_animation */ &&
+    /* The start and end frames being the same means "no animation". */
+    is_animated_ = (args_.export_params.frame_start != args_.export_params.frame_end) &&
                    check_is_animated(context);
   }
   else if (!is_animated_) {
