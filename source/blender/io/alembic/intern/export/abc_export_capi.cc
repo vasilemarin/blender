@@ -68,7 +68,6 @@ static void build_depsgraph(Depsgraph *depsgraph, Main *bmain)
   Scene *scene = DEG_get_input_scene(depsgraph);
   ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);
   DEG_graph_build_from_view_layer(depsgraph, bmain, scene, view_layer);
-  BKE_scene_graph_update_tagged(depsgraph, bmain);
 }
 
 static void export_startjob(void *customdata, short *stop, short *do_update, float *progress)
@@ -84,13 +83,11 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
   *do_update = true;
 
   build_depsgraph(data->depsgraph, data->bmain);
-
-  // Disable subdivison modifiers if necessary.
   SubdivModifierDisabler subdiv_disabler(data->depsgraph);
   if (!data->params.apply_subdiv) {
     subdiv_disabler.disable_modifiers();
-    BKE_scene_graph_update_tagged(data->depsgraph, data->bmain);
   }
+  BKE_scene_graph_update_tagged(data->depsgraph, data->bmain);
 
   // For restoring the current frame after exporting animation is done.
   Scene *scene = DEG_get_input_scene(data->depsgraph);

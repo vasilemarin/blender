@@ -3,9 +3,12 @@
 extern "C" {
 #include <stdio.h>
 
+#include "BLI_listbase.h"
+
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "DNA_layer_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -29,27 +32,27 @@ SubdivModifierDisabler::~SubdivModifierDisabler()
 void SubdivModifierDisabler::disable_modifiers()
 {
   Scene *scene = DEG_get_input_scene(depsgraph_);
+  ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph_);
 
-  // This is the same iteration as is used by
-  // AbstractHierarchyIterator::export_graph_construct().
-  DEG_OBJECT_ITER_BEGIN (depsgraph_,
-                         object_eval,
-                         DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
-                             DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET) {
-    if (object_eval->type != OB_MESH) {
+  LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    Object *object = base->object;
+
+    if (object->type != OB_MESH) {
       continue;
     }
 
-    Object *object_orig = DEG_get_original_object(object_eval);
-    ModifierData *subdiv = get_subdiv_modifier(scene, object_orig);
+    ModifierData *subdiv = get_subdiv_modifier(scene, object);
     if (subdiv == nullptr) {
       continue;
     }
 
+    /* This disables more modifiers than necessary, as it doesn't take restrictions like
+     * "export selected objects only" into account. However, with the disabled subsurfs
+     * moving to a different frame is also going to be faster, so in the end this is probably
+     * a good thing to do. */
     subdiv->mode |= eModifierMode_DisableTemporary;
-    DEG_id_tag_update(&object_orig->id, ID_RECALC_GEOMETRY);
+    DEG_id_tag_update(&object->id, ID_RECALC_GEOMETRY);
   }
-  DEG_OBJECT_ITER_END;
 }
 
 /* Check if the mesh is a subsurf, ignoring disabled modifiers and
