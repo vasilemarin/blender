@@ -21,8 +21,8 @@
 #include "abc_hierarchy_iterator.h"
 #include "abstract_hierarchy_iterator.h"
 
-#include <vector>
 #include <Alembic/Abc/OObject.h>
+#include <vector>
 
 extern "C" {
 #include "DEG_depsgraph_query.h"
@@ -49,6 +49,8 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
   uint32_t timesample_index_transform_;
   uint32_t timesample_index_geometry_;
 
+  Imath::Box3d bounding_box_;
+
  public:
   ABCAbstractWriter(const ABCWriterConstructorArgs &args);
   virtual ~ABCAbstractWriter();
@@ -67,10 +69,13 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
   /* TODO(Sybren): bring back support for writing the bounding box. */
 
   virtual const Alembic::Abc::OObject get_alembic_object() const = 0;
-  virtual const Alembic::Abc::OObject get_alembic_parent(HierarchyContext &context) const;
+  virtual const Alembic::Abc::OObject get_alembic_parent(HierarchyContext &context,
+                                                         bool is_obdata) const;
 
  protected:
   virtual void do_write(HierarchyContext &context) = 0;
+
+  virtual void update_bounding_box(Object *object);
 };
 
 }  // namespace ABC

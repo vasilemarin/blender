@@ -492,6 +492,9 @@ void AbstractHierarchyIterator::make_writers(const HierarchyContext *parent_cont
     // Update the context so that it is correct for this parent-child relation.
     copy_m4_m4(context->parent_matrix_inv_world, parent_matrix_inv_world);
     context->parent_context = parent_context;
+    // printf("make_writers: %s has parent context %s\n",
+    //        context->export_path.c_str(),
+    //        parent_context ? parent_context->export_path.c_str() : "<null>");
 
     // Get or create the transform writer.
     std::tie(transform_writer, created) = ensure_writer(

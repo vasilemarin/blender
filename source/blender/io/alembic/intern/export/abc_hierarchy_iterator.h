@@ -43,6 +43,7 @@ using USD::HierarchyContext;
 class ABCHierarchyIterator;
 
 struct ABCWriterConstructorArgs {
+  Object *object; /* Evaluated object */
   Depsgraph *depsgraph;
   ABCArchive *abc_archive;
   const std::string abc_path;

@@ -22,7 +22,7 @@
 // #include "abc_writer_camera.h"
 // #include "abc_writer_hair.h"
 // #include "abc_writer_light.h"
-// #include "abc_writer_mesh.h"
+#include "abc_writer_mesh.h"
 // #include "abc_writer_metaball.h"
 #include "abc_writer_transform.h"
 
@@ -75,7 +75,14 @@ std::string ABCHierarchyIterator::make_valid_name(const std::string &name) const
 ABCWriterConstructorArgs ABCHierarchyIterator::writer_constructor_args(
     const HierarchyContext *context)
 {
-  return ABCWriterConstructorArgs{depsgraph_, abc_archive_, context->export_path, this, params_};
+  if (DEG_is_original_object(context->object)) {
+    printf("writer_constructor_args: object is \033[93moriginal\033[0m\n");
+  }
+  else {
+    printf("writer_constructor_args: object is \033[96mCOPY\033[0m\n");
+  }
+  return ABCWriterConstructorArgs{
+      context->object, depsgraph_, abc_archive_, context->export_path, this, params_};
 }
 
 AbstractHierarchyWriter *ABCHierarchyIterator::create_transform_writer(
@@ -89,21 +96,21 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const Hierarch
   ABCWriterConstructorArgs writer_args = writer_constructor_args(context);
   ABCAbstractWriter *data_writer = nullptr;
 
-  /* For now, no data is supported. */
-  return nullptr;
-
   switch (context->object->type) {
     case OB_MESH:
-      // data_writer = new USDMeshWriter(writer_args);
+      data_writer = new ABCMeshWriter(writer_args);
       break;
     case OB_CAMERA:
       // data_writer = new USDCameraWriter(writer_args);
+      return nullptr;
       break;
     case OB_LAMP:
       // data_writer = new USDLightWriter(writer_args);
+      return nullptr;
       break;
     case OB_MBALL:
       // data_writer = new USDMetaballWriter(writer_args);
+      return nullptr;
       break;
 
     case OB_EMPTY:

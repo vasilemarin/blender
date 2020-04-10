@@ -22,8 +22,13 @@
 extern "C" {
 #include "BKE_animsys.h"
 #include "BKE_key.h"
+#include "BKE_object.h"
 
 #include "DNA_modifier_types.h"
+
+#include "CLG_log.h"
+
+static CLG_LogRef LOG = {"io.alembic"};
 }
 
 namespace ABC {
@@ -62,15 +67,25 @@ void ABCAbstractWriter::write(HierarchyContext &context)
   frame_has_been_written_ = true;
 }
 
-const OObject ABCAbstractWriter::get_alembic_parent(HierarchyContext &context) const
+const OObject ABCAbstractWriter::get_alembic_parent(HierarchyContext &context,
+                                                    bool is_obdata) const
 {
   OObject parent;
 
-  /* If there is a parent context known, try to find its Alembic object. */
-  if (context.parent_context != nullptr && context.parent_context->custom_data != nullptr) {
-    ABCAbstractWriter *parent_writer = reinterpret_cast<ABCAbstractWriter *>(
-        context.parent_context->custom_data);
-    parent = parent_writer->get_alembic_object();
+  if (is_obdata) {
+    /* The Alembic parent of object data is always the transform of the object. */
+    if (context.custom_data != nullptr) {
+      ABCAbstractWriter *xform_writer = reinterpret_cast<ABCAbstractWriter *>(context.custom_data);
+      parent = xform_writer->get_alembic_object();
+    }
+  }
+  else {
+    /* If there is a parent context known, try to find its Alembic object. */
+    if (context.parent_context != nullptr && context.parent_context->custom_data != nullptr) {
+      ABCAbstractWriter *parent_writer = reinterpret_cast<ABCAbstractWriter *>(
+          context.parent_context->custom_data);
+      parent = parent_writer->get_alembic_object();
+    }
   }
 
   if (!parent.valid()) {
@@ -80,6 +95,29 @@ const OObject ABCAbstractWriter::get_alembic_parent(HierarchyContext &context) c
   }
 
   return parent;
+}
+
+void ABCAbstractWriter::update_bounding_box(Object *object)
+{
+  BoundBox *bb = BKE_object_boundbox_get(object);
+
+  if (!bb) {
+    if (object->type != OB_CAMERA) {
+      CLOG_WARN(&LOG, "Bounding box is null!\n");
+    }
+    bounding_box_.min.x = bounding_box_.min.y = bounding_box_.min.z = 0;
+    bounding_box_.max.x = bounding_box_.max.y = bounding_box_.max.z = 0;
+    return;
+  }
+
+  /* Convert Z-up to Y-up. This also changes which vector goes into which min/max property. */
+  bounding_box_.min.x = bb->vec[0][0];
+  bounding_box_.min.y = bb->vec[0][2];
+  bounding_box_.min.z = -bb->vec[6][1];
+
+  bounding_box_.max.x = bb->vec[6][0];
+  bounding_box_.max.y = bb->vec[6][2];
+  bounding_box_.max.z = -bb->vec[0][1];
 }
 
 }  // namespace ABC

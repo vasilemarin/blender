@@ -30,6 +30,7 @@ set(INC
   ../../makesdna
   ../../makesrna
   ../../windowmanager
+  ../../../../intern/clog
   ../../../../intern/guardedalloc
   ../../../../intern/utfconv
 )
@@ -42,6 +43,7 @@ set(INC_SYS
 )
 
 set(SRC
+  intern/abc_axis_conversion.cc
   intern/abc_customdata.cc
   # intern/abc_exporter.cc
   intern/abc_reader_archive.cc
@@ -93,11 +95,13 @@ set(SRC
   intern/export/abc_export_capi.cc
   intern/export/abc_hierarchy_iterator.cc
   intern/export/abc_writer_abstract.cc
+  intern/export/abc_writer_mesh.cc
   intern/export/abc_writer_transform.cc
 
   intern/export/abc_archive.h
   intern/export/abc_hierarchy_iterator.h
   intern/export/abc_writer_abstract.h
+  intern/export/abc_writer_mesh.h
   intern/export/abc_writer_transform.h
 
 )

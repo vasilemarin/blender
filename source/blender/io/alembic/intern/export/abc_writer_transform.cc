@@ -18,7 +18,8 @@
  */
 #include "abc_writer_transform.h"
 #include "abc_hierarchy_iterator.h"
-#include "../abc_util.h"
+#include "intern/abc_axis_conversion.h"
+#include "intern/abc_util.h"
 
 extern "C" {
 #include "BKE_object.h"
@@ -49,8 +50,12 @@ void ABCTransformWriter::do_write(HierarchyContext &context)
   copy_m44_axis_swap(parent_relative_matrix, parent_relative_matrix, ABC_YUP_FROM_ZUP);
 
   if (!abc_xform_.valid()) {
+    printf("\033[96mCreating\033[0m %s OXform(%s) parent=%s\n",
+           context.export_path.c_str(),
+           context.export_name.c_str(),
+           get_alembic_parent(context, false).getFullName().c_str());
     uint32_t ts_index = args_.abc_archive->time_sampling_index_transforms();
-    abc_xform_ = OXform(get_alembic_parent(context), context.export_name, ts_index);
+    abc_xform_ = OXform(get_alembic_parent(context, false), context.export_name, ts_index);
     context.custom_data = this;
   }
 

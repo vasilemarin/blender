@@ -56,7 +56,7 @@ class AbstractHierarchyWriter;
  * struct contains everything necessary to export a single object to a file. */
 struct HierarchyContext {
   /*********** Determined during hierarchy iteration: ***************/
-  Object *object;
+  Object *object; /* Evaluated object. */
   Object *export_parent;
   Object *duplicator;
   float matrix_world[4][4];
