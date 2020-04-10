@@ -29,9 +29,6 @@ class AlembicExportTest : public testing::Test {
   {
     abc_archive = nullptr;
 
-    params.frame_start = 31.0;
-    params.frame_end = 223.0;
-
     /* Fake a 25 FPS scene with a nonzero base (because that's sometimes forgotten) */
     scene.r.frs_sec = 50;
     scene.r.frs_sec_base = 2;
@@ -70,57 +67,91 @@ class AlembicExportTest : public testing::Test {
   }
 };
 
-TEST_F(AlembicExportTest, TimeSamplesFullShutter)
+TEST_F(AlembicExportTest, TimeSamplesFullShutterUniform)
 {
+  /* Test 5 samples per frame, for 2 frames. */
   params.shutter_open = 0.0;
   params.shutter_close = 1.0;
   params.frame_start = 31.0;
   params.frame_end = 32.0;
-
-  /* test 5 samples per frame */
   params.frame_samples_xform = params.frame_samples_shape = 5;
   createArchive();
   std::vector<double> frames(abc_archive->frames_begin(), abc_archive->frames_end());
-  EXPECT_EQ(5, frames.size());
+  EXPECT_EQ(10, frames.size());
   EXPECT_NEAR(31.0, frames[0], 1e-5f);
   EXPECT_NEAR(31.2, frames[1], 1e-5f);
   EXPECT_NEAR(31.4, frames[2], 1e-5f);
   EXPECT_NEAR(31.6, frames[3], 1e-5f);
   EXPECT_NEAR(31.8, frames[4], 1e-5f);
+  EXPECT_NEAR(32.0, frames[5], 1e-5f);
+  EXPECT_NEAR(32.2, frames[6], 1e-5f);
+  EXPECT_NEAR(32.4, frames[7], 1e-5f);
+  EXPECT_NEAR(32.6, frames[8], 1e-5f);
+  EXPECT_NEAR(32.8, frames[9], 1e-5f);
+
+  for (double frame : frames) {
+    EXPECT_TRUE(abc_archive->is_xform_frame(frame));
+    EXPECT_TRUE(abc_archive->is_shape_frame(frame));
+  }
 }
 
-// TEST_F(AlembicExportTest, TimeSamples180degShutter)
-// {
-//   params.shutter_open = -0.25;
-//   params.shutter_close = 0.25;
+TEST_F(AlembicExportTest, TimeSamplesFullShutterDifferent)
+{
+  /* Test 3 samples per frame for transforms, and 2 per frame for shapes, for 2 frames. */
+  params.shutter_open = 0.0;
+  params.shutter_close = 1.0;
+  params.frame_start = 31.0;
+  params.frame_end = 32.0;
+  params.frame_samples_xform = 3;
+  params.frame_samples_shape = 2;
+  createArchive();
+  std::vector<double> frames(abc_archive->frames_begin(), abc_archive->frames_end());
+  EXPECT_EQ(8, frames.size());
+  EXPECT_NEAR(31.0, frames[0], 1e-5f);  // transform + shape
+  EXPECT_TRUE(abc_archive->is_xform_frame(frames[0]));
+  EXPECT_TRUE(abc_archive->is_shape_frame(frames[0]));
+  EXPECT_NEAR(31.33333, frames[1], 1e-5f);  // transform
+  EXPECT_TRUE(abc_archive->is_xform_frame(frames[1]));
+  EXPECT_FALSE(abc_archive->is_shape_frame(frames[1]));
+  EXPECT_NEAR(31.5, frames[2], 1e-5f);  // shape
+  EXPECT_FALSE(abc_archive->is_xform_frame(frames[2]));
+  EXPECT_TRUE(abc_archive->is_shape_frame(frames[2]));
+  EXPECT_NEAR(31.66666, frames[3], 1e-5f);  // transform
+  EXPECT_TRUE(abc_archive->is_xform_frame(frames[3]));
+  EXPECT_FALSE(abc_archive->is_shape_frame(frames[3]));
+  EXPECT_NEAR(32.0, frames[4], 1e-5f);  // transform + shape
+  EXPECT_TRUE(abc_archive->is_xform_frame(frames[4]));
+  EXPECT_TRUE(abc_archive->is_shape_frame(frames[4]));
+  EXPECT_NEAR(32.33333, frames[5], 1e-5f);  // transform
+  EXPECT_TRUE(abc_archive->is_xform_frame(frames[5]));
+  EXPECT_FALSE(abc_archive->is_shape_frame(frames[5]));
+  EXPECT_NEAR(32.5, frames[6], 1e-5f);  // shape
+  EXPECT_FALSE(abc_archive->is_xform_frame(frames[6]));
+  EXPECT_TRUE(abc_archive->is_shape_frame(frames[6]));
+  EXPECT_NEAR(32.66666, frames[7], 1e-5f);  // transform
+  EXPECT_TRUE(abc_archive->is_xform_frame(frames[7]));
+  EXPECT_FALSE(abc_archive->is_shape_frame(frames[7]));
+}
 
-//   createArchive();
-//   std::vector<double> samples;
-
-//   /* test 5 samples per frame */
-//   exporter->getShutterSamples(5, true, samples);
-//   EXPECT_EQ(5, samples.size());
-//   EXPECT_NEAR(1.230, samples[0], 1e-5f);
-//   EXPECT_NEAR(1.234, samples[1], 1e-5f);
-//   EXPECT_NEAR(1.238, samples[2], 1e-5f);
-//   EXPECT_NEAR(1.242, samples[3], 1e-5f);
-//   EXPECT_NEAR(1.246, samples[4], 1e-5f);
-
-//   /* test same, but using frame number offset instead of time */
-//   exporter->getShutterSamples(5, false, samples);
-//   EXPECT_EQ(5, samples.size());
-//   EXPECT_NEAR(-0.25, samples[0], 1e-5f);
-//   EXPECT_NEAR(-0.15, samples[1], 1e-5f);
-//   EXPECT_NEAR(-0.05, samples[2], 1e-5f);
-//   EXPECT_NEAR(0.05, samples[3], 1e-5f);
-//   EXPECT_NEAR(0.15, samples[4], 1e-5f);
-
-//   /* Use the same setup to test getFrameSet().
-//    * Here only a few numbers are tested, due to rounding issues. */
-//   std::set<double> frames;
-//   exporter->getFrameSet(5, frames);
-//   EXPECT_EQ(965, frames.size());
-//   EXPECT_EQ(1, frames.count(30.75));
-//   EXPECT_EQ(1, frames.count(30.95));
-//   EXPECT_EQ(1, frames.count(31.15));
-// }
+TEST_F(AlembicExportTest, TimeSamples180degShutter)
+{
+  /* Test 5 samples per frame, for 2 frames. */
+  params.shutter_open = -0.25;
+  params.shutter_close = 0.25;
+  params.frame_start = 31.0;
+  params.frame_end = 32.0;
+  params.frame_samples_xform = params.frame_samples_shape = 5;
+  createArchive();
+  std::vector<double> frames(abc_archive->frames_begin(), abc_archive->frames_end());
+  EXPECT_EQ(10, frames.size());
+  EXPECT_NEAR(31 - 0.25, frames[0], 1e-5f);
+  EXPECT_NEAR(31 - 0.15, frames[1], 1e-5f);
+  EXPECT_NEAR(31 - 0.05, frames[2], 1e-5f);
+  EXPECT_NEAR(31 + 0.05, frames[3], 1e-5f);
+  EXPECT_NEAR(31 + 0.15, frames[4], 1e-5f);
+  EXPECT_NEAR(32 - 0.25, frames[5], 1e-5f);
+  EXPECT_NEAR(32 - 0.15, frames[6], 1e-5f);
+  EXPECT_NEAR(32 - 0.05, frames[7], 1e-5f);
+  EXPECT_NEAR(32 + 0.05, frames[8], 1e-5f);
+  EXPECT_NEAR(32 + 0.15, frames[9], 1e-5f);
+}
