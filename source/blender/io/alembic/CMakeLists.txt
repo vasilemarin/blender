@@ -54,6 +54,7 @@ set(SRC
   intern/abc_reader_object.cc
   intern/abc_reader_points.cc
   intern/abc_reader_transform.cc
+  intern/export/abc_subdiv_disabler.cc
   intern/abc_util.cc
   # intern/abc_writer_archive.cc
   # intern/abc_writer_camera.cc
@@ -78,6 +79,7 @@ set(SRC
   intern/abc_reader_object.h
   intern/abc_reader_points.h
   intern/abc_reader_transform.h
+  intern/export/abc_subdiv_disabler.h
   intern/abc_util.h
   # intern/abc_writer_archive.h
   # intern/abc_writer_camera.h

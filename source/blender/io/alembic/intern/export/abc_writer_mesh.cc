@@ -86,27 +86,18 @@ ABCGenericMeshWriter::ABCGenericMeshWriter(const ABCWriterConstructorArgs &args)
   /* If the object is static, use the default static time sampling. */
   timesample_index_ = is_animated_ ? timesample_index_geometry_ : 0;
 
-  Object *object_orig = DEG_get_original_object(args_.object);
-  Scene *scene_orig = DEG_get_input_scene(args_.depsgraph);
-
-  // Do some initialisation for the first time we see this object.
-  // TODO(Sybren): avoid keeping ModifierData pointers around?
-  if (!args_.export_params.apply_subdiv) {
-    subsurf_modifier_ = get_subsurf_modifier(scene_orig, object_orig);
-    if (subsurf_modifier_ != nullptr) {
-      subsurf_modifier_->flag |= eModifierMode_DisableTemporary;
-      is_subd_ = args_.export_params.use_subdiv_schema;
-    }
+  if (!args_.export_params.apply_subdiv && export_as_subdivision_surface(args_.object)) {
+    is_subd_ = args_.export_params.use_subdiv_schema;
   }
-  // TODO(Sybren): does this have to use the original, or the evaluated?
-  liquid_sim_modifier_ = get_liquid_sim_modifier(scene_orig, object_orig);
+
+  // TODO(Sybren): does this have to use the original or the evaluated data?
+  // TODO(Sybren): avoid keeping ModifierData pointers around?
+  Scene *scene_eval = DEG_get_evaluated_scene(args_.depsgraph);
+  liquid_sim_modifier_ = get_liquid_sim_modifier(scene_eval, args_.object);
 }
 
 ABCGenericMeshWriter::~ABCGenericMeshWriter()
 {
-  if (subsurf_modifier_ != nullptr) {
-    subsurf_modifier_->flag &= ~eModifierMode_DisableTemporary;
-  }
 }
 
 const Alembic::Abc::OObject ABCGenericMeshWriter::get_alembic_object() const
@@ -117,32 +108,19 @@ const Alembic::Abc::OObject ABCGenericMeshWriter::get_alembic_object() const
   return abc_poly_mesh_;
 }
 
-/* Check whether the mesh is a subsurf, ignoring disabled modifiers and displace if it's after
- * subsurf. */
-ModifierData *ABCGenericMeshWriter::get_subsurf_modifier(Scene *scene_eval, Object *ob_eval)
+bool ABCGenericMeshWriter::export_as_subdivision_surface(Object *ob_eval)
 {
   ModifierData *md = static_cast<ModifierData *>(ob_eval->modifiers.last);
 
   for (; md; md = md->prev) {
-    if (!modifier_isEnabled(scene_eval, md, eModifierMode_Render)) {
-      continue;
-    }
-
-    if (md->type == eModifierType_Subsurf) {
-      SubsurfModifierData *smd = reinterpret_cast<SubsurfModifierData *>(md);
-
-      if (smd->subdivType == ME_CC_SUBSURF) {
-        return md;
-      }
-    }
-
-    /* mesh is not a subsurf. break */
-    if ((md->type != eModifierType_Displace) && (md->type != eModifierType_ParticleSystem)) {
-      return nullptr;
+    /* This modifier has been temporarily disabled by SubdivModifierDisabler,
+     * so this indicates this is to be exported as subdivision surface. */
+    if (md->type == eModifierType_Subsurf && (md->mode & eModifierMode_DisableTemporary)) {
+      return true;
     }
   }
 
-  return nullptr;
+  return false;
 }
 
 ModifierData *ABCGenericMeshWriter::get_liquid_sim_modifier(Scene *scene, Object *ob)

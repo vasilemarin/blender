@@ -68,7 +68,7 @@ class ABCGenericMeshWriter : public ABCAbstractWriter {
   void write_subd(HierarchyContext &context, Mesh *mesh);
   template<typename Schema> void write_face_sets(Object *object, Mesh *mesh, Schema &schema);
 
-  ModifierData *get_subsurf_modifier(Scene *scene_eval, Object *ob_eval);
+  bool export_as_subdivision_surface(Object *ob_eval);
   ModifierData *get_liquid_sim_modifier(Scene *scene_eval, Object *ob_eval);
 
   void write_arb_geo_params(Mesh *me);

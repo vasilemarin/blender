@@ -20,6 +20,7 @@
 #include "ABC_alembic.h"
 #include "abc_archive.h"
 #include "abc_hierarchy_iterator.h"
+#include "abc_subdiv_disabler.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -70,78 +71,6 @@ static void build_depsgraph(Depsgraph *depsgraph, Main *bmain)
   BKE_scene_graph_update_tagged(depsgraph, bmain);
 }
 
-/**
- * Prepare objects for export.
- * When exporting unsubdivided meshes, this disables the subdivision modifiers.
- */
-// static void prepare_export(Depsgraph *depsgraph)
-// {
-// }
-
-// class SubdivModifierDisabler {
-//  private:
-//   std::set<ModifierData *> disabled_modifiers_;
-
-//  public:
-//   SubdivModifierDisabler(Depsgraph *depsgraph);
-//   ~SubdivModifierDisabler();
-
-//  private:
-//   ModifierData *get_subdiv_modifier(Scene *scene, Object *ob);
-// };
-
-// SubdivModifierDisabler::SubdivModifierDisabler(Depsgraph *depsgraph)
-// {
-//   Scene *scene = DEG_get_input_scene(depsgraph);
-
-//   // This is the same iteration as is used by
-//   AbstractHierarchyIterator::export_graph_construct(). DEG_OBJECT_ITER_BEGIN (depsgraph,
-//                          object,
-//                          DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
-//                              DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET) {
-//     if (object->type != OB_MESH) {
-//       continue;
-//     }
-
-//     ModifierData *subdiv = get_subdiv_modifier(scene, object);
-//     if (subdiv == NULL) {
-//       continue;
-//     }
-//   }
-// }
-
-// SubdivModifierDisabler::~SubdivModifierDisabler()
-// {
-// }
-
-/* Check if the mesh is a subsurf, ignoring disabled modifiers and
- * displace if it's after subsurf. */
-// ModifierData *SubdivModifierDisabler::get_subsurf_modifier(Scene *scene, Object *ob)
-// {
-//   ModifierData *md = static_cast<ModifierData *>(ob->modifiers.last);
-
-//   for (; md; md = md->prev) {
-//     if (!modifier_isEnabled(scene, md, eModifierMode_Render)) {
-//       continue;
-//     }
-
-//     if (md->type == eModifierType_Subsurf) {
-//       SubsurfModifierData *smd = reinterpret_cast<SubsurfModifierData *>(md);
-
-//       if (smd->subdivType == ME_CC_SUBSURF) {
-//         return md;
-//       }
-//     }
-
-//     /* mesh is not a subsurf. break */
-//     if ((md->type != eModifierType_Displace) && (md->type != eModifierType_ParticleSystem)) {
-//       return NULL;
-//     }
-//   }
-
-//   return NULL;
-// }
-
 static void export_startjob(void *customdata, short *stop, short *do_update, float *progress)
 {
   ExportJobData *data = static_cast<ExportJobData *>(customdata);
@@ -155,6 +84,13 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
   *do_update = true;
 
   build_depsgraph(data->depsgraph, data->bmain);
+
+  // Disable subdivison modifiers if necessary.
+  SubdivModifierDisabler subdiv_disabler(data->depsgraph);
+  if (!data->params.apply_subdiv) {
+    subdiv_disabler.disable_modifiers();
+    BKE_scene_graph_update_tagged(data->depsgraph, data->bmain);
+  }
 
   // For restoring the current frame after exporting animation is done.
   Scene *scene = DEG_get_input_scene(data->depsgraph);
