@@ -46,7 +46,6 @@
 #include "DNA_scene_types.h"
 #include "DNA_vfont_types.h"
 
-#include "BKE_animsys.h"
 #include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_font.h"
@@ -1878,7 +1877,8 @@ void BKE_curve_bevel_make(Object *ob, ListBase *disp)
       }
       /* Don't duplicate the last back vertex. */
       angle = (cu->ext1 == 0.0f && (cu->flag & CU_BACK)) ? dangle : 0;
-      for (a = 0; a < cu->bevresol + 2; a++) {
+      int front_len = (cu->ext1 == 0.0f) ? cu->bevresol + 1 : cu->bevresol + 2;
+      for (a = 0; a < front_len; a++) {
         fp[0] = 0.0;
         fp[1] = (float)(cosf(angle) * (cu->ext2));
         fp[2] = (float)(sinf(angle) * (cu->ext2)) + cu->ext1;
@@ -4613,7 +4613,7 @@ void BKE_nurb_direction_switch(Nurb *nu)
 void BKE_curve_nurbs_vert_coords_get(ListBase *lb, float (*vert_coords)[3], int vert_len)
 {
   float *co = vert_coords[0];
-  for (Nurb *nu = lb->first; nu; nu = nu->next) {
+  LISTBASE_FOREACH (Nurb *, nu, lb) {
     if (nu->type == CU_BEZIER) {
       BezTriple *bezt = nu->bezt;
       for (int i = 0; i < nu->pntsu; i++, bezt++) {
@@ -4693,7 +4693,7 @@ void BKE_curve_nurbs_vert_coords_apply(ListBase *lb,
 {
   const float *co = vert_coords[0];
 
-  for (Nurb *nu = lb->first; nu; nu = nu->next) {
+  LISTBASE_FOREACH (Nurb *, nu, lb) {
     if (nu->type == CU_BEZIER) {
       BezTriple *bezt = nu->bezt;
 
@@ -4731,7 +4731,7 @@ float (*BKE_curve_nurbs_key_vert_coords_alloc(ListBase *lb, float *key, int *r_v
   float(*cos)[3] = MEM_malloc_arrayN(vert_len, sizeof(*cos), __func__);
 
   float *co = cos[0];
-  for (Nurb *nu = lb->first; nu; nu = nu->next) {
+  LISTBASE_FOREACH (Nurb *, nu, lb) {
     if (nu->type == CU_BEZIER) {
       BezTriple *bezt = nu->bezt;
 
@@ -5169,7 +5169,7 @@ bool BKE_curve_minmax(Curve *cu, bool use_radius, float min[3], float max[3])
     use_radius = false;
   }
   /* Do bounding box based on splines. */
-  for (Nurb *nu = nurb_lb->first; nu; nu = nu->next) {
+  LISTBASE_FOREACH (Nurb *, nu, nurb_lb) {
     BKE_nurb_minmax(nu, use_radius, min, max);
   }
   const bool result = (BLI_listbase_is_empty(nurb_lb) == false);

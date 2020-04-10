@@ -43,7 +43,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
-#include "BKE_animsys.h"
+#include "BKE_anim_data.h"
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_customdata.h"
@@ -151,7 +151,7 @@ typedef struct OGLRender {
 
   eImageFormatDepth color_depth;
   SpinLock reports_lock;
-  unsigned int num_scheduled_frames;
+  uint num_scheduled_frames;
   ThreadMutex task_mutex;
   ThreadCondition task_condition;
 
@@ -296,7 +296,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
   const short view_context = (v3d != NULL);
   bool draw_sky = (scene->r.alphamode == R_ADDSKY);
   float *rectf = NULL;
-  unsigned char *rect = NULL;
+  uchar *rect = NULL;
   const char *viewname = RE_GetActiveRenderView(oglrender->re);
   ImBuf *ibuf_result = NULL;
 
@@ -334,9 +334,8 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
 
     if (gpd) {
       int i;
-      unsigned char *gp_rect;
-      unsigned char *render_rect =
-          (unsigned char *)RE_RenderViewGetById(rr, oglrender->view_id)->rect32;
+      uchar *gp_rect;
+      uchar *render_rect = (uchar *)RE_RenderViewGetById(rr, oglrender->view_id)->rect32;
 
       DRW_opengl_context_enable();
       GPU_offscreen_bind(oglrender->ofs, true);
@@ -352,7 +351,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
       ED_annotation_draw_ex(scene, gpd, sizex, sizey, scene->r.cfra, SPACE_SEQ);
       G.f &= ~G_FLAG_RENDER_VIEWPORT;
 
-      gp_rect = MEM_mallocN(sizex * sizey * sizeof(unsigned char) * 4, "offscreen rect");
+      gp_rect = MEM_mallocN(sizex * sizey * sizeof(uchar) * 4, "offscreen rect");
       GPU_offscreen_read_pixels(oglrender->ofs, GL_UNSIGNED_BYTE, gp_rect);
 
       for (i = 0; i < sizex * sizey * 4; i += 4) {
@@ -414,7 +413,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
         rectf = ibuf_view->rect_float;
       }
       else {
-        rect = (unsigned char *)ibuf_view->rect;
+        rect = (uchar *)ibuf_view->rect;
       }
     }
     else {
@@ -860,11 +859,12 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
     if (BKE_imtype_is_movie(scene->r.im_format.imtype)) {
       task_scheduler = BLI_task_scheduler_create(1);
       oglrender->task_scheduler = task_scheduler;
-      oglrender->task_pool = BLI_task_pool_create_background(task_scheduler, oglrender);
+      oglrender->task_pool = BLI_task_pool_create_background(
+          task_scheduler, oglrender, TASK_PRIORITY_LOW);
     }
     else {
       oglrender->task_scheduler = NULL;
-      oglrender->task_pool = BLI_task_pool_create(task_scheduler, oglrender);
+      oglrender->task_pool = BLI_task_pool_create(task_scheduler, oglrender, TASK_PRIORITY_LOW);
     }
     oglrender->pool_ok = true;
     BLI_spin_init(&oglrender->reports_lock);
@@ -1124,7 +1124,7 @@ static bool schedule_write_result(OGLRender *oglrender, RenderResult *rr)
     BLI_condition_wait(&oglrender->task_condition, &oglrender->task_mutex);
   }
   BLI_mutex_unlock(&oglrender->task_mutex);
-  BLI_task_pool_push(oglrender->task_pool, write_result_func, task_data, true, TASK_PRIORITY_LOW);
+  BLI_task_pool_push(oglrender->task_pool, write_result_func, task_data, true, NULL);
   return true;
 }
 

@@ -32,7 +32,7 @@
 #include "DNA_modifier_types.h"
 #include "DNA_particle_types.h"
 
-#include "BKE_anim.h"
+#include "BKE_duplilist.h"
 
 #include "GPU_batch.h"
 #include "GPU_shader.h"
@@ -166,6 +166,10 @@ static DRWShadingGroup *drw_shgroup_create_hair_procedural_ex(Object *object,
   else {
     shgrp = NULL;
     BLI_assert(0);
+  }
+
+  if (shgrp == NULL) {
+    return NULL;
   }
 
   /* TODO optimize this. Only bind the ones GPUMaterial needs. */

@@ -45,6 +45,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_anim_data.h"
 #include "BKE_animsys.h"
 #include "BKE_collection.h"
 #include "BKE_constraint.h"
@@ -517,7 +518,7 @@ static void merged_element_search_cb_recursive(
   char name[64];
   int iconid;
 
-  for (TreeElement *te = tree->first; te; te = te->next) {
+  LISTBASE_FOREACH (TreeElement *, te, tree) {
     TreeStoreElem *tselem = TREESTORE(te);
 
     if (tree_element_id_type_to_index(te) == type && tselem_type == tselem->type) {
@@ -528,7 +529,7 @@ static void merged_element_search_cb_recursive(
 
         /* Don't allow duplicate named items */
         if (UI_search_items_find_index(items, name) == -1) {
-          if (!UI_search_item_add(items, name, te, iconid)) {
+          if (!UI_search_item_add(items, name, te, iconid, 0)) {
             break;
           }
         }
@@ -589,7 +590,7 @@ static uiBlock *merged_element_search_menu(bContext *C, ARegion *region, void *d
   but = uiDefSearchBut(
       block, search, 0, ICON_VIEWZOOM, sizeof(search), 10, 10, menu_width, UI_UNIT_Y, 0, 0, "");
   UI_but_func_search_set(
-      but, NULL, merged_element_search_cb, data, false, merged_element_search_call_cb, NULL);
+      but, NULL, merged_element_search_cb, data, NULL, merged_element_search_call_cb, NULL);
   UI_but_flag_enable(but, UI_BUT_ACTIVATE_ON_INIT);
 
   /* Fake button to hold space for search items */

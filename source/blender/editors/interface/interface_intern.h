@@ -203,8 +203,8 @@ struct uiBut {
 
   uiButSearchCreateFunc search_create_func;
   uiButSearchFunc search_func;
-  bool free_search_arg;
   void *search_arg;
+  uiButSearchArgFreeFunc search_arg_free_func;
 
   uiButHandleRenameFunc rename_func;
   void *rename_arg1;
@@ -649,6 +649,8 @@ ColorPicker *ui_block_colorpicker_create(struct uiBlock *block);
 /* Searchbox for string button */
 ARegion *ui_searchbox_create_generic(struct bContext *C, struct ARegion *butregion, uiBut *but);
 ARegion *ui_searchbox_create_operator(struct bContext *C, struct ARegion *butregion, uiBut *but);
+ARegion *ui_searchbox_create_menu(struct bContext *C, struct ARegion *butregion, uiBut *but);
+
 bool ui_searchbox_inside(struct ARegion *region, int x, int y);
 int ui_searchbox_find_index(struct ARegion *region, const char *name);
 void ui_searchbox_update(struct bContext *C, struct ARegion *region, uiBut *but, const bool reset);
@@ -973,7 +975,9 @@ ARegion *ui_screen_region_find_mouse_over(bScreen *screen, const struct wmEvent 
 
 /* interface_context_menu.c */
 bool ui_popup_context_menu_for_button(struct bContext *C, uiBut *but);
-void ui_popup_context_menu_for_panel(struct bContext *C, struct ARegion *region, struct Panel *pa);
+void ui_popup_context_menu_for_panel(struct bContext *C,
+                                     struct ARegion *region,
+                                     struct Panel *panel);
 
 /* interface_eyedropper.c */
 struct wmKeyMap *eyedropper_modal_keymap(struct wmKeyConfig *keyconf);
@@ -1010,7 +1014,11 @@ typedef struct uiRNACollectionSearch {
   PointerRNA search_ptr;
   PropertyRNA *search_prop;
 
-  bool *but_changed; /* pointer to uiBut.changed */
+  uiBut *search_but;
+  /* Let UI_butstore_ API update search_but pointer above over redraws. */
+  uiButStore *butstore;
+  /* Block has to be stored for freeing butstore (uiBut.block doesn't work with undo). */
+  uiBlock *butstore_block;
 } uiRNACollectionSearch;
 void ui_rna_collection_search_cb(const struct bContext *C,
                                  void *arg,

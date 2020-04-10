@@ -391,6 +391,18 @@ static void rna_Fluid_combined_export_update(Main *bmain, Scene *scene, PointerR
   }
 }
 
+static void rna_Fluid_cache_startframe_set(struct PointerRNA *ptr, int value)
+{
+  FluidDomainSettings *settings = (FluidDomainSettings *)ptr->data;
+  BKE_fluid_cache_startframe_set(settings, value);
+}
+
+static void rna_Fluid_cache_endframe_set(struct PointerRNA *ptr, int value)
+{
+  FluidDomainSettings *settings = (FluidDomainSettings *)ptr->data;
+  BKE_fluid_cache_endframe_set(settings, value);
+}
+
 static void rna_Fluid_cachetype_mesh_set(struct PointerRNA *ptr, int value)
 {
   FluidDomainSettings *settings = (FluidDomainSettings *)ptr->data;
@@ -1332,6 +1344,11 @@ static void rna_def_fluid_domain_settings(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Fluid_flip_parts_update");
 
+  prop = RNA_def_property(srna, "delete_in_obstacle", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flags", FLUID_DOMAIN_DELETE_IN_OBSTACLE);
+  RNA_def_property_ui_text(prop, "Clear In Obstacle", "Delete fluid inside obstacles");
+  RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, "rna_Fluid_reset");
+
   /* smoke domain options */
 
   prop = RNA_def_property(srna, "alpha", PROP_FLOAT, PROP_NONE);
@@ -1920,12 +1937,13 @@ static void rna_def_fluid_domain_settings(BlenderRNA *brna)
   prop = RNA_def_property(srna, "cache_frame_start", PROP_INT, PROP_TIME);
   RNA_def_property_int_sdna(prop, NULL, "cache_frame_start");
   RNA_def_property_range(prop, -MAXFRAME, MAXFRAME);
-  RNA_def_property_ui_range(prop, 1, MAXFRAME, 1, 1);
+  RNA_def_property_int_funcs(prop, NULL, "rna_Fluid_cache_startframe_set", NULL);
   RNA_def_property_ui_text(prop, "Start", "Frame on which the simulation starts");
 
   prop = RNA_def_property(srna, "cache_frame_end", PROP_INT, PROP_TIME);
   RNA_def_property_int_sdna(prop, NULL, "cache_frame_end");
-  RNA_def_property_range(prop, 1, MAXFRAME);
+  RNA_def_property_range(prop, -MAXFRAME, MAXFRAME);
+  RNA_def_property_int_funcs(prop, NULL, "rna_Fluid_cache_endframe_set", NULL);
   RNA_def_property_ui_text(prop, "End", "Frame on which the simulation stops");
 
   prop = RNA_def_property(srna, "cache_frame_pause_data", PROP_INT, PROP_TIME);
@@ -2541,17 +2559,12 @@ static void rna_def_fluid_effector_settings(BlenderRNA *brna)
   RNA_def_property_range(prop, 0.0, 10.0);
   RNA_def_property_ui_range(prop, 0.0, 10.0, 0.05, 5);
   RNA_def_property_ui_text(
-      prop, "Surface", "Distance around mesh surface to consider as effector");
+      prop, "Surface", "Additional distance around mesh surface to consider as effector");
   RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, "rna_Fluid_reset");
 
   prop = RNA_def_property(srna, "use_plane_init", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flags", FLUID_EFFECTOR_USE_PLANE_INIT);
   RNA_def_property_ui_text(prop, "Is Planar", "Treat this object as a planar, unclosed mesh");
-  RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, "rna_Fluid_reset");
-
-  prop = RNA_def_property(srna, "delete_in_obstacle", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "flags", FLUID_DOMAIN_DELETE_IN_OBSTACLE);
-  RNA_def_property_ui_text(prop, "Clear In Obstacle", "Delete fluid inside obstacles");
   RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, "rna_Fluid_reset");
 
   prop = RNA_def_property(srna, "velocity_factor", PROP_FLOAT, PROP_NONE);

@@ -243,7 +243,7 @@ static void seq_disk_cache_get_files(SeqDiskCache *disk_cache, char *path)
     if (is_dir && !FILENAME_IS_CURRPAR(file)) {
       char subpath[FILE_MAX];
       BLI_strncpy(subpath, fl->path, sizeof(subpath));
-      BLI_add_slash(subpath);
+      BLI_path_slash_ensure(subpath);
       seq_disk_cache_get_files(disk_cache, subpath);
     }
 
@@ -439,7 +439,7 @@ static void seq_disk_cache_delete_invalid_files(SeqDiskCache *disk_cache,
   DiskCacheFile *next_file, *cache_file = disk_cache->files.first;
   char cache_dir[FILE_MAX];
   seq_disk_cache_get_dir(disk_cache, scene, seq, cache_dir, sizeof(cache_dir));
-  BLI_add_slash(cache_dir);
+  BLI_path_slash_ensure(cache_dir);
 
   while (cache_file) {
     next_file = cache_file->next;
@@ -1401,24 +1401,11 @@ void BKE_sequencer_cache_put(const SeqRenderData *context,
   }
 }
 
-size_t BKE_sequencer_cache_get_num_items(struct Scene *scene)
-{
-  SeqCache *cache = seq_cache_get_from_scene(scene);
-  if (!cache) {
-    return 0;
-  }
-
-  seq_cache_lock(scene);
-  size_t num_items = BLI_ghash_len(cache->hash);
-  seq_cache_unlock(scene);
-
-  return num_items;
-}
-
 void BKE_sequencer_cache_iterate(
     struct Scene *scene,
     void *userdata,
-    bool callback(void *userdata, struct Sequence *seq, int nfra, int cache_type, float cost))
+    bool callback_init(void *userdata, size_t item_count),
+    bool callback_iter(void *userdata, struct Sequence *seq, int nfra, int cache_type, float cost))
 {
   SeqCache *cache = seq_cache_get_from_scene(scene);
   if (!cache) {
@@ -1426,15 +1413,16 @@ void BKE_sequencer_cache_iterate(
   }
 
   seq_cache_lock(scene);
+  bool interrupt = callback_init(userdata, BLI_ghash_len(cache->hash));
+
   GHashIterator gh_iter;
   BLI_ghashIterator_init(&gh_iter, cache->hash);
-  bool interrupt = false;
 
   while (!BLI_ghashIterator_done(&gh_iter) && !interrupt) {
     SeqCacheKey *key = BLI_ghashIterator_getKey(&gh_iter);
     BLI_ghashIterator_step(&gh_iter);
 
-    interrupt = callback(userdata, key->seq, key->nfra, key->type, key->cost);
+    interrupt = callback_iter(userdata, key->seq, key->nfra, key->type, key->cost);
   }
 
   cache->last_key = NULL;

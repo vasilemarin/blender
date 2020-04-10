@@ -81,7 +81,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_action.h"
-#include "BKE_animsys.h"
+#include "BKE_anim_data.h"
 #include "BKE_armature.h"
 #include "BKE_bpath.h"
 #include "BKE_brush.h"
@@ -320,7 +320,11 @@ void id_us_min(ID *id)
                  id->lib ? id->lib->filepath : "[Main]",
                  id->us,
                  limit);
-      BLI_assert(0);
+      if (GS(id->name) != ID_IP) {
+        /* Do not assert on deprecated ID types, we cannot really ensure that their ID refcounting
+         * is valid... */
+        BLI_assert(0);
+      }
       id->us = limit;
     }
     else {
@@ -901,7 +905,7 @@ void BKE_main_id_flag_all(Main *bmain, const int flag, const bool value)
 void BKE_main_id_repair_duplicate_names_listbase(ListBase *lb)
 {
   int lb_len = 0;
-  for (ID *id = lb->first; id; id = id->next) {
+  LISTBASE_FOREACH (ID *, id, lb) {
     if (id->lib == NULL) {
       lb_len += 1;
     }
@@ -914,7 +918,7 @@ void BKE_main_id_repair_duplicate_names_listbase(ListBase *lb)
   ID **id_array = MEM_mallocN(sizeof(*id_array) * lb_len, __func__);
   GSet *gset = BLI_gset_str_new_ex(__func__, lb_len);
   int i = 0;
-  for (ID *id = lb->first; id; id = id->next) {
+  LISTBASE_FOREACH (ID *, id, lb) {
     if (id->lib == NULL) {
       id_array[i] = id;
       i++;
@@ -1716,21 +1720,31 @@ static void library_make_local_copying_check(ID *id,
     /* Used_to_user stores ID pointer, not pointer to ID pointer. */
     ID *par_id = (ID *)entry->id_pointer;
 
-    /* Our oh-so-beloved 'from' pointers... */
+    /* Our oh-so-beloved 'from' pointers... Those should always be ignored here, since the actual
+     * relation we want to check is in the other way around. */
     if (entry->usage_flag & IDWALK_CB_LOOPBACK) {
-      /* We totally disregard Object->proxy_from 'usage' here,
-       * this one would only generate fake positives. */
-      if (GS(par_id->name) == ID_OB) {
-        BLI_assert(((Object *)par_id)->proxy_from == (Object *)id);
-        continue;
+#ifndef NDEBUG
+      /* Some debug checks to ensure we explicitely are aware of all 'loopback' cases, since those
+       * may not always be manageable in the same way... */
+      switch (GS(par_id->name)) {
+        case ID_OB:
+          BLI_assert(((Object *)par_id)->proxy_from == (Object *)id);
+          break;
+        case ID_KE:
+          BLI_assert(((Key *)par_id)->from == id);
+          break;
+        default:
+          BLI_assert(0);
       }
+#endif
+      continue;
+    }
 
-      /* Shapekeys are considered 'private' to their owner ID here, and never tagged
-       * (since they cannot be linked), so we have to switch effective parent to their owner.
-       */
-      if (GS(par_id->name) == ID_KE) {
-        par_id = ((Key *)par_id)->from;
-      }
+    /* Shapekeys are considered 'private' to their owner ID here, and never tagged
+     * (since they cannot be linked), so we have to switch effective parent to their owner.
+     */
+    if (GS(par_id->name) == ID_KE) {
+      par_id = ((Key *)par_id)->from;
     }
 
     if (par_id->lib == NULL) {
@@ -2218,14 +2232,14 @@ void BKE_id_ordered_list(ListBase *ordered_lb, const ListBase *lb)
 {
   BLI_listbase_clear(ordered_lb);
 
-  for (ID *id = lb->first; id; id = id->next) {
+  LISTBASE_FOREACH (ID *, id, lb) {
     BLI_addtail(ordered_lb, BLI_genericNodeN(id));
   }
 
   BLI_listbase_sort(ordered_lb, id_order_compare);
 
   int num = 0;
-  for (LinkData *link = ordered_lb->first; link; link = link->next) {
+  LISTBASE_FOREACH (LinkData *, link, ordered_lb) {
     int *order = id_order_get(link->data);
     if (order) {
       *order = num++;
@@ -2250,7 +2264,7 @@ void BKE_id_reorder(const ListBase *lb, ID *id, ID *relative, bool after)
 
   if (after) {
     /* Insert after. */
-    for (ID *other = lb->first; other; other = other->next) {
+    LISTBASE_FOREACH (ID *, other, lb) {
       int *order = id_order_get(other);
       if (*order > relative_order) {
         (*order)++;
@@ -2261,7 +2275,7 @@ void BKE_id_reorder(const ListBase *lb, ID *id, ID *relative, bool after)
   }
   else {
     /* Insert before. */
-    for (ID *other = lb->first; other; other = other->next) {
+    LISTBASE_FOREACH (ID *, other, lb) {
       int *order = id_order_get(other);
       if (*order < relative_order) {
         (*order)--;

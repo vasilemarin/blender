@@ -893,8 +893,8 @@ static bool transform_shear_poll(bContext *C)
     return false;
   }
 
-  ScrArea *sa = CTX_wm_area(C);
-  return sa && !ELEM(sa->spacetype, SPACE_ACTION);
+  ScrArea *area = CTX_wm_area(C);
+  return area && !ELEM(area->spacetype, SPACE_ACTION);
 }
 
 static void TRANSFORM_OT_shear(struct wmOperatorType *ot)
@@ -1031,7 +1031,7 @@ static void TRANSFORM_OT_bbone_resize(struct wmOperatorType *ot)
   ot->exec = transform_exec;
   ot->modal = transform_modal;
   ot->cancel = transform_cancel;
-  ot->poll = ED_operator_screenactive;
+  ot->poll = ED_operator_editarmature;
   ot->poll_property = transform_poll_property;
 
   RNA_def_float_translation(

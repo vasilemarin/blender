@@ -74,7 +74,9 @@
 
 #include "wm_files.h"
 
-/* **************** link/append *************** */
+/* -------------------------------------------------------------------- */
+/** \name Link/Append Operator
+ * \{ */
 
 static bool wm_link_append_poll(bContext *C)
 {
@@ -102,7 +104,7 @@ static int wm_link_append_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
     else if (G.relbase_valid) {
       char path[FILE_MAX];
       BLI_strncpy(path, BKE_main_blendfile_path_from_global(), sizeof(path));
-      BLI_parent_dir(path);
+      BLI_path_parent_dir(path);
       RNA_string_set(op->ptr, "filepath", path);
     }
   }
@@ -618,10 +620,12 @@ void WM_OT_append(wmOperatorType *ot)
       "Localize all appended data, including those indirectly linked from other libraries");
 }
 
-/** \name Append single datablock and return it.
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Append Single Data-Block & Return it
  *
  * Used for appending workspace from startup files.
- *
  * \{ */
 
 ID *WM_file_append_datablock(Main *bmain,
@@ -659,6 +663,10 @@ ID *WM_file_append_datablock(Main *bmain,
 }
 
 /** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Library Relocate Operator & Library Reload API
+ * \{ */
 
 static int wm_lib_relocate_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {

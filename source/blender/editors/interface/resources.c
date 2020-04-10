@@ -899,6 +899,17 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
         case TH_WIDGET_TEXT_CURSOR:
           cp = btheme->tui.widget_text_cursor;
           break;
+
+        case TH_TRANSPARENT_CHECKER_PRIMARY:
+          cp = btheme->tui.transparent_checker_primary;
+          break;
+        case TH_TRANSPARENT_CHECKER_SECONDARY:
+          cp = btheme->tui.transparent_checker_secondary;
+          break;
+        case TH_TRANSPARENT_CHECKER_SIZE:
+          cp = &btheme->tui.transparent_checker_size;
+          break;
+
         case TH_AXIS_X:
           cp = btheme->tui.xaxis;
           break;
@@ -1187,7 +1198,7 @@ void UI_GetThemeColor4fv(int colorid, float col[4])
 
 void UI_GetThemeColorType4fv(int colorid, int spacetype, float col[4])
 {
-  const unsigned char *cp = UI_ThemeGetColorPtr(theme_active, spacetype, colorid);
+  const uchar *cp = UI_ThemeGetColorPtr(theme_active, spacetype, colorid);
   col[0] = ((float)cp[0]) / 255.0f;
   col[1] = ((float)cp[1]) / 255.0f;
   col[2] = ((float)cp[2]) / 255.0f;

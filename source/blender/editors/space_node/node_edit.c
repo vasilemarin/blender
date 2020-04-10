@@ -127,12 +127,12 @@ static int compo_get_recalc_flags(const bContext *C)
   int recalc_flags = 0;
 
   for (win = wm->windows.first; win; win = win->next) {
-    const bScreen *sc = WM_window_get_active_screen(win);
-    ScrArea *sa;
+    const bScreen *screen = WM_window_get_active_screen(win);
+    ScrArea *area;
 
-    for (sa = sc->areabase.first; sa; sa = sa->next) {
-      if (sa->spacetype == SPACE_IMAGE) {
-        SpaceImage *sima = sa->spacedata.first;
+    for (area = screen->areabase.first; area; area = area->next) {
+      if (area->spacetype == SPACE_IMAGE) {
+        SpaceImage *sima = area->spacedata.first;
         if (sima->image) {
           if (sima->image->type == IMA_TYPE_R_RESULT) {
             recalc_flags |= COM_RECALC_COMPOSITE;
@@ -142,8 +142,8 @@ static int compo_get_recalc_flags(const bContext *C)
           }
         }
       }
-      else if (sa->spacetype == SPACE_NODE) {
-        SpaceNode *snode = sa->spacedata.first;
+      else if (area->spacetype == SPACE_NODE) {
+        SpaceNode *snode = area->spacedata.first;
         if (snode->flag & SNODE_BACKDRAW) {
           recalc_flags |= COM_RECALC_VIEWER;
         }
@@ -819,7 +819,7 @@ static int edit_node_invoke_properties(bContext *C, wmOperator *op)
 }
 
 static void edit_node_properties_get(
-    wmOperator *op, bNodeTree *ntree, bNode **rnode, bNodeSocket **rsock, int *rin_out)
+    wmOperator *op, bNodeTree *ntree, bNode **r_node, bNodeSocket **r_sock, int *r_in_out)
 {
   bNode *node;
   bNodeSocket *sock = NULL;
@@ -842,14 +842,14 @@ static void edit_node_properties_get(
       break;
   }
 
-  if (rnode) {
-    *rnode = node;
+  if (r_node) {
+    *r_node = node;
   }
-  if (rsock) {
-    *rsock = sock;
+  if (r_sock) {
+    *r_sock = sock;
   }
-  if (rin_out) {
-    *rin_out = in_out;
+  if (r_in_out) {
+    *r_in_out = in_out;
   }
 }
 #endif
@@ -1326,7 +1326,7 @@ void NODE_OT_duplicate(wmOperatorType *ot)
 
 bool ED_node_select_check(ListBase *lb)
 {
-  for (bNode *node = lb->first; node; node = node->next) {
+  LISTBASE_FOREACH (bNode *, node, lb) {
     if (node->flag & NODE_SELECT) {
       return true;
     }
@@ -1346,7 +1346,7 @@ void ED_node_select_all(ListBase *lb, int action)
     }
   }
 
-  for (bNode *node = lb->first; node; node = node->next) {
+  LISTBASE_FOREACH (bNode *, node, lb) {
     switch (action) {
       case SEL_SELECT:
         nodeSetSelected(node, true);

@@ -337,11 +337,14 @@ void BKE_sequencer_cache_cleanup_sequence(struct Scene *scene,
                                           struct Sequence *seq,
                                           struct Sequence *seq_changed,
                                           int invalidate_types);
-void BKE_sequencer_cache_iterate(
-    struct Scene *scene,
-    void *userdata,
-    bool callback(void *userdata, struct Sequence *seq, int cfra, int cache_type, float cost));
-size_t BKE_sequencer_cache_get_num_items(struct Scene *scene);
+void BKE_sequencer_cache_iterate(struct Scene *scene,
+                                 void *userdata,
+                                 bool callback_init(void *userdata, size_t item_count),
+                                 bool callback_iter(void *userdata,
+                                                    struct Sequence *seq,
+                                                    int cfra,
+                                                    int cache_type,
+                                                    float cost));
 bool BKE_sequencer_cache_is_full(struct Scene *scene);
 
 /* **********************************************************************
@@ -490,7 +493,7 @@ typedef struct SeqLoadInfo {
 #define SEQ_DUPE_ALL (1 << 3) /* otherwise only selected are copied */
 
 /* use as an api function */
-typedef struct Sequence *(*SeqLoadFunc)(struct bContext *, ListBase *, struct SeqLoadInfo *);
+typedef struct Sequence *(*SeqLoadFn)(struct bContext *, ListBase *, struct SeqLoadInfo *);
 
 struct Sequence *BKE_sequence_alloc(ListBase *lb, int cfra, int machine, int type);
 

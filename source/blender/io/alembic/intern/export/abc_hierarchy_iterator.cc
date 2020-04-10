@@ -29,7 +29,6 @@
 #include <string>
 
 extern "C" {
-#include "BKE_anim.h"
 
 #include "BLI_assert.h"
 

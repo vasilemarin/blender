@@ -93,11 +93,9 @@ static TaskScheduler *task_scheduler = NULL;
  *         for (go over all jobs)
  *             if (job is ready) {
  *                 if (job was not removed) {
- *                     BLI_threadpool_remove(&lb, job);
- *                 }
+ *                     BLI_threadpool_remove(&lb, job); *                 }
  *             }
- *             else cont = 1;
- *         }
+ *             else cont = 1; *         }
  *         // conditions to exit loop
  *         if (if escape loop event) {
  *             if (BLI_available_threadslots(&lb) == maxthreads) {
@@ -862,7 +860,7 @@ void BLI_threaded_malloc_end(void)
 #if 0  /* UNUSED */
 static bool check_is_threadripper2_alike_topology(void)
 {
-  /* NOTE: We hope operating system does not support CPU hotswap to
+  /* NOTE: We hope operating system does not support CPU hot-swap to
    * a different brand. And that SMP of different types is also not
    * encouraged by the system. */
   static bool is_initialized = false;

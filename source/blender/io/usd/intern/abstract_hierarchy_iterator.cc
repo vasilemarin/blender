@@ -21,11 +21,12 @@
 #include <iostream>
 #include <limits.h>
 #include <sstream>
+#include <stdio.h>
 #include <string>
 
 extern "C" {
-#include "BKE_anim.h"
-#include "BKE_animsys.h"
+#include "BKE_anim_data.h"
+#include "BKE_duplilist.h"
 #include "BKE_key.h"
 #include "BKE_particle.h"
 
@@ -264,24 +265,22 @@ void AbstractHierarchyIterator::connect_loose_objects()
   for (const ExportGraph::value_type &map_iter : loose_objects_graph) {
     const DupliAndDuplicator &export_info = map_iter.first;
     Object *object = export_info.first;
-    Object *export_parent = object->parent;
 
     while (true) {
       // Loose objects will all be real objects, as duplicated objects always have
       // their duplicator or other exported duplicated object as ancestor.
-      ExportGraph::iterator found_parent_iter = export_graph_.find(
-          std::make_pair(export_parent, nullptr));
 
-      visit_object(object, export_parent, true);
+      ExportGraph::iterator found_parent_iter = export_graph_.find(
+          std::make_pair(object->parent, nullptr));
+      visit_object(object, object->parent, true);
       if (found_parent_iter != export_graph_.end()) {
         break;
       }
-      // 'export_parent' will never be nullptr here, as the export graph contains the
+      // 'object->parent' will never be nullptr here, as the export graph contains the
       // tuple <nullptr, nullptr> as root and thus will cause a break.
-      BLI_assert(export_parent != nullptr);
+      BLI_assert(object->parent != nullptr);
 
-      object = export_parent;
-      export_parent = export_parent->parent;
+      object = object->parent;
     }
   }
 }
@@ -354,7 +353,18 @@ void AbstractHierarchyIterator::visit_object(Object *object,
 
   copy_m4_m4(context->matrix_world, object->obmat);
 
+  // Store this HierarchyContext as child of the export parent.
   export_graph_[std::make_pair(export_parent, nullptr)].insert(context);
+
+  // Create an empty entry for this object to indicate it is part of the export. This will be used
+  // by connect_loose_objects(). Having such an "indicator" will make it possible to do an O(log n)
+  // check on whether an object is part of the export, rather than having to check all objects in
+  // the map. Note that it's not possible to simply search for (object->parent, nullptr), as the
+  // object's parent in Blender may not be the same as its export-parent.
+  ExportGraph::key_type object_key = std::make_pair(object, nullptr);
+  if (export_graph_.find(object_key) == export_graph_.end()) {
+    export_graph_[object_key] = ExportChildren();
+  }
 }
 
 void AbstractHierarchyIterator::visit_dupli_object(DupliObject *dupli_object,

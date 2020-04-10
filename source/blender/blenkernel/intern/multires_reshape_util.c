@@ -67,7 +67,7 @@ Subdiv *multires_reshape_create_subdiv(Depsgraph *depsgraph,
   SubdivSettings subdiv_settings;
   BKE_multires_subdiv_settings_init(&subdiv_settings, mmd);
   Subdiv *subdiv = BKE_subdiv_new_from_mesh(&subdiv_settings, base_mesh);
-  if (!BKE_subdiv_eval_update_from_mesh(subdiv, base_mesh, NULL)) {
+  if (!BKE_subdiv_eval_begin_from_mesh(subdiv, base_mesh, NULL)) {
     BKE_subdiv_free(subdiv);
     return NULL;
   }
@@ -128,7 +128,7 @@ static void context_init_commoon(MultiresReshapeContext *reshape_context)
   BLI_assert(reshape_context->subdiv != NULL);
   BLI_assert(reshape_context->base_mesh != NULL);
 
-  reshape_context->face_ptex_offset = BKE_subdiv_face_ptex_offset_get(reshape_context->subdiv),
+  reshape_context->face_ptex_offset = BKE_subdiv_face_ptex_offset_get(reshape_context->subdiv);
 
   context_init_lookup(reshape_context);
   context_init_grid_pointers(reshape_context);

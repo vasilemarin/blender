@@ -36,6 +36,7 @@
 #include "DNA_fluid_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
+#include "DNA_rigidbody_types.h"
 
 #include "BKE_effect.h"
 #include "BKE_fluid.h"
@@ -497,6 +498,8 @@ static void manta_set_domain_gravity(Scene *scene, FluidDomainSettings *mds)
 
     copy_v3_v3(mds->gravity, gravity);
   }
+
+  mul_v3_fl(mds->gravity, mds->effector_weights->global_gravity);
 }
 
 static bool BKE_fluid_modifier_init(
@@ -571,7 +574,7 @@ static void update_distances(int index,
                              BVHTreeFromMesh *tree_data,
                              const float ray_start[3],
                              float surface_thickness,
-                             int use_plane_init);
+                             bool use_plane_init);
 
 static int get_light(ViewLayer *view_layer, float *light)
 {
@@ -640,6 +643,11 @@ static bool is_static_object(Object *ob)
              eModifierType_Softbody)) {
       return false;
     }
+  }
+
+  /* Active rigid body objects considered to be dynamic fluid objects. */
+  if (ob->rigidbody_object && ob->rigidbody_object->type == RBO_TYPE_ACTIVE) {
+    return false;
   }
 
   /* Finally, check if the object has animation data. If so, it is considered dynamic. */
@@ -770,7 +778,9 @@ static void bb_combineMaps(FluidObjectBB *output,
 
           /* Values. */
           output->numobjs[index_out] = bb1.numobjs[index_in];
-          output->influence[index_out] = bb1.influence[index_in];
+          if (output->influence && bb1.influence) {
+            output->influence[index_out] = bb1.influence[index_in];
+          }
           output->distances[index_out] = bb1.distances[index_in];
           if (output->velocity && bb1.velocity) {
             copy_v3_v3(&output->velocity[index_out * 3], &bb1.velocity[index_in * 3]);
@@ -785,12 +795,14 @@ static void bb_combineMaps(FluidObjectBB *output,
 
           /* Values. */
           output->numobjs[index_out] = MAX2(bb2->numobjs[index_in], output->numobjs[index_out]);
-          if (additive) {
-            output->influence[index_out] += bb2->influence[index_in] * sample_size;
-          }
-          else {
-            output->influence[index_out] = MAX2(bb2->influence[index_in],
-                                                output->influence[index_out]);
+          if (output->influence && bb2->influence) {
+            if (additive) {
+              output->influence[index_out] += bb2->influence[index_in] * sample_size;
+            }
+            else {
+              output->influence[index_out] = MAX2(bb2->influence[index_in],
+                                                  output->influence[index_out]);
+            }
           }
           output->distances[index_out] = MIN2(bb2->distances[index_in],
                                               output->distances[index_out]);
@@ -1220,52 +1232,32 @@ static void update_obstacles(Depsgraph *depsgraph,
         continue;
       }
 
-      /* Length of one adaptive frame. If using adaptive stepping, length is smaller than actual
-       * frame length */
-      float adaptframe_length = time_per_frame / frame_length;
-      /* Adaptive frame length as percentage */
-      CLAMP(adaptframe_length, 0.0f, 1.0f);
-
-      /* More splitting because of emission subframe: If no subframes present, sample_size is 1. */
-      float sample_size = 1.0f / (float)(subframes + 1);
-
       /* First frame cannot have any subframes because there is (obviously) no previous frame from
        * where subframes could come from. */
       if (is_first_frame) {
         subframes = 0;
       }
 
-      int subframe;
+      /* More splitting because of emission subframe: If no subframes present, sample_size is 1. */
+      float sample_size = 1.0f / (float)(subframes + 1);
       float subframe_dt = dt * sample_size;
 
       /* Emission loop. When not using subframes this will loop only once. */
-      for (subframe = subframes; subframe >= 0; subframe--) {
+      for (int subframe = 0; subframe <= subframes; subframe++) {
 
         /* Temporary emission map used when subframes are enabled, i.e. at least one subframe. */
         FluidObjectBB bb_temp = {NULL};
 
         /* Set scene time */
         /* Handle emission subframe */
-        if (subframe > 0 && !is_first_frame) {
-          scene->r.subframe = adaptframe_length -
-                              sample_size * (float)(subframe) * (dt / frame_length);
+        if ((subframe < subframes || time_per_frame + dt + FLT_EPSILON < frame_length) &&
+            !is_first_frame) {
+          scene->r.subframe = (time_per_frame + (subframe + 1.0f) * subframe_dt) / frame_length;
           scene->r.cfra = frame - 1;
         }
-        /* Last frame in this loop (subframe == suframes). Can be real end frame or in between
-         * frames (adaptive frame). */
         else {
-          /* Handle adaptive subframe (ie has subframe fraction). Need to set according scene
-           * subframe parameter. */
-          if (time_per_frame < frame_length) {
-            scene->r.subframe = adaptframe_length;
-            scene->r.cfra = frame - 1;
-          }
-          /* Handle absolute endframe (ie no subframe fraction). Need to set the scene subframe
-           * parameter to 0 and advance current scene frame. */
-          else {
-            scene->r.subframe = 0.0f;
-            scene->r.cfra = frame;
-          }
+          scene->r.subframe = 0.0f;
+          scene->r.cfra = frame;
         }
         /* Sanity check: subframe portion must be between 0 and 1. */
         CLAMP(scene->r.subframe, 0.0f, 1.0f);
@@ -1717,16 +1709,25 @@ static void update_distances(int index,
                              BVHTreeFromMesh *tree_data,
                              const float ray_start[3],
                              float surface_thickness,
-                             int use_plane_init)
+                             bool use_plane_init)
 {
   float min_dist = PHI_MAX;
 
-  /* a) Planar initialization */
+  /* Planar initialization: Find nearest cells around mesh. */
   if (use_plane_init) {
     BVHTreeNearest nearest = {0};
     nearest.index = -1;
-    nearest.dist_sq = surface_thickness *
-                      surface_thickness; /* find_nearest uses squared distance */
+    /* Distance between two opposing vertices in a unit cube.
+     * I.e. the unit cube diagonal or sqrt(3).
+     * This value is our nearest neighbor search distance. */
+    const float surface_distance = 1.732;
+    nearest.dist_sq = surface_distance *
+                      surface_distance; /* find_nearest uses squared distance. */
+
+    /* Subtract optional surface thickness value and virtually increase the object size. */
+    if (surface_thickness) {
+      nearest.dist_sq += surface_thickness;
+    }
 
     if (BLI_bvhtree_find_nearest(
             tree_data->tree, ray_start, &nearest, tree_data->nearest_callback, tree_data) != -1) {
@@ -1734,76 +1735,73 @@ static void update_distances(int index,
       sub_v3_v3v3(ray, ray_start, nearest.co);
       min_dist = len_v3(ray);
       min_dist = (-1.0f) * fabsf(min_dist);
-      distance_map[index] = min_dist;
-    }
-    return;
-  }
-
-  /* b) Volumetric initialization: Ray-casts around mesh object. */
-
-  /* Ray-casts in 26 directions.
-   * (6 main axis + 12 quadrant diagonals (2D) + 8 octant diagonals (3D)). */
-  float ray_dirs[26][3] = {
-      {1.0f, 0.0f, 0.0f},   {0.0f, 1.0f, 0.0f},   {0.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, 0.0f},
-      {0.0f, -1.0f, 0.0f},  {0.0f, 0.0f, -1.0f},  {1.0f, 1.0f, 0.0f},  {1.0f, -1.0f, 0.0f},
-      {-1.0f, 1.0f, 0.0f},  {-1.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f},  {1.0f, 0.0f, -1.0f},
-      {-1.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, -1.0f}, {0.0f, 1.0f, 1.0f},  {0.0f, 1.0f, -1.0f},
-      {0.0f, -1.0f, 1.0f},  {0.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f},  {1.0f, -1.0f, 1.0f},
-      {-1.0f, 1.0f, 1.0f},  {-1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f},
-      {-1.0f, 1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}};
-  size_t ray_cnt = sizeof ray_dirs / sizeof ray_dirs[0];
-
-  /* Count ray mesh misses (i.e. no face hit) and cases where the ray direction matches the face
-   * normal direction. From this information it can be derived whether a cell is inside or outside
-   * the mesh. */
-  int miss_cnt = 0, dir_cnt = 0;
-  min_dist = PHI_MAX;
-
-  for (int i = 0; i < ray_cnt; i++) {
-    BVHTreeRayHit hit_tree = {0};
-    hit_tree.index = -1;
-    hit_tree.dist = PHI_MAX;
-
-    normalize_v3(ray_dirs[i]);
-    BLI_bvhtree_ray_cast(tree_data->tree,
-                         ray_start,
-                         ray_dirs[i],
-                         0.0f,
-                         &hit_tree,
-                         tree_data->raycast_callback,
-                         tree_data);
-
-    /* Ray did not hit mesh.
-     * Current point definitely not inside mesh. Inside mesh as all rays have to hit. */
-    if (hit_tree.index == -1) {
-      miss_cnt++;
-      /* Skip this ray since nothing was hit. */
-      continue;
-    }
-
-    /* Ray and normal are pointing in opposite directions. */
-    if (dot_v3v3(ray_dirs[i], hit_tree.no) <= 0) {
-      dir_cnt++;
-    }
-
-    if (hit_tree.dist < min_dist) {
-      min_dist = hit_tree.dist;
     }
   }
+  /* Volumetric initialization: Ray-casts around mesh object. */
+  else {
+    /* Ray-casts in 26 directions.
+     * (6 main axis + 12 quadrant diagonals (2D) + 8 octant diagonals (3D)). */
+    float ray_dirs[26][3] = {
+        {1.0f, 0.0f, 0.0f},   {0.0f, 1.0f, 0.0f},   {0.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, 0.0f},
+        {0.0f, -1.0f, 0.0f},  {0.0f, 0.0f, -1.0f},  {1.0f, 1.0f, 0.0f},  {1.0f, -1.0f, 0.0f},
+        {-1.0f, 1.0f, 0.0f},  {-1.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f},  {1.0f, 0.0f, -1.0f},
+        {-1.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, -1.0f}, {0.0f, 1.0f, 1.0f},  {0.0f, 1.0f, -1.0f},
+        {0.0f, -1.0f, 1.0f},  {0.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f},  {1.0f, -1.0f, 1.0f},
+        {-1.0f, 1.0f, 1.0f},  {-1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f},
+        {-1.0f, 1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}};
+    size_t ray_cnt = sizeof ray_dirs / sizeof ray_dirs[0];
 
-  /* Point lies inside mesh. Use negative sign for distance value.
-   * This "if statement" has 2 conditions that can be true for points outside mesh. */
-  if (!(miss_cnt > 0 || dir_cnt == ray_cnt)) {
-    min_dist = (-1.0f) * fabsf(min_dist);
+    /* Count ray mesh misses (i.e. no face hit) and cases where the ray direction matches the face
+     * normal direction. From this information it can be derived whether a cell is inside or
+     * outside the mesh. */
+    int miss_cnt = 0, dir_cnt = 0;
+
+    for (int i = 0; i < ray_cnt; i++) {
+      BVHTreeRayHit hit_tree = {0};
+      hit_tree.index = -1;
+      hit_tree.dist = PHI_MAX;
+
+      normalize_v3(ray_dirs[i]);
+      BLI_bvhtree_ray_cast(tree_data->tree,
+                           ray_start,
+                           ray_dirs[i],
+                           0.0f,
+                           &hit_tree,
+                           tree_data->raycast_callback,
+                           tree_data);
+
+      /* Ray did not hit mesh.
+       * Current point definitely not inside mesh. Inside mesh as all rays have to hit. */
+      if (hit_tree.index == -1) {
+        miss_cnt++;
+        /* Skip this ray since nothing was hit. */
+        continue;
+      }
+
+      /* Ray and normal are pointing in opposite directions. */
+      if (dot_v3v3(ray_dirs[i], hit_tree.no) <= 0) {
+        dir_cnt++;
+      }
+
+      if (hit_tree.dist < min_dist) {
+        min_dist = hit_tree.dist;
+      }
+    }
+
+    /* Point lies inside mesh. Use negative sign for distance value.
+     * This "if statement" has 2 conditions that can be true for points outside mesh. */
+    if (!(miss_cnt > 0 || dir_cnt == ray_cnt)) {
+      min_dist = (-1.0f) * fabsf(min_dist);
+    }
+
+    /* Subtract optional surface thickness value and virtually increase the object size. */
+    if (surface_thickness) {
+      min_dist -= surface_thickness;
+    }
   }
 
   /* Update global distance array but ensure that older entries are not overridden. */
   distance_map[index] = MIN2(distance_map[index], min_dist);
-
-  /* Subtract optional surface thickness value and virtually increase the object size. */
-  if (surface_thickness) {
-    distance_map[index] -= surface_thickness;
-  }
 
   /* Sanity check: Ensure that distances don't explode. */
   CLAMP(distance_map[index], -PHI_MAX, PHI_MAX);
@@ -2750,53 +2748,32 @@ static void update_flowsfluids(struct Depsgraph *depsgraph,
         continue;
       }
 
-      /* Length of one adaptive frame. If using adaptive stepping, length is smaller than actual
-       * frame length */
-      float adaptframe_length = time_per_frame / frame_length;
-      /* Adaptive frame length as percentage */
-      CLAMP(adaptframe_length, 0.0f, 1.0f);
-
-      /* More splitting because of emission subframe: If no subframes present, sample_size is 1. */
-      float sample_size = 1.0f / (float)(subframes + 1);
-
       /* First frame cannot have any subframes because there is (obviously) no previous frame from
        * where subframes could come from. */
       if (is_first_frame) {
         subframes = 0;
       }
 
-      int subframe;
+      /* More splitting because of emission subframe: If no subframes present, sample_size is 1. */
+      float sample_size = 1.0f / (float)(subframes + 1);
       float subframe_dt = dt * sample_size;
 
       /* Emission loop. When not using subframes this will loop only once. */
-      for (subframe = subframes; subframe >= 0; subframe--) {
-
+      for (int subframe = 0; subframe <= subframes; subframe++) {
         /* Temporary emission map used when subframes are enabled, i.e. at least one subframe. */
         FluidObjectBB bb_temp = {NULL};
 
         /* Set scene time */
-        /* Handle emission subframe */
-        if (subframe > 0 && !is_first_frame) {
-          scene->r.subframe = adaptframe_length -
-                              sample_size * (float)(subframe) * (dt / frame_length);
+        if ((subframe < subframes || time_per_frame + dt + FLT_EPSILON < frame_length) &&
+            !is_first_frame) {
+          scene->r.subframe = (time_per_frame + (subframe + 1.0f) * subframe_dt) / frame_length;
           scene->r.cfra = frame - 1;
         }
-        /* Last frame in this loop (subframe == suframes). Can be real end frame or in between
-         * frames (adaptive frame). */
         else {
-          /* Handle adaptive subframe (ie has subframe fraction). Need to set according scene
-           * subframe parameter. */
-          if (time_per_frame < frame_length) {
-            scene->r.subframe = adaptframe_length;
-            scene->r.cfra = frame - 1;
-          }
-          /* Handle absolute endframe (ie no subframe fraction). Need to set the scene subframe
-           * parameter to 0 and advance current scene frame. */
-          else {
-            scene->r.subframe = 0.0f;
-            scene->r.cfra = frame;
-          }
+          scene->r.subframe = 0.0f;
+          scene->r.cfra = frame;
         }
+
         /* Sanity check: subframe portion must be between 0 and 1. */
         CLAMP(scene->r.subframe, 0.0f, 1.0f);
 #  ifdef DEBUG_PRINT
@@ -3698,8 +3675,14 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
   uint numobj = 0;
   FluidModifierData *mmd_parent = NULL;
 
-  bool is_startframe;
+  bool is_startframe, has_advanced;
   is_startframe = (scene_framenr == mds->cache_frame_start);
+  has_advanced = (scene_framenr == mmd->time + 1);
+
+  /* Do not process modifier if current frame is out of cache range. */
+  if (scene_framenr < mds->cache_frame_start || scene_framenr > mds->cache_frame_end) {
+    return;
+  }
 
   /* Reset fluid if no fluid present. */
   if (!mds->fluid) {
@@ -3791,6 +3774,27 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
   read_cache = false;
   bake_cache = baking_data || baking_noise || baking_mesh || baking_particles || baking_guide;
 
+  bool next_data, next_noise, next_mesh, next_particles, next_guide;
+  next_data = manta_has_data(mds->fluid, mmd, scene_framenr + 1);
+  next_noise = manta_has_noise(mds->fluid, mmd, scene_framenr + 1);
+  next_mesh = manta_has_mesh(mds->fluid, mmd, scene_framenr + 1);
+  next_particles = manta_has_particles(mds->fluid, mmd, scene_framenr + 1);
+  next_guide = manta_has_guiding(mds->fluid, mmd, scene_framenr + 1, guide_parent);
+
+  bool prev_data, prev_noise, prev_mesh, prev_particles, prev_guide;
+  prev_data = manta_has_data(mds->fluid, mmd, scene_framenr - 1);
+  prev_noise = manta_has_noise(mds->fluid, mmd, scene_framenr - 1);
+  prev_mesh = manta_has_mesh(mds->fluid, mmd, scene_framenr - 1);
+  prev_particles = manta_has_particles(mds->fluid, mmd, scene_framenr - 1);
+  prev_guide = manta_has_guiding(mds->fluid, mmd, scene_framenr - 1, guide_parent);
+
+  /* Unused for now, but needed for proper caching. */
+  UNUSED_VARS(prev_guide);
+  UNUSED_VARS(next_noise);
+  UNUSED_VARS(next_mesh);
+  UNUSED_VARS(next_particles);
+  UNUSED_VARS(next_guide);
+
   bool with_gdomain;
   with_gdomain = (mds->guide_source == FLUID_DOMAIN_GUIDE_SRC_DOMAIN);
 
@@ -3849,6 +3853,7 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
     default:
       /* Always trying to read the cache in replay mode. */
       read_cache = true;
+      bake_cache = false;
       break;
   }
 
@@ -3933,7 +3938,7 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
           BKE_fluid_reallocate_fluid(mds, mds->res, 1);
         }
         /* Read data cache */
-        if (!baking_data && !baking_particles && !baking_mesh && !mode_replay) {
+        if (!baking_data && !baking_particles && !baking_mesh && next_data) {
           has_data = manta_update_smoke_structures(mds->fluid, mmd, data_frame);
         }
         else {
@@ -3958,18 +3963,21 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
       break;
     case FLUID_DOMAIN_CACHE_REPLAY:
     default:
-      baking_data = !has_data;
+      baking_data = !has_data && (is_startframe || prev_data);
       if (with_smoke && with_noise) {
-        baking_noise = !has_noise;
+        baking_noise = !has_noise && (is_startframe || prev_noise);
       }
       if (with_liquid && with_mesh) {
-        baking_mesh = !has_mesh;
+        baking_mesh = !has_mesh && (is_startframe || prev_mesh);
       }
       if (with_liquid && with_particles) {
-        baking_particles = !has_particles;
+        baking_particles = !has_particles && (is_startframe || prev_particles);
       }
 
-      bake_cache = baking_data || baking_noise || baking_mesh || baking_particles;
+      /* Only bake if time advanced by one frame. */
+      if (is_startframe || has_advanced) {
+        bake_cache = baking_data || baking_noise || baking_mesh || baking_particles;
+      }
       break;
   }
 
@@ -4000,7 +4008,11 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
     }
     if (has_data || baking_data) {
       if (baking_noise && with_smoke && with_noise) {
-        manta_bake_noise(mds->fluid, mmd, scene_framenr);
+        /* Ensure that no bake occurs if domain was minimized by adaptive domain. */
+        if (mds->total_cells > 1) {
+          manta_bake_noise(mds->fluid, mmd, scene_framenr);
+        }
+        manta_write_noise(mds->fluid, mmd, scene_framenr);
       }
       if (baking_mesh && with_liquid && with_mesh) {
         manta_bake_mesh(mds->fluid, mmd, scene_framenr);
@@ -4452,6 +4464,18 @@ void BKE_fluid_particle_system_destroy(struct Object *ob, const int particle_typ
  *
  * Use for versioning, even when fluids are disabled.
  * \{ */
+
+void BKE_fluid_cache_startframe_set(FluidDomainSettings *settings, int value)
+{
+  settings->cache_frame_start = (value > settings->cache_frame_end) ? settings->cache_frame_end :
+                                                                      value;
+}
+
+void BKE_fluid_cache_endframe_set(FluidDomainSettings *settings, int value)
+{
+  settings->cache_frame_end = (value < settings->cache_frame_start) ? settings->cache_frame_start :
+                                                                      value;
+}
 
 void BKE_fluid_cachetype_mesh_set(FluidDomainSettings *settings, int cache_mesh_format)
 {
@@ -5179,8 +5203,8 @@ void BKE_fluid_modifier_copy(const struct FluidModifierData *mmd,
 
     tmes->surface_distance = mes->surface_distance;
     tmes->type = mes->type;
-    tmes->flags = tmes->flags;
-    tmes->subframes = tmes->subframes;
+    tmes->flags = mes->flags;
+    tmes->subframes = mes->subframes;
 
     /* guide options */
     tmes->guide_mode = mes->guide_mode;

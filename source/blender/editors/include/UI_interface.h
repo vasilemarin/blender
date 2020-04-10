@@ -506,6 +506,9 @@ typedef void (*uiButSearchFunc)(const struct bContext *C,
                                 void *arg,
                                 const char *str,
                                 uiSearchItems *items);
+
+typedef void (*uiButSearchArgFreeFunc)(void *arg);
+
 /* Must return allocated string. */
 typedef char *(*uiButToolTipFunc)(struct bContext *C, void *argN, const char *tip);
 typedef int (*uiButPushedStateFunc)(struct bContext *C, void *arg);
@@ -1565,13 +1568,13 @@ eAutoPropButsReturn uiDefAutoButsRNA(uiLayout *layout,
                                      const bool compact);
 
 /* use inside searchfunc to add items */
-bool UI_search_item_add(uiSearchItems *items, const char *name, void *poin, int iconid);
+bool UI_search_item_add(uiSearchItems *items, const char *name, void *poin, int iconid, int state);
 /* bfunc gets search item *poin as arg2, or if NULL the old string */
 void UI_but_func_search_set(uiBut *but,
                             uiButSearchCreateFunc cfunc,
                             uiButSearchFunc sfunc,
                             void *arg,
-                            bool free_arg,
+                            uiButSearchArgFreeFunc search_arg_free_func,
                             uiButHandleFunc bfunc,
                             void *active);
 /* height in pixels, it's using hardcoded values still */
@@ -1647,14 +1650,14 @@ void UI_panels_end(const struct bContext *C, struct ARegion *region, int *r_x, i
 void UI_panels_draw(const struct bContext *C, struct ARegion *region);
 
 struct Panel *UI_panel_find_by_type(struct ListBase *lb, struct PanelType *pt);
-struct Panel *UI_panel_begin(struct ScrArea *sa,
+struct Panel *UI_panel_begin(struct ScrArea *area,
                              struct ARegion *region,
                              struct ListBase *lb,
                              uiBlock *block,
                              struct PanelType *pt,
-                             struct Panel *pa,
+                             struct Panel *panel,
                              bool *r_open);
-void UI_panel_end(const struct ScrArea *sa,
+void UI_panel_end(const struct ScrArea *area,
                   const struct ARegion *region,
                   uiBlock *block,
                   int width,
@@ -1662,7 +1665,7 @@ void UI_panel_end(const struct ScrArea *sa,
                   bool open);
 void UI_panels_scale(struct ARegion *region, float new_width);
 void UI_panel_label_offset(struct uiBlock *block, int *r_x, int *r_y);
-int UI_panel_size_y(const struct Panel *pa);
+int UI_panel_size_y(const struct Panel *panel);
 
 bool UI_panel_category_is_visible(const struct ARegion *region);
 void UI_panel_category_add(struct ARegion *region, const char *name);
@@ -2035,6 +2038,10 @@ void uiTemplateImageInfo(uiLayout *layout,
 void uiTemplateRunningJobs(uiLayout *layout, struct bContext *C);
 void UI_but_func_operator_search(uiBut *but);
 void uiTemplateOperatorSearch(uiLayout *layout);
+
+void UI_but_func_menu_search(uiBut *but);
+void uiTemplateMenuSearch(uiLayout *layout);
+
 eAutoPropButsReturn uiTemplateOperatorPropertyButs(const struct bContext *C,
                                                    uiLayout *layout,
                                                    struct wmOperator *op,
@@ -2355,7 +2362,7 @@ void UI_drop_color_copy(struct wmDrag *drag, struct wmDropBox *drop);
 bool UI_drop_color_poll(struct bContext *C,
                         struct wmDrag *drag,
                         const struct wmEvent *event,
-                        const char **tooltip);
+                        const char **r_tooltip);
 
 bool UI_context_copy_to_selected_list(struct bContext *C,
                                       struct PointerRNA *ptr,
@@ -2463,7 +2470,7 @@ struct ARegion *UI_tooltip_create_from_button(struct bContext *C,
                                               uiBut *but,
                                               bool is_label);
 struct ARegion *UI_tooltip_create_from_gizmo(struct bContext *C, struct wmGizmo *gz);
-void UI_tooltip_free(struct bContext *C, struct bScreen *sc, struct ARegion *region);
+void UI_tooltip_free(struct bContext *C, struct bScreen *screen, struct ARegion *region);
 
 /* How long before a tool-tip shows. */
 #define UI_TOOLTIP_DELAY 0.5

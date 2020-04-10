@@ -2379,7 +2379,10 @@ bool isect_tri_tri_epsilon_v3(const float t_a0[3],
         if (UNLIKELY(edge_fac == -1.0f)) {
           /* pass */
         }
-        else if (edge_fac > 0.0f && edge_fac < 1.0f) {
+        /* Important to include 0.0f and 1.0f as one of the triangles vertices may be placed
+         * exactly on the plane. In this case both it's edges will have a factor of 0 or 1,
+         * but not be going through the plane. See T73566. */
+        else if (edge_fac >= 0.0f && edge_fac <= 1.0f) {
           float ix_tri[3];
           float span_fac;
 
@@ -5356,7 +5359,7 @@ void vcloud_estimate_transform_v3(const int list_size,
     }
     if (lrot || lscale) { /* caller does not want rot nor scale, strange but legal */
       /* so now do some reverse engineering and see if we can
-       * split rotation from scale -> Polardecompose */
+       * split rotation from scale -> Polar-decompose. */
       /* build 'projection' matrix */
       float m[3][3], mr[3][3], q[3][3], qi[3][3];
       float va[3], vb[3], stunt[3];

@@ -66,8 +66,6 @@
 #include "ED_mesh.h"
 #include "ED_uvedit.h"
 
-#include "DEG_depsgraph_query.h"
-
 #include "draw_cache_impl.h"
 #include "draw_cache_inline.h"
 
@@ -104,7 +102,7 @@ typedef struct MeshRenderData {
   /* HACK not supposed to be there but it's needed. */
   struct MeshBatchCache *cache;
   /** Edit Mesh */
-  BMEditMesh *edit_bmesh_orig;
+  BMEditMesh *edit_bmesh;
   BMesh *bm;
   EditMeshData *edit_data;
   int *v_origindex, *e_origindex, *p_origindex;
@@ -131,6 +129,7 @@ typedef struct MeshRenderData {
 
 static MeshRenderData *mesh_render_data_create(Mesh *me,
                                                const bool is_editmode,
+                                               const bool is_paint_mode,
                                                const float obmat[4][4],
                                                const bool do_final,
                                                const bool do_uvedit,
@@ -151,7 +150,7 @@ static MeshRenderData *mesh_render_data_create(Mesh *me,
   if (is_editmode) {
     BLI_assert(me->edit_mesh->mesh_eval_cage && me->edit_mesh->mesh_eval_final);
     mr->bm = me->edit_mesh->bm;
-    mr->edit_bmesh_orig = ((Mesh *)DEG_get_original_id(&me->id))->edit_mesh;
+    mr->edit_bmesh = me->edit_mesh;
     mr->edit_data = me->runtime.edit_data;
     mr->me = (do_final) ? me->edit_mesh->mesh_eval_final : me->edit_mesh->mesh_eval_cage;
     bool use_mapped = !do_uvedit && mr->me && !mr->me->runtime.is_original;
@@ -161,7 +160,7 @@ static MeshRenderData *mesh_render_data_create(Mesh *me,
     BM_mesh_elem_index_ensure(mr->bm, bm_ensure_types);
     BM_mesh_elem_table_ensure(mr->bm, bm_ensure_types & ~BM_LOOP);
 
-    mr->efa_act_uv = EDBM_uv_active_face_get(mr->edit_bmesh_orig, false, false);
+    mr->efa_act_uv = EDBM_uv_active_face_get(mr->edit_bmesh, false, false);
     mr->efa_act = BM_mesh_active_face_get(mr->bm, false, true);
     mr->eed_act = BM_mesh_active_edge_get(mr->bm);
     mr->eve_act = BM_mesh_active_vert_get(mr->bm);
@@ -192,8 +191,18 @@ static MeshRenderData *mesh_render_data_create(Mesh *me,
   }
   else {
     mr->me = me;
-    mr->edit_bmesh_orig = NULL;
-    mr->extract_type = MR_EXTRACT_MESH;
+    mr->edit_bmesh = NULL;
+
+    bool use_mapped = is_paint_mode && mr->me && !mr->me->runtime.is_original;
+    if (use_mapped) {
+      mr->v_origindex = CustomData_get_layer(&mr->me->vdata, CD_ORIGINDEX);
+      mr->e_origindex = CustomData_get_layer(&mr->me->edata, CD_ORIGINDEX);
+      mr->p_origindex = CustomData_get_layer(&mr->me->pdata, CD_ORIGINDEX);
+
+      use_mapped = (mr->v_origindex || mr->e_origindex || mr->p_origindex);
+    }
+
+    mr->extract_type = use_mapped ? MR_EXTRACT_MAPPED : MR_EXTRACT_MESH;
   }
 
   if (mr->extract_type != MR_EXTRACT_BMESH) {
@@ -318,7 +327,7 @@ static MeshRenderData *mesh_render_data_create(Mesh *me,
     }
     if ((iter_type & MR_ITER_LOOPTRI) || (data_flag & MR_DATA_LOOPTRI)) {
       /* Edit mode ensures this is valid, no need to calculate. */
-      BLI_assert((bm->totloop == 0) || (mr->edit_bmesh_orig->looptris != NULL));
+      BLI_assert((bm->totloop == 0) || (mr->edit_bmesh->looptris != NULL));
     }
     if (iter_type & (MR_ITER_LEDGE | MR_ITER_LVERT)) {
       int elem_id;
@@ -598,7 +607,7 @@ static void extract_lines_loop_mesh(const MeshRenderData *mr,
 {
   const MEdge *medge = &mr->medge[mloop->e];
   if (!((mr->use_hide && (medge->flag & ME_HIDE)) ||
-        ((mr->extract_type == MR_EXTRACT_MAPPED) &&
+        ((mr->extract_type == MR_EXTRACT_MAPPED) && (mr->e_origindex) &&
          (mr->e_origindex[mloop->e] == ORIGINDEX_NONE)))) {
     int loopend = mpoly->totloop + mpoly->loopstart - 1;
     int other_loop = (l == loopend) ? mpoly->loopstart : (l + 1);
@@ -631,7 +640,7 @@ static void extract_lines_ledge_mesh(const MeshRenderData *mr,
   int ledge_idx = mr->edge_len + e;
   int edge_idx = mr->ledges[e];
   if (!((mr->use_hide && (medge->flag & ME_HIDE)) ||
-        ((mr->extract_type == MR_EXTRACT_MAPPED) &&
+        ((mr->extract_type == MR_EXTRACT_MAPPED) && (mr->e_origindex) &&
          (mr->e_origindex[edge_idx] == ORIGINDEX_NONE)))) {
     int l = mr->loop_len + e * 2;
     GPU_indexbuf_set_line_verts(elb, ledge_idx, l, l + 1);
@@ -757,7 +766,7 @@ BLI_INLINE void vert_set_mesh(GPUIndexBufBuilder *elb,
 {
   const MVert *mvert = &mr->mvert[vert_idx];
   if (!((mr->use_hide && (mvert->flag & ME_HIDE)) ||
-        ((mr->extract_type == MR_EXTRACT_MAPPED) &&
+        ((mr->extract_type == MR_EXTRACT_MAPPED) && (mr->v_origindex) &&
          (mr->v_origindex[vert_idx] == ORIGINDEX_NONE)))) {
     GPU_indexbuf_set_point_vert(elb, vert_idx, loop);
   }
@@ -926,10 +935,14 @@ static void extract_lines_paint_mask_loop_mesh(const MeshRenderData *mr,
                                                void *_data)
 {
   MeshExtract_LinePaintMask_Data *data = (MeshExtract_LinePaintMask_Data *)_data;
-  if (!(mr->use_hide && (mpoly->flag & ME_HIDE))) {
+  const int edge_idx = mloop->e;
+  const MEdge *medge = &mr->medge[edge_idx];
+  if (!((mr->use_hide && (medge->flag & ME_HIDE)) ||
+        ((mr->extract_type == MR_EXTRACT_MAPPED) && (mr->e_origindex) &&
+         (mr->e_origindex[edge_idx] == ORIGINDEX_NONE)))) {
+
     int loopend = mpoly->totloop + mpoly->loopstart - 1;
     int other_loop = (l == loopend) ? mpoly->loopstart : (l + 1);
-    int edge_idx = mloop->e;
     if (mpoly->flag & ME_FACE_SEL) {
       if (BLI_BITMAP_TEST_AND_SET_ATOMIC(data->select_map, edge_idx)) {
         /* Hide edge as it has more than 2 selected loop. */
@@ -946,6 +959,9 @@ static void extract_lines_paint_mask_loop_mesh(const MeshRenderData *mr,
         GPU_indexbuf_set_line_verts(&data->elb, edge_idx, l, other_loop);
       }
     }
+  }
+  else {
+    GPU_indexbuf_set_line_restart(&data->elb, edge_idx);
   }
 }
 static void extract_lines_paint_mask_finish(const MeshRenderData *UNUSED(mr),
@@ -1318,7 +1334,7 @@ static void extract_edituv_points_loop_mesh(const MeshRenderData *mr,
                                             const MPoly *mpoly,
                                             void *data)
 {
-  const bool real_vert = (mr->extract_type == MR_EXTRACT_MAPPED &&
+  const bool real_vert = (mr->extract_type == MR_EXTRACT_MAPPED && (mr->v_origindex) &&
                           mr->v_origindex[mloop->v] != ORIGINDEX_NONE);
   edituv_point_add(
       data, ((mpoly->flag & ME_HIDE) != 0) || !real_vert, (mpoly->flag & ME_FACE_SEL) != 0, l);
@@ -1392,7 +1408,7 @@ static void extract_edituv_fdots_loop_mesh(const MeshRenderData *mr,
                                            const MPoly *mpoly,
                                            void *data)
 {
-  const bool real_fdot = (mr->extract_type == MR_EXTRACT_MAPPED &&
+  const bool real_fdot = (mr->extract_type == MR_EXTRACT_MAPPED && mr->p_origindex &&
                           mr->p_origindex[p] != ORIGINDEX_NONE);
   const bool subd_fdot = (!mr->use_subsurf_fdots ||
                           (mr->mvert[mloop->v].flag & ME_VERT_FACEDOT) != 0);
@@ -1502,7 +1518,9 @@ static void extract_pos_nor_loop_mesh(const MeshRenderData *mr,
   copy_v3_v3(vert->pos, mvert->co);
   vert->nor = data->packed_nor[mloop->v];
   /* Flag for paint mode overlay. */
-  if (mpoly->flag & ME_HIDE || mvert->flag & ME_HIDE) {
+  if (mpoly->flag & ME_HIDE || mvert->flag & ME_HIDE ||
+      ((mr->extract_type == MR_EXTRACT_MAPPED) && (mr->v_origindex) &&
+       (mr->v_origindex[mloop->v] == ORIGINDEX_NONE))) {
     vert->nor.w = -1;
   }
   else if (mvert->flag & SELECT) {
@@ -1619,24 +1637,27 @@ static void extract_lnor_hq_loop_bmesh(const MeshRenderData *mr, int l, BMLoop *
 static void extract_lnor_hq_loop_mesh(
     const MeshRenderData *mr, int l, const MLoop *mloop, int p, const MPoly *mpoly, void *data)
 {
+  gpuHQNor *lnor_data = &((gpuHQNor *)data)[l];
   if (mr->loop_normals) {
-    normal_float_to_short_v3(&((gpuHQNor *)data)[l].x, mr->loop_normals[l]);
+    normal_float_to_short_v3(&lnor_data->x, mr->loop_normals[l]);
   }
   else if (mpoly->flag & ME_SMOOTH) {
-    copy_v3_v3_short(&((gpuHQNor *)data)[l].x, mr->mvert[mloop->v].no);
+    copy_v3_v3_short(&lnor_data->x, mr->mvert[mloop->v].no);
   }
   else {
-    normal_float_to_short_v3(&((gpuHQNor *)data)[l].x, mr->poly_normals[p]);
+    normal_float_to_short_v3(&lnor_data->x, mr->poly_normals[p]);
   }
+
   /* Flag for paint mode overlay. */
-  if (mpoly->flag & ME_HIDE) {
-    ((gpuHQNor *)data)[l].w = -1;
+  if (mpoly->flag & ME_HIDE || (mr->extract_type == MR_EXTRACT_MAPPED && (mr->v_origindex) &&
+                                mr->v_origindex[mloop->v] == ORIGINDEX_NONE)) {
+    lnor_data->w = -1;
   }
   else if (mpoly->flag & ME_FACE_SEL) {
-    ((gpuHQNor *)data)[l].w = 1;
+    lnor_data->w = 1;
   }
   else {
-    ((gpuHQNor *)data)[l].w = 0;
+    lnor_data->w = 0;
   }
 }
 
@@ -1692,24 +1713,27 @@ static void extract_lnor_loop_bmesh(const MeshRenderData *mr, int l, BMLoop *loo
 static void extract_lnor_loop_mesh(
     const MeshRenderData *mr, int l, const MLoop *mloop, int p, const MPoly *mpoly, void *data)
 {
+  GPUPackedNormal *lnor_data = &((GPUPackedNormal *)data)[l];
   if (mr->loop_normals) {
-    ((GPUPackedNormal *)data)[l] = GPU_normal_convert_i10_v3(mr->loop_normals[l]);
+    *lnor_data = GPU_normal_convert_i10_v3(mr->loop_normals[l]);
   }
   else if (mpoly->flag & ME_SMOOTH) {
-    ((GPUPackedNormal *)data)[l] = GPU_normal_convert_i10_s3(mr->mvert[mloop->v].no);
+    *lnor_data = GPU_normal_convert_i10_s3(mr->mvert[mloop->v].no);
   }
   else {
-    ((GPUPackedNormal *)data)[l] = GPU_normal_convert_i10_v3(mr->poly_normals[p]);
+    *lnor_data = GPU_normal_convert_i10_v3(mr->poly_normals[p]);
   }
+
   /* Flag for paint mode overlay. */
-  if (mpoly->flag & ME_HIDE) {
-    ((GPUPackedNormal *)data)[l].w = -1;
+  if (mpoly->flag & ME_HIDE || (mr->extract_type == MR_EXTRACT_MAPPED && (mr->v_origindex) &&
+                                mr->v_origindex[mloop->v] == ORIGINDEX_NONE)) {
+    lnor_data->w = -1;
   }
   else if (mpoly->flag & ME_FACE_SEL) {
-    ((GPUPackedNormal *)data)[l].w = 1;
+    lnor_data->w = 1;
   }
   else {
-    ((GPUPackedNormal *)data)[l].w = 0;
+    lnor_data->w = 0;
   }
 }
 
@@ -1752,10 +1776,10 @@ static void *extract_uv_init(const MeshRenderData *mr, void *buf)
 
   for (int i = 0; i < MAX_MTFACE; i++) {
     if (uv_layers & (1 << i)) {
-      char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTRIB_NAME];
+      char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTR_NAME];
       const char *layer_name = CustomData_get_layer_name(cd_ldata, CD_MLOOPUV, i);
 
-      GPU_vertformat_safe_attrib_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTRIB_NAME);
+      GPU_vertformat_safe_attr_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTR_NAME);
       /* UV layer name. */
       BLI_snprintf(attr_name, sizeof(attr_name), "u%s", attr_safe_name);
       GPU_vertformat_attr_add(&format, attr_name, GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
@@ -1859,9 +1883,9 @@ static void extract_tan_ex(const MeshRenderData *mr, GPUVertBuf *vbo, const bool
 
   for (int i = 0; i < MAX_MTFACE; i++) {
     if (tan_layers & (1 << i)) {
-      char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTRIB_NAME];
+      char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTR_NAME];
       const char *layer_name = CustomData_get_layer_name(cd_ldata, CD_MLOOPUV, i);
-      GPU_vertformat_safe_attrib_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTRIB_NAME);
+      GPU_vertformat_safe_attr_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTR_NAME);
       /* Tangent layer name. */
       BLI_snprintf(attr_name, sizeof(attr_name), "t%s", attr_safe_name);
       GPU_vertformat_attr_add(&format, attr_name, comp_type, 4, fetch_mode);
@@ -1904,7 +1928,7 @@ static void extract_tan_ex(const MeshRenderData *mr, GPUVertBuf *vbo, const bool
     short tangent_mask = 0;
     bool calc_active_tangent = false;
     if (mr->extract_type == MR_EXTRACT_BMESH) {
-      BKE_editmesh_loop_tangent_calc(mr->edit_bmesh_orig,
+      BKE_editmesh_loop_tangent_calc(mr->edit_bmesh,
                                      calc_active_tangent,
                                      tangent_names,
                                      tan_len,
@@ -1936,9 +1960,9 @@ static void extract_tan_ex(const MeshRenderData *mr, GPUVertBuf *vbo, const bool
   }
 
   if (use_orco_tan) {
-    char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTRIB_NAME];
+    char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTR_NAME];
     const char *layer_name = CustomData_get_layer_name(cd_ldata, CD_TANGENT, 0);
-    GPU_vertformat_safe_attrib_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTRIB_NAME);
+    GPU_vertformat_safe_attr_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTR_NAME);
     BLI_snprintf(attr_name, sizeof(*attr_name), "t%s", attr_safe_name);
     GPU_vertformat_attr_add(&format, attr_name, comp_type, 4, fetch_mode);
     GPU_vertformat_alias_add(&format, "t");
@@ -2067,9 +2091,9 @@ static void *extract_vcol_init(const MeshRenderData *mr, void *buf)
 
   for (int i = 0; i < 8; i++) {
     if (vcol_layers & (1 << i)) {
-      char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTRIB_NAME];
+      char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTR_NAME];
       const char *layer_name = CustomData_get_layer_name(cd_ldata, CD_MLOOPCOL, i);
-      GPU_vertformat_safe_attrib_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTRIB_NAME);
+      GPU_vertformat_safe_attr_name(layer_name, attr_safe_name, GPU_MAX_SAFE_ATTR_NAME);
 
       BLI_snprintf(attr_name, sizeof(attr_name), "c%s", attr_safe_name);
       GPU_vertformat_attr_add(&format, attr_name, GPU_COMP_U16, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
@@ -2141,7 +2165,7 @@ static void *extract_orco_init(const MeshRenderData *mr, void *buf)
   static GPUVertFormat format = {0};
   if (format.attr_len == 0) {
     /* FIXME(fclem): We use the last component as a way to differentiate from generic vertex
-     * attribs. This is a substantial waste of Vram and should be done another way.
+     * attributes. This is a substantial waste of Vram and should be done another way.
      * Unfortunately, at the time of writing, I did not found any other "non disruptive"
      * alternative. */
     GPU_vertformat_attr_add(&format, "orco", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
@@ -2169,7 +2193,7 @@ static void extract_orco_loop_bmesh(const MeshRenderData *UNUSED(mr),
   MeshExtract_Orco_Data *orco_data = (MeshExtract_Orco_Data *)data;
   float *loop_orco = orco_data->vbo_data[l];
   copy_v3_v3(loop_orco, orco_data->orco[BM_elem_index_get(loop->v)]);
-  loop_orco[3] = 0.0; /* Tag as not a generic attrib */
+  loop_orco[3] = 0.0; /* Tag as not a generic attribute. */
 }
 
 static void extract_orco_loop_mesh(const MeshRenderData *UNUSED(mr),
@@ -2182,7 +2206,7 @@ static void extract_orco_loop_mesh(const MeshRenderData *UNUSED(mr),
   MeshExtract_Orco_Data *orco_data = (MeshExtract_Orco_Data *)data;
   float *loop_orco = orco_data->vbo_data[l];
   copy_v3_v3(loop_orco, orco_data->orco[mloop->v]);
-  loop_orco[3] = 0.0; /* Tag as not a generic attrib */
+  loop_orco[3] = 0.0; /* Tag as not a generic attribute. */
 }
 
 static void extract_orco_finish(const MeshRenderData *UNUSED(mr), void *UNUSED(buf), void *data)
@@ -3259,7 +3283,7 @@ static void statvis_calc_overhang(const MeshRenderData *mr, float *r_overhang)
   const float min = statvis->overhang_min / (float)M_PI;
   const float max = statvis->overhang_max / (float)M_PI;
   const char axis = statvis->overhang_axis;
-  BMEditMesh *em = mr->edit_bmesh_orig;
+  BMEditMesh *em = mr->edit_bmesh;
   BMIter iter;
   BMesh *bm = em->bm;
   BMFace *f;
@@ -3328,7 +3352,7 @@ static void statvis_calc_thickness(const MeshRenderData *mr, float *r_thickness)
   const float eps_offset = 0.00002f; /* values <= 0.00001 give errors */
   /* cheating to avoid another allocation */
   float *face_dists = r_thickness + (mr->loop_len - mr->poly_len);
-  BMEditMesh *em = mr->edit_bmesh_orig;
+  BMEditMesh *em = mr->edit_bmesh;
   const float scale = 1.0f / mat4_to_scale(mr->obmat);
   const MeshStatVis *statvis = &mr->toolsettings->statvis;
   const float min = statvis->thickness_min * scale;
@@ -3483,7 +3507,7 @@ static bool bvh_overlap_cb(void *userdata, int index_a, int index_b, int UNUSED(
 
 static void statvis_calc_intersect(const MeshRenderData *mr, float *r_intersect)
 {
-  BMEditMesh *em = mr->edit_bmesh_orig;
+  BMEditMesh *em = mr->edit_bmesh;
 
   for (int l = 0; l < mr->loop_len; l++) {
     r_intersect[l] = -1.0f;
@@ -3562,7 +3586,7 @@ BLI_INLINE float distort_remap(float fac, float min, float UNUSED(max), float mi
 
 static void statvis_calc_distort(const MeshRenderData *mr, float *r_distort)
 {
-  BMEditMesh *em = mr->edit_bmesh_orig;
+  BMEditMesh *em = mr->edit_bmesh;
   const MeshStatVis *statvis = &mr->toolsettings->statvis;
   const float min = statvis->distort_min;
   const float max = statvis->distort_max;
@@ -3651,7 +3675,7 @@ BLI_INLINE float sharp_remap(float fac, float min, float UNUSED(max), float minm
 
 static void statvis_calc_sharp(const MeshRenderData *mr, float *r_sharp)
 {
-  BMEditMesh *em = mr->edit_bmesh_orig;
+  BMEditMesh *em = mr->edit_bmesh;
   const MeshStatVis *statvis = &mr->toolsettings->statvis;
   const float min = statvis->sharp_min;
   const float max = statvis->sharp_max;
@@ -3749,7 +3773,7 @@ static void statvis_calc_sharp(const MeshRenderData *mr, float *r_sharp)
 
 static void extract_mesh_analysis_finish(const MeshRenderData *mr, void *buf, void *UNUSED(data))
 {
-  BLI_assert(mr->edit_bmesh_orig);
+  BLI_assert(mr->edit_bmesh);
 
   GPUVertBuf *vbo = buf;
   float *l_weight = (float *)vbo->data;
@@ -3892,7 +3916,8 @@ static void extract_fdots_nor_finish(const MeshRenderData *mr, void *buf, void *
     for (int f = 0; f < mr->poly_len; f++) {
       efa = BM_face_at_index(mr->bm, f);
       const bool is_face_hidden = BM_elem_flag_test(efa, BM_ELEM_HIDDEN);
-      if (is_face_hidden) {
+      if (is_face_hidden || (mr->extract_type == MR_EXTRACT_MAPPED && mr->p_origindex &&
+                             mr->p_origindex[f] == ORIGINDEX_NONE)) {
         nor[f] = GPU_normal_convert_i10_v3(invalid_normal);
         nor[f].w = NOR_AND_FLAG_HIDDEN;
       }
@@ -3908,7 +3933,9 @@ static void extract_fdots_nor_finish(const MeshRenderData *mr, void *buf, void *
   else {
     for (int f = 0; f < mr->poly_len; f++) {
       efa = bm_original_face_get(mr, f);
-      if (!efa || BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
+      const bool is_face_hidden = efa && BM_elem_flag_test(efa, BM_ELEM_HIDDEN);
+      if (is_face_hidden || (mr->extract_type == MR_EXTRACT_MAPPED && mr->p_origindex &&
+                             mr->p_origindex[f] == ORIGINDEX_NONE)) {
         nor[f] = GPU_normal_convert_i10_v3(invalid_normal);
         nor[f].w = NOR_AND_FLAG_HIDDEN;
       }
@@ -4412,7 +4439,7 @@ BLI_INLINE void mesh_extract_iter(const MeshRenderData *mr,
       if (iter_type & MR_ITER_LOOPTRI) {
         int t_end = min_ii(mr->tri_len, end);
         for (int t = start; t < t_end; t++) {
-          BMLoop **elt = &mr->edit_bmesh_orig->looptris[t][0];
+          BMLoop **elt = &mr->edit_bmesh->looptris[t][0];
           extract->iter_looptri_bm(mr, t, elt, user_data);
         }
       }
@@ -4497,7 +4524,7 @@ static void extract_range_task_create(
   taskdata->iter_type = type;
   taskdata->start = start;
   taskdata->end = start + length;
-  BLI_task_pool_push(task_pool, extract_run, taskdata, true, TASK_PRIORITY_HIGH);
+  BLI_task_pool_push(task_pool, extract_run, taskdata, true, NULL);
 }
 
 static void extract_task_create(TaskPool *task_pool,
@@ -4556,7 +4583,7 @@ static void extract_task_create(TaskPool *task_pool,
   else if (use_thread) {
     /* One task for the whole VBO. */
     (*task_counter)++;
-    BLI_task_pool_push(task_pool, extract_run, taskdata, true, TASK_PRIORITY_HIGH);
+    BLI_task_pool_push(task_pool, extract_run, taskdata, true, NULL);
   }
   else {
     /* Single threaded extraction. */
@@ -4570,6 +4597,7 @@ void mesh_buffer_cache_create_requested(MeshBatchCache *cache,
                                         MeshBufferCache mbc,
                                         Mesh *me,
                                         const bool is_editmode,
+                                        const bool is_paint_mode,
                                         const float obmat[4][4],
                                         const bool do_final,
                                         const bool do_uvedit,
@@ -4631,8 +4659,16 @@ void mesh_buffer_cache_create_requested(MeshBatchCache *cache,
   double rdata_start = PIL_check_seconds_timer();
 #endif
 
-  MeshRenderData *mr = mesh_render_data_create(
-      me, is_editmode, obmat, do_final, do_uvedit, iter_flag, data_flag, cd_layer_used, ts);
+  MeshRenderData *mr = mesh_render_data_create(me,
+                                               is_editmode,
+                                               is_paint_mode,
+                                               obmat,
+                                               do_final,
+                                               do_uvedit,
+                                               iter_flag,
+                                               data_flag,
+                                               cd_layer_used,
+                                               ts);
   mr->cache = cache; /* HACK */
   mr->use_hide = use_hide;
   mr->use_subsurf_fdots = use_subsurf_fdots;
@@ -4646,7 +4682,7 @@ void mesh_buffer_cache_create_requested(MeshBatchCache *cache,
   TaskPool *task_pool;
 
   task_scheduler = BLI_task_scheduler_get();
-  task_pool = BLI_task_pool_create_suspended(task_scheduler, NULL);
+  task_pool = BLI_task_pool_create_suspended(task_scheduler, NULL, TASK_PRIORITY_HIGH);
 
   size_t counters_size = (sizeof(mbc) / sizeof(void *)) * sizeof(int32_t);
   int32_t *task_counters = MEM_callocN(counters_size, __func__);
