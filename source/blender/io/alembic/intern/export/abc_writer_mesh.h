@@ -31,9 +31,13 @@ namespace ABC {
 /* Writer for Alembic geometry. Does not assume the object is a mesh object. */
 class ABCGenericMeshWriter : public ABCAbstractWriter {
  private:
-  /* Either one or the other is used, depending on is_subd_: */
+  /* Either polymesh or subd is used, depending on is_subd_.
+   * References to the schema must be kept, or Alembic will not properly write. */
   Alembic::AbcGeom::OPolyMesh abc_poly_mesh_;
+  Alembic::AbcGeom::OPolyMeshSchema abc_poly_mesh_schema_;
+
   Alembic::AbcGeom::OSubD abc_subdiv_;
+  Alembic::AbcGeom::OSubDSchema abc_subdiv_schema_;
 
   /* Determines whether a poly mesh or a subdivision surface is exported.
    * The value is set by an export option but only true if there is a subsdivision modifier on the

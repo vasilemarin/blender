@@ -172,9 +172,11 @@ void ABCGenericMeshWriter::do_write(HierarchyContext &context)
     OObject abc_parent = get_alembic_parent(context, true);
     if (is_subd_ && !abc_subdiv_.valid()) {
       abc_subdiv_ = OSubD(abc_parent, context.export_name, timesample_index_);
+      abc_subdiv_schema_ = abc_subdiv_.getSchema();
     }
     else if (!is_subd_ && !abc_poly_mesh_.valid()) {
       abc_poly_mesh_ = OPolyMesh(abc_parent, context.export_name, timesample_index_);
+      abc_poly_mesh_schema_ = abc_poly_mesh_.getSchema();
 
       OCompoundProperty typeContainer = abc_poly_mesh_.getSchema().getUserProperties();
       OBoolProperty type(typeContainer, "meshtype");
@@ -247,13 +249,12 @@ void ABCGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
   std::vector<int32_t> poly_verts, loop_counts;
   std::vector<Imath::V3f> velocities;
   bool has_flat_shaded_poly = false;
-  OPolyMeshSchema mesh_schema = abc_poly_mesh_.getSchema();
 
   get_vertices(mesh, points);
   get_topology(mesh, poly_verts, loop_counts, has_flat_shaded_poly);
 
   if (!frame_has_been_written_ && args_.export_params.face_sets) {
-    write_face_sets(context.object, mesh, mesh_schema);
+    write_face_sets(context.object, mesh, abc_poly_mesh_schema_);
   }
 
   OPolyMeshSchema::Sample mesh_sample = OPolyMeshSchema::Sample(
@@ -270,12 +271,12 @@ void ABCGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
       uv_sample.setIndices(UInt32ArraySample(uvs_and_indices.indices));
       uv_sample.setScope(kFacevaryingScope);
 
-      mesh_schema.setUVSourceName(name);
+      abc_poly_mesh_schema_.setUVSourceName(name);
       mesh_sample.setUVs(uv_sample);
     }
 
     write_custom_data(
-        mesh_schema.getArbGeomParams(), m_custom_data_config, &mesh->ldata, CD_MLOOPUV);
+        abc_poly_mesh_schema_.getArbGeomParams(), m_custom_data_config, &mesh->ldata, CD_MLOOPUV);
   }
 
   if (args_.export_params.normals) {
@@ -298,7 +299,7 @@ void ABCGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
   update_bounding_box(context.object);
   mesh_sample.setSelfBounds(bounding_box_);
 
-  mesh_schema.set(mesh_sample);
+  abc_poly_mesh_schema_.set(mesh_sample);
 
   write_arb_geo_params(mesh);
 }
@@ -310,14 +311,13 @@ void ABCGenericMeshWriter::write_subd(HierarchyContext &context, struct Mesh *me
   std::vector<int32_t> poly_verts, loop_counts;
   std::vector<int32_t> crease_indices, crease_lengths;
   bool has_flat_poly = false;
-  OSubDSchema subdiv_schema = abc_subdiv_.getSchema();
 
   get_vertices(mesh, points);
   get_topology(mesh, poly_verts, loop_counts, has_flat_poly);
   get_creases(mesh, crease_indices, crease_lengths, crease_sharpness);
 
   if (!frame_has_been_written_ && args_.export_params.face_sets) {
-    write_face_sets(context.object, mesh, subdiv_schema);
+    write_face_sets(context.object, mesh, abc_subdiv_schema_);
   }
 
   OSubDSchema::Sample subdiv_sample = OSubDSchema::Sample(
@@ -333,12 +333,12 @@ void ABCGenericMeshWriter::write_subd(HierarchyContext &context, struct Mesh *me
       uv_sample.setIndices(UInt32ArraySample(sample.indices));
       uv_sample.setScope(kFacevaryingScope);
 
-      subdiv_schema.setUVSourceName(name);
+      abc_subdiv_schema_.setUVSourceName(name);
       subdiv_sample.setUVs(uv_sample);
     }
 
     write_custom_data(
-        subdiv_schema.getArbGeomParams(), m_custom_data_config, &mesh->ldata, CD_MLOOPUV);
+        abc_subdiv_schema_.getArbGeomParams(), m_custom_data_config, &mesh->ldata, CD_MLOOPUV);
   }
 
   if (!crease_indices.empty()) {
@@ -349,7 +349,7 @@ void ABCGenericMeshWriter::write_subd(HierarchyContext &context, struct Mesh *me
 
   update_bounding_box(context.object);
   subdiv_sample.setSelfBounds(bounding_box_);
-  subdiv_schema.set(subdiv_sample);
+  abc_subdiv_schema_.set(subdiv_sample);
 
   write_arb_geo_params(mesh);
 }
