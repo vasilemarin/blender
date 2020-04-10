@@ -40,7 +40,7 @@ class TestHierarchyWriter : public AbstractHierarchyWriter {
   std::string writer_type;
   writing_writers &writers_map;
 
-  TestHierarchyWriter(const std::string &writer_type, created_writers &writers_map)
+  TestHierarchyWriter(const std::string &writer_type, writing_writers &writers_map)
       : writer_type(writer_type), writers_map(writers_map)
   {
   }
