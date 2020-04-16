@@ -536,6 +536,7 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
 
       if (id && CTX_wm_window(C)->eventstate->shift) {
         /* only way to force-remove data (on save) */
+        id_us_clear_real(id);
         id_fake_user_clear(id);
         id->us = 0;
       }
@@ -7239,7 +7240,7 @@ static struct MenuSearch_Data *menu_items_from_ui_create(bContext *C,
 
     UI_block_flag_enable(block, UI_BLOCK_SHOW_SHORTCUT_ALWAYS);
 
-    uiLayoutSetOperatorContext(layout, WM_OP_EXEC_REGION_WIN);
+    uiLayoutSetOperatorContext(layout, WM_OP_INVOKE_REGION_WIN);
     UI_menutype_draw(C, mt, layout);
 
     UI_block_end(C, block);

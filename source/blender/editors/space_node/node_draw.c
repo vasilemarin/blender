@@ -94,23 +94,11 @@ void ED_node_tree_update(const bContext *C)
 static bNodeTree *node_tree_from_ID(ID *id)
 {
   if (id) {
-    short idtype = GS(id->name);
-
-    switch (idtype) {
-      case ID_NT:
-        return (bNodeTree *)id;
-      case ID_MA:
-        return ((Material *)id)->nodetree;
-      case ID_LA:
-        return ((Light *)id)->nodetree;
-      case ID_WO:
-        return ((World *)id)->nodetree;
-      case ID_SCE:
-        return ((Scene *)id)->nodetree;
-      case ID_TE:
-        return ((Tex *)id)->nodetree;
-      case ID_LS:
-        return ((FreestyleLineStyle *)id)->nodetree;
+    if (GS(id->name) == ID_NT) {
+      return (bNodeTree *)id;
+    }
+    else {
+      return ntreeFromID(id);
     }
   }
 
@@ -719,7 +707,7 @@ static void node_draw_mute_line(View2D *v2d, SpaceNode *snode, bNode *node)
 #define MARKER_SHAPE_CIRCLE 0x2
 #define MARKER_SHAPE_INNER_DOT 0x10
 
-static uint node_socket_draw(const bNodeSocket *sock,
+static void node_socket_draw(const bNodeSocket *sock,
                              const float color[4],
                              const float color_outline[4],
                              float size,
@@ -762,8 +750,6 @@ static uint node_socket_draw(const bNodeSocket *sock,
   immAttr1f(size_id, size);
   immAttr4fv(outline_col_id, color_outline);
   immVertex2f(pos_id, locx, locy);
-
-  return flags;
 }
 
 static void node_socket_outline_color_get(bool selected, float r_outline_color[4])
