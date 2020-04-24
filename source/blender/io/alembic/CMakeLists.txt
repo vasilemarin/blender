@@ -54,7 +54,6 @@ set(SRC
   intern/abc_reader_object.cc
   intern/abc_reader_points.cc
   intern/abc_reader_transform.cc
-  intern/export/abc_subdiv_disabler.cc
   intern/abc_util.cc
   # intern/abc_writer_archive.cc
   # intern/abc_writer_camera.cc
@@ -79,7 +78,6 @@ set(SRC
   intern/abc_reader_object.h
   intern/abc_reader_points.h
   intern/abc_reader_transform.h
-  intern/export/abc_subdiv_disabler.h
   intern/abc_util.h
   # intern/abc_writer_archive.h
   # intern/abc_writer_camera.h
@@ -96,16 +94,17 @@ set(SRC
   intern/export/abc_archive.cc
   intern/export/abc_export_capi.cc
   intern/export/abc_hierarchy_iterator.cc
+  intern/export/abc_subdiv_disabler.cc
   intern/export/abc_writer_abstract.cc
   intern/export/abc_writer_mesh.cc
   intern/export/abc_writer_transform.cc
 
   intern/export/abc_archive.h
   intern/export/abc_hierarchy_iterator.h
+  intern/export/abc_subdiv_disabler.h
   intern/export/abc_writer_abstract.h
   intern/export/abc_writer_mesh.h
   intern/export/abc_writer_transform.h
-
 )
 
 set(LIB
