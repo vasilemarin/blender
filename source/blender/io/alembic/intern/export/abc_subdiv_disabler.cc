@@ -47,10 +47,11 @@ void SubdivModifierDisabler::disable_modifiers()
     }
 
     /* This disables more modifiers than necessary, as it doesn't take restrictions like
-     * "export selected objects only" into account. However, with the disabled subsurfs
+     * "export selected objects only" into account. However, with the subsurfs disabled,
      * moving to a different frame is also going to be faster, so in the end this is probably
      * a good thing to do. */
     subdiv->mode |= eModifierMode_DisableTemporary;
+    disabled_modifiers_.insert(subdiv);
     DEG_id_tag_update(&object->id, ID_RECALC_GEOMETRY);
   }
 }
