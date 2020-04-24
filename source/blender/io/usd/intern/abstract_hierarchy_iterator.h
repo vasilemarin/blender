@@ -90,10 +90,13 @@ struct HierarchyContext {
    * exported objects, in which case this string is empty even though 'duplicator' is set. */
   std::string original_export_path;
 
-  /* These two combined make it possible for the Alembic exporter to store references to the
-   * Alembic C++ objects and to obtain the parent's Alembic object. */
-  const HierarchyContext *parent_context;
-  void *custom_data;
+  /* Export path of the higher-up exported data. For transforms, this is the export path of the
+   * parent object. For object data, this is the export path of that object's transform.
+   *
+   * From the exported file's point of view, this is the path to the parent in that file. The term
+   * "parent" is not used here to avoid confusion with Blender's meaning of the word (which always
+   * refers to a different object). */
+  std::string higher_up_export_path;
 
   bool operator<(const HierarchyContext &other) const;
 
@@ -223,8 +226,6 @@ class AbstractHierarchyIterator {
   std::string get_object_name(const Object *object) const;
   std::string get_object_data_name(const Object *object) const;
 
-  AbstractHierarchyWriter *get_writer(const std::string &export_path);
-
   typedef AbstractHierarchyWriter *(AbstractHierarchyIterator::*create_writer_func)(
       const HierarchyContext *);
   /* Ensure that a writer exists; if it doesn't, call create_func(context).
@@ -262,7 +263,10 @@ class AbstractHierarchyIterator {
    * data/hair/particle will NOT prevent the transform to be written.
    *
    * The returned writer is owned by the AbstractHierarchyWriter, and should be freed in
-   * delete_object_writer(). */
+   * delete_object_writer().
+   *
+   * The created AbstractHierarchyWriter instances should NOT keep a copy of the context pointer.
+   * The context can be stack-allocated and go out of scope. */
   virtual AbstractHierarchyWriter *create_transform_writer(const HierarchyContext *context) = 0;
   virtual AbstractHierarchyWriter *create_data_writer(const HierarchyContext *context) = 0;
   virtual AbstractHierarchyWriter *create_hair_writer(const HierarchyContext *context) = 0;
@@ -270,6 +274,8 @@ class AbstractHierarchyIterator {
 
   /* Called by release_writers() to free what the create_XXX_writer() functions allocated. */
   virtual void delete_object_writer(AbstractHierarchyWriter *writer) = 0;
+
+  AbstractHierarchyWriter *get_writer(const std::string &export_path) const;
 };
 
 }  // namespace USD

@@ -69,8 +69,6 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
   /* TODO(Sybren): bring back support for writing the bounding box. */
 
   virtual const Alembic::Abc::OObject get_alembic_object() const = 0;
-  virtual const Alembic::Abc::OObject get_alembic_parent(HierarchyContext &context,
-                                                         bool is_obdata) const;
 
  protected:
   virtual void do_write(HierarchyContext &context) = 0;

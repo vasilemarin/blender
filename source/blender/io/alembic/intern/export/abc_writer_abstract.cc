@@ -67,36 +67,6 @@ void ABCAbstractWriter::write(HierarchyContext &context)
   frame_has_been_written_ = true;
 }
 
-const OObject ABCAbstractWriter::get_alembic_parent(HierarchyContext &context,
-                                                    bool is_obdata) const
-{
-  OObject parent;
-
-  if (is_obdata) {
-    /* The Alembic parent of object data is always the transform of the object. */
-    if (context.custom_data != nullptr) {
-      ABCAbstractWriter *xform_writer = reinterpret_cast<ABCAbstractWriter *>(context.custom_data);
-      parent = xform_writer->get_alembic_object();
-    }
-  }
-  else {
-    /* If there is a parent context known, try to find its Alembic object. */
-    if (context.parent_context != nullptr && context.parent_context->custom_data != nullptr) {
-      ABCAbstractWriter *parent_writer = reinterpret_cast<ABCAbstractWriter *>(
-          context.parent_context->custom_data);
-      parent = parent_writer->get_alembic_object();
-    }
-  }
-
-  if (!parent.valid()) {
-    /* An invalid parent object means "no parent", which should be translated to Alembic's top
-     * archive object. */
-    return args_.abc_archive->archive->getTop();
-  }
-
-  return parent;
-}
-
 void ABCAbstractWriter::update_bounding_box(Object *object)
 {
   BoundBox *bb = BKE_object_boundbox_get(object);

@@ -39,6 +39,9 @@ using Alembic::AbcGeom::XformSample;
 ABCTransformWriter::ABCTransformWriter(const ABCWriterConstructorArgs &args)
     : ABCAbstractWriter(args)
 {
+  uint32_t ts_index = args_.abc_archive->time_sampling_index_transforms();
+  abc_xform_ = OXform(args.abc_parent, args.abc_name, ts_index);
+  abc_xform_schema_ = abc_xform_.getSchema();
 }
 
 void ABCTransformWriter::do_write(HierarchyContext &context)
@@ -49,20 +52,10 @@ void ABCTransformWriter::do_write(HierarchyContext &context)
   // After this, parent_relative_matrix uses Y=up.
   copy_m44_axis_swap(parent_relative_matrix, parent_relative_matrix, ABC_YUP_FROM_ZUP);
 
-  if (!abc_xform_.valid()) {
-    printf("\033[96mCreating\033[0m %s OXform(%s) parent=%s\n",
-           context.export_path.c_str(),
-           context.export_name.c_str(),
-           get_alembic_parent(context, false).getFullName().c_str());
-    uint32_t ts_index = args_.abc_archive->time_sampling_index_transforms();
-    abc_xform_ = OXform(get_alembic_parent(context, false), context.export_name, ts_index);
-    context.custom_data = this;
-  }
-
   XformSample xform_sample;
   xform_sample.setMatrix(convert_matrix_datatype(parent_relative_matrix));
   xform_sample.setInheritsXforms(true);
-  abc_xform_.getSchema().set(xform_sample);
+  abc_xform_schema_.set(xform_sample);
 }
 
 const OObject ABCTransformWriter::get_alembic_object() const

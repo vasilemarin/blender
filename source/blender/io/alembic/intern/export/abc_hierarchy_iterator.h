@@ -26,14 +26,13 @@
 #include <string>
 
 #include <Alembic/Abc/OArchive.h>
+#include <Alembic/Abc/OObject.h>
 
 struct Depsgraph;
 struct ID;
 struct Object;
 
 namespace ABC {
-
-using Alembic::Abc::OArchive;
 
 /* TODO(Sybren): move these out of the USD namespace into something more generic. */
 using USD::AbstractHierarchyIterator;
@@ -46,6 +45,8 @@ struct ABCWriterConstructorArgs {
   Object *object; /* Evaluated object */
   Depsgraph *depsgraph;
   ABCArchive *abc_archive;
+  Alembic::Abc::OObject abc_parent;
+  const std::string abc_name;
   const std::string abc_path;
   const ABCHierarchyIterator *hierarchy_iterator;
   const AlembicExportParams &export_params;
@@ -76,7 +77,8 @@ class ABCHierarchyIterator : public AbstractHierarchyIterator {
   virtual void delete_object_writer(AbstractHierarchyWriter *writer) override;
 
  private:
-  ABCWriterConstructorArgs writer_constructor_args(const HierarchyContext *context);
+  Alembic::Abc::OObject get_alembic_parent(const HierarchyContext *context) const;
+  ABCWriterConstructorArgs writer_constructor_args(const HierarchyContext *context) const;
 };
 
 }  // namespace ABC

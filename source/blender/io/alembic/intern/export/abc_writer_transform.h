@@ -27,6 +27,7 @@ namespace ABC {
 class ABCTransformWriter : public ABCAbstractWriter {
  private:
   Alembic::AbcGeom::OXform abc_xform_;
+  Alembic::AbcGeom::OXformSchema abc_xform_schema_;
 
  public:
   ABCTransformWriter(const ABCWriterConstructorArgs &args);

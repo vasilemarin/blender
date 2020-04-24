@@ -71,17 +71,37 @@ std::string ABCHierarchyIterator::make_valid_name(const std::string &name) const
   return abc_name;
 }
 
-ABCWriterConstructorArgs ABCHierarchyIterator::writer_constructor_args(
-    const HierarchyContext *context)
+Alembic::Abc::OObject ABCHierarchyIterator::get_alembic_parent(
+    const HierarchyContext *context) const
 {
-  if (DEG_is_original_object(context->object)) {
-    printf("writer_constructor_args: object is \033[93moriginal\033[0m\n");
+  Alembic::Abc::OObject parent;
+
+  if (!context->higher_up_export_path.empty()) {
+    AbstractHierarchyWriter *writer = get_writer(context->higher_up_export_path);
+    ABCAbstractWriter *abc_writer = static_cast<ABCAbstractWriter *>(writer);
+    parent = abc_writer->get_alembic_object();
   }
-  else {
-    printf("writer_constructor_args: object is \033[96mCOPY\033[0m\n");
+
+  if (!parent.valid()) {
+    /* An invalid parent object means "no parent", which should be translated to Alembic's top
+     * archive object. */
+    return abc_archive_->archive->getTop();
   }
-  return ABCWriterConstructorArgs{
-      context->object, depsgraph_, abc_archive_, context->export_path, this, params_};
+
+  return parent;
+}
+
+ABCWriterConstructorArgs ABCHierarchyIterator::writer_constructor_args(
+    const HierarchyContext *context) const
+{
+  return ABCWriterConstructorArgs{context->object,
+                                  depsgraph_,
+                                  abc_archive_,
+                                  get_alembic_parent(context),
+                                  context->export_name,
+                                  context->export_path,
+                                  this,
+                                  params_};
 }
 
 AbstractHierarchyWriter *ABCHierarchyIterator::create_transform_writer(

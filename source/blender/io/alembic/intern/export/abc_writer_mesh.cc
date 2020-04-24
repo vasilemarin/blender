@@ -90,6 +90,20 @@ ABCGenericMeshWriter::ABCGenericMeshWriter(const ABCWriterConstructorArgs &args)
     is_subd_ = args_.export_params.use_subdiv_schema;
   }
 
+  OObject abc_parent = args.abc_parent;
+  if (is_subd_ && !abc_subdiv_.valid()) {
+    abc_subdiv_ = OSubD(abc_parent, args.abc_name, timesample_index_);
+    abc_subdiv_schema_ = abc_subdiv_.getSchema();
+  }
+  else if (!is_subd_ && !abc_poly_mesh_.valid()) {
+    abc_poly_mesh_ = OPolyMesh(abc_parent, args.abc_name, timesample_index_);
+    abc_poly_mesh_schema_ = abc_poly_mesh_.getSchema();
+
+    OCompoundProperty typeContainer = abc_poly_mesh_.getSchema().getUserProperties();
+    OBoolProperty type(typeContainer, "meshtype");
+    type.set(subsurf_modifier_ == nullptr);
+  }
+
   // TODO(Sybren): does this have to use the original or the evaluated data?
   // TODO(Sybren): avoid keeping ModifierData pointers around?
   Scene *scene_eval = DEG_get_evaluated_scene(args_.depsgraph);
@@ -167,22 +181,6 @@ void ABCGenericMeshWriter::do_write(HierarchyContext &context)
 {
   Object *object = context.object;
   bool needsfree = false;
-
-  if (!frame_has_been_written_) {
-    OObject abc_parent = get_alembic_parent(context, true);
-    if (is_subd_ && !abc_subdiv_.valid()) {
-      abc_subdiv_ = OSubD(abc_parent, context.export_name, timesample_index_);
-      abc_subdiv_schema_ = abc_subdiv_.getSchema();
-    }
-    else if (!is_subd_ && !abc_poly_mesh_.valid()) {
-      abc_poly_mesh_ = OPolyMesh(abc_parent, context.export_name, timesample_index_);
-      abc_poly_mesh_schema_ = abc_poly_mesh_.getSchema();
-
-      OCompoundProperty typeContainer = abc_poly_mesh_.getSchema().getUserProperties();
-      OBoolProperty type(typeContainer, "meshtype");
-      type.set(subsurf_modifier_ == nullptr);
-    }
-  }
 
   Mesh *mesh = get_export_mesh(object, needsfree);
 

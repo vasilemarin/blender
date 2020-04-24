@@ -348,8 +348,7 @@ void AbstractHierarchyIterator::visit_object(Object *object,
   context->animation_check_include_parent = false;
   context->export_path = "";
   context->original_export_path = "";
-  context->parent_context = nullptr;
-  context->custom_data = nullptr;
+  context->higher_up_export_path = "";
 
   copy_m4_m4(context->matrix_world, object->obmat);
 
@@ -380,8 +379,7 @@ void AbstractHierarchyIterator::visit_dupli_object(DupliObject *dupli_object,
   context->weak_export = false;
   context->export_path = "";
   context->original_export_path = "";
-  context->parent_context = nullptr;
-  context->custom_data = nullptr;
+  context->export_path = "";
 
   /* If the dupli-object's parent is also instanced by this object, use that as the
    * export parent. Otherwise use the dupli-parent as export parent. */
@@ -501,7 +499,9 @@ void AbstractHierarchyIterator::make_writers(const HierarchyContext *parent_cont
   for (HierarchyContext *context : graph_children(parent_context)) {
     // Update the context so that it is correct for this parent-child relation.
     copy_m4_m4(context->parent_matrix_inv_world, parent_matrix_inv_world);
-    context->parent_context = parent_context;
+    if (parent_context != nullptr) {
+      context->higher_up_export_path = parent_context->export_path;
+    }
     // printf("make_writers: %s has parent context %s\n",
     //        context->export_path.c_str(),
     //        parent_context ? parent_context->export_path.c_str() : "<null>");
@@ -543,6 +543,7 @@ void AbstractHierarchyIterator::make_writer_object_data(const HierarchyContext *
 
   HierarchyContext data_context = *context;
   data_context.export_path = get_object_data_path(context);
+  data_context.higher_up_export_path = context->export_path;
 
   /* data_context.original_export_path is just a copy from the context. It points to the object,
    * but needs to point to the object data. */
@@ -581,6 +582,7 @@ void AbstractHierarchyIterator::make_writers_particle_systems(
     HierarchyContext hair_context = *transform_context;
     hair_context.export_path = path_concatenate(transform_context->export_path,
                                                 get_id_name(&psys->part->id));
+    hair_context.higher_up_export_path = transform_context->export_path;
     hair_context.particle_system = psys;
 
     AbstractHierarchyWriter *writer = nullptr;
@@ -617,9 +619,10 @@ std::string AbstractHierarchyIterator::get_object_data_name(const Object *object
   return get_id_name(object_data);
 }
 
-AbstractHierarchyWriter *AbstractHierarchyIterator::get_writer(const std::string &export_path)
+AbstractHierarchyWriter *AbstractHierarchyIterator::get_writer(
+    const std::string &export_path) const
 {
-  WriterMap::iterator it = writers_.find(export_path);
+  WriterMap::const_iterator it = writers_.find(export_path);
 
   if (it == writers_.end()) {
     return nullptr;
