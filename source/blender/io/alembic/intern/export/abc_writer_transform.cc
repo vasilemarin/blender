@@ -25,6 +25,7 @@ extern "C" {
 #include "BKE_object.h"
 
 #include "BLI_math_matrix.h"
+#include "BLI_math_rotation.h"
 
 #include "DNA_layer_types.h"
 }
@@ -59,6 +60,31 @@ void ABCTransformWriter::do_write(HierarchyContext &context)
 
   // After this, parent_relative_matrix uses Y=up.
   copy_m44_axis_swap(parent_relative_matrix, parent_relative_matrix, ABC_YUP_FROM_ZUP);
+
+  /* If the parent is a camera, undo its to-Maya rotation (see below). */
+  bool is_root_object = context.export_parent == nullptr;
+  if (!is_root_object && context.export_parent->type == OB_CAMERA) {
+    float rot_mat[4][4];
+    axis_angle_to_mat4_single(rot_mat, 'X', M_PI_2);
+    mul_m4_m4m4(parent_relative_matrix, rot_mat, parent_relative_matrix);
+  }
+
+  /* If the object is a camera, apply an extra rotation to Maya camera orientation. */
+  if (context.object->type == OB_CAMERA) {
+    float rot_mat[4][4];
+    axis_angle_to_mat4_single(rot_mat, 'X', -M_PI_2);
+    mul_m4_m4m4(parent_relative_matrix, parent_relative_matrix, rot_mat);
+  }
+
+  if (is_root_object) {
+    /* Only apply scaling to root objects, parenting will propagate it. */
+    float scale_mat[4][4];
+    scale_m4_fl(scale_mat, args_.export_params.global_scale);
+    scale_mat[3][3] = args_.export_params.global_scale; /* also scale translation */
+    mul_m4_m4m4(parent_relative_matrix, parent_relative_matrix, scale_mat);
+    parent_relative_matrix[3][3] /=
+        args_.export_params.global_scale; /* normalise the homogeneous component */
+  }
 
   XformSample xform_sample;
   xform_sample.setMatrix(convert_matrix_datatype(parent_relative_matrix));
