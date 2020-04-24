@@ -97,6 +97,7 @@ set(SRC
   intern/export/abc_subdiv_disabler.cc
   intern/export/abc_writer_abstract.cc
   intern/export/abc_writer_mesh.cc
+  intern/export/abc_writer_metaball.cc
   intern/export/abc_writer_transform.cc
 
   intern/export/abc_archive.h
@@ -104,6 +105,7 @@ set(SRC
   intern/export/abc_subdiv_disabler.h
   intern/export/abc_writer_abstract.h
   intern/export/abc_writer_mesh.h
+  intern/export/abc_writer_metaball.h
   intern/export/abc_writer_transform.h
 )
 

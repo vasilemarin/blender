@@ -44,6 +44,9 @@ extern "C" {
 #include "DNA_particle_types.h"
 }
 
+#include "CLG_log.h"
+static CLG_LogRef LOG = {"io.alembic"};
+
 using Alembic::Abc::FloatArraySample;
 using Alembic::Abc::Int32ArraySample;
 using Alembic::Abc::OObject;
@@ -83,6 +86,10 @@ static void get_loop_normals(struct Mesh *mesh,
 ABCGenericMeshWriter::ABCGenericMeshWriter(const ABCWriterConstructorArgs &args)
     : ABCAbstractWriter(args), is_subd_(false)
 {
+}
+
+void ABCGenericMeshWriter::create_alembic_objects()
+{
   /* If the object is static, use the default static time sampling. */
   timesample_index_ = is_animated_ ? timesample_index_geometry_ : 0;
 
@@ -90,13 +97,14 @@ ABCGenericMeshWriter::ABCGenericMeshWriter(const ABCWriterConstructorArgs &args)
     is_subd_ = args_.export_params.use_subdiv_schema;
   }
 
-  OObject abc_parent = args.abc_parent;
-  if (is_subd_ && !abc_subdiv_.valid()) {
-    abc_subdiv_ = OSubD(abc_parent, args.abc_name, timesample_index_);
+  if (is_subd_) {
+    CLOG_INFO(&LOG, 2, "ABCGenericMeshWriter: exporting OSubD %s", args_.abc_path.c_str());
+    abc_subdiv_ = OSubD(args_.abc_parent, args_.abc_name, timesample_index_);
     abc_subdiv_schema_ = abc_subdiv_.getSchema();
   }
-  else if (!is_subd_ && !abc_poly_mesh_.valid()) {
-    abc_poly_mesh_ = OPolyMesh(abc_parent, args.abc_name, timesample_index_);
+  else {
+    CLOG_INFO(&LOG, 2, "ABCGenericMeshWriter: exporting OPolyMesh %s", args_.abc_path.c_str());
+    abc_poly_mesh_ = OPolyMesh(args_.abc_parent, args_.abc_name, timesample_index_);
     abc_poly_mesh_schema_ = abc_poly_mesh_.getSchema();
 
     OCompoundProperty typeContainer = abc_poly_mesh_.getSchema().getUserProperties();
@@ -104,8 +112,6 @@ ABCGenericMeshWriter::ABCGenericMeshWriter(const ABCWriterConstructorArgs &args)
     type.set(subsurf_modifier_ == nullptr);
   }
 
-  // TODO(Sybren): does this have to use the original or the evaluated data?
-  // TODO(Sybren): avoid keeping ModifierData pointers around?
   Scene *scene_eval = DEG_get_evaluated_scene(args_.depsgraph);
   liquid_sim_modifier_ = get_liquid_sim_modifier(scene_eval, args_.object);
 }
@@ -122,7 +128,7 @@ const Alembic::Abc::OObject ABCGenericMeshWriter::get_alembic_object() const
   return abc_poly_mesh_;
 }
 
-bool ABCGenericMeshWriter::export_as_subdivision_surface(Object *ob_eval)
+bool ABCGenericMeshWriter::export_as_subdivision_surface(Object *ob_eval) const
 {
   ModifierData *md = static_cast<ModifierData *>(ob_eval->modifiers.last);
 
@@ -555,6 +561,7 @@ static void get_loop_normals(struct Mesh *mesh,
 
 ABCMeshWriter::ABCMeshWriter(const ABCWriterConstructorArgs &args) : ABCGenericMeshWriter(args)
 {
+  CLOG_INFO(&LOG, 2, "ABCMeshWriter: exporting %s", args.abc_path.c_str());
 }
 
 Mesh *ABCMeshWriter::get_export_mesh(Object *object_eval, bool & /*r_needsfree*/)

@@ -29,6 +29,9 @@ extern "C" {
 #include "DNA_layer_types.h"
 }
 
+#include "CLG_log.h"
+static CLG_LogRef LOG = {"io.alembic"};
+
 namespace ABC {
 
 using Alembic::Abc::OObject;
@@ -39,8 +42,13 @@ using Alembic::AbcGeom::XformSample;
 ABCTransformWriter::ABCTransformWriter(const ABCWriterConstructorArgs &args)
     : ABCAbstractWriter(args)
 {
+}
+
+void ABCTransformWriter::create_alembic_objects()
+{
+  CLOG_INFO(&LOG, 2, "exporting %s", args_.abc_path.c_str());
   uint32_t ts_index = args_.abc_archive->time_sampling_index_transforms();
-  abc_xform_ = OXform(args.abc_parent, args.abc_name, ts_index);
+  abc_xform_ = OXform(args_.abc_parent, args_.abc_name, ts_index);
   abc_xform_schema_ = abc_xform_.getSchema();
 }
 

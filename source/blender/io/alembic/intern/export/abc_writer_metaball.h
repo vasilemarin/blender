@@ -18,25 +18,23 @@
  */
 #pragma once
 
-#include "abc_writer_abstract.h"
-
-#include <Alembic/AbcGeom/OXform.h>
+#include "abc_writer_mesh.h"
 
 namespace ABC {
 
-class ABCTransformWriter : public ABCAbstractWriter {
- private:
-  Alembic::AbcGeom::OXform abc_xform_;
-  Alembic::AbcGeom::OXformSchema abc_xform_schema_;
-
+class ABCMetaballWriter : public ABCGenericMeshWriter {
  public:
-  ABCTransformWriter(const ABCWriterConstructorArgs &args);
-  virtual void create_alembic_objects() override;
+  ABCMetaballWriter(const ABCWriterConstructorArgs &args);
 
  protected:
-  void do_write(HierarchyContext &context) override;
-  bool check_is_animated(const HierarchyContext &context) const override;
-  const Alembic::Abc::OObject get_alembic_object() const override;
+  virtual Mesh *get_export_mesh(Object *object_eval, bool &r_needsfree) override;
+  virtual void free_export_mesh(Mesh *mesh) override;
+  virtual bool is_supported(const HierarchyContext *context) const override;
+  virtual bool check_is_animated(const HierarchyContext &context) const override;
+  virtual bool export_as_subdivision_surface(Object *ob_eval) const override;
+
+ private:
+  bool is_basis_ball(Scene *scene, Object *ob) const;
 };
 
 }  // namespace ABC

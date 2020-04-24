@@ -66,6 +66,10 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
    * Empty). */
   virtual bool is_supported(const HierarchyContext *context) const;
 
+  /* Called by AlembicHierarchyCreator after checking that the data is supported via
+   * is_supported(). */
+  virtual void create_alembic_objects() = 0;
+
   /* TODO(Sybren): bring back support for writing the bounding box. */
 
   virtual const Alembic::Abc::OObject get_alembic_object() const = 0;

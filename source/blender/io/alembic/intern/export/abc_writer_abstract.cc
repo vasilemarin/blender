@@ -25,11 +25,10 @@ extern "C" {
 #include "BKE_object.h"
 
 #include "DNA_modifier_types.h"
+}
 
 #include "CLG_log.h"
-
 static CLG_LogRef LOG = {"io.alembic"};
-}
 
 namespace ABC {
 

@@ -58,6 +58,7 @@ class ABCGenericMeshWriter : public ABCAbstractWriter {
   ABCGenericMeshWriter(const ABCWriterConstructorArgs &args);
   virtual ~ABCGenericMeshWriter();
 
+  virtual void create_alembic_objects() override;
   virtual const Alembic::Abc::OObject get_alembic_object() const;
 
  protected:
@@ -67,12 +68,13 @@ class ABCGenericMeshWriter : public ABCAbstractWriter {
   virtual Mesh *get_export_mesh(Object *object_eval, bool &r_needsfree) = 0;
   virtual void free_export_mesh(Mesh *mesh);
 
+  virtual bool export_as_subdivision_surface(Object *ob_eval) const;
+
  private:
   void write_mesh(HierarchyContext &context, Mesh *mesh);
   void write_subd(HierarchyContext &context, Mesh *mesh);
   template<typename Schema> void write_face_sets(Object *object, Mesh *mesh, Schema &schema);
 
-  bool export_as_subdivision_surface(Object *ob_eval);
   ModifierData *get_liquid_sim_modifier(Scene *scene_eval, Object *ob_eval);
 
   void write_arb_geo_params(Mesh *me);

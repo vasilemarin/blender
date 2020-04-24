@@ -23,7 +23,7 @@
 // #include "abc_writer_hair.h"
 // #include "abc_writer_light.h"
 #include "abc_writer_mesh.h"
-// #include "abc_writer_metaball.h"
+#include "abc_writer_metaball.h"
 #include "abc_writer_transform.h"
 
 #include <string>
@@ -107,7 +107,9 @@ ABCWriterConstructorArgs ABCHierarchyIterator::writer_constructor_args(
 AbstractHierarchyWriter *ABCHierarchyIterator::create_transform_writer(
     const HierarchyContext *context)
 {
-  return new ABCTransformWriter(writer_constructor_args(context));
+  ABCAbstractWriter *transform_writer = new ABCTransformWriter(writer_constructor_args(context));
+  transform_writer->create_alembic_objects();
+  return transform_writer;
 }
 
 AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const HierarchyContext *context)
@@ -128,8 +130,7 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const Hierarch
       return nullptr;
       break;
     case OB_MBALL:
-      // data_writer = new USDMetaballWriter(writer_args);
-      return nullptr;
+      data_writer = new ABCMetaballWriter(writer_args);
       break;
 
     case OB_EMPTY:
@@ -152,6 +153,7 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const Hierarch
     return nullptr;
   }
 
+  data_writer->create_alembic_objects();
   return data_writer;
 }
 
@@ -161,7 +163,9 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_hair_writer(
   if (!params_.export_hair) {
     return nullptr;
   }
-  // return new USDHairWriter(writer_constructor_args(context));
+  // ABCAbstractWriter *hair_writer = new ABCHairWriter(writer_constructor_args(context));
+  // hair_writer->create_alembic_objects();
+  // return hair_writer;
   return nullptr;
 }
 
