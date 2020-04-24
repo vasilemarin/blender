@@ -20,8 +20,7 @@
 #include "abc_hierarchy_iterator.h"
 #include "abc_writer_abstract.h"
 #include "abc_writer_camera.h"
-// #include "abc_writer_hair.h"
-// #include "abc_writer_light.h"
+#include "abc_writer_curve.h"
 #include "abc_writer_mesh.h"
 #include "abc_writer_metaball.h"
 #include "abc_writer_transform.h"
@@ -124,16 +123,20 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const Hierarch
     case OB_CAMERA:
       data_writer = new ABCCameraWriter(writer_args);
       break;
-    case OB_LAMP:
-      // data_writer = new ABCLightWriter(writer_args);
-      return nullptr;
+    case OB_CURVE:
+      if (params_.curves_as_mesh) {
+        data_writer = new ABCCurveMeshWriter(writer_args);
+      }
+      else {
+        data_writer = new ABCCurveWriter(writer_args);
+      }
       break;
     case OB_MBALL:
       data_writer = new ABCMetaballWriter(writer_args);
       break;
 
     case OB_EMPTY:
-    case OB_CURVE:
+    case OB_LAMP:
     case OB_SURF:
     case OB_FONT:
     case OB_SPEAKER:
