@@ -1161,7 +1161,7 @@ rna_max = FloatProperty(
 
 rna_use_soft_limits = BoolProperty(
     name="Use Soft Limits",
-    description="Limits the Property Value slider to a range, values outside the range must be inputed numerically",
+    description="Limits the Property Value slider to a range, values outside the range must be inputted numerically",
 )
 
 rna_is_overridable_library = BoolProperty(
@@ -2483,8 +2483,8 @@ class WM_MT_splash(Menu):
         row = layout.row()
 
         sub = row.row()
-        if bpy.types.PREFERENCES_OT_copy_prev.poll(context):
-            old_version = bpy.types.PREFERENCES_OT_copy_prev.previous_version()
+        old_version = bpy.types.PREFERENCES_OT_copy_prev.previous_version()
+        if bpy.types.PREFERENCES_OT_copy_prev.poll(context) and old_version:
             sub.operator("preferences.copy_prev", text="Load %d.%d Settings" % old_version)
             sub.operator("wm.save_userpref", text="Save New Settings")
         else:

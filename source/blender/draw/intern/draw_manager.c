@@ -1296,9 +1296,6 @@ void DRW_draw_callbacks_post_scene(void)
     DRW_state_reset();
 
     GPU_framebuffer_bind(dfbl->overlay_fb);
-    /* Disable sRGB encoding from the fixed function pipeline since all the drawing in this
-     * function is done with sRGB color. Avoid double transform. */
-    glDisable(GL_FRAMEBUFFER_SRGB);
 
     GPU_matrix_projection_set(rv3d->winmat);
     GPU_matrix_set(rv3d->viewmat);
@@ -2057,7 +2054,9 @@ void DRW_draw_select_loop(struct Depsgraph *depsgraph,
   }
   else if (!draw_surface) {
     /* grease pencil selection */
-    use_drw_engine(&draw_engine_gpencil_type);
+    if (drw_gpencil_engine_needed(depsgraph, v3d)) {
+      use_drw_engine(&draw_engine_gpencil_type);
+    }
 
     drw_engines_enable_overlays();
   }
@@ -2065,7 +2064,9 @@ void DRW_draw_select_loop(struct Depsgraph *depsgraph,
     /* Draw surface for occlusion. */
     drw_engines_enable_basic();
     /* grease pencil selection */
-    use_drw_engine(&draw_engine_gpencil_type);
+    if (drw_gpencil_engine_needed(depsgraph, v3d)) {
+      use_drw_engine(&draw_engine_gpencil_type);
+    }
 
     drw_engines_enable_overlays();
   }

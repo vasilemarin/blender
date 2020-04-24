@@ -71,7 +71,7 @@ typedef enum TaskPriority {
 
 typedef struct TaskPool TaskPool;
 typedef void (*TaskRunFunction)(TaskPool *__restrict pool, void *taskdata, int threadid);
-typedef void (*TaskFreeFunction)(TaskPool *__restrict pool, void *taskdata, int threadid);
+typedef void (*TaskFreeFunction)(TaskPool *__restrict pool, void *taskdata);
 
 TaskPool *BLI_task_pool_create(TaskScheduler *scheduler, void *userdata, TaskPriority priority);
 TaskPool *BLI_task_pool_create_background(TaskScheduler *scheduler,
@@ -105,7 +105,7 @@ void BLI_task_pool_cancel(TaskPool *pool);
 bool BLI_task_pool_canceled(TaskPool *pool);
 
 /* optional userdata pointer to pass along to run function */
-void *BLI_task_pool_userdata(TaskPool *pool);
+void *BLI_task_pool_user_data(TaskPool *pool);
 
 /* optional mutex to use from run function */
 ThreadMutex *BLI_task_pool_user_mutex(TaskPool *pool);
@@ -146,12 +146,14 @@ typedef struct TaskParallelTLS {
   void *userdata_chunk;
 } TaskParallelTLS;
 
-typedef void (*TaskParallelFinalizeFunc)(void *__restrict userdata,
-                                         void *__restrict userdata_chunk);
-
 typedef void (*TaskParallelRangeFunc)(void *__restrict userdata,
                                       const int iter,
                                       const TaskParallelTLS *__restrict tls);
+typedef void (*TaskParallelReduceFunc)(const void *__restrict userdata,
+                                       void *__restrict chunk_join,
+                                       void *__restrict chunk);
+
+typedef void (*TaskParallelFreeFunc)(const void *__restrict userdata, void *__restrict chunk);
 
 typedef struct TaskParallelSettings {
   /* Whether caller allows to do threading of the particular range.
@@ -171,7 +173,13 @@ typedef struct TaskParallelSettings {
   /* Function called from calling thread once whole range have been
    * processed.
    */
-  TaskParallelFinalizeFunc func_finalize;
+  /* Function called to join user data chunk into another, to reduce
+   * the result to the original userdata_chunk memory.
+   * The reduce functions should have no side effects, so that they
+   * can be run on any thread. */
+  TaskParallelReduceFunc func_reduce;
+  /* Function called to free data created by TaskParallelRangeFunc. */
+  TaskParallelFreeFunc func_free;
   /* Minimum allowed number of range iterators to be handled by a single
    * thread. This allows to achieve following:
    * - Reduce amount of threading overhead.
@@ -192,18 +200,6 @@ void BLI_task_parallel_range(const int start,
                              void *userdata,
                              TaskParallelRangeFunc func,
                              TaskParallelSettings *settings);
-
-typedef struct TaskParallelRangePool TaskParallelRangePool;
-struct TaskParallelRangePool *BLI_task_parallel_range_pool_init(
-    const struct TaskParallelSettings *settings);
-void BLI_task_parallel_range_pool_push(struct TaskParallelRangePool *range_pool,
-                                       const int start,
-                                       const int stop,
-                                       void *userdata,
-                                       TaskParallelRangeFunc func,
-                                       const struct TaskParallelSettings *settings);
-void BLI_task_parallel_range_pool_work_and_wait(struct TaskParallelRangePool *range_pool);
-void BLI_task_parallel_range_pool_free(struct TaskParallelRangePool *range_pool);
 
 /* This data is shared between all tasks, its access needs thread lock or similar protection.
  */

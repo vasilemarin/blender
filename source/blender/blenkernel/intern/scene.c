@@ -340,7 +340,7 @@ static void scene_free_data(ID *id)
 
   /* is no lib link block, but scene extension */
   if (scene->nodetree) {
-    ntreeFreeNestedTree(scene->nodetree);
+    ntreeFreeEmbeddedTree(scene->nodetree);
     MEM_freeN(scene->nodetree);
     scene->nodetree = NULL;
   }
@@ -1276,6 +1276,14 @@ void BKE_scene_update_sound(Depsgraph *depsgraph, Main *bmain)
     BKE_sound_update_scene_listener(scene);
   }
   BKE_sound_update_scene(depsgraph, scene);
+}
+
+void BKE_scene_update_tag_audio_volume(Depsgraph *UNUSED(depsgraph), Scene *scene)
+{
+  BLI_assert(DEG_is_evaluated_id(&scene->id));
+  /* The volume is actually updated in BKE_scene_update_sound(), from either
+   * scene_graph_update_tagged() or from BKE_scene_graph_update_for_newframe(). */
+  scene->id.recalc |= ID_RECALC_AUDIO_VOLUME;
 }
 
 /* TODO(sergey): This actually should become view_layer_graph or so.

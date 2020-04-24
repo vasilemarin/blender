@@ -88,6 +88,9 @@ struct GPUTexture {
 
   int fb_attachment[GPU_TEX_MAX_FBO_ATTACHED];
   GPUFrameBuffer *fb[GPU_TEX_MAX_FBO_ATTACHED];
+  /* Legacy workaround for texture copy. */
+  GLuint copy_fb;
+  GPUContext *copy_fb_ctx;
 };
 
 static uint gpu_get_bytesize(eGPUTextureFormat data_type);
@@ -165,26 +168,33 @@ static const char *gl_enum_to_str(GLenum e)
       ENUM_TO_STRING(TEXTURE_2D_MULTISAMPLE),
       ENUM_TO_STRING(RGBA32F),
       ENUM_TO_STRING(RGBA16F),
+      ENUM_TO_STRING(RGBA16UI),
+      ENUM_TO_STRING(RGBA16I),
       ENUM_TO_STRING(RGBA16),
-      ENUM_TO_STRING(RG32F),
+      ENUM_TO_STRING(RGBA8UI),
+      ENUM_TO_STRING(RGBA8I),
+      ENUM_TO_STRING(RGBA8),
       ENUM_TO_STRING(RGB16F),
+      ENUM_TO_STRING(RG32F),
       ENUM_TO_STRING(RG16F),
+      ENUM_TO_STRING(RG16UI),
       ENUM_TO_STRING(RG16I),
       ENUM_TO_STRING(RG16),
-      ENUM_TO_STRING(RGBA8),
-      ENUM_TO_STRING(RGBA8UI),
+      ENUM_TO_STRING(RG8UI),
+      ENUM_TO_STRING(RG8I),
+      ENUM_TO_STRING(RG8),
+      ENUM_TO_STRING(R8UI),
+      ENUM_TO_STRING(R8I),
+      ENUM_TO_STRING(R8),
       ENUM_TO_STRING(R32F),
       ENUM_TO_STRING(R32UI),
       ENUM_TO_STRING(R32I),
       ENUM_TO_STRING(R16F),
-      ENUM_TO_STRING(R16I),
       ENUM_TO_STRING(R16UI),
-      ENUM_TO_STRING(RG8),
-      ENUM_TO_STRING(RG16UI),
+      ENUM_TO_STRING(R16I),
       ENUM_TO_STRING(R16),
-      ENUM_TO_STRING(R8),
-      ENUM_TO_STRING(R8UI),
       ENUM_TO_STRING(R11F_G11F_B10F),
+      ENUM_TO_STRING(SRGB8_ALPHA8),
       ENUM_TO_STRING(DEPTH24_STENCIL8),
       ENUM_TO_STRING(DEPTH32F_STENCIL8),
       ENUM_TO_STRING(DEPTH_COMPONENT32F),
@@ -457,7 +467,7 @@ static GLenum gpu_format_to_gl_internalformat(eGPUTextureFormat format)
     case GPU_RG16I:
       return GL_RG16I;
     case GPU_RG16F:
-      return GL_RGBA32F;
+      return GL_RG16F;
     case GPU_RG16:
       return GL_RG16;
     case GPU_R8UI:
@@ -1712,6 +1722,67 @@ void GPU_texture_generate_mipmap(GPUTexture *tex)
   gpu_texture_memory_footprint_add(tex);
 }
 
+/* Copy a texture content to a similar texture. Only Mip 0 is copied. */
+void GPU_texture_copy(GPUTexture *dst, GPUTexture *src)
+{
+  BLI_assert(dst->target == src->target);
+  BLI_assert(dst->w == src->w);
+  BLI_assert(dst->h == src->h);
+  BLI_assert(!GPU_texture_cube(src) && !GPU_texture_cube(dst));
+  /* TODO support array / 3D textures. */
+  BLI_assert(dst->d == 0);
+  BLI_assert(dst->format == src->format);
+
+  if (GLEW_ARB_copy_image) {
+    /* Opengl 4.3 */
+    glCopyImageSubData(src->bindcode,
+                       src->target,
+                       0,
+                       0,
+                       0,
+                       0,
+                       dst->bindcode,
+                       dst->target,
+                       0,
+                       0,
+                       0,
+                       0,
+                       src->w,
+                       src->h,
+                       1);
+  }
+  else {
+    /* Fallback for older GL. */
+    GLenum attachment = !GPU_texture_depth(src) ?
+                            GL_COLOR_ATTACHMENT0 :
+                            (GPU_texture_stencil(src) ? GL_DEPTH_STENCIL_ATTACHMENT :
+                                                        GL_DEPTH_ATTACHMENT);
+
+    if (src->copy_fb == 0) {
+      src->copy_fb = GPU_fbo_alloc();
+      src->copy_fb_ctx = GPU_context_active_get();
+
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, src->copy_fb);
+      glFramebufferTexture(GL_READ_FRAMEBUFFER, attachment, src->bindcode, 0);
+
+      BLI_assert(glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    }
+    /* This means that this function can only be used in one context for each texture. */
+    BLI_assert(src->copy_fb_ctx == GPU_context_active_get());
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src->copy_fb);
+    glReadBuffer(attachment);
+
+    /* WATCH: glCopyTexSubImage2D might clamp the values to the [0,1] range
+     * where glCopyImageSubData would not. */
+    glBindTexture(dst->target, dst->bindcode);
+    glCopyTexSubImage2D(dst->target, 0, 0, 0, 0, 0, src->w, src->h);
+
+    glBindTexture(dst->target, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+  }
+}
+
 void GPU_texture_compare_mode(GPUTexture *tex, bool use_compare)
 {
   WARN_NOT_BOUND(tex);
@@ -1830,6 +1901,9 @@ void GPU_texture_free(GPUTexture *tex)
 
     if (tex->bindcode) {
       GPU_tex_free(tex->bindcode);
+    }
+    if (tex->copy_fb) {
+      GPU_fbo_free(tex->copy_fb, tex->copy_fb_ctx);
     }
 
     gpu_texture_memory_footprint_remove(tex);

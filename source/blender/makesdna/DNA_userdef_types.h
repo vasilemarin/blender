@@ -618,10 +618,9 @@ typedef struct UserDef_FileSpaceData {
 } UserDef_FileSpaceData;
 
 typedef struct UserDef_Experimental {
-  char use_undo_speedup;
-  char use_menu_search;
+  char use_undo_legacy;
   /** `makesdna` does not allow empty structs. */
-  char _pad0[6];
+  char _pad0[7];
 } UserDef_Experimental;
 
 #define USER_EXPERIMENTAL_TEST(userdef, member) \
@@ -1290,8 +1289,8 @@ typedef enum eUserpref_RenderDisplayType {
 } eUserpref_RenderDisplayType;
 
 typedef enum eUserpref_TempSpaceDisplayType {
-  USER_TEMP_SPACE_DISPLAY_FULLSCREEN,
-  USER_TEMP_SPACE_DISPLAY_WINDOW,
+  USER_TEMP_SPACE_DISPLAY_FULLSCREEN = 0,
+  USER_TEMP_SPACE_DISPLAY_WINDOW = 1,
 } eUserpref_TempSpaceDisplayType;
 
 typedef enum eUserpref_EmulateMMBMod {

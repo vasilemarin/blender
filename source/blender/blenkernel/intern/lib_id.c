@@ -36,38 +36,12 @@
 #include "MEM_guardedalloc.h"
 
 /* all types are needed here, in order to do memory operations */
+#include "DNA_ID.h"
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
-#include "DNA_brush_types.h"
-#include "DNA_cachefile_types.h"
-#include "DNA_camera_types.h"
-#include "DNA_collection_types.h"
 #include "DNA_gpencil_types.h"
-#include "DNA_hair_types.h"
-#include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
-#include "DNA_lattice_types.h"
-#include "DNA_light_types.h"
-#include "DNA_lightprobe_types.h"
-#include "DNA_linestyle_types.h"
-#include "DNA_mask_types.h"
-#include "DNA_material_types.h"
-#include "DNA_mesh_types.h"
-#include "DNA_meta_types.h"
-#include "DNA_movieclip_types.h"
 #include "DNA_node_types.h"
-#include "DNA_object_types.h"
-#include "DNA_pointcloud_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_screen_types.h"
-#include "DNA_sound_types.h"
-#include "DNA_speaker_types.h"
-#include "DNA_text_types.h"
-#include "DNA_vfont_types.h"
-#include "DNA_volume_types.h"
-#include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
-#include "DNA_world_types.h"
 
 #include "BLI_utildefines.h"
 
@@ -80,50 +54,21 @@
 
 #include "BLT_translation.h"
 
-#include "BKE_action.h"
 #include "BKE_anim_data.h"
 #include "BKE_armature.h"
 #include "BKE_bpath.h"
-#include "BKE_brush.h"
-#include "BKE_cachefile.h"
-#include "BKE_camera.h"
-#include "BKE_collection.h"
 #include "BKE_context.h"
-#include "BKE_curve.h"
-#include "BKE_font.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
-#include "BKE_hair.h"
 #include "BKE_idprop.h"
 #include "BKE_idtype.h"
-#include "BKE_image.h"
 #include "BKE_key.h"
-#include "BKE_lattice.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
 #include "BKE_lib_remap.h"
-#include "BKE_light.h"
-#include "BKE_lightprobe.h"
-#include "BKE_linestyle.h"
 #include "BKE_main.h"
-#include "BKE_mask.h"
-#include "BKE_material.h"
-#include "BKE_mball.h"
-#include "BKE_mesh.h"
-#include "BKE_movieclip.h"
 #include "BKE_node.h"
-#include "BKE_object.h"
-#include "BKE_paint.h"
-#include "BKE_particle.h"
-#include "BKE_pointcloud.h"
 #include "BKE_rigidbody.h"
-#include "BKE_scene.h"
-#include "BKE_sound.h"
-#include "BKE_speaker.h"
-#include "BKE_text.h"
-#include "BKE_texture.h"
-#include "BKE_volume.h"
-#include "BKE_world.h"
 
 #include "DEG_depsgraph.h"
 
@@ -663,7 +608,7 @@ static void id_swap(Main *bmain, ID *id_a, ID *id_b, const bool do_full_id)
  * Does a mere memory swap over the whole IDs data (including type-specific memory).
  * \note Most internal ID data itself is not swapped (only IDProperties are).
  *
- * \param bmain May be NULL, in which case there will be no remapping of internal pointers to
+ * \param bmain: May be NULL, in which case there will be no remapping of internal pointers to
  * itself.
  */
 void BKE_lib_id_swap(Main *bmain, ID *id_a, ID *id_b)
@@ -675,7 +620,7 @@ void BKE_lib_id_swap(Main *bmain, ID *id_a, ID *id_b)
  * Does a mere memory swap over the whole IDs data (including type-specific memory).
  * \note All internal ID data itself is also swapped.
  *
- * \param bmain May be NULL, in which case there will be no remapping of internal pointers to
+ * \param bmain: May be NULL, in which case there will be no remapping of internal pointers to
  * itself.
  */
 void BKE_lib_id_swap_full(Main *bmain, ID *id_a, ID *id_b)
@@ -1088,6 +1033,18 @@ void BKE_lib_libblock_session_uuid_ensure(ID *id)
 }
 
 /**
+ * Re-generate a new session-wise uuid for the given \a id.
+ *
+ * \warning This has a very specific use-case (to handle UI-related data-blocks that are kept
+ * across new file reading, when we do keep existing UI). No other usage is expected currently.
+ */
+void BKE_lib_libblock_session_uuid_renew(ID *id)
+{
+  id->session_uuid = MAIN_ID_SESSION_UUID_UNSET;
+  BKE_lib_libblock_session_uuid_ensure(id);
+}
+
+/**
  * Generic helper to create a new empty data-block of given type in given \a bmain database.
  *
  * \param name: can be NULL, in which case we get default name for this ID type.
@@ -1248,7 +1205,7 @@ ID *BKE_libblock_find_name(struct Main *bmain, const short type, const char *nam
  *
  * \note All other IDs beside given one are assumed already properly sorted in the list.
  *
- * \param id_sorting_hint Ignored if NULL. Otherwise, used to check if we can insert \a id
+ * \param id_sorting_hint: Ignored if NULL. Otherwise, used to check if we can insert \a id
  * immediately before or after that pointer. It must always be into given \a lb list.
  */
 void id_sort_by_name(ListBase *lb, ID *id, ID *id_sorting_hint)
@@ -1724,7 +1681,7 @@ static void library_make_local_copying_check(ID *id,
      * relation we want to check is in the other way around. */
     if (entry->usage_flag & IDWALK_CB_LOOPBACK) {
 #ifndef NDEBUG
-      /* Some debug checks to ensure we explicitely are aware of all 'loopback' cases, since those
+      /* Some debug checks to ensure we explicitly are aware of all 'loop-back' cases, since those
        * may not always be manageable in the same way... */
       switch (GS(par_id->name)) {
         case ID_OB:

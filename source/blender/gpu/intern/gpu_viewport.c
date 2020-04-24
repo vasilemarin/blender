@@ -74,7 +74,7 @@ struct GPUViewportBatch {
     rctf rect_pos;
     rctf rect_uv;
   } last_used_parameters;
-} GPUViewportBatch;
+};
 
 static struct {
   GPUVertFormat format;
@@ -111,6 +111,7 @@ struct GPUViewport {
   /* Color management. */
   ColorManagedViewSettings view_settings;
   ColorManagedDisplaySettings display_settings;
+  CurveMapping *orig_curve_mapping;
   float dither;
   /* TODO(fclem) the uvimage display use the viewport but do not set any view transform for the
    * moment. The end goal would be to let the GPUViewport do the color management. */
@@ -215,18 +216,6 @@ static void gpu_viewport_framebuffer_view_set(GPUViewport *viewport, int view)
                                     GPU_ATTACHMENT_NONE,
                                     GPU_ATTACHMENT_TEXTURE(dtxl->color_overlay),
                                 });
-
-  if (((viewport->flag & GPU_VIEWPORT_STEREO) != 0)) {
-    GPU_framebuffer_ensure_config(&dfbl->stereo_comp_fb,
-                                  {
-                                      GPU_ATTACHMENT_NONE,
-                                      GPU_ATTACHMENT_TEXTURE(dtxl->color),
-                                      GPU_ATTACHMENT_TEXTURE(dtxl->color_overlay),
-                                  });
-  }
-  else {
-    dfbl->stereo_comp_fb = NULL;
-  }
 
   viewport->active_view = view;
 }
@@ -491,9 +480,6 @@ static void gpu_viewport_default_fb_create(GPUViewport *viewport)
   ok = ok && GPU_framebuffer_check_valid(dfbl->color_only_fb, NULL);
   ok = ok && GPU_framebuffer_check_valid(dfbl->depth_only_fb, NULL);
   ok = ok && GPU_framebuffer_check_valid(dfbl->overlay_only_fb, NULL);
-  if (((viewport->flag & GPU_VIEWPORT_STEREO) != 0)) {
-    ok = ok && GPU_framebuffer_check_valid(dfbl->stereo_comp_fb, NULL);
-  }
 cleanup:
   if (!ok) {
     GPU_viewport_free(viewport);
@@ -571,8 +557,43 @@ void GPU_viewport_colorspace_set(GPUViewport *viewport,
                                  ColorManagedDisplaySettings *display_settings,
                                  float dither)
 {
-  memcpy(&viewport->view_settings, view_settings, sizeof(*view_settings));
-  memcpy(&viewport->display_settings, display_settings, sizeof(*display_settings));
+  /**
+   * HACK(fclem): We copy the settings here to avoid use after free if an update frees the scene
+   * and the viewport stays cached (see T75443). But this means the OCIO curve-mapping caching
+   * (which is based on #CurveMap pointer address) cannot operate correctly and it will create
+   * a different OCIO processor for each viewport. We try to only reallocate the curve-map copy
+   * if needed to avoid unneeded cache invalidation.
+   */
+  if (view_settings->curve_mapping) {
+    if (viewport->view_settings.curve_mapping) {
+      if (view_settings->curve_mapping->changed_timestamp !=
+          viewport->view_settings.curve_mapping->changed_timestamp) {
+        BKE_color_managed_view_settings_free(&viewport->view_settings);
+      }
+    }
+  }
+
+  if (viewport->orig_curve_mapping != view_settings->curve_mapping) {
+    viewport->orig_curve_mapping = view_settings->curve_mapping;
+    BKE_color_managed_view_settings_free(&viewport->view_settings);
+  }
+  /* Don't copy the curve mapping already. */
+  CurveMapping *tmp_curve_mapping = view_settings->curve_mapping;
+  CurveMapping *tmp_curve_mapping_vp = viewport->view_settings.curve_mapping;
+  view_settings->curve_mapping = NULL;
+  viewport->view_settings.curve_mapping = NULL;
+
+  BKE_color_managed_view_settings_copy(&viewport->view_settings, view_settings);
+  /* Restore. */
+  view_settings->curve_mapping = tmp_curve_mapping;
+  viewport->view_settings.curve_mapping = tmp_curve_mapping_vp;
+  /* Only copy curvemapping if needed. Avoid uneeded OCIO cache miss. */
+  if (tmp_curve_mapping && viewport->view_settings.curve_mapping == NULL) {
+    BKE_color_managed_view_settings_free(&viewport->view_settings);
+    viewport->view_settings.curve_mapping = BKE_curvemapping_copy(tmp_curve_mapping);
+  }
+
+  BKE_color_managed_display_settings_copy(&viewport->display_settings, display_settings);
   viewport->dither = dither;
   viewport->do_color_management = true;
 }
@@ -588,6 +609,14 @@ void GPU_viewport_stereo_composite(GPUViewport *viewport, Stereo3dFormat *stereo
   gpu_viewport_framebuffer_view_set(viewport, 0);
   DefaultTextureList *dtxl = viewport->txl;
   DefaultFramebufferList *dfbl = viewport->fbl;
+
+  /* The composite framebuffer object needs to be created in the window context. */
+  GPU_framebuffer_ensure_config(&dfbl->stereo_comp_fb,
+                                {
+                                    GPU_ATTACHMENT_NONE,
+                                    GPU_ATTACHMENT_TEXTURE(dtxl->color),
+                                    GPU_ATTACHMENT_TEXTURE(dtxl->color_overlay),
+                                });
 
   GPUVertFormat *vert_format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(vert_format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
@@ -727,6 +756,14 @@ static void gpu_viewport_draw_colormanaged(GPUViewport *viewport,
   bool use_ocio = false;
 
   if (viewport->do_color_management && display_colorspace) {
+    /* During the binding process the last used VertexFormat is tested and can assert as it is not
+     * valid. By calling the `immVertexFormat` the last used VertexFormat is reset and the assert
+     * does not happen. This solves a chicken and egg problem when using GPUBatches. GPUBatches
+     * contain the correct vertex format, but can only bind after the shader is bound.
+     *
+     * Image/UV editor still uses imm, after that has been changed we could move this fix to the
+     * OCIO. */
+    immVertexFormat();
     use_ocio = IMB_colormanagement_setup_glsl_draw_from_space(&viewport->view_settings,
                                                               &viewport->display_settings,
                                                               NULL,
@@ -996,6 +1033,7 @@ void GPU_viewport_free(GPUViewport *viewport)
   DRW_instance_data_list_free(viewport->idatalist);
   MEM_freeN(viewport->idatalist);
 
+  BKE_color_managed_view_settings_free(&viewport->view_settings);
   gpu_viewport_batch_free(viewport);
 
   MEM_freeN(viewport);

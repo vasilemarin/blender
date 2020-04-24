@@ -384,6 +384,10 @@ class IMAGE_MT_uvs(Menu):
 
         layout.separator()
 
+        layout.operator("uv.reset")
+
+        layout.separator()
+
 
 class IMAGE_MT_uvs_select_mode(Menu):
     bl_label = "UV Select Mode"
@@ -955,6 +959,7 @@ class IMAGE_PT_view_display_uv_edit_overlays(Panel):
         col = layout.column()
         col.prop(uvedit, "show_smooth_edges", text="Smooth")
         col.prop(uvedit, "show_modified_edges", text="Modified")
+        col.prop(uvedit, "uv_opacity")
 
 
 class IMAGE_PT_view_display_uv_edit_overlays_stretch(Panel):

@@ -514,21 +514,31 @@ bool BKE_object_support_modifier_type_check(const Object *ob, int modifier_type)
 
   mti = modifierType_getInfo(modifier_type);
 
-  /* only geometry objects should be able to get modifiers [#25291] */
-  if (!ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
-    return false;
+  /* Only geometry objects should be able to get modifiers [#25291] */
+  if (ob->type == OB_HAIR) {
+    return (mti->modifyHair != NULL) || (mti->flags & eModifierTypeFlag_AcceptsVertexCosOnly);
+  }
+  else if (ob->type == OB_POINTCLOUD) {
+    return (mti->modifyPointCloud != NULL) ||
+           (mti->flags & eModifierTypeFlag_AcceptsVertexCosOnly);
+  }
+  else if (ob->type == OB_VOLUME) {
+    return (mti->modifyVolume != NULL);
+  }
+  else if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
+    if (ob->type == OB_LATTICE && (mti->flags & eModifierTypeFlag_AcceptsVertexCosOnly) == 0) {
+      return false;
+    }
+
+    if (!((mti->flags & eModifierTypeFlag_AcceptsCVs) ||
+          (ob->type == OB_MESH && (mti->flags & eModifierTypeFlag_AcceptsMesh)))) {
+      return false;
+    }
+
+    return true;
   }
 
-  if (ob->type == OB_LATTICE && (mti->flags & eModifierTypeFlag_AcceptsLattice) == 0) {
-    return false;
-  }
-
-  if (!((mti->flags & eModifierTypeFlag_AcceptsCVs) ||
-        (ob->type == OB_MESH && (mti->flags & eModifierTypeFlag_AcceptsMesh)))) {
-    return false;
-  }
-
-  return true;
+  return false;
 }
 
 void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_src)
@@ -2677,7 +2687,7 @@ void BKE_object_where_is_calc_time(Depsgraph *depsgraph, Scene *scene, Object *o
 {
   /* Execute drivers and animation. */
   const bool flush_to_original = DEG_is_active(depsgraph);
-  BKE_animsys_evaluate_animdata(scene, &ob->id, ob->adt, ctime, ADT_RECALC_ALL, flush_to_original);
+  BKE_animsys_evaluate_animdata(&ob->id, ob->adt, ctime, ADT_RECALC_ALL, flush_to_original);
   object_where_is_calc_ex(depsgraph, scene, ob, ctime, NULL, NULL);
 }
 
@@ -4567,8 +4577,7 @@ bool BKE_object_modifier_update_subframe(Depsgraph *depsgraph,
   /* TODO(sergey): What about animation? */
   ob->id.recalc |= ID_RECALC_ALL;
   if (update_mesh) {
-    BKE_animsys_evaluate_animdata(
-        scene, &ob->id, ob->adt, frame, ADT_RECALC_ANIM, flush_to_original);
+    BKE_animsys_evaluate_animdata(&ob->id, ob->adt, frame, ADT_RECALC_ANIM, flush_to_original);
     /* ignore cache clear during subframe updates
      * to not mess up cache validity */
     object_cacheIgnoreClear(ob, 1);
@@ -4582,14 +4591,12 @@ bool BKE_object_modifier_update_subframe(Depsgraph *depsgraph,
   /* for curve following objects, parented curve has to be updated too */
   if (ob->type == OB_CURVE) {
     Curve *cu = ob->data;
-    BKE_animsys_evaluate_animdata(
-        scene, &cu->id, cu->adt, frame, ADT_RECALC_ANIM, flush_to_original);
+    BKE_animsys_evaluate_animdata(&cu->id, cu->adt, frame, ADT_RECALC_ANIM, flush_to_original);
   }
   /* and armatures... */
   if (ob->type == OB_ARMATURE) {
     bArmature *arm = ob->data;
-    BKE_animsys_evaluate_animdata(
-        scene, &arm->id, arm->adt, frame, ADT_RECALC_ANIM, flush_to_original);
+    BKE_animsys_evaluate_animdata(&arm->id, arm->adt, frame, ADT_RECALC_ANIM, flush_to_original);
     BKE_pose_where_is(depsgraph, scene, ob);
   }
 
