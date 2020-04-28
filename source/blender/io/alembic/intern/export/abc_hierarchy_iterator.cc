@@ -24,6 +24,7 @@
 #include "abc_writer_mesh.h"
 #include "abc_writer_metaball.h"
 #include "abc_writer_nurbs.h"
+#include "abc_writer_points.h"
 #include "abc_writer_transform.h"
 
 #include <string>
@@ -179,9 +180,19 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_hair_writer(
   return nullptr;
 }
 
-AbstractHierarchyWriter *ABCHierarchyIterator::create_particle_writer(const HierarchyContext *)
+AbstractHierarchyWriter *ABCHierarchyIterator::create_particle_writer(
+    const HierarchyContext *context)
 {
-  return nullptr;
+  ABCWriterConstructorArgs writer_args = writer_constructor_args(context);
+  ABCAbstractWriter *particle_writer = new ABCPointsWriter(writer_args);
+
+  if (!particle_writer->is_supported(context)) {
+    delete particle_writer;
+    return nullptr;
+  }
+
+  particle_writer->create_alembic_objects();
+  return particle_writer;
 }
 
 }  // namespace ABC
