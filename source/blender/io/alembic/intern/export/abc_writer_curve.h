@@ -21,7 +21,7 @@
 #include "abc_writer_abstract.h"
 #include "abc_writer_mesh.h"
 
-#include <Alembic/AbcGeom/CurveType.h>
+#include <Alembic/AbcGeom/OCurves.h>
 
 namespace ABC {
 

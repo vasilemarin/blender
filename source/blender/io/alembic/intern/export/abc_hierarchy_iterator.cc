@@ -21,6 +21,7 @@
 #include "abc_writer_abstract.h"
 #include "abc_writer_camera.h"
 #include "abc_writer_curve.h"
+#include "abc_writer_hair.h"
 #include "abc_writer_mesh.h"
 #include "abc_writer_metaball.h"
 #include "abc_writer_nurbs.h"
@@ -167,21 +168,31 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const Hierarch
   return data_writer;
 }
 
-AbstractHierarchyWriter *ABCHierarchyIterator::create_hair_writer(
-    const HierarchyContext * /*context*/)
+AbstractHierarchyWriter *ABCHierarchyIterator::create_hair_writer(const HierarchyContext *context)
 {
   if (!params_.export_hair) {
     return nullptr;
   }
-  // ABCAbstractWriter *hair_writer = new ABCHairWriter(writer_constructor_args(context));
-  // hair_writer->create_alembic_objects();
-  // return hair_writer;
-  return nullptr;
+
+  ABCWriterConstructorArgs writer_args = writer_constructor_args(context);
+  ABCAbstractWriter *hair_writer = new ABCHairWriter(writer_args);
+
+  if (!hair_writer->is_supported(context)) {
+    delete hair_writer;
+    return nullptr;
+  }
+
+  hair_writer->create_alembic_objects(context);
+  return hair_writer;
 }
 
 AbstractHierarchyWriter *ABCHierarchyIterator::create_particle_writer(
     const HierarchyContext *context)
 {
+  if (!params_.export_particles) {
+    return nullptr;
+  }
+
   ABCWriterConstructorArgs writer_args = writer_constructor_args(context);
   ABCAbstractWriter *particle_writer = new ABCPointsWriter(writer_args);
 

@@ -98,6 +98,7 @@ set(SRC
   intern/export/abc_writer_abstract.cc
   intern/export/abc_writer_camera.cc
   intern/export/abc_writer_curve.cc
+  intern/export/abc_writer_hair.cc
   intern/export/abc_writer_mesh.cc
   intern/export/abc_writer_metaball.cc
   intern/export/abc_writer_nurbs.cc
@@ -110,6 +111,7 @@ set(SRC
   intern/export/abc_writer_abstract.h
   intern/export/abc_writer_camera.h
   intern/export/abc_writer_curve.h
+  intern/export/abc_writer_hair.h
   intern/export/abc_writer_mesh.h
   intern/export/abc_writer_metaball.h
   intern/export/abc_writer_nurbs.h
