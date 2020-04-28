@@ -36,7 +36,10 @@ using Alembic::Abc::OObject;
 using Alembic::Abc::TimeSamplingPtr;
 
 ABCAbstractWriter::ABCAbstractWriter(const ABCWriterConstructorArgs &args)
-    : args_(args), frame_has_been_written_(false), is_animated_(false)
+    : args_(args),
+      frame_has_been_written_(false),
+      is_animated_(false),
+      timesample_index_(args_.abc_archive->time_sampling_index_shapes())
 {
 }
 
@@ -52,7 +55,6 @@ bool ABCAbstractWriter::is_supported(const HierarchyContext * /*context*/) const
 void ABCAbstractWriter::write(HierarchyContext &context)
 {
   if (!frame_has_been_written_) {
-    /* The start and end frames being the same means "no animation". */
     is_animated_ = (args_.export_params.frame_start != args_.export_params.frame_end) &&
                    check_is_animated(context);
   }

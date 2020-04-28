@@ -31,10 +31,13 @@ class ABCPointsWriter : public ABCAbstractWriter {
  public:
   ABCPointsWriter(const ABCWriterConstructorArgs &args);
 
-  void create_alembic_objects() override;
+  void create_alembic_objects(const HierarchyContext *context) override;
   const Alembic::Abc::OObject get_alembic_object() const override;
 
+  bool is_supported(const HierarchyContext *context) const override;
+
  protected:
+  bool check_is_animated(const HierarchyContext &context) const override;
   void do_write(HierarchyContext &context) override;
 };
 

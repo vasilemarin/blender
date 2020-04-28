@@ -43,13 +43,13 @@ using Alembic::AbcGeom::XformSample;
 ABCTransformWriter::ABCTransformWriter(const ABCWriterConstructorArgs &args)
     : ABCAbstractWriter(args)
 {
+  timesample_index_ = args_.abc_archive->time_sampling_index_transforms();
 }
 
-void ABCTransformWriter::create_alembic_objects()
+void ABCTransformWriter::create_alembic_objects(const HierarchyContext * /*context*/)
 {
   CLOG_INFO(&LOG, 2, "exporting %s", args_.abc_path.c_str());
-  uint32_t ts_index = args_.abc_archive->time_sampling_index_transforms();
-  abc_xform_ = OXform(args_.abc_parent, args_.abc_name, ts_index);
+  abc_xform_ = OXform(args_.abc_parent, args_.abc_name, timesample_index_);
   abc_xform_schema_ = abc_xform_.getSchema();
 }
 

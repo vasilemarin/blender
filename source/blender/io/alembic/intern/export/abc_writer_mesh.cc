@@ -88,12 +88,9 @@ ABCGenericMeshWriter::ABCGenericMeshWriter(const ABCWriterConstructorArgs &args)
 {
 }
 
-void ABCGenericMeshWriter::create_alembic_objects()
+void ABCGenericMeshWriter::create_alembic_objects(const HierarchyContext *context)
 {
-  /* If the object is static, use the default static time sampling. */
-  timesample_index_ = is_animated_ ? timesample_index_geometry_ : 0;
-
-  if (!args_.export_params.apply_subdiv && export_as_subdivision_surface(args_.object)) {
+  if (!args_.export_params.apply_subdiv && export_as_subdivision_surface(context->object)) {
     is_subd_ = args_.export_params.use_subdiv_schema;
   }
 
@@ -113,7 +110,7 @@ void ABCGenericMeshWriter::create_alembic_objects()
   }
 
   Scene *scene_eval = DEG_get_evaluated_scene(args_.depsgraph);
-  liquid_sim_modifier_ = get_liquid_sim_modifier(scene_eval, args_.object);
+  liquid_sim_modifier_ = get_liquid_sim_modifier(scene_eval, context->object);
 }
 
 ABCGenericMeshWriter::~ABCGenericMeshWriter()

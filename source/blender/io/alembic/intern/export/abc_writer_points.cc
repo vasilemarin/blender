@@ -44,24 +44,37 @@ ABCPointsWriter::ABCPointsWriter(const ABCWriterConstructorArgs &args) : ABCAbst
 {
 }
 
-void ABCPointsWriter::create_alembic_objects()
+void ABCPointsWriter::create_alembic_objects(const HierarchyContext * /*context*/)
 {
-  /* If the object is static, use the default static time sampling. */
-  uint32_t timesample_index = is_animated_ ? timesample_index_geometry_ : 0;
-
-  CLOG_INFO(&LOG,
-            2,
-            "exporting OPoints %s, child of %s, named %s",
-            args_.abc_path.c_str(),
-            args_.abc_parent.getFullName().c_str(),
-            args_.abc_name.c_str());
-  abc_points_ = OPoints(args_.abc_parent, args_.abc_name, timesample_index);
+  CLOG_INFO(&LOG, 2, "exporting OPoints %s", args_.abc_path.c_str());
+  abc_points_ = OPoints(args_.abc_parent, args_.abc_name, timesample_index_);
   abc_points_schema_ = abc_points_.getSchema();
 }
 
 const Alembic::Abc::OObject ABCPointsWriter::get_alembic_object() const
 {
   return abc_points_;
+}
+
+bool ABCPointsWriter::is_supported(const HierarchyContext *context) const
+{
+  return ELEM(context->particle_system->part->type,
+              PART_EMITTER,
+              PART_FLUID_FLIP,
+              PART_FLUID_SPRAY,
+              PART_FLUID_BUBBLE,
+              PART_FLUID_FOAM,
+              PART_FLUID_TRACER,
+              PART_FLUID_SPRAYFOAM,
+              PART_FLUID_SPRAYBUBBLE,
+              PART_FLUID_FOAMBUBBLE,
+              PART_FLUID_SPRAYFOAMBUBBLE);
+}
+
+bool ABCPointsWriter::check_is_animated(const HierarchyContext & /*context*/) const
+{
+  /* We assume that particles are always animated. */
+  return true;
 }
 
 void ABCPointsWriter::do_write(HierarchyContext &context)
@@ -77,14 +90,11 @@ void ABCPointsWriter::do_write(HierarchyContext &context)
   ParticleKey state;
   ParticleSimulationData sim;
   sim.depsgraph = args_.depsgraph;
-  sim.scene = DEG_get_input_scene(args_.depsgraph);
+  sim.scene = DEG_get_evaluated_scene(args_.depsgraph);
   sim.ob = context.object;
   sim.psys = psys;
 
   psys->lattice_deform_data = psys_create_lattice_deform_data(&sim);
-
-  state.time = DEG_get_ctime(args_.depsgraph);
-  CLOG_INFO(&LOG, 2, "%s: time is %f", args_.abc_path.c_str(), state.time);
 
   uint64_t index = 0;
   for (int p = 0; p < psys->totpart; p++) {
@@ -94,21 +104,13 @@ void ABCPointsWriter::do_write(HierarchyContext &context)
       continue;
     }
 
+    state.time = DEG_get_ctime(args_.depsgraph);
     if (psys_get_particle_state(&sim, p, &state, 0) == 0) {
-      CLOG_INFO(&LOG, 2, "%s: no particle %d!", args_.abc_path.c_str(), p);
       continue;
     }
 
     /* location */
     mul_v3_m4v3(pos, context.object->imat, state.co);
-    CLOG_INFO(&LOG,
-              2,
-              "%s: particle %d at %6.3f, %6.3f, %6.3f",
-              args_.abc_path.c_str(),
-              p,
-              pos[0],
-              pos[1],
-              pos[2]);
 
     /* velocity */
     sub_v3_v3v3(vel, state.co, psys->particles[p].prev_state.co);

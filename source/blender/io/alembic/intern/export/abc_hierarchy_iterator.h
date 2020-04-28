@@ -42,7 +42,6 @@ using USD::HierarchyContext;
 class ABCHierarchyIterator;
 
 struct ABCWriterConstructorArgs {
-  Object *object; /* Evaluated object */
   Depsgraph *depsgraph;
   ABCArchive *abc_archive;
   Alembic::Abc::OObject abc_parent;

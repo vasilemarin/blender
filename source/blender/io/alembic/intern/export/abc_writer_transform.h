@@ -31,7 +31,7 @@ class ABCTransformWriter : public ABCAbstractWriter {
 
  public:
   ABCTransformWriter(const ABCWriterConstructorArgs &args);
-  virtual void create_alembic_objects() override;
+  virtual void create_alembic_objects(const HierarchyContext *context) override;
 
  protected:
   void do_write(HierarchyContext &context) override;

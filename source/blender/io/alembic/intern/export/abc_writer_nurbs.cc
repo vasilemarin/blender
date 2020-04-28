@@ -42,12 +42,9 @@ ABCNurbsWriter::ABCNurbsWriter(const ABCWriterConstructorArgs &args) : ABCAbstra
 {
 }
 
-void ABCNurbsWriter::create_alembic_objects()
+void ABCNurbsWriter::create_alembic_objects(const HierarchyContext *context)
 {
-  /* If the object is static, use the default static time sampling. */
-  uint32_t timesample_index = is_animated_ ? timesample_index_geometry_ : 0;
-
-  Curve *curve = static_cast<Curve *>(args_.object->data);
+  Curve *curve = static_cast<Curve *>(context->object->data);
   size_t num_nurbs = BLI_listbase_count(&curve->nurb);
   OObject abc_parent = args_.abc_parent;
   const char *abc_parent_path = abc_parent.getFullName().c_str();
@@ -63,7 +60,7 @@ void ABCNurbsWriter::create_alembic_objects()
     std::string patch_name = patch_name_stream.str();
     CLOG_INFO(&LOG, 2, "exporting %s/%s", abc_parent_path, patch_name.c_str());
 
-    ONuPatch nurbs(abc_parent, patch_name.c_str(), timesample_index);
+    ONuPatch nurbs(abc_parent, patch_name.c_str(), timesample_index_);
     abc_nurbs_.push_back(nurbs);
     abc_nurbs_schemas_.push_back(nurbs.getSchema());
   }

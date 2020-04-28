@@ -30,7 +30,7 @@ class ABCNurbsWriter : public ABCAbstractWriter {
  public:
   ABCNurbsWriter(const ABCWriterConstructorArgs &args);
 
-  void create_alembic_objects() override;
+  void create_alembic_objects(const HierarchyContext *context) override;
   const Alembic::Abc::OObject get_alembic_object() const override;
 
  protected:

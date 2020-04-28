@@ -95,8 +95,7 @@ Alembic::Abc::OObject ABCHierarchyIterator::get_alembic_parent(
 ABCWriterConstructorArgs ABCHierarchyIterator::writer_constructor_args(
     const HierarchyContext *context) const
 {
-  return ABCWriterConstructorArgs{.object = context->object,
-                                  .depsgraph = depsgraph_,
+  return ABCWriterConstructorArgs{.depsgraph = depsgraph_,
                                   .abc_archive = abc_archive_,
                                   .abc_parent = get_alembic_parent(context),
                                   .abc_name = context->export_name,
@@ -109,7 +108,7 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_transform_writer(
     const HierarchyContext *context)
 {
   ABCAbstractWriter *transform_writer = new ABCTransformWriter(writer_constructor_args(context));
-  transform_writer->create_alembic_objects();
+  transform_writer->create_alembic_objects(context);
   return transform_writer;
 }
 
@@ -164,7 +163,7 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const Hierarch
     return nullptr;
   }
 
-  data_writer->create_alembic_objects();
+  data_writer->create_alembic_objects(context);
   return data_writer;
 }
 
@@ -191,7 +190,7 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_particle_writer(
     return nullptr;
   }
 
-  particle_writer->create_alembic_objects();
+  particle_writer->create_alembic_objects(context);
   return particle_writer;
 }
 

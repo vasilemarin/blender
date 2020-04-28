@@ -46,19 +46,13 @@ class ABCGenericMeshWriter : public ABCAbstractWriter {
   ModifierData *subsurf_modifier_;
   ModifierData *liquid_sim_modifier_;
 
-  /* Either the same as 'timesample_index_geometry_' or 0 to use Alembic's "constant"
-   * timesample index. This is chosen based on whether the mesh is considered animated or not.
-   *
-   * TODO(Sybren): maybe move this logic to ABCAbstractWriter? */
-  uint32_t timesample_index_;
-
   CDStreamConfig m_custom_data_config;
 
  public:
   ABCGenericMeshWriter(const ABCWriterConstructorArgs &args);
   virtual ~ABCGenericMeshWriter();
 
-  virtual void create_alembic_objects() override;
+  virtual void create_alembic_objects(const HierarchyContext *context) override;
   virtual const Alembic::Abc::OObject get_alembic_object() const;
 
  protected:

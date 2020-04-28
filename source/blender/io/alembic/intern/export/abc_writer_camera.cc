@@ -47,20 +47,17 @@ bool ABCCameraWriter::is_supported(const HierarchyContext *context) const
   return camera->type == CAM_PERSP;
 }
 
-void ABCCameraWriter::create_alembic_objects()
+void ABCCameraWriter::create_alembic_objects(const HierarchyContext * /*context*/)
 {
-  /* If the object is static, use the default static time sampling. */
-  uint32_t timesample_index = is_animated_ ? timesample_index_geometry_ : 0;
-
   CLOG_INFO(&LOG, 2, "exporting %s", args_.abc_path.c_str());
-  abc_camera_ = OCamera(args_.abc_parent, args_.abc_name, timesample_index);
+  abc_camera_ = OCamera(args_.abc_parent, args_.abc_name, timesample_index_);
   abc_camera_schema_ = abc_camera_.getSchema();
 
   abc_custom_data_container_ = abc_camera_schema_.getUserProperties();
   abc_stereo_distance_ = OFloatProperty(
-      abc_custom_data_container_, "stereoDistance", timesample_index);
+      abc_custom_data_container_, "stereoDistance", timesample_index_);
   abc_eye_separation_ = OFloatProperty(
-      abc_custom_data_container_, "eyeSeparation", timesample_index);
+      abc_custom_data_container_, "eyeSeparation", timesample_index_);
 }
 
 const Alembic::Abc::OObject ABCCameraWriter::get_alembic_object() const

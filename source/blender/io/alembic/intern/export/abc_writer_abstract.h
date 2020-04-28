@@ -45,10 +45,7 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
 
   bool frame_has_been_written_;
   bool is_animated_;
-
-  uint32_t timesample_index_transform_;
-  uint32_t timesample_index_geometry_;
-
+  uint32_t timesample_index_;
   Imath::Box3d bounding_box_;
 
  public:
@@ -68,7 +65,7 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
 
   /* Called by AlembicHierarchyCreator after checking that the data is supported via
    * is_supported(). */
-  virtual void create_alembic_objects() = 0;
+  virtual void create_alembic_objects(const HierarchyContext *context) = 0;
 
   /* TODO(Sybren): bring back support for writing the bounding box. */
 

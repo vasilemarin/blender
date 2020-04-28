@@ -47,16 +47,13 @@ ABCCurveWriter::ABCCurveWriter(const ABCWriterConstructorArgs &args) : ABCAbstra
 {
 }
 
-void ABCCurveWriter::create_alembic_objects()
+void ABCCurveWriter::create_alembic_objects(const HierarchyContext *context)
 {
-  /* If the object is static, use the default static time sampling. */
-  uint32_t timesample_index = is_animated_ ? timesample_index_geometry_ : 0;
-
   CLOG_INFO(&LOG, 2, "exporting %s", args_.abc_path.c_str());
-  abc_curve_ = OCurves(args_.abc_parent, args_.abc_name, timesample_index);
+  abc_curve_ = OCurves(args_.abc_parent, args_.abc_name, timesample_index_);
   abc_curve_schema_ = abc_curve_.getSchema();
 
-  Curve *cu = static_cast<Curve *>(args_.object->data);
+  Curve *cu = static_cast<Curve *>(context->object->data);
   OCompoundProperty user_props = abc_curve_schema_.getUserProperties();
   OInt16Property user_prop_resolu(user_props, ABC_CURVE_RESOLUTION_U_PROPNAME);
   user_prop_resolu.set(cu->resolu);
