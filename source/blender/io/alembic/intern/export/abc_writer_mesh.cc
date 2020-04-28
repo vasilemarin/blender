@@ -98,12 +98,12 @@ void ABCGenericMeshWriter::create_alembic_objects()
   }
 
   if (is_subd_) {
-    CLOG_INFO(&LOG, 2, "ABCGenericMeshWriter: exporting OSubD %s", args_.abc_path.c_str());
+    CLOG_INFO(&LOG, 2, "exporting OSubD %s", args_.abc_path.c_str());
     abc_subdiv_ = OSubD(args_.abc_parent, args_.abc_name, timesample_index_);
     abc_subdiv_schema_ = abc_subdiv_.getSchema();
   }
   else {
-    CLOG_INFO(&LOG, 2, "ABCGenericMeshWriter: exporting OPolyMesh %s", args_.abc_path.c_str());
+    CLOG_INFO(&LOG, 2, "exporting OPolyMesh %s", args_.abc_path.c_str());
     abc_poly_mesh_ = OPolyMesh(args_.abc_parent, args_.abc_name, timesample_index_);
     abc_poly_mesh_schema_ = abc_poly_mesh_.getSchema();
 
@@ -561,7 +561,6 @@ static void get_loop_normals(struct Mesh *mesh,
 
 ABCMeshWriter::ABCMeshWriter(const ABCWriterConstructorArgs &args) : ABCGenericMeshWriter(args)
 {
-  CLOG_INFO(&LOG, 2, "ABCMeshWriter: exporting %s", args.abc_path.c_str());
 }
 
 Mesh *ABCMeshWriter::get_export_mesh(Object *object_eval, bool & /*r_needsfree*/)

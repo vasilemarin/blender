@@ -26,6 +26,9 @@ extern "C" {
 #include "BKE_curve.h"
 }
 
+#include "CLG_log.h"
+static CLG_LogRef LOG = {"io.alembic"};
+
 namespace ABC {
 
 using Alembic::Abc::OObject;
@@ -58,6 +61,8 @@ void ABCNurbsWriter::create_alembic_objects()
     }
 
     std::string patch_name = patch_name_stream.str();
+    CLOG_INFO(&LOG, 2, "exporting %s/%s", abc_parent_path, patch_name.c_str());
+
     ONuPatch nurbs(abc_parent, patch_name.c_str(), timesample_index);
     abc_nurbs_.push_back(nurbs);
     abc_nurbs_schemas_.push_back(nurbs.getSchema());
