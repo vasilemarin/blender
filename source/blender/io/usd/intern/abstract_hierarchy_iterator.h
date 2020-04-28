@@ -193,11 +193,6 @@ class AbstractHierarchyIterator {
    * NULL-safe: when `id == nullptr` this returns an empty string. */
   virtual std::string get_id_name(const ID *id) const;
 
-  /* Given a HierarchyContext of some Object *, return an export path that is valid for its
-   * object->data. Overriding is necessary when the exported format does NOT expect the object's
-   * data to be a child of the object. */
-  virtual std::string get_object_data_path(const HierarchyContext *context) const;
-
  private:
   void debug_print_export_graph(const ExportGraph &graph) const;
 
@@ -240,6 +235,11 @@ class AbstractHierarchyIterator {
    * path separator, which is valid for both Alembic and USD. */
   virtual std::string path_concatenate(const std::string &parent_path,
                                        const std::string &child_path) const;
+
+  /* Given a HierarchyContext of some Object *, return an export path that is valid for its
+   * object->data. Overriding is necessary when the exported format does NOT expect the object's
+   * data to be a child of the object. */
+  virtual std::string get_object_data_path(const HierarchyContext *context) const;
 
   /* Return whether this object should be marked as 'weak export' or not.
    *
