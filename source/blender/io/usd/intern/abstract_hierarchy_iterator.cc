@@ -542,7 +542,8 @@ void AbstractHierarchyIterator::make_writer_object_data(const HierarchyContext *
   }
 
   HierarchyContext data_context = *context;
-  data_context.export_path = get_object_data_path(context);
+  data_context.export_name = get_object_data_name(data_context.object);
+  data_context.export_path = get_object_data_path(&data_context);
   data_context.higher_up_export_path = context->export_path;
 
   /* data_context.original_export_path is just a copy from the context. It points to the object,
@@ -580,8 +581,9 @@ void AbstractHierarchyIterator::make_writers_particle_systems(
     }
 
     HierarchyContext hair_context = *transform_context;
+    hair_context.export_name = make_valid_name(psys->name);
     hair_context.export_path = path_concatenate(transform_context->export_path,
-                                                get_id_name(&psys->part->id));
+                                                hair_context.export_name);
     hair_context.higher_up_export_path = transform_context->export_path;
     hair_context.particle_system = psys;
 
