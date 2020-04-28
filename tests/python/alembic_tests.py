@@ -76,7 +76,7 @@ class AbstractAlembicTest(AbstractBlenderRunnerTest):
         output = output.replace('\r\n', '\n').replace('\r', '\n')
 
         if proc.returncode:
-            raise AbcPropError('Error %d running abcls:\n%s' % (proc.returncode, output))
+            raise AbcPropError('Error %d running %s:\n%s' % (proc.returncode, ' '.join(command), output))
 
         # Mapping from value type to callable that can convert a string to Python values.
         converters = {
@@ -213,7 +213,7 @@ class DupliGroupExportTest(AbstractAlembicTest):
         self.run_blender('dupligroup-scene.blend', script)
 
         # Now check the resulting Alembic file.
-        xform = self.abcprop(abc, '/Real_Cube/Linked_Suzanne/Cylinder/Suzanne/.xform')
+        xform = self.abcprop(abc, '/Real_Cube/Linked_Suzanne/Cylinder-0/Suzanne-1/.xform')
         self.assertEqual(1, xform['.inherits'])
         self.assertAlmostEqualFloatArray(
             xform['.vals'],
@@ -252,10 +252,10 @@ class CurveExportTest(AbstractAlembicTest):
         self.run_blender('single-curve.blend', script)
 
         # Now check the resulting Alembic file.
-        abcprop = self.abcprop(abc, '/NurbsCurve/NurbsCurveShape/.geom')
+        abcprop = self.abcprop(abc, '/NurbsCurve/CurveData/.geom')
         self.assertEqual(abcprop['.orders'], [4])
 
-        abcprop = self.abcprop(abc, '/NurbsCurve/NurbsCurveShape/.geom/.userProperties')
+        abcprop = self.abcprop(abc, '/NurbsCurve/CurveData/.geom/.userProperties')
         self.assertEqual(abcprop['blender:resolution'], 10)
 
 
@@ -279,10 +279,10 @@ class HairParticlesExportTest(AbstractAlembicTest):
     def test_with_both(self, tempdir: pathlib.Path):
         abc = self._do_test(tempdir, True, True)
 
-        abcprop = self.abcprop(abc, '/Suzanne/Hair system/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/Hair_system/.geom')
         self.assertIn('nVertices', abcprop)
 
-        abcprop = self.abcprop(abc, '/Suzanne/Non-hair particle system/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/Non-hair_particle_system/.geom')
         self.assertIn('.velocities', abcprop)
 
         abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
@@ -292,11 +292,11 @@ class HairParticlesExportTest(AbstractAlembicTest):
     def test_with_hair_only(self, tempdir: pathlib.Path):
         abc = self._do_test(tempdir, True, False)
 
-        abcprop = self.abcprop(abc, '/Suzanne/Hair system/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/Hair_system/.geom')
         self.assertIn('nVertices', abcprop)
 
         self.assertRaises(AbcPropError, self.abcprop, abc,
-                          '/Suzanne/Non-hair particle system/.geom')
+                          '/Suzanne/Non-hair_particle_system/.geom')
 
         abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
         self.assertIn('.faceIndices', abcprop)
@@ -305,9 +305,9 @@ class HairParticlesExportTest(AbstractAlembicTest):
     def test_with_particles_only(self, tempdir: pathlib.Path):
         abc = self._do_test(tempdir, False, True)
 
-        self.assertRaises(AbcPropError, self.abcprop, abc, '/Suzanne/Hair system/.geom')
+        self.assertRaises(AbcPropError, self.abcprop, abc, '/Suzanne/Hair_system/.geom')
 
-        abcprop = self.abcprop(abc, '/Suzanne/Non-hair particle system/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/Non-hair_particle_system/.geom')
         self.assertIn('.velocities', abcprop)
 
         abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
@@ -317,9 +317,9 @@ class HairParticlesExportTest(AbstractAlembicTest):
     def test_with_neither(self, tempdir: pathlib.Path):
         abc = self._do_test(tempdir, False, False)
 
-        self.assertRaises(AbcPropError, self.abcprop, abc, '/Suzanne/Hair system/.geom')
+        self.assertRaises(AbcPropError, self.abcprop, abc, '/Suzanne/Hair_system/.geom')
         self.assertRaises(AbcPropError, self.abcprop, abc,
-                          '/Suzanne/Non-hair particle system/.geom')
+                          '/Suzanne/Non-hair_particle_system/.geom')
 
         abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
         self.assertIn('.faceIndices', abcprop)
