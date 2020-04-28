@@ -94,14 +94,14 @@ Alembic::Abc::OObject ABCHierarchyIterator::get_alembic_parent(
 ABCWriterConstructorArgs ABCHierarchyIterator::writer_constructor_args(
     const HierarchyContext *context) const
 {
-  return ABCWriterConstructorArgs{context->object,
-                                  depsgraph_,
-                                  abc_archive_,
-                                  get_alembic_parent(context),
-                                  context->export_name,
-                                  context->export_path,
-                                  this,
-                                  params_};
+  return ABCWriterConstructorArgs{.object = context->object,
+                                  .depsgraph = depsgraph_,
+                                  .abc_archive = abc_archive_,
+                                  .abc_parent = get_alembic_parent(context),
+                                  .abc_name = context->export_name,
+                                  .abc_path = context->export_path,
+                                  .hierarchy_iterator = this,
+                                  .export_params = params_};
 }
 
 AbstractHierarchyWriter *ABCHierarchyIterator::create_transform_writer(
