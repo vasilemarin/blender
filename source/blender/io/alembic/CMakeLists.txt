@@ -100,6 +100,7 @@ set(SRC
   intern/export/abc_writer_curve.cc
   intern/export/abc_writer_mesh.cc
   intern/export/abc_writer_metaball.cc
+  intern/export/abc_writer_nurbs.cc
   intern/export/abc_writer_transform.cc
 
   intern/export/abc_archive.h
@@ -110,6 +111,7 @@ set(SRC
   intern/export/abc_writer_curve.h
   intern/export/abc_writer_mesh.h
   intern/export/abc_writer_metaball.h
+  intern/export/abc_writer_nurbs.h
   intern/export/abc_writer_transform.h
 )
 

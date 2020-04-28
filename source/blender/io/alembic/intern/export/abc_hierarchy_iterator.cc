@@ -23,6 +23,7 @@
 #include "abc_writer_curve.h"
 #include "abc_writer_mesh.h"
 #include "abc_writer_metaball.h"
+#include "abc_writer_nurbs.h"
 #include "abc_writer_transform.h"
 
 #include <string>
@@ -131,13 +132,20 @@ AbstractHierarchyWriter *ABCHierarchyIterator::create_data_writer(const Hierarch
         data_writer = new ABCCurveWriter(writer_args);
       }
       break;
+    case OB_SURF:
+      if (params_.curves_as_mesh) {
+        data_writer = new ABCCurveMeshWriter(writer_args);
+      }
+      else {
+        data_writer = new ABCNurbsWriter(writer_args);
+      }
+      break;
     case OB_MBALL:
       data_writer = new ABCMetaballWriter(writer_args);
       break;
 
     case OB_EMPTY:
     case OB_LAMP:
-    case OB_SURF:
     case OB_FONT:
     case OB_SPEAKER:
     case OB_LIGHTPROBE:
