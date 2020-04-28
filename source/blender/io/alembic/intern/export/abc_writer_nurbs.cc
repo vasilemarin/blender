@@ -47,16 +47,18 @@ void ABCNurbsWriter::create_alembic_objects()
   Curve *curve = static_cast<Curve *>(args_.object->data);
   size_t num_nurbs = BLI_listbase_count(&curve->nurb);
   OObject abc_parent = args_.abc_parent;
+  const char *abc_parent_path = abc_parent.getFullName().c_str();
 
   for (size_t i = 0; i < num_nurbs; i++) {
-    std::stringstream str;
-    str << args_.abc_name << '_' << i;
+    std::stringstream patch_name_stream;
+    patch_name_stream << args_.abc_name << '_' << i;
 
-    while (abc_parent.getChildHeader(str.str())) {
-      str << "_";
+    while (abc_parent.getChildHeader(patch_name_stream.str())) {
+      patch_name_stream << "_";
     }
 
-    ONuPatch nurbs(abc_parent, str.str().c_str(), timesample_index);
+    std::string patch_name = patch_name_stream.str();
+    ONuPatch nurbs(abc_parent, patch_name.c_str(), timesample_index);
     abc_nurbs_.push_back(nurbs);
     abc_nurbs_schemas_.push_back(nurbs.getSchema());
   }
