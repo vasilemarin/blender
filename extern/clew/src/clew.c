@@ -23,7 +23,7 @@
     
     typedef void*                   CLEW_DYNLIB_HANDLE;
 
-    #define CLEW_DYNLIB_OPEN(path)  dlopen(path, RTLD_NOW | RTLD_GLOBAL)
+    #define CLEW_DYNLIB_OPEN(path)  dlopen(path, RTLD_NOW | RTLD_DEEPBIND)
     #define CLEW_DYNLIB_CLOSE       dlclose
     #define CLEW_DYNLIB_IMPORT      dlsym
 #endif
