@@ -48,6 +48,7 @@ ABCHierarchyIterator::ABCHierarchyIterator(Depsgraph *depsgraph,
                                            const AlembicExportParams &params)
     : AbstractHierarchyIterator(depsgraph), abc_archive_(abc_archive), params_(params)
 {
+  export_flattened_ = params_.flatten_hierarchy;
 }
 
 bool ABCHierarchyIterator::mark_as_weak_export(const Object *object) const

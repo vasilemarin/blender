@@ -106,7 +106,7 @@ bool AbstractHierarchyWriter::check_is_animated(const HierarchyContext &context)
 }
 
 AbstractHierarchyIterator::AbstractHierarchyIterator(Depsgraph *depsgraph)
-    : depsgraph_(depsgraph), writers_(), export_subset_({true, true})
+    : depsgraph_(depsgraph), writers_(), export_subset_({true, true}), export_flattened_(false)
 {
 }
 
@@ -339,6 +339,10 @@ void AbstractHierarchyIterator::visit_object(Object *object,
                                              Object *export_parent,
                                              bool weak_export)
 {
+  if (export_flattened_) {
+    export_parent = nullptr;
+  }
+
   HierarchyContext *context = new HierarchyContext();
   context->object = object;
   context->export_name = get_object_name(object);
@@ -381,21 +385,28 @@ void AbstractHierarchyIterator::visit_dupli_object(DupliObject *dupli_object,
   context->original_export_path = "";
   context->export_path = "";
 
-  /* If the dupli-object's parent is also instanced by this object, use that as the
-   * export parent. Otherwise use the dupli-parent as export parent. */
-  Object *parent = dupli_object->ob->parent;
-  if (parent != nullptr && dupli_set.find(parent) != dupli_set.end()) {
-    // The parent object is part of the duplicated collection.
-    context->export_parent = parent;
-    graph_index = std::make_pair(parent, duplicator);
+  if (export_flattened_) {
+    context->export_parent = nullptr;
+    graph_index = std::make_pair(nullptr, nullptr);
+    animation_check_include_parent = true;
   }
   else {
-    /* The parent object is NOT part of the duplicated collection. This means that the world
-     * transform of this dupli-object can be influenced by objects that are not part of its
-     * export graph. */
-    animation_check_include_parent = true;
-    context->export_parent = duplicator;
-    graph_index = std::make_pair(duplicator, nullptr);
+    /* If the dupli-object's parent is also instanced by this object, use that as the
+     * export parent. Otherwise use the dupli-parent as export parent. */
+    Object *parent = dupli_object->ob->parent;
+    if (parent != nullptr && dupli_set.find(parent) != dupli_set.end()) {
+      // The parent object is part of the duplicated collection.
+      context->export_parent = parent;
+      graph_index = std::make_pair(parent, duplicator);
+    }
+    else {
+      /* The parent object is NOT part of the duplicated collection. This means that the world
+       * transform of this dupli-object can be influenced by objects that are not part of its
+       * export graph. */
+      animation_check_include_parent = true;
+      context->export_parent = duplicator;
+      graph_index = std::make_pair(duplicator, nullptr);
+    }
   }
 
   context->animation_check_include_parent = animation_check_include_parent;

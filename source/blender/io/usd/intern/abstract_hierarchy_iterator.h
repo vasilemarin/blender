@@ -163,6 +163,9 @@ class AbstractHierarchyIterator {
   WriterMap writers_;
   ExportSubset export_subset_;
 
+  /* When this is true, all objects are exported as child of the archive root. */
+  bool export_flattened_;
+
  public:
   explicit AbstractHierarchyIterator(Depsgraph *depsgraph);
   virtual ~AbstractHierarchyIterator();
