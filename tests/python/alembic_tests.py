@@ -193,7 +193,7 @@ class HierarchicalAndFlatExportTest(AbstractAlembicTest):
 
         # Now check the resulting Alembic file.
         xform = self.abcprop(abc, '/Cube_012/.xform')
-        self.assertEqual(0, xform['.inherits'])
+        self.assertEqual(1, xform['.inherits'], "Blender transforms always inherit")
 
         self.assertAlmostEqualFloatArray(
             xform['.vals'],
@@ -231,8 +231,8 @@ class DupliGroupExportTest(AbstractAlembicTest):
         self.run_blender('dupligroup-scene.blend', script)
 
         # Now check the resulting Alembic file.
-        xform = self.abcprop(abc, '/Suzanne/.xform')
-        self.assertEqual(0, xform['.inherits'])
+        xform = self.abcprop(abc, '/Suzanne-1/.xform')
+        self.assertEqual(1, xform['.inherits'])
 
         self.assertAlmostEqualFloatArray(
             xform['.vals'],
@@ -285,7 +285,7 @@ class HairParticlesExportTest(AbstractAlembicTest):
         abcprop = self.abcprop(abc, '/Suzanne/Non-hair_particle_system/.geom')
         self.assertIn('.velocities', abcprop)
 
-        abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/MonkeyMesh/.geom')
         self.assertIn('.faceIndices', abcprop)
 
     @with_tempdir
@@ -298,7 +298,7 @@ class HairParticlesExportTest(AbstractAlembicTest):
         self.assertRaises(AbcPropError, self.abcprop, abc,
                           '/Suzanne/Non-hair_particle_system/.geom')
 
-        abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/MonkeyMesh/.geom')
         self.assertIn('.faceIndices', abcprop)
 
     @with_tempdir
@@ -310,7 +310,7 @@ class HairParticlesExportTest(AbstractAlembicTest):
         abcprop = self.abcprop(abc, '/Suzanne/Non-hair_particle_system/.geom')
         self.assertIn('.velocities', abcprop)
 
-        abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/MonkeyMesh/.geom')
         self.assertIn('.faceIndices', abcprop)
 
     @with_tempdir
@@ -321,7 +321,7 @@ class HairParticlesExportTest(AbstractAlembicTest):
         self.assertRaises(AbcPropError, self.abcprop, abc,
                           '/Suzanne/Non-hair_particle_system/.geom')
 
-        abcprop = self.abcprop(abc, '/Suzanne/SuzanneShape/.geom')
+        abcprop = self.abcprop(abc, '/Suzanne/MonkeyMesh/.geom')
         self.assertIn('.faceIndices', abcprop)
 
 
@@ -410,7 +410,7 @@ class LongNamesExportTest(AbstractAlembicTest):
             0.0, 3.0, 0.0, 1.0,
         ])
 
-        abcprop = self.abcprop(abc, '%s/CubeShape/.geom' % name)
+        abcprop = self.abcprop(abc, '%s/Cube/.geom' % name)
         self.assertIn('.faceCounts', abcprop)
 
 
