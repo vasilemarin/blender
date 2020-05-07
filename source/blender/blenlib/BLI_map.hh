@@ -149,9 +149,7 @@ class Map {
     template<typename ForwardKeyT, typename ForwardValueT>
     void store(uint offset, ForwardKeyT &&key, ForwardValueT &&value)
     {
-      BLI_assert(m_status[offset] != IS_SET);
-      m_status[offset] = IS_SET;
-      new (this->key(offset)) KeyT(std::forward<ForwardKeyT>(key));
+      this->store_without_value(offset, std::forward<ForwardKeyT>(key));
       new (this->value(offset)) ValueT(std::forward<ForwardValueT>(value));
     }
 
@@ -410,11 +408,32 @@ class Map {
   }
 
   /**
+   * Return the value that corresponds to the given key.
+   * If it does not exist yet, insert a new default constructed value and return that.
+   */
+  ValueT &lookup_or_add_default(const KeyT &key)
+  {
+    return this->lookup_or_add(key, []() { return ValueT(); });
+  }
+  ValueT &lookup_or_add_default(const KeyT &&key)
+  {
+    return this->lookup_or_add(std::move(key), []() { return ValueT(); });
+  }
+
+  /**
    * Get the number of elements in the map.
    */
   uint32_t size() const
   {
     return m_array.slots_set();
+  }
+
+  /**
+   * Returns true if there are no elements in the map.
+   */
+  bool is_empty() const
+  {
+    return this->size() == 0;
   }
 
   /**

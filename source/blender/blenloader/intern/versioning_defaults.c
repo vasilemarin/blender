@@ -197,6 +197,7 @@ static void blo_update_defaults_screen(bScreen *screen,
       v3d->gp_flag |= V3D_GP_SHOW_EDIT_LINES;
       /* Remove dither pattern in wireframe mode. */
       v3d->shading.xray_alpha_wire = 0.0f;
+      v3d->clip_start = 0.01f;
       /* Skip startups that use the viewport color by default. */
       if (v3d->shading.background_type != V3D_SHADING_BACKGROUND_VIEWPORT) {
         copy_v3_fl(v3d->shading.background_color, 0.05f);
@@ -368,7 +369,13 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
 
 /**
  * Update defaults in startup.blend, without having to save and embed the file.
- * This function can be emptied each time the startup.blend is updated. */
+ * This function can be emptied each time the startup.blend is updated.
+ *
+ * \note Screen data may be cleared at this point, this will happen in the case
+ * an app-template's data needs to be versioned when read-file is called with "Load UI" disabled.
+ * Versioning the screen data can be safely skipped without "Load UI" since the screen data
+ * will have been versioned when it was first loaded.
+ */
 void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 {
   /* For all app templates. */
@@ -433,10 +440,21 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
       }
       ma->gp_style->mode = GP_MATERIAL_MODE_SQUARE;
 
+      /* Change Solid Stroke settings. */
+      ma = BLI_findstring(&bmain->materials, "Solid Stroke", offsetof(ID, name) + 2);
+      if (ma != NULL) {
+        ma->gp_style->mix_rgba[3] = 1.0f;
+        ma->gp_style->texture_offset[0] = -0.5f;
+        ma->gp_style->mix_factor = 0.5f;
+      }
+
       /* Change Solid Fill settings. */
       ma = BLI_findstring(&bmain->materials, "Solid Fill", offsetof(ID, name) + 2);
       if (ma != NULL) {
         ma->gp_style->flag &= ~GP_MATERIAL_STROKE_SHOW;
+        ma->gp_style->mix_rgba[3] = 1.0f;
+        ma->gp_style->texture_offset[0] = -0.5f;
+        ma->gp_style->mix_factor = 0.5f;
       }
 
       Object *ob = BLI_findstring(&bmain->objects, "Stroke", offsetof(ID, name) + 2);
@@ -468,24 +486,26 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
   }
 
   /* Workspaces. */
-  wmWindow *win = ((wmWindowManager *)bmain->wm.first)->windows.first;
-  for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
-    WorkSpaceLayout *layout = BKE_workspace_hook_layout_for_workspace_get(win->workspace_hook,
-                                                                          workspace);
+  LISTBASE_FOREACH (wmWindowManager *, wm, &bmain->wm) {
+    LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+      LISTBASE_FOREACH (WorkSpace *, workspace, &bmain->workspaces) {
+        WorkSpaceLayout *layout = BKE_workspace_hook_layout_for_workspace_get(win->workspace_hook,
+                                                                              workspace);
+        /* Name all screens by their workspaces (avoids 'Default.###' names). */
+        /* Default only has one window. */
+        if (layout->screen) {
+          bScreen *screen = layout->screen;
+          BLI_strncpy(screen->id.name + 2, workspace->id.name + 2, sizeof(screen->id.name) - 2);
+          BLI_libblock_ensure_unique_name(bmain, screen->id.name);
+        }
 
-    /* Name all screens by their workspaces (avoids 'Default.###' names). */
-    /* Default only has one window. */
-    if (layout->screen) {
-      bScreen *screen = layout->screen;
-      BLI_strncpy(screen->id.name + 2, workspace->id.name + 2, sizeof(screen->id.name) - 2);
-      BLI_libblock_ensure_unique_name(bmain, screen->id.name);
-    }
-
-    /* For some reason we have unused screens, needed until re-saving.
-     * Clear unused layouts because they're visible in the outliner & Python API. */
-    LISTBASE_FOREACH_MUTABLE (WorkSpaceLayout *, layout_iter, &workspace->layouts) {
-      if (layout != layout_iter) {
-        BKE_workspace_layout_remove(bmain, workspace, layout_iter);
+        /* For some reason we have unused screens, needed until re-saving.
+         * Clear unused layouts because they're visible in the outliner & Python API. */
+        LISTBASE_FOREACH_MUTABLE (WorkSpaceLayout *, layout_iter, &workspace->layouts) {
+          if (layout != layout_iter) {
+            BKE_workspace_layout_remove(bmain, workspace, layout_iter);
+          }
+        }
       }
     }
   }

@@ -157,6 +157,7 @@
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
 #include "BKE_fcurve.h"
+#include "BKE_fcurve_driver.h"
 #include "BKE_global.h"  // for G
 #include "BKE_gpencil_modifier.h"
 #include "BKE_idtype.h"
@@ -3313,6 +3314,24 @@ static void write_brush(WriteData *wd, Brush *brush, const void *id_address)
       }
       if (brush->gpencil_settings->curve_jitter) {
         write_curvemapping(wd, brush->gpencil_settings->curve_jitter);
+      }
+      if (brush->gpencil_settings->curve_rand_pressure) {
+        write_curvemapping(wd, brush->gpencil_settings->curve_rand_pressure);
+      }
+      if (brush->gpencil_settings->curve_rand_strength) {
+        write_curvemapping(wd, brush->gpencil_settings->curve_rand_strength);
+      }
+      if (brush->gpencil_settings->curve_rand_uv) {
+        write_curvemapping(wd, brush->gpencil_settings->curve_rand_uv);
+      }
+      if (brush->gpencil_settings->curve_rand_hue) {
+        write_curvemapping(wd, brush->gpencil_settings->curve_rand_hue);
+      }
+      if (brush->gpencil_settings->curve_rand_saturation) {
+        write_curvemapping(wd, brush->gpencil_settings->curve_rand_saturation);
+      }
+      if (brush->gpencil_settings->curve_rand_value) {
+        write_curvemapping(wd, brush->gpencil_settings->curve_rand_value);
       }
     }
     if (brush->gradient) {

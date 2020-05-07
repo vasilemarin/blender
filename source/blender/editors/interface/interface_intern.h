@@ -597,10 +597,8 @@ struct uiPopupBlockHandle {
 
   /* for operator popups */
   struct wmOperator *popup_op;
-  struct wmOperatorType *optype;
   ScrArea *ctx_area;
   ARegion *ctx_region;
-  int opcontext;
 
   /* return values */
   int butretval;
@@ -1011,6 +1009,7 @@ void UI_OT_eyedropper_driver(struct wmOperatorType *ot);
 void UI_OT_eyedropper_gpencil_color(struct wmOperatorType *ot);
 
 /* interface_util.c */
+bool ui_str_has_word_prefix(const char *haystack, const char *needle, size_t needle_len);
 
 /**
  * For use with #ui_rna_collection_search_cb.
