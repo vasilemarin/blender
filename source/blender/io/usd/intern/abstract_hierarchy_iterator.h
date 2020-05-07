@@ -163,9 +163,6 @@ class AbstractHierarchyIterator {
   WriterMap writers_;
   ExportSubset export_subset_;
 
-  /* When this is true, all objects are exported as child of the archive root. */
-  bool export_flattened_;
-
  public:
   explicit AbstractHierarchyIterator(Depsgraph *depsgraph);
   virtual ~AbstractHierarchyIterator();
@@ -208,6 +205,9 @@ class AbstractHierarchyIterator {
   void visit_dupli_object(DupliObject *dupli_object,
                           Object *duplicator,
                           const std::set<Object *> &dupli_set);
+
+  void context_update_for_graph_index(HierarchyContext *context,
+                                      const ExportGraph::key_type &graph_index) const;
 
   ExportChildren &graph_children(const HierarchyContext *parent_context);
 
@@ -260,6 +260,10 @@ class AbstractHierarchyIterator {
   virtual bool mark_as_weak_export(const Object *object) const;
 
   virtual bool should_visit_dupli_object(const DupliObject *dupli_object) const;
+
+  virtual ExportGraph::key_type determine_graph_index_object(const HierarchyContext *context);
+  virtual ExportGraph::key_type determine_graph_index_dupli(const HierarchyContext *context,
+                                                            const std::set<Object *> &dupli_set);
 
   /* These functions should create an AbstractHierarchyWriter subclass instance, or return
    * nullptr if the object or its data should not be exported. Returning a nullptr for

@@ -48,7 +48,6 @@ ABCHierarchyIterator::ABCHierarchyIterator(Depsgraph *depsgraph,
                                            const AlembicExportParams &params)
     : AbstractHierarchyIterator(depsgraph), abc_archive_(abc_archive), params_(params)
 {
-  export_flattened_ = params_.flatten_hierarchy;
 }
 
 bool ABCHierarchyIterator::mark_as_weak_export(const Object *object) const
@@ -72,6 +71,26 @@ std::string ABCHierarchyIterator::make_valid_name(const std::string &name) const
   std::replace(abc_name.begin(), abc_name.end(), '.', '_');
   std::replace(abc_name.begin(), abc_name.end(), ':', '_');
   return abc_name;
+}
+
+AbstractHierarchyIterator::ExportGraph::key_type ABCHierarchyIterator::
+    determine_graph_index_object(const HierarchyContext *context)
+{
+  if (params_.flatten_hierarchy) {
+    return std::make_pair(nullptr, nullptr);
+  }
+
+  return AbstractHierarchyIterator::determine_graph_index_object(context);
+}
+
+AbstractHierarchyIterator::ExportGraph::key_type ABCHierarchyIterator::determine_graph_index_dupli(
+    const HierarchyContext *context, const std::set<Object *> &dupli_set)
+{
+  if (params_.flatten_hierarchy) {
+    return std::make_pair(nullptr, nullptr);
+  }
+
+  return AbstractHierarchyIterator::determine_graph_index_dupli(context, dupli_set);
 }
 
 Alembic::Abc::OObject ABCHierarchyIterator::get_alembic_parent(

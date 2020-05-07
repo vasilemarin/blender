@@ -66,6 +66,10 @@ class ABCHierarchyIterator : public AbstractHierarchyIterator {
  protected:
   virtual bool mark_as_weak_export(const Object *object) const override;
 
+  ExportGraph::key_type determine_graph_index_object(const HierarchyContext *context) override;
+  AbstractHierarchyIterator::ExportGraph::key_type determine_graph_index_dupli(
+      const HierarchyContext *context, const std::set<Object *> &dupli_set) override;
+
   virtual AbstractHierarchyWriter *create_transform_writer(
       const HierarchyContext *context) override;
   virtual AbstractHierarchyWriter *create_data_writer(const HierarchyContext *context) override;
