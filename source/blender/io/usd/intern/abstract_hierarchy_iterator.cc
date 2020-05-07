@@ -349,7 +349,7 @@ void AbstractHierarchyIterator::visit_object(Object *object,
   context->export_parent = export_parent;
   context->duplicator = nullptr;
   context->weak_export = weak_export;
-  context->animation_check_include_parent = false;
+  context->animation_check_include_parent = export_flattened_;
   context->export_path = "";
   context->original_export_path = "";
   context->higher_up_export_path = "";
