@@ -34,8 +34,7 @@
 struct window_t {
   GHOST_WindowWayland *w;
   wl_surface *surface;
-  struct xdg_surface *xdg_surface;
-  struct xdg_toplevel *xdg_toplevel;
+  struct libdecor_frame *frame;
   wl_egl_window *egl_window;
   int32_t pending_width, pending_height;
   bool is_maximised;
@@ -84,15 +83,15 @@ static void toplevel_configure(
   }
 }
 
-static void toplevel_close(void *data, xdg_toplevel * /*xdg_toplevel*/)
-{
-  static_cast<window_t *>(data)->w->close();
-}
+//static void toplevel_close(void *data, xdg_toplevel * /*xdg_toplevel*/)
+//{
+//  static_cast<window_t *>(data)->w->close();
+//}
 
-static const xdg_toplevel_listener toplevel_listener = {
-    toplevel_configure,
-    toplevel_close,
-};
+//static const xdg_toplevel_listener toplevel_listener = {
+//    toplevel_configure,
+//    toplevel_close,
+//};
 
 static void surface_configure(void *data, xdg_surface *xdg_surface, uint32_t serial)
 {
@@ -120,8 +119,86 @@ static void surface_configure(void *data, xdg_surface *xdg_surface, uint32_t ser
   xdg_surface_ack_configure(xdg_surface, serial);
 }
 
-static const xdg_surface_listener surface_listener = {
-    surface_configure,
+//static const xdg_surface_listener surface_listener = {
+//    surface_configure,
+//};
+
+static void
+frame_configure(struct libdecor_frame *frame,
+     struct libdecor_configuration *configuration,
+     void *data)
+{
+  window_t *win = static_cast<window_t *>(data);
+
+//  int w, h;
+//  wl_egl_window_get_attached_size(win->egl_window, &w, &h);
+
+//  if (win->pending_width != 0 && win->pending_height != 0 && win->pending_width != w &&
+//      win->pending_height != h) {
+//    win->width = win->pending_width;
+//    win->height = win->pending_height;
+//    wl_egl_window_resize(win->egl_window, win->pending_width, win->pending_height, 0, 0);
+//    win->pending_width = 0;
+//    win->pending_height = 0;
+//    win->w->notify_size();
+//  }
+
+//  xdg_surface_ack_configure(xdg_surface, serial);
+
+  int width, height;
+  enum libdecor_window_state window_state;
+  struct libdecor_state *state;
+
+  if (!libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
+    width = 333;
+    height = 333;
+  }
+
+  win->width = width;
+  win->height = height;
+
+  // wl_egl_window_resize(win->egl_window, win->pending_width, win->pending_height, 0, 0);
+//  win->w->notify_size();
+
+  if (!libdecor_configuration_get_window_state(configuration, &window_state))
+    window_state = LIBDECOR_WINDOW_STATE_NONE;
+
+  win->is_maximised = window_state & LIBDECOR_WINDOW_STATE_MAXIMIZED;
+  win->is_fullscreen = window_state & LIBDECOR_WINDOW_STATE_FULLSCREEN;
+  win->is_active = window_state & LIBDECOR_WINDOW_STATE_ACTIVE;
+
+  if (win->is_active) {
+    win->w->activate();
+  }
+  else {
+    win->w->deactivate();
+  }
+
+  state = libdecor_state_new(width, height);
+  libdecor_frame_commit(frame, state, configuration);
+  libdecor_state_free(state);
+
+//  wl_surface_attach(window->wl_surface, buffer->wl_buffer, 0, 0);
+//  wl_surface_damage(window->wl_surface, 0, 0, width, height);
+  wl_surface_commit(win->surface);
+}
+
+static void
+frame_close(struct libdecor_frame *frame, void *data)
+{
+  static_cast<window_t *>(data)->w->close();
+}
+
+static void
+frame_commit(void *data)
+{
+  wl_surface_commit(static_cast<window_t *>(data)->surface);
+}
+
+static struct libdecor_frame_interface libdecor_frame_iface = {
+  frame_configure,
+  frame_close,
+  frame_commit,
 };
 
 static void
@@ -172,23 +249,23 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
   w->surface = wl_compositor_create_surface(m_system->compositor());
   w->egl_window = wl_egl_window_create(w->surface, int(width), int(height));
 
-  struct libdecor *context = libdecor_new(m_system->display(), &libdecor_iface);
-
-  w->xdg_surface = xdg_wm_base_get_xdg_surface(m_system->shell(), w->surface);
-  w->xdg_toplevel = xdg_surface_get_toplevel(w->xdg_surface);
-
   wl_surface_set_user_data(w->surface, this);
 
-  xdg_surface_add_listener(w->xdg_surface, &surface_listener, w);
-  xdg_toplevel_add_listener(w->xdg_toplevel, &toplevel_listener, w);
+  /* create window decorations */
+  struct libdecor *context = libdecor_new(m_system->display(), &libdecor_iface);
+
+  w->frame = libdecor_decorate(context, w->surface, &libdecor_frame_iface, w);
+  libdecor_frame_map(w->frame);
 
   if (parentWindow) {
-    xdg_toplevel_set_parent(
-        w->xdg_toplevel, dynamic_cast<const GHOST_WindowWayland *>(parentWindow)->w->xdg_toplevel);
+    // TODO:
+//    xdg_toplevel_set_parent(
+//        w->xdg_toplevel, dynamic_cast<const GHOST_WindowWayland *>(parentWindow)->w->xdg_toplevel);
   }
 
   /* Call top-level callbacks. */
   wl_surface_commit(w->surface);
+  wl_display_roundtrip(m_system->display());
   wl_display_roundtrip(m_system->display());
 
   setState(state);
@@ -254,8 +331,8 @@ GHOST_TSuccess GHOST_WindowWayland::setWindowCustomCursorShape(GHOST_TUns8 *bitm
 
 void GHOST_WindowWayland::setTitle(const char *title)
 {
-  xdg_toplevel_set_title(w->xdg_toplevel, title);
-  xdg_toplevel_set_app_id(w->xdg_toplevel, title);
+  libdecor_frame_set_app_id(w->frame, title);
+  libdecor_frame_set_title(w->frame, title);
   this->title = title;
 }
 
@@ -313,8 +390,8 @@ GHOST_WindowWayland::~GHOST_WindowWayland()
   releaseNativeHandles();
 
   wl_egl_window_destroy(w->egl_window);
-  xdg_toplevel_destroy(w->xdg_toplevel);
-  xdg_surface_destroy(w->xdg_surface);
+//  xdg_toplevel_destroy(w->xdg_toplevel);
+//  xdg_surface_destroy(w->xdg_surface);
   wl_surface_destroy(w->surface);
 
   delete w;
@@ -332,23 +409,23 @@ GHOST_TSuccess GHOST_WindowWayland::setState(GHOST_TWindowState state)
       /* Unset states. */
       switch (getState()) {
         case GHOST_kWindowStateMaximized:
-          xdg_toplevel_unset_maximized(w->xdg_toplevel);
+          libdecor_frame_unset_maximized(w->frame);
           break;
         case GHOST_kWindowStateFullScreen:
-          xdg_toplevel_unset_fullscreen(w->xdg_toplevel);
+          libdecor_frame_unset_fullscreen(w->frame);
           break;
         default:
           break;
       }
       break;
     case GHOST_kWindowStateMaximized:
-      xdg_toplevel_set_maximized(w->xdg_toplevel);
+      libdecor_frame_set_maximized(w->frame);
       break;
     case GHOST_kWindowStateMinimized:
-      xdg_toplevel_set_minimized(w->xdg_toplevel);
+      libdecor_frame_set_minimized(w->frame);
       break;
     case GHOST_kWindowStateFullScreen:
-      xdg_toplevel_set_fullscreen(w->xdg_toplevel, nullptr);
+      libdecor_frame_set_fullscreen(w->frame, nullptr);
       break;
     case GHOST_kWindowStateEmbedded:
       return GHOST_kFailure;
@@ -381,13 +458,13 @@ GHOST_TSuccess GHOST_WindowWayland::setOrder(GHOST_TWindowOrder /*order*/)
 
 GHOST_TSuccess GHOST_WindowWayland::beginFullScreen() const
 {
-  xdg_toplevel_set_fullscreen(w->xdg_toplevel, nullptr);
+  libdecor_frame_set_fullscreen(w->frame, nullptr);
   return GHOST_kSuccess;
 }
 
 GHOST_TSuccess GHOST_WindowWayland::endFullScreen() const
 {
-  xdg_toplevel_unset_fullscreen(w->xdg_toplevel);
+  libdecor_frame_unset_fullscreen(w->frame);
   return GHOST_kSuccess;
 }
 
