@@ -36,7 +36,6 @@ struct window_t {
   wl_surface *surface;
   struct libdecor_frame *frame;
   wl_egl_window *egl_window;
-  int32_t pending_width, pending_height;
   bool is_maximised;
   bool is_fullscreen;
   bool is_active;
@@ -179,7 +178,7 @@ frame_configure(struct libdecor_frame *frame,
 }
 
 static void
-frame_close(struct libdecor_frame *frame, void *data)
+frame_close(struct libdecor_frame */*frame*/, void *data)
 {
   static_cast<window_t *>(data)->w->close();
 }
@@ -197,7 +196,7 @@ static struct libdecor_frame_interface libdecor_frame_iface = {
 };
 
 static void
-handle_error(struct libdecor *context, enum libdecor_error error, const char *message)
+handle_error(struct libdecor */*context*/, enum libdecor_error error, const char *message)
 {
   GHOST_PRINT("decoration error ("<<  error <<"): " << message << std::endl);
   exit(EXIT_FAILURE);
