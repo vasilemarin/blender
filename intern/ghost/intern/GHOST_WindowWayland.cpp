@@ -129,21 +129,6 @@ frame_configure(struct libdecor_frame *frame,
 {
   window_t *win = static_cast<window_t *>(data);
 
-//  int w, h;
-//  wl_egl_window_get_attached_size(win->egl_window, &w, &h);
-
-//  if (win->pending_width != 0 && win->pending_height != 0 && win->pending_width != w &&
-//      win->pending_height != h) {
-//    win->width = win->pending_width;
-//    win->height = win->pending_height;
-//    wl_egl_window_resize(win->egl_window, win->pending_width, win->pending_height, 0, 0);
-//    win->pending_width = 0;
-//    win->pending_height = 0;
-//    win->w->notify_size();
-//  }
-
-//  xdg_surface_ack_configure(xdg_surface, serial);
-
   int width, height;
   enum libdecor_window_state window_state;
   struct libdecor_state *state;
@@ -152,6 +137,8 @@ frame_configure(struct libdecor_frame *frame,
     width = win->width;
     height = win->height;
   }
+
+  GHOST_PRINT("frame conf: " << width << ", " << height << std::endl);
 
   win->width = width;
   win->height = height;
@@ -166,6 +153,8 @@ frame_configure(struct libdecor_frame *frame,
   win->is_fullscreen = window_state & LIBDECOR_WINDOW_STATE_FULLSCREEN;
   win->is_active = window_state & LIBDECOR_WINDOW_STATE_ACTIVE;
 
+  GHOST_PRINT("frame state M/F/A: " << win->is_maximised << "/" << win->is_fullscreen << "/" << win->is_active << std::endl);
+
   win->is_active ? win->w->activate() : win->w->deactivate();
 
   state = libdecor_state_new(width, height);
@@ -173,7 +162,7 @@ frame_configure(struct libdecor_frame *frame,
   libdecor_state_free(state);
 
 //  wl_surface_attach(window->wl_surface, buffer->wl_buffer, 0, 0);
-  wl_surface_damage(win->surface, 0, 0, width, height);
+//  wl_surface_damage(win->surface, 0, 0, width, height);
   wl_surface_commit(win->surface);
 }
 
