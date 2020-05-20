@@ -527,6 +527,8 @@ if(WITH_GHOST_WAYLAND)
     ${xkbcommon_LIBRARIES}
     ${wayland-cursor_LIBRARIES}
   )
+
+  list(APPEND PLATFORM_LINKLIBS "${CMAKE_BINARY_DIR}/lib/libdecoration${CMAKE_SHARED_LIBRARY_SUFFIX}")
 endif()
 
 if(WITH_GHOST_X11)

@@ -29,6 +29,8 @@
 
 #include <wayland-egl.h>
 
+#include <libdecoration/libdecoration.h>
+
 struct window_t {
   GHOST_WindowWayland *w;
   wl_surface *surface;
@@ -122,6 +124,17 @@ static const xdg_surface_listener surface_listener = {
     surface_configure,
 };
 
+static void
+handle_error(struct libdecor *context, enum libdecor_error error, const char *message)
+{
+  GHOST_PRINT("decoration error ("<<  error <<"): " << message << std::endl);
+  exit(EXIT_FAILURE);
+}
+
+static struct libdecor_interface libdecor_iface = {
+  .error = handle_error,
+};
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -158,6 +171,8 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
   /* Window surfaces. */
   w->surface = wl_compositor_create_surface(m_system->compositor());
   w->egl_window = wl_egl_window_create(w->surface, int(width), int(height));
+
+  struct libdecor *context = libdecor_new(m_system->display(), &libdecor_iface);
 
   w->xdg_surface = xdg_wm_base_get_xdg_surface(m_system->shell(), w->surface);
   w->xdg_toplevel = xdg_surface_get_toplevel(w->xdg_surface);

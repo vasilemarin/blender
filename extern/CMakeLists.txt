@@ -109,3 +109,7 @@ endif()
 if(WITH_MOD_FLUID)
   add_subdirectory(mantaflow)
 endif()
+
+if(WITH_GHOST_WAYLAND)
+  include("libdecoration.cmake")
+endif()

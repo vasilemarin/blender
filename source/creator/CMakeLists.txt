@@ -328,6 +328,10 @@ if(UNIX AND NOT APPLE)
     endif()
   endif()
 
+  if(WITH_GHOST_WAYLAND)
+    add_dependencies(blender libdecoration)
+  endif()
+
 elseif(WIN32)
   set(TARGETDIR_VER ${BLENDER_VERSION})
 

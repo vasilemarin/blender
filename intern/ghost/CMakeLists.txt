@@ -265,6 +265,8 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       ${wayland-cursor_INCLUDE_DIRS}
     )
 
+    list(APPEND INC_SYS "${CMAKE_BINARY_DIR}/include")
+
     list(APPEND SRC
       intern/GHOST_SystemWayland.cpp
       intern/GHOST_WindowWayland.cpp
