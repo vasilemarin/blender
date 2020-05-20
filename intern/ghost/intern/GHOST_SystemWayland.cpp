@@ -141,7 +141,6 @@ struct display_t {
 
   struct wl_display *display;
   struct wl_compositor *compositor = nullptr;
-  struct xdg_wm_base *xdg_shell = nullptr;
   struct wl_shm *shm = nullptr;
   std::vector<output_t *> outputs;
   std::vector<input_t *> inputs;
@@ -238,9 +237,9 @@ static void display_destroy(display_t *d)
     wl_compositor_destroy(d->compositor);
   }
 
-  if (d->xdg_shell) {
-    xdg_wm_base_destroy(d->xdg_shell);
-  }
+//  if (d->xdg_shell) {
+//    xdg_wm_base_destroy(d->xdg_shell);
+//  }
 
   if (eglGetDisplay) {
     ::eglTerminate(eglGetDisplay(EGLNativeDisplayType(d->display)));
@@ -1210,14 +1209,14 @@ static const struct wl_output_listener output_listener = {
     output_scale,
 };
 
-static void shell_ping(void * /*data*/, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
-{
-  xdg_wm_base_pong(xdg_wm_base, serial);
-}
+//static void shell_ping(void * /*data*/, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
+//{
+//  xdg_wm_base_pong(xdg_wm_base, serial);
+//}
 
-static const struct xdg_wm_base_listener shell_listener = {
-    shell_ping,
-};
+//static const struct xdg_wm_base_listener shell_listener = {
+//    shell_ping,
+//};
 
 static void global_add(void *data,
                        struct wl_registry *wl_registry,
@@ -1230,11 +1229,11 @@ static void global_add(void *data,
     display->compositor = static_cast<wl_compositor *>(
         wl_registry_bind(wl_registry, name, &wl_compositor_interface, 1));
   }
-  else if (!strcmp(interface, xdg_wm_base_interface.name)) {
-    display->xdg_shell = static_cast<xdg_wm_base *>(
-        wl_registry_bind(wl_registry, name, &xdg_wm_base_interface, 1));
-    xdg_wm_base_add_listener(display->xdg_shell, &shell_listener, nullptr);
-  }
+//  else if (!strcmp(interface, xdg_wm_base_interface.name)) {
+//    display->xdg_shell = static_cast<xdg_wm_base *>(
+//        wl_registry_bind(wl_registry, name, &xdg_wm_base_interface, 1));
+//    xdg_wm_base_add_listener(display->xdg_shell, &shell_listener, nullptr);
+//  }
   else if (!strcmp(interface, wl_output_interface.name)) {
     output_t *output = new output_t;
     output->scale = 1;
@@ -1323,10 +1322,10 @@ GHOST_SystemWayland::GHOST_SystemWayland() : GHOST_System(), d(new display_t)
   wl_display_roundtrip(d->display);
   wl_registry_destroy(registry);
 
-  if (!d->xdg_shell) {
-    display_destroy(d);
-    throw std::runtime_error("Wayland: unable to access xdg_shell!");
-  }
+//  if (!d->xdg_shell) {
+//    display_destroy(d);
+//    throw std::runtime_error("Wayland: unable to access xdg_shell!");
+//  }
 
   /* Register data device per seat for IPC between Wayland clients. */
   if (d->data_device_manager) {
@@ -1569,10 +1568,10 @@ wl_compositor *GHOST_SystemWayland::compositor()
   return d->compositor;
 }
 
-xdg_wm_base *GHOST_SystemWayland::shell()
-{
-  return d->xdg_shell;
-}
+//xdg_wm_base *GHOST_SystemWayland::shell()
+//{
+//  return d->xdg_shell;
+//}
 
 void GHOST_SystemWayland::setSelection(const std::string &selection)
 {
