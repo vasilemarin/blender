@@ -827,7 +827,8 @@ static void pointer_leave(void *data,
                           struct wl_surface *surface)
 {
   if (surface != nullptr) {
-    static_cast<input_t *>(data)->focus_pointer = nullptr;
+    // TODO: separate surface destinations
+//    static_cast<GHOST_WindowWayland *>(wl_surface_get_user_data(surface))->deactivate();
   }
 }
 

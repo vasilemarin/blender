@@ -50,38 +50,38 @@ struct window_t {
  * an event is received from the compositor.
  * \{ */
 
-static void toplevel_configure(
-    void *data, xdg_toplevel * /*xdg_toplevel*/, int32_t width, int32_t height, wl_array *states)
-{
-  window_t *win = static_cast<window_t *>(data);
-  win->pending_width = width;
-  win->pending_height = height;
+//static void toplevel_configure(
+//    void *data, xdg_toplevel * /*xdg_toplevel*/, int32_t width, int32_t height, wl_array *states)
+//{
+//  window_t *win = static_cast<window_t *>(data);
+//  win->pending_width = width;
+//  win->pending_height = height;
 
-  win->is_maximised = false;
-  win->is_fullscreen = false;
-  win->is_active = false;
+//  win->is_maximised = false;
+//  win->is_fullscreen = false;
+//  win->is_active = false;
 
-  /* Note that the macro 'wl_array_for_each' would typically be used to simplify this logic,
-   * however it's not compatible with C++, so perform casts instead.
-   * If this needs to be done more often we could define our own C++ compatible macro. */
-  for (enum xdg_toplevel_state *state = static_cast<xdg_toplevel_state *>(states->data);
-       reinterpret_cast<uint8_t *>(state) < (static_cast<uint8_t *>(states->data) + states->size);
-       state++) {
-    switch (*state) {
-      case XDG_TOPLEVEL_STATE_MAXIMIZED:
-        win->is_maximised = true;
-        break;
-      case XDG_TOPLEVEL_STATE_FULLSCREEN:
-        win->is_fullscreen = true;
-        break;
-      case XDG_TOPLEVEL_STATE_ACTIVATED:
-        win->is_active = true;
-        break;
-      default:
-        break;
-    }
-  }
-}
+//  /* Note that the macro 'wl_array_for_each' would typically be used to simplify this logic,
+//   * however it's not compatible with C++, so perform casts instead.
+//   * If this needs to be done more often we could define our own C++ compatible macro. */
+//  for (enum xdg_toplevel_state *state = static_cast<xdg_toplevel_state *>(states->data);
+//       reinterpret_cast<uint8_t *>(state) < (static_cast<uint8_t *>(states->data) + states->size);
+//       state++) {
+//    switch (*state) {
+//      case XDG_TOPLEVEL_STATE_MAXIMIZED:
+//        win->is_maximised = true;
+//        break;
+//      case XDG_TOPLEVEL_STATE_FULLSCREEN:
+//        win->is_fullscreen = true;
+//        break;
+//      case XDG_TOPLEVEL_STATE_ACTIVATED:
+//        win->is_active = true;
+//        break;
+//      default:
+//        break;
+//    }
+//  }
+//}
 
 //static void toplevel_close(void *data, xdg_toplevel * /*xdg_toplevel*/)
 //{
@@ -93,31 +93,31 @@ static void toplevel_configure(
 //    toplevel_close,
 //};
 
-static void surface_configure(void *data, xdg_surface *xdg_surface, uint32_t serial)
-{
-  window_t *win = static_cast<window_t *>(data);
+//static void surface_configure(void *data, xdg_surface *xdg_surface, uint32_t serial)
+//{
+//  window_t *win = static_cast<window_t *>(data);
 
-  int w, h;
-  wl_egl_window_get_attached_size(win->egl_window, &w, &h);
-  if (win->pending_width != 0 && win->pending_height != 0 && win->pending_width != w &&
-      win->pending_height != h) {
-    win->width = win->pending_width;
-    win->height = win->pending_height;
-    wl_egl_window_resize(win->egl_window, win->pending_width, win->pending_height, 0, 0);
-    win->pending_width = 0;
-    win->pending_height = 0;
-    win->w->notify_size();
-  }
+//  int w, h;
+//  wl_egl_window_get_attached_size(win->egl_window, &w, &h);
+//  if (win->pending_width != 0 && win->pending_height != 0 && win->pending_width != w &&
+//      win->pending_height != h) {
+//    win->width = win->pending_width;
+//    win->height = win->pending_height;
+//    wl_egl_window_resize(win->egl_window, win->pending_width, win->pending_height, 0, 0);
+//    win->pending_width = 0;
+//    win->pending_height = 0;
+//    win->w->notify_size();
+//  }
 
-  if (win->is_active) {
-    win->w->activate();
-  }
-  else {
-    win->w->deactivate();
-  }
+//  if (win->is_active) {
+//    win->w->activate();
+//  }
+//  else {
+//    win->w->deactivate();
+//  }
 
-  xdg_surface_ack_configure(xdg_surface, serial);
-}
+//  xdg_surface_ack_configure(xdg_surface, serial);
+//}
 
 //static const xdg_surface_listener surface_listener = {
 //    surface_configure,
@@ -150,15 +150,15 @@ frame_configure(struct libdecor_frame *frame,
   struct libdecor_state *state;
 
   if (!libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
-    width = 333;
-    height = 333;
+    width = win->width;
+    height = win->height;
   }
 
   win->width = width;
   win->height = height;
 
-  // wl_egl_window_resize(win->egl_window, win->pending_width, win->pending_height, 0, 0);
-//  win->w->notify_size();
+  wl_egl_window_resize(win->egl_window, win->width, win->height, 0, 0);
+  win->w->notify_size();
 
   if (!libdecor_configuration_get_window_state(configuration, &window_state))
     window_state = LIBDECOR_WINDOW_STATE_NONE;
@@ -167,19 +167,14 @@ frame_configure(struct libdecor_frame *frame,
   win->is_fullscreen = window_state & LIBDECOR_WINDOW_STATE_FULLSCREEN;
   win->is_active = window_state & LIBDECOR_WINDOW_STATE_ACTIVE;
 
-  if (win->is_active) {
-    win->w->activate();
-  }
-  else {
-    win->w->deactivate();
-  }
+  win->is_active ? win->w->activate() : win->w->deactivate();
 
   state = libdecor_state_new(width, height);
   libdecor_frame_commit(frame, state, configuration);
   libdecor_state_free(state);
 
 //  wl_surface_attach(window->wl_surface, buffer->wl_buffer, 0, 0);
-//  wl_surface_damage(window->wl_surface, 0, 0, width, height);
+  wl_surface_damage(win->surface, 0, 0, width, height);
   wl_surface_commit(win->surface);
 }
 
