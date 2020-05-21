@@ -241,9 +241,7 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
   libdecor_frame_map(w->frame);
 
   if (parentWindow) {
-    // TODO:
-//    xdg_toplevel_set_parent(
-//        w->xdg_toplevel, dynamic_cast<const GHOST_WindowWayland *>(parentWindow)->w->xdg_toplevel);
+    libdecor_frame_set_parent_frame(w->frame, dynamic_cast<const GHOST_WindowWayland *>(parentWindow)->w->frame);
   }
 
   /* Call top-level callbacks. */
