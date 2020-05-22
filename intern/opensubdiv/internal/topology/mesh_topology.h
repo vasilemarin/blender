@@ -47,20 +47,41 @@ class EdgeTopology {
 
 class FaceTopology {
  public:
-  void setNumVertices(int num_vertices)
+  FaceTopology()
   {
-    vertex_indices.resize(num_vertices, -1);
+  }
+
+  ~FaceTopology()
+  {
+    delete[] vertex_indices;
+  }
+
+  void setNumVertices(int new_num_vertices)
+  {
+    num_vertices = new_num_vertices;
+
+    delete[] vertex_indices;
+    vertex_indices = new int[num_vertices];
   }
 
   void setVertexIndices(int *face_vertex_indices)
   {
-    memcpy(vertex_indices.data(), face_vertex_indices, sizeof(int) * vertex_indices.size());
+    memcpy(vertex_indices, face_vertex_indices, sizeof(int) * getNumVertices());
+  }
+
+  bool isVertexIndicesEqual(const vector<int> &other_vertex_indices) const
+  {
+    if (other_vertex_indices.size() != getNumVertices()) {
+      return false;
+    }
+
+    return memcmp(vertex_indices, other_vertex_indices.data(), sizeof(int) * num_vertices);
   }
 
   bool isValid() const
   {
-    for (int vertex_index : vertex_indices) {
-      if (vertex_index < 0) {
+    for (int i = 0; i < getNumVertices(); ++i) {
+      if (vertex_indices[i] < 0) {
         return false;
       }
     }
@@ -70,10 +91,19 @@ class FaceTopology {
 
   int getNumVertices() const
   {
-    return vertex_indices.size();
+    return num_vertices;
   }
 
-  vector<int> vertex_indices;
+  // NOTE: Use bare pointers to avoid object's size overhed. For example, when
+  // using managed vector<int> it is 24 bytes on GCC-10 (to store an internal
+  // state of the vector). Here is is only 8 bytes (on 64bit machine).
+  //
+  // TODO(sergey): Consider using packed structure to lower the memory footprint
+  // since, for some reason, due to padding the sizeof(FaceTopology) is 16 bytes
+  // which could be packed down to 12.
+  int *vertex_indices = nullptr;
+
+  int num_vertices = 0;
 };
 
 class EdgeTopologyTag {

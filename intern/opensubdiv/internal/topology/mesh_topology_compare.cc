@@ -106,7 +106,7 @@ bool isEqualGeometryFace(const MeshTopology &mesh_topology, const OpenSubdiv_Con
     vertices_of_face.resize(num_face_vertices);
     converter->getFaceVertices(converter, face_index, vertices_of_face.data());
 
-    if (current_face.vertex_indices != vertices_of_face) {
+    if (!current_face.isVertexIndicesEqual(vertices_of_face)) {
       return false;
     }
   }
