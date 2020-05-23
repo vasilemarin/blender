@@ -370,6 +370,8 @@ GHOST_WindowWayland::~GHOST_WindowWayland()
 {
   releaseNativeHandles();
 
+  libdecor_frame_unref(w->frame);
+
   wl_egl_window_destroy(w->egl_window);
 //  xdg_toplevel_destroy(w->xdg_toplevel);
 //  xdg_surface_destroy(w->xdg_surface);
