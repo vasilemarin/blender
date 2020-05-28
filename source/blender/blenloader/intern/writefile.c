@@ -331,7 +331,8 @@ typedef struct {
     MemFile *compare;
     /** Use to de-duplicate chunks when writing. */
     MemFileChunk *compare_chunk;
-  } mem;
+  } mem_old;
+  MemFileWriteData mem;
   /** When true, write to #WriteData.current, could also call 'is_undo'. */
   bool use_memfile;
 
@@ -370,7 +371,7 @@ static void writedata_do_write(WriteData *wd, const void *mem, int memlen)
 
   /* memory based save */
   if (wd->use_memfile) {
-    memfile_chunk_add(wd->mem.current, mem, memlen, &wd->mem.compare_chunk);
+    BLO_memfile_chunk_add(&wd->mem, mem, memlen);
   }
   else {
     if (wd->ww->write(wd->ww, mem, memlen) != memlen) {
@@ -471,9 +472,7 @@ static WriteData *mywrite_begin(WriteWrap *ww, MemFile *compare, MemFile *curren
   WriteData *wd = writedata_new(ww);
 
   if (current != NULL) {
-    wd->mem.current = current;
-    wd->mem.compare = compare;
-    wd->mem.compare_chunk = compare ? compare->chunks.first : NULL;
+    BLO_memfile_write_init(&wd->mem, current, compare);
     wd->use_memfile = true;
   }
 
@@ -493,10 +492,55 @@ static bool mywrite_end(WriteData *wd)
     wd->buf_used_len = 0;
   }
 
+  if (wd->use_memfile) {
+    BLO_memfile_write_finalize(&wd->mem);
+  }
+
   const bool err = wd->error;
   writedata_free(wd);
 
   return err;
+}
+
+/**
+ * Start writing of data related to a single ID.
+ *
+ * Only does something when storing an undo step.
+ */
+static void mywrite_id_start(WriteData *wd, ID *id)
+{
+  if (wd->use_memfile) {
+    printf("START writing id %s\n", id->name);
+    if (wd->mem.id_session_uuid_mapping != NULL &&
+        (wd->mem.reference_current_chunk == NULL ||
+         wd->mem.reference_current_chunk->session_uuid != id->session_uuid)) {
+      void *ref = BLI_ghash_lookup(wd->mem.id_session_uuid_mapping,
+                                   POINTER_FROM_UINT(id->session_uuid));
+      if (ref != NULL) {
+        printf("\tFound existing memchunk, had to search\n");
+        wd->mem.reference_current_chunk = ref;
+      }
+    }
+    if (wd->mem.reference_current_chunk != NULL &&
+        wd->mem.reference_current_chunk->session_uuid == id->session_uuid) {
+      printf("\tFound existing memchunk, was next in list\n");
+    }
+  }
+}
+
+/**
+ * Start writing of data related to a single ID.
+ *
+ * Only does something when storing an undo step.
+ */
+static void mywrite_id_end(WriteData *wd, ID *id)
+{
+  if (wd->use_memfile) {
+    /* Very important to do it after every ID write now, otherwise we cannot know whether a
+     * specific ID changed or not. */
+    mywrite_flush(wd);
+    printf("END writing id %s\n", id->name);
+  }
 }
 
 /** \} */
@@ -4138,6 +4182,8 @@ static bool write_file_handle(Main *mainvar,
           }
         }
 
+        mywrite_id_start(wd, id);
+
         memcpy(id_buffer, id, idtype_struct_size);
 
         ((ID *)id_buffer)->tag = 0;
@@ -4274,11 +4320,7 @@ static bool write_file_handle(Main *mainvar,
           BKE_lib_override_library_operations_store_end(override_storage, id);
         }
 
-        if (wd->use_memfile) {
-          /* Very important to do it after every ID write now, otherwise we cannot know whether a
-           * specific ID changed or not. */
-          mywrite_flush(wd);
-        }
+        mywrite_id_end(wd, id);
       }
 
       if (id_buffer != id_buffer_static) {
