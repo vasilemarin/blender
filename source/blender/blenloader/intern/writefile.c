@@ -162,6 +162,7 @@
 #include "BKE_gpencil_modifier.h"
 #include "BKE_idtype.h"
 #include "BKE_layer.h"
+#include "BKE_lib_id.h"
 #include "BKE_lib_override.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
@@ -511,19 +512,26 @@ static void mywrite_id_start(WriteData *wd, ID *id)
 {
   if (wd->use_memfile) {
     printf("START writing id %s\n", id->name);
+    wd->mem.current_id_session_uuid = id->session_uuid;
     if (wd->mem.id_session_uuid_mapping != NULL &&
         (wd->mem.reference_current_chunk == NULL ||
-         wd->mem.reference_current_chunk->session_uuid != id->session_uuid)) {
+         wd->mem.reference_current_chunk->id_session_uuid != id->session_uuid)) {
       void *ref = BLI_ghash_lookup(wd->mem.id_session_uuid_mapping,
                                    POINTER_FROM_UINT(id->session_uuid));
       if (ref != NULL) {
         printf("\tFound existing memchunk, had to search\n");
         wd->mem.reference_current_chunk = ref;
       }
+      else {
+        printf("\tNo existing memchunk found, assuming this is a new ID\n");
+      }
     }
-    if (wd->mem.reference_current_chunk != NULL &&
-        wd->mem.reference_current_chunk->session_uuid == id->session_uuid) {
-      printf("\tFound existing memchunk, was next in list\n");
+    else if (wd->mem.reference_current_chunk != NULL &&
+             wd->mem.reference_current_chunk->id_session_uuid == id->session_uuid) {
+      printf("\tFound existing memchunk, was current one\n");
+    }
+    else {
+      printf("\tFound no matching existing memchunk, trying with current one anyway\n");
     }
   }
 }
@@ -539,6 +547,7 @@ static void mywrite_id_end(WriteData *wd, ID *id)
     /* Very important to do it after every ID write now, otherwise we cannot know whether a
      * specific ID changed or not. */
     mywrite_flush(wd);
+    wd->mem.current_id_session_uuid = MAIN_ID_SESSION_UUID_UNSET;
     printf("END writing id %s\n", id->name);
   }
 }

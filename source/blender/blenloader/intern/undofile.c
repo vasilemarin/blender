@@ -115,8 +115,8 @@ void BLO_memfile_write_init(MemFileWriteData *mem_data,
         BLI_ghashutil_inthash_p_simple, BLI_ghashutil_intcmp, __func__);
     uint current_session_uuid = MAIN_ID_SESSION_UUID_UNSET;
     LISTBASE_FOREACH (MemFileChunk *, mem_chunk, &reference_memfile->chunks) {
-      if (!ELEM(mem_chunk->session_uuid, MAIN_ID_SESSION_UUID_UNSET, current_session_uuid)) {
-        current_session_uuid = mem_chunk->session_uuid;
+      if (!ELEM(mem_chunk->id_session_uuid, MAIN_ID_SESSION_UUID_UNSET, current_session_uuid)) {
+        current_session_uuid = mem_chunk->id_session_uuid;
         void **entry;
         if (!BLI_ghash_ensure_p(mem_data->id_session_uuid_mapping,
                                 POINTER_FROM_UINT(current_session_uuid),
@@ -151,6 +151,7 @@ void BLO_memfile_chunk_add(MemFileWriteData *mem_data, const char *buf, uint siz
    * perform an undo push may make changes after the last undo push that
    * will then not be undo. Though it's not entirely clear that is wrong behavior. */
   curchunk->is_identical_future = true;
+  curchunk->id_session_uuid = mem_data->current_id_session_uuid;
   BLI_addtail(&memfile->chunks, curchunk);
 
   /* we compare compchunk with buf */
@@ -158,6 +159,7 @@ void BLO_memfile_chunk_add(MemFileWriteData *mem_data, const char *buf, uint siz
     MemFileChunk *compchunk = *compchunk_step;
     if (compchunk->size == curchunk->size) {
       if (memcmp(compchunk->buf, buf, size) == 0) {
+        printf("\t\tIdentical…\n");
         curchunk->buf = compchunk->buf;
         curchunk->is_identical = true;
         compchunk->is_identical_future = true;
@@ -168,6 +170,7 @@ void BLO_memfile_chunk_add(MemFileWriteData *mem_data, const char *buf, uint siz
 
   /* not equal... */
   if (curchunk->buf == NULL) {
+    printf("\t\tDifferent!\n");
     char *buf_new = MEM_mallocN(size, "Chunk buffer");
     memcpy(buf_new, buf, size);
     curchunk->buf = buf_new;
