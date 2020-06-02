@@ -327,12 +327,6 @@ typedef struct {
   bool error;
 
   /** #MemFile writing (used for undo). */
-  struct {
-    MemFile *current;
-    MemFile *compare;
-    /** Use to de-duplicate chunks when writing. */
-    MemFileChunk *compare_chunk;
-  } mem_old;
   MemFileWriteData mem;
   /** When true, write to #WriteData.current, could also call 'is_undo'. */
   bool use_memfile;
@@ -508,7 +502,7 @@ static bool mywrite_end(WriteData *wd)
  *
  * Only does something when storing an undo step.
  */
-static void mywrite_id_start(WriteData *wd, ID *id)
+static void mywrite_id_begin(WriteData *wd, ID *id)
 {
   if (wd->use_memfile) {
     printf("START writing id %s\n", id->name);
@@ -4191,7 +4185,7 @@ static bool write_file_handle(Main *mainvar,
           }
         }
 
-        mywrite_id_start(wd, id);
+        mywrite_id_begin(wd, id);
 
         memcpy(id_buffer, id, idtype_struct_size);
 
