@@ -505,28 +505,22 @@ static bool mywrite_end(WriteData *wd)
 static void mywrite_id_begin(WriteData *wd, ID *id)
 {
   if (wd->use_memfile) {
-    printf("START writing id %s\n", id->name);
     wd->mem.current_id_session_uuid = id->session_uuid;
+
+    /* If current next memchunk does not match the ID we are about to write, try to find the
+     * correct memchunk in the mapping using ID's session_uuid. */
     if (wd->mem.id_session_uuid_mapping != NULL &&
         (wd->mem.reference_current_chunk == NULL ||
          wd->mem.reference_current_chunk->id_session_uuid != id->session_uuid)) {
       void *ref = BLI_ghash_lookup(wd->mem.id_session_uuid_mapping,
                                    POINTER_FROM_UINT(id->session_uuid));
       if (ref != NULL) {
-        printf("\tFound existing memchunk, had to search\n");
         wd->mem.reference_current_chunk = ref;
       }
-      else {
-        printf("\tNo existing memchunk found, assuming this is a new ID\n");
-      }
+      /* Else, no existing memchunk found, i.e. this is supposed to be a new ID. */
     }
-    else if (wd->mem.reference_current_chunk != NULL &&
-             wd->mem.reference_current_chunk->id_session_uuid == id->session_uuid) {
-      printf("\tFound existing memchunk, was current one\n");
-    }
-    else {
-      printf("\tFound no matching existing memchunk, trying with current one anyway\n");
-    }
+    /* Otherwise, we try with the current memchunk in any case, whether it is matching current
+     * ID's session_uuid or not. */
   }
 }
 
@@ -542,7 +536,6 @@ static void mywrite_id_end(WriteData *wd, ID *id)
      * specific ID changed or not. */
     mywrite_flush(wd);
     wd->mem.current_id_session_uuid = MAIN_ID_SESSION_UUID_UNSET;
-    printf("END writing id %s\n", id->name);
   }
 }
 

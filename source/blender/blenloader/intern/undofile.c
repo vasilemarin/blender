@@ -110,6 +110,11 @@ void BLO_memfile_write_init(MemFileWriteData *mem_data,
   mem_data->reference_memfile = reference_memfile;
   mem_data->reference_current_chunk = reference_memfile ? reference_memfile->chunks.first : NULL;
 
+  /* If we have a reference memfile, we generate a mapping between the session_uuid's of the IDs
+   * stored in that previous undo step, and its first matching memchunk.
+   * This will allow us to easily find the existing undo memory storage of IDs even when some
+   * re-ordering in current Main data-base broke the order matching with the memchunks from
+   * previous step. */
   if (reference_memfile != NULL) {
     mem_data->id_session_uuid_mapping = BLI_ghash_new(
         BLI_ghashutil_inthash_p_simple, BLI_ghashutil_intcmp, __func__);
@@ -159,7 +164,6 @@ void BLO_memfile_chunk_add(MemFileWriteData *mem_data, const char *buf, uint siz
     MemFileChunk *compchunk = *compchunk_step;
     if (compchunk->size == curchunk->size) {
       if (memcmp(compchunk->buf, buf, size) == 0) {
-        printf("\t\tIdentical…\n");
         curchunk->buf = compchunk->buf;
         curchunk->is_identical = true;
         compchunk->is_identical_future = true;
@@ -170,7 +174,6 @@ void BLO_memfile_chunk_add(MemFileWriteData *mem_data, const char *buf, uint siz
 
   /* not equal... */
   if (curchunk->buf == NULL) {
-    printf("\t\tDifferent!\n");
     char *buf_new = MEM_mallocN(size, "Chunk buffer");
     memcpy(buf_new, buf, size);
     curchunk->buf = buf_new;
