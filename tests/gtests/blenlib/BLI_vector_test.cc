@@ -306,7 +306,7 @@ TEST(vector, BecomeLarge)
   }
   EXPECT_EQ(vec.size(), 100u);
   for (uint i = 0; i < 100; i++) {
-    EXPECT_EQ(vec[i], static_cast<uint>(i * 5));
+    EXPECT_EQ(vec[i], static_cast<int>(i * 5));
   }
 }
 
