@@ -645,7 +645,6 @@ void EuclideanBundlePointsOnly(const CameraIntrinsics *invariant_intrinsics,
 
 #ifdef _OPENMP
   options.num_threads = omp_get_max_threads();
-  options.num_linear_solver_threads = omp_get_max_threads();
 #endif
 
   // Solve!
@@ -810,7 +809,6 @@ void EuclideanBundleCommonIntrinsics(
 
 #ifdef _OPENMP
   options.num_threads = omp_get_max_threads();
-  options.num_linear_solver_threads = omp_get_max_threads();
 #endif
 
   // Solve!
