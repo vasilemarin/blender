@@ -51,6 +51,7 @@ set(SRC
   src/stacktrace_powerpc-inl.h
   src/stacktrace_x86_64-inl.h
   src/stacktrace_x86-inl.h
+  src/stacktrace_windows-inl.h
 )
 
 set(LIB
