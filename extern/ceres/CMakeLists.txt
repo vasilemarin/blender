@@ -377,7 +377,7 @@ add_definitions(
   -DCERES_NO_LAPACK
   -DCERES_NO_ACCELERATE_SPARSE
   -DCERES_HAVE_RWLOCK
-  -DCERES_USE_OPENMP
+  -DCERES_USE_CXX_THREADS
 )
 
 blender_add_lib(extern_ceres "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

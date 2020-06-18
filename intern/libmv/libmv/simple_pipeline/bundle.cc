@@ -21,6 +21,7 @@
 #include "libmv/simple_pipeline/bundle.h"
 
 #include <map>
+#include <thread>
 
 #include "ceres/ceres.h"
 #include "ceres/rotation.h"
@@ -34,10 +35,6 @@
 #include "libmv/simple_pipeline/reconstruction.h"
 #include "libmv/simple_pipeline/tracks.h"
 #include "libmv/simple_pipeline/distortion_models.h"
-
-#ifdef _OPENMP
-#  include <omp.h>
-#endif
 
 namespace libmv {
 
@@ -642,10 +639,7 @@ void EuclideanBundlePointsOnly(const CameraIntrinsics *invariant_intrinsics,
   options.use_explicit_schur_complement = true;
   options.use_inner_iterations = true;
   options.max_num_iterations = 100;
-
-#ifdef _OPENMP
-  options.num_threads = omp_get_max_threads();
-#endif
+  options.num_threads = std::thread::hardware_concurrency();
 
   // Solve!
   ceres::Solver::Summary summary;
@@ -806,10 +800,7 @@ void EuclideanBundleCommonIntrinsics(
   options.use_explicit_schur_complement = true;
   options.use_inner_iterations = true;
   options.max_num_iterations = 100;
-
-#ifdef _OPENMP
-  options.num_threads = omp_get_max_threads();
-#endif
+  options.num_threads = std::thread::hardware_concurrency();
 
   // Solve!
   ceres::Solver::Summary summary;
