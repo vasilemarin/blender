@@ -305,8 +305,8 @@ TEST(vector, BecomeLarge)
     vec.append(i * 5);
   }
   EXPECT_EQ(vec.size(), 100u);
-  for (int i = 0; i < 100; i++) {
-    EXPECT_EQ(vec[i], i * 5);
+  for (uint i = 0; i < 100; i++) {
+    EXPECT_EQ(vec[i], static_cast<uint>(i * 5));
   }
 }
 
