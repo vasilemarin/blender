@@ -33,6 +33,7 @@ extern "C" {
 #endif
 
 struct ID;
+struct BLOCacheStorageKey;
 struct LibraryForeachIDData;
 struct Main;
 
@@ -62,6 +63,14 @@ typedef void (*IDTypeFreeDataFunction)(struct ID *id);
 typedef void (*IDTypeMakeLocalFunction)(struct Main *bmain, struct ID *id, const int flags);
 
 typedef void (*IDTypeForeachIDFunction)(struct ID *id, struct LibraryForeachIDData *data);
+
+typedef void (*IDTypeForeachCacheFunctionCallback)(struct ID *id,
+                                                   const struct BLOCacheStorageKey *cache_key,
+                                                   void **cache_p,
+                                                   void *user_data);
+typedef void (*IDTypeForeachCacheFunction)(struct ID *id,
+                                           IDTypeForeachCacheFunctionCallback function_callback,
+                                           void *user_data);
 
 typedef struct IDTypeInfo {
   /* ********** General IDType data. ********** */
@@ -130,6 +139,11 @@ typedef struct IDTypeInfo {
    * pointers) of given data-block.
    */
   IDTypeForeachIDFunction foreach_id;
+
+  /**
+   * Iterator over all cache pointers of given ID.
+   */
+  IDTypeForeachCacheFunction foreach_cache;
 } IDTypeInfo;
 
 /* ********** Declaration of each IDTypeInfo. ********** */

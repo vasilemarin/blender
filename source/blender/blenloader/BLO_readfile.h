@@ -193,6 +193,18 @@ struct BlendThumbnail *BLO_thumbnail_from_file(const char *filepath);
 extern const struct bTheme U_theme_default;
 extern const struct UserDef U_default;
 
+/* Management of chaches that we want to preserve across undo's. */
+
+typedef struct BLOCacheStorageKey {
+  /* The session uuid of the ID owning the cached data. */
+  unsigned int id_session_uuid;
+  /* Value uniquely indentifying the cache whithin its ID.
+   * Typically the offset of its member in the data-block struct, but can be anything. */
+  size_t offset_in_ID;
+  /* Actual address of the cached data to save and restore. */
+  void *cache_v;
+} BLOCacheStorageKey;
+
 #ifdef __cplusplus
 }
 #endif
