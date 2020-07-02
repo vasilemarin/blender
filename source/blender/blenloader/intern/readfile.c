@@ -2325,7 +2325,7 @@ typedef struct BLOCacheStorage {
 
 /** Register a cache data entry to be preserved when reading some undo memfile. */
 static void blo_cache_storage_entry_register(ID *id,
-                                             const BLOCacheStorageKey *key,
+                                             const IDCacheKey *key,
                                              void **UNUSED(cache_p),
                                              void *cache_storage_v)
 {
@@ -2334,15 +2334,14 @@ static void blo_cache_storage_entry_register(ID *id,
   BLOCacheStorage *cache_storage = cache_storage_v;
   BLI_assert(!BLI_ghash_haskey(cache_storage->cache_map, key));
 
-  BLOCacheStorageKey *storage_key = BLI_memarena_alloc(cache_storage->memarena,
-                                                       sizeof(*storage_key));
+  IDCacheKey *storage_key = BLI_memarena_alloc(cache_storage->memarena, sizeof(*storage_key));
   *storage_key = *key;
   BLI_ghash_insert(cache_storage->cache_map, storage_key, POINTER_FROM_UINT(0));
 }
 
 /** Restore a cache data entry from old ID into new one, when reading some undo memfile. */
 static void blo_cache_storage_entry_restore_in_new(ID *UNUSED(id),
-                                                   const BLOCacheStorageKey *key,
+                                                   const IDCacheKey *key,
                                                    void **cache_p,
                                                    void *cache_storage_v)
 {
@@ -2364,7 +2363,7 @@ static void blo_cache_storage_entry_restore_in_new(ID *UNUSED(id),
 
 /** Clear as needed a cache data entry from old ID, when reading some undo memfile. */
 static void blo_cache_storage_entry_clear_in_old(ID *UNUSED(id),
-                                                 const BLOCacheStorageKey *key,
+                                                 const IDCacheKey *key,
                                                  void **cache_p,
                                                  void *cache_storage_v)
 {
@@ -2380,22 +2379,6 @@ static void blo_cache_storage_entry_clear_in_old(ID *UNUSED(id),
   *cache_p = POINTER_AS_UINT(*value) != 0 ? NULL : key->cache_v;
 }
 
-static uint blo_cache_storage_hash(const void *key_v)
-{
-  const BLOCacheStorageKey *key = key_v;
-  size_t hash = BLI_ghashutil_uinthash(key->id_session_uuid);
-  hash = BLI_ghashutil_combine_hash(hash, BLI_ghashutil_uinthash((uint)key->offset_in_ID));
-  return (uint)BLI_ghashutil_combine_hash(hash, BLI_ghashutil_ptrhash(key->cache_v));
-}
-
-static bool blo_cache_storage_cmp(const void *key_a_v, const void *key_b_v)
-{
-  const BLOCacheStorageKey *key_a = key_a_v;
-  const BLOCacheStorageKey *key_b = key_b_v;
-  return (key_a->id_session_uuid != key_b->id_session_uuid) ||
-         (key_a->offset_in_ID != key_b->offset_in_ID) || (key_a->cache_v != key_b->cache_v);
-}
-
 void blo_cache_storage_init(FileData *fd, Main *bmain)
 {
   if (fd->memfile != NULL) {
@@ -2403,7 +2386,7 @@ void blo_cache_storage_init(FileData *fd, Main *bmain)
     fd->cache_storage = MEM_mallocN(sizeof(*fd->cache_storage), __func__);
     fd->cache_storage->memarena = BLI_memarena_new(BLI_MEMARENA_STD_BUFSIZE, __func__);
     fd->cache_storage->cache_map = BLI_ghash_new(
-        blo_cache_storage_hash, blo_cache_storage_cmp, __func__);
+        BKE_idtype_cache_key_hash, BKE_idtype_cache_key_cmp, __func__);
 
     ListBase *lb;
     FOREACH_MAIN_LISTBASE_BEGIN (bmain, lb) {

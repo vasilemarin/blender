@@ -119,7 +119,7 @@ static void sound_foreach_cache(ID *id,
                                 void *user_data)
 {
   bSound *sound = (bSound *)id;
-  BLOCacheStorageKey key = {
+  IDCacheKey key = {
       .id_session_uuid = id->session_uuid,
       .offset_in_ID = offsetof(bSound, waveform),
       .cache_v = sound->waveform,
