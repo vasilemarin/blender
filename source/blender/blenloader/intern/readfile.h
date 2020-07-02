@@ -170,7 +170,6 @@ void blo_add_library_pointer_map(ListBase *old_mainlist, FileData *fd);
 void blo_make_old_idmap_from_main(FileData *fd, struct Main *bmain);
 
 void blo_cache_storage_init(FileData *fd, struct Main *bmain);
-void blo_cache_storage_new_bmain_restore(FileData *fd, struct Main *bmain_new);
 void blo_cache_storage_old_bmain_clear(FileData *fd, struct Main *bmain_old);
 void blo_cache_storage_end(FileData *fd);
 
