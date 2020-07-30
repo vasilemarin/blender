@@ -6514,6 +6514,8 @@ static void direct_link_scene(BlendDataReader *reader, Scene *sce)
           BKE_sequencer_proxy_set(seq, true);
         }
 
+        BKE_sequence_session_uuid_generate(seq);
+
         /* need to load color balance to it could be converted to modifier */
         BLO_read_data_address(reader, &seq->strip->color_balance);
       }
