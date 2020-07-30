@@ -126,6 +126,14 @@ enum {
   /** Generate a local copy, outside of bmain, to work on (used by COW e.g.). */
   LIB_ID_COPY_LOCALIZE = LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT |
                          LIB_ID_CREATE_NO_DEG_TAG | LIB_ID_COPY_NO_PREVIEW | LIB_ID_COPY_CACHES,
+
+  /* Copying of the ID is requested by the dependency graph's Copy-on_Write mechanism.
+   * In this case some data will be shared between original and copied datablocks. For example:
+   * - Session UUIDs are not re-generated, which makes the dependency graph possible to match
+   *   original and copied data, preserving runtime caches.
+   * - Physics caches are shared between original and copied datablocks, avoiding duplicate of
+   *   the entire cache to appear multiple times in memory. */
+  LIB_ID_COPY_ON_WRITE = (1 << 27),
 };
 
 void BKE_libblock_copy_ex(struct Main *bmain,
