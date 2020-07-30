@@ -36,12 +36,36 @@ bool BLI_session_uuid_is_generated(const SessionUUID *uuid);
 /* Check whether two UUIDs are identical. */
 bool BLI_session_uuid_is_equal(const SessionUUID *lhs, const SessionUUID *rhs);
 
+uint64_t BLI_session_uuid_hash_uint64(const SessionUUID *uuid);
+
 /* Utility functions to make it possible to create GHash/GSet with UUID as a key. */
 uint BLI_session_uuid_ghash_hash(const void *uuid_v);
 bool BLI_session_uuid_ghash_compare(const void *lhs_v, const void *rhs_v);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+
+namespace blender {
+
+inline const bool operator==(const SessionUUID &lhs, const SessionUUID &rhs)
+{
+  return BLI_session_uuid_is_equal(&lhs, &rhs);
+}
+
+template<typename T> struct DefaultHash;
+
+template<> struct DefaultHash<SessionUUID> {
+  uint64_t operator()(const SessionUUID &value) const
+  {
+    return BLI_session_uuid_hash_uint64(&value);
+  }
+};
+
+}  // namespace blender
+
 #endif
 
 #endif /* __BLI_SESSION_UUID_H__ */

@@ -59,6 +59,11 @@ bool BLI_session_uuid_is_equal(const SessionUUID *lhs, const SessionUUID *rhs)
   return lhs->uuid_ == rhs->uuid_;
 }
 
+uint64_t BLI_session_uuid_hash_uint64(const SessionUUID *uuid)
+{
+  return uuid->uuid_;
+}
+
 uint BLI_session_uuid_ghash_hash(const void *uuid_v)
 {
   const SessionUUID *uuid = (const SessionUUID *)uuid_v;
