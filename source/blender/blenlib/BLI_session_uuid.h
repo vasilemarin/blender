@@ -30,7 +30,7 @@ extern "C" {
 /* Generate new UUID which is unique throughout the Blender session. */
 SessionUUID BLI_session_uuid_generate(void);
 
-/* CHeck whether the UUID is properly generated. */
+/* Check whether the UUID is properly generated. */
 bool BLI_session_uuid_is_generated(const SessionUUID *uuid);
 
 /* Check whether two UUIDs are identical. */
