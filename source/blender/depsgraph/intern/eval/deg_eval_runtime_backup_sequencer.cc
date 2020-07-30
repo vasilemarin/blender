@@ -47,7 +47,7 @@ void SequencerBackup::init_from_scene(Scene *scene)
     if (!sequence_backup.isEmpty()) {
       const SessionUUID &session_uuid = sequence->runtime.session_uuid;
       BLI_assert(BLI_session_uuid_is_generated(&session_uuid));
-      sequences_backup.add(sequence->runtime.session_uuid, sequence_backup);
+      sequences_backup.add(session_uuid, sequence_backup);
     }
   }
   SEQ_END;
