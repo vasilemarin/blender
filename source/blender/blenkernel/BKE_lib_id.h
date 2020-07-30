@@ -126,20 +126,6 @@ enum {
   /** Generate a local copy, outside of bmain, to work on (used by COW e.g.). */
   LIB_ID_COPY_LOCALIZE = LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT |
                          LIB_ID_CREATE_NO_DEG_TAG | LIB_ID_COPY_NO_PREVIEW | LIB_ID_COPY_CACHES,
-
-  /* Preserve session UUIDs when doing copy.
-   * Is used by aras dependency graph, or clipboard where placing something to the clipboard does
-   * not need to generate new UUIDs because objects are out of any database and hence no need to
-   * increment UUID counter. */
-  LIB_ID_COPY_KEEP_SESSION_UUID = (1 << 27),
-
-  /* Copying of the ID is requested by the dependency graph's Copy-on_Write mechanism.
-   * In this case some data will be shared between original and copied datablocks. For example:
-   * - Session UUIDs are not re-generated, which makes the dependency graph possible to match
-   *   original and copied data, preserving runtime caches.
-   * - Physics caches are shared between original and copied datablocks, avoiding duplicate of
-   *   the entire cache to appear multiple times in memory. */
-  LIB_ID_COPY_ON_WRITE = (LIB_ID_COPY_KEEP_SESSION_UUID),
 };
 
 void BKE_libblock_copy_ex(struct Main *bmain,

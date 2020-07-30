@@ -3377,13 +3377,12 @@ static int sequencer_copy_exec(bContext *C, wmOperator *op)
   /* NOTE: The UUID is re-generated on paste, so we can keep UUID in the clipboard since
    * nobody can reach them anyway.
    * This reduces chance or running out of UUIDs if a cat falls asleep on Ctrl-C. */
-  BKE_sequence_base_dupli_recursive(
-      scene,
-      scene,
-      &seqbase_clipboard,
-      ed->seqbasep,
-      0,
-      (LIB_ID_CREATE_NO_USER_REFCOUNT | LIB_ID_COPY_KEEP_SESSION_UUID));
+  BKE_sequence_base_dupli_recursive(scene,
+                                    scene,
+                                    &seqbase_clipboard,
+                                    ed->seqbasep,
+                                    0,
+                                    (LIB_ID_CREATE_NO_USER_REFCOUNT | LIB_ID_FREE_NO_MAIN));
 
   seqbase_clipboard_frame = scene->r.cfra;
 

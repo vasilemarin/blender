@@ -5672,7 +5672,7 @@ static Sequence *seq_dupli(const Scene *scene_src,
 {
   Sequence *seqn = MEM_dupallocN(seq);
 
-  if ((flag & LIB_ID_COPY_KEEP_SESSION_UUID) == 0) {
+  if ((flag & LIB_ID_CREATE_NO_MAIN) == 0) {
     BKE_sequence_session_uuid_generate(seq);
   }
 

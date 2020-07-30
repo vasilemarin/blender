@@ -289,10 +289,7 @@ bool id_copy_inplace_no_main(const ID *id, ID *newid)
 #endif
 
   bool result = BKE_id_copy_ex(
-      nullptr,
-      (ID *)id_for_copy,
-      &newid,
-      (LIB_ID_COPY_LOCALIZE | LIB_ID_CREATE_NO_ALLOCATE | LIB_ID_COPY_ON_WRITE));
+      nullptr, (ID *)id_for_copy, &newid, (LIB_ID_COPY_LOCALIZE | LIB_ID_CREATE_NO_ALLOCATE));
 
 #ifdef NESTED_ID_NASTY_WORKAROUND
   if (result) {
@@ -318,11 +315,8 @@ bool scene_copy_inplace_no_main(const Scene *scene, Scene *new_scene)
   id_for_copy = nested_id_hack_get_discarded_pointers(&id_hack_storage, &scene->id);
 #endif
 
-  bool result = BKE_id_copy_ex(nullptr,
-                               id_for_copy,
-                               (ID **)&new_scene,
-                               LIB_ID_COPY_LOCALIZE | LIB_ID_CREATE_NO_ALLOCATE |
-                                   LIB_ID_COPY_ON_WRITE);
+  bool result = BKE_id_copy_ex(
+      nullptr, id_for_copy, (ID **)&new_scene, LIB_ID_COPY_LOCALIZE | LIB_ID_CREATE_NO_ALLOCATE);
 
 #ifdef NESTED_ID_NASTY_WORKAROUND
   if (result) {
