@@ -6461,6 +6461,8 @@ static void direct_link_scene(BlendDataReader *reader, Scene *sce)
     link_recurs_seq(reader, &ed->seqbase);
 
     SEQ_BEGIN (ed, seq) {
+      BKE_sequence_session_uuid_generate(seq);
+
       BLO_read_data_address(reader, &seq->seq1);
       BLO_read_data_address(reader, &seq->seq2);
       BLO_read_data_address(reader, &seq->seq3);
@@ -6513,8 +6515,6 @@ static void direct_link_scene(BlendDataReader *reader, Scene *sce)
         else if (seq->flag & SEQ_USE_PROXY) {
           BKE_sequencer_proxy_set(seq, true);
         }
-
-        BKE_sequence_session_uuid_generate(seq);
 
         /* need to load color balance to it could be converted to modifier */
         BLO_read_data_address(reader, &seq->strip->color_balance);
