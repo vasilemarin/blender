@@ -81,6 +81,17 @@ ccl_device float3 volume_attribute_float3(KernelGlobals *kg,
   }
 }
 
+ccl_device float4 volume_attribute_float4(KernelGlobals *kg,
+                                          const ShaderData *sd,
+                                          const AttributeDescriptor desc)
+{
+  float3 P = sd->P;
+  object_inverse_position_transform(kg, sd, &P);
+  InterpolationType interp = (sd->flag & SD_VOLUME_CUBIC) ? INTERPOLATION_CUBIC :
+                                                            INTERPOLATION_NONE;
+  return kernel_tex_image_interp_3d(kg, desc.offset, P, interp);
+}
+
 #endif
 
 CCL_NAMESPACE_END
