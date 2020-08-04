@@ -693,7 +693,7 @@ static bool get_primitive_attribute(KernelGlobals *kg,
   }
   else if (attr.type == TypeRGBA) {
     float4 fval[3];
-    fval[0] = primitive_attribute_float4(
+    fval[0] = primitive_attribute_uchar4(
         kg, sd, attr.desc, (derivatives) ? &fval[1] : NULL, (derivatives) ? &fval[2] : NULL);
     return set_attribute_float4(fval, type, derivatives, val);
   }

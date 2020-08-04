@@ -162,7 +162,7 @@ ccl_device_inline float3 primitive_attribute_float3(KernelGlobals *kg,
   }
 }
 
-ccl_device_inline float4 primitive_attribute_float4(KernelGlobals *kg,
+ccl_device_inline float4 primitive_attribute_uchar4(KernelGlobals *kg,
                                                     const ShaderData *sd,
                                                     const AttributeDescriptor desc,
                                                     float4 *dx,
@@ -170,9 +170,9 @@ ccl_device_inline float4 primitive_attribute_float4(KernelGlobals *kg,
 {
   if (sd->type & PRIMITIVE_ALL_TRIANGLE) {
     if (subd_triangle_patch(kg, sd) == ~0)
-      return triangle_attribute_float4(kg, sd, desc, dx, dy);
+      return triangle_attribute_uchar4(kg, sd, desc, dx, dy);
     else
-      return subd_triangle_attribute_float4(kg, sd, desc, dx, dy);
+      return subd_triangle_attribute_uchar4(kg, sd, desc, dx, dy);
   }
 #ifdef __HAIR__
   else if (sd->type & PRIMITIVE_ALL_CURVE) {

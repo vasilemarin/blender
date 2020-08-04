@@ -306,7 +306,7 @@ ccl_device float3 triangle_attribute_float3(KernelGlobals *kg,
   }
 }
 
-ccl_device float4 triangle_attribute_float4(KernelGlobals *kg,
+ccl_device float4 triangle_attribute_uchar4(KernelGlobals *kg,
                                             const ShaderData *sd,
                                             const AttributeDescriptor desc,
                                             float4 *dx,

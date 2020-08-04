@@ -520,7 +520,7 @@ ccl_device_noinline float3 subd_triangle_attribute_float3(KernelGlobals *kg,
   }
 }
 
-ccl_device_noinline float4 subd_triangle_attribute_float4(KernelGlobals *kg,
+ccl_device_noinline float4 subd_triangle_attribute_uchar4(KernelGlobals *kg,
                                                           const ShaderData *sd,
                                                           const AttributeDescriptor desc,
                                                           float4 *dx,
