@@ -147,6 +147,8 @@ class BlenderSync {
                       BlenderObjectCulling &culling,
                       bool *use_portal);
 
+  bool sync_object_attributes(BL::DepsgraphObjectInstance &b_instance, Object *object);
+
   /* Volume */
   void sync_volume(BL::Object &b_ob, Volume *volume, const vector<Shader *> &used_shaders);
 
