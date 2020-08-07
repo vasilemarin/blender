@@ -329,6 +329,7 @@ Object *BlenderSync::sync_object(BL::Depsgraph &b_depsgraph,
   return object;
 }
 
+/* This function mirrors drw_uniform_property_lookup in draw_instance_data.cpp */
 static bool lookup_property(BL::ID b_id, const string &name, float4 *r_value)
 {
   PointerRNA ptr;
@@ -363,6 +364,7 @@ static bool lookup_property(BL::ID b_id, const string &name, float4 *r_value)
   return false;
 }
 
+/* This function mirrors drw_uniform_attribute_lookup in draw_instance_data.cpp */
 static float4 lookup_instance_property(BL::DepsgraphObjectInstance &b_instance,
                                        const string &name,
                                        bool use_instancer)
