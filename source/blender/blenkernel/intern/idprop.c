@@ -1151,6 +1151,9 @@ void IDP_foreach_property(IDProperty *id_property_root,
   switch (id_property_root->type) {
     case IDP_GROUP: {
       LISTBASE_FOREACH (IDProperty *, loop, &id_property_root->data.group) {
+        if (STREQ(loop->name, "_RNA_UI")) {
+          continue;
+        }
         IDP_foreach_property(loop, type_filter, callback, user_data);
       }
       break;

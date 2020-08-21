@@ -19,7 +19,10 @@
  * \ingroup balembic
  */
 
+#include "abc_custom_props.h"
 #include "abc_writer_abstract.h"
+
+#include <memory>
 
 #include <Alembic/AbcGeom/OXform.h>
 
@@ -29,6 +32,8 @@ class ABCTransformWriter : public ABCAbstractWriter {
  private:
   Alembic::AbcGeom::OXform abc_xform_;
   Alembic::AbcGeom::OXformSchema abc_xform_schema_;
+
+  std::unique_ptr<CustomPropertiesExporter> custom_props_;
 
  public:
   explicit ABCTransformWriter(const ABCWriterConstructorArgs &args);
