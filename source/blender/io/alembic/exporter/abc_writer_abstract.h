@@ -19,6 +19,7 @@
 #pragma once
 
 #include "IO_abstract_hierarchy_iterator.h"
+#include "abc_custom_props.h"
 #include "abc_hierarchy_iterator.h"
 
 #include <Alembic/Abc/OObject.h>
@@ -27,6 +28,7 @@
 #include "DEG_depsgraph_query.h"
 #include "DNA_material_types.h"
 
+struct IDProperty;
 struct Material;
 struct Object;
 
@@ -43,6 +45,8 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
 
   /* Visibility of this writer's data in Alembic. */
   Alembic::Abc::OCharProperty abc_visibility_;
+
+  std::unique_ptr<CustomPropertiesExporter> custom_props_;
 
  public:
   explicit ABCAbstractWriter(const ABCWriterConstructorArgs &args);
@@ -72,6 +76,12 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
 
   virtual void update_bounding_box(Object *object);
 
+  /* Return ID properties of whatever ID datablock is written by this writer. Defaults to the
+   * properties of the object data. Can return nullptr if no custom properties are to be written.
+   */
+  virtual const IDProperty *get_id_properties(const HierarchyContext &context) const;
+
+  void create_custom_properties_exporter(Alembic::Abc::OCompoundProperty abc_compound_prop);
   void write_visibility(const HierarchyContext &context);
 };
 

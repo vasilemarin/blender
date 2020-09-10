@@ -111,6 +111,7 @@ class AbstractAlembicTest(AbstractBlenderRunnerTest):
             'uint64_t': int,
             'float64_t': float,
             'float32_t': float,
+            'string': str,
         }
 
         result = {}
@@ -584,6 +585,52 @@ class InvisibleObjectExportTest(AbstractAlembicTest):
         # This cube has animated visibility, and thus will be pulled into the
         # depsgraph by the standard builder as well as the all-objects builder.
         test('InvisibleAnimatedCube', False)
+
+
+class CustomPropertiesExportTest(AbstractAlembicTest):
+    """Test export of custom properties."""
+
+    def _run_export(self, tempdir: pathlib.Path) -> pathlib.Path:
+        abc = tempdir / 'custom-properties.abc'
+        script = "import bpy; bpy.ops.wm.alembic_export(filepath='%s', start=1, end=1)" % abc.as_posix()
+        self.run_blender('custom-properties.blend', script)
+        return abc
+
+    @with_tempdir
+    def test_xform_props(self, tempdir: pathlib.Path) -> None:
+        abc = self._run_export(tempdir)
+        abcprop = self.abcprop(abc, '/Cube/.xform/.userProperties')
+
+        # Simple, single values.
+        self.assertEqual(abcprop['static_int'], [327])
+        self.assertEqual(abcprop['static_float'], [47.01])
+        self.assertEqual(abcprop['static_string'], ['Agents'])
+        self.assertEqual(abcprop['keyed_float'], [-0.481481])
+        self.assertEqual(abcprop['keyed_int'], [78])
+
+        # Arrays.
+        self.assertEqual(abcprop['keyed_array_float'], [0.740741, 0.259259, -0.740741])
+        self.assertEqual(abcprop['keyed_array_int'], [-139, 31, 234])
+
+        # Multi-dimensional arrays.
+        self.assertEqual(abcprop['array_of_strings'], ['ผัดไทย', 'Pad Thai'])
+        self.assertEqual(
+            abcprop['matrix_tuple'],
+            [1.0, 0.0, 0.0, 3.33333, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+        self.assertEqual(
+            abcprop['static_matrix'],
+            [1.0, 0.0, 0.0, 3.33333, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+        self.assertEqual(
+            abcprop['nonuniform_array'],
+            [10, 20, 30, 1, 2, 3, 47])
+
+    @with_tempdir
+    def test_mesh_props(self, tempdir: pathlib.Path) -> None:
+        abc = self._run_export(tempdir)
+        abcprop = self.abcprop(abc, '/Cube/Cube/.geom/.userProperties')
+
+        self.assertEqual(abcprop['mesh_tags'], ['cube', 'box', 'low-poly-sphere'])
+
 
 
 if __name__ == '__main__':

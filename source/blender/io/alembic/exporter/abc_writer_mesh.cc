@@ -98,11 +98,13 @@ void ABCGenericMeshWriter::create_alembic_objects(const HierarchyContext *contex
     CLOG_INFO(&LOG, 2, "exporting OSubD %s", args_.abc_path.c_str());
     abc_subdiv_ = OSubD(args_.abc_parent, args_.abc_name, timesample_index_);
     abc_subdiv_schema_ = abc_subdiv_.getSchema();
+    create_custom_properties_exporter(abc_subdiv_schema_.getUserProperties());
   }
   else {
     CLOG_INFO(&LOG, 2, "exporting OPolyMesh %s", args_.abc_path.c_str());
     abc_poly_mesh_ = OPolyMesh(args_.abc_parent, args_.abc_name, timesample_index_);
     abc_poly_mesh_schema_ = abc_poly_mesh_.getSchema();
+    create_custom_properties_exporter(abc_poly_mesh_schema_.getUserProperties());
 
     OCompoundProperty typeContainer = abc_poly_mesh_.getSchema().getUserProperties();
     OBoolProperty type(typeContainer, "meshtype");

@@ -56,22 +56,22 @@ class CustomPropertiesExporter {
                            uint32_t timesample_index);
   virtual ~CustomPropertiesExporter();
 
-  void write_all(IDProperty *group);
+  void write_all(const IDProperty *group);
 
  private:
-  void write(IDProperty *id_property);
-  void write_array(IDProperty *id_property);
+  void write(const IDProperty *id_property);
+  void write_array(const IDProperty *id_property);
 
   /* IDProperty arrays are used to store arrays-of-arrays or arrays-of-strings. */
-  void write_idparray(IDProperty *id_property);
-  void write_idparray_of_strings(IDProperty *id_property);
-  void write_idparray_of_numbers(IDProperty *id_property);
+  void write_idparray(const IDProperty *id_property);
+  void write_idparray_of_strings(const IDProperty *id_property);
+  void write_idparray_of_numbers(const IDProperty *id_property);
 
   /* Flatten an array-of-arrays into one long array, then write that.
    * It is tempting to write an array of NxM numbers as a matrix, but there is
    * no guarantee that the data actually represents a matrix. */
   template<typename ABCPropertyType, typename BlenderValueType>
-  void write_idparray_flattened_typed(IDProperty *idp_array);
+  void write_idparray_flattened_typed(const IDProperty *idp_array);
 
   /* Write a single scalar (i.e. non-array) property as single-value array. */
   template<typename ABCPropertyType, typename BlenderValueType>

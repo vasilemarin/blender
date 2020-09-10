@@ -54,12 +54,12 @@ CustomPropertiesExporter::~CustomPropertiesExporter()
 {
 }
 
-void CustomPropertiesExporter::write_all(IDProperty *group)
+void CustomPropertiesExporter::write_all(const IDProperty *group)
 {
   if (group == nullptr) {
     return;
   }
-  BLI_assert(group->type = IDP_GROUP);
+  BLI_assert(group->type == IDP_GROUP);
 
   /* Loop over the properties, just like IDP_foreach_property() does, but without the recursion. */
   LISTBASE_FOREACH (IDProperty *, id_property, &group->data.group) {
@@ -70,7 +70,7 @@ void CustomPropertiesExporter::write_all(IDProperty *group)
   }
 }
 
-void CustomPropertiesExporter::write(IDProperty *id_property)
+void CustomPropertiesExporter::write(const IDProperty *id_property)
 {
   BLI_assert(id_property->name[0] != '\0');
 
@@ -101,7 +101,7 @@ void CustomPropertiesExporter::write(IDProperty *id_property)
   }
 }
 
-void CustomPropertiesExporter::write_array(IDProperty *id_property)
+void CustomPropertiesExporter::write_array(const IDProperty *id_property)
 {
   BLI_assert(id_property->type == IDP_ARRAY);
 
@@ -125,7 +125,7 @@ void CustomPropertiesExporter::write_array(IDProperty *id_property)
   }
 }
 
-void CustomPropertiesExporter::write_idparray(IDProperty *idp_array)
+void CustomPropertiesExporter::write_idparray(const IDProperty *idp_array)
 {
   BLI_assert(idp_array->type == IDP_IDPARRAY);
 
@@ -158,7 +158,7 @@ void CustomPropertiesExporter::write_idparray(IDProperty *idp_array)
   }
 }
 
-void CustomPropertiesExporter::write_idparray_of_strings(IDProperty *idp_array)
+void CustomPropertiesExporter::write_idparray_of_strings(const IDProperty *idp_array)
 {
   BLI_assert(idp_array->type == IDP_IDPARRAY);
   BLI_assert(idp_array->len > 0);
@@ -177,7 +177,7 @@ void CustomPropertiesExporter::write_idparray_of_strings(IDProperty *idp_array)
       idp_array->name, array_of_strings, strings.size());
 }
 
-void CustomPropertiesExporter::write_idparray_of_numbers(IDProperty *idp_array)
+void CustomPropertiesExporter::write_idparray_of_numbers(const IDProperty *idp_array)
 {
   BLI_assert(idp_array->type == IDP_IDPARRAY);
   BLI_assert(idp_array->len > 0);
@@ -207,7 +207,7 @@ void CustomPropertiesExporter::write_idparray_of_numbers(IDProperty *idp_array)
 }
 
 template<typename ABCPropertyType, typename BlenderValueType>
-void CustomPropertiesExporter::write_idparray_flattened_typed(IDProperty *idp_array)
+void CustomPropertiesExporter::write_idparray_flattened_typed(const IDProperty *idp_array)
 {
   BLI_assert(idp_array->type == IDP_IDPARRAY);
   BLI_assert(idp_array->len > 0);

@@ -19,7 +19,6 @@
  * \ingroup balembic
  */
 
-#include "abc_custom_props.h"
 #include "abc_writer_abstract.h"
 
 #include <memory>
@@ -33,8 +32,6 @@ class ABCTransformWriter : public ABCAbstractWriter {
   Alembic::AbcGeom::OXform abc_xform_;
   Alembic::AbcGeom::OXformSchema abc_xform_schema_;
 
-  std::unique_ptr<CustomPropertiesExporter> custom_props_;
-
  public:
   explicit ABCTransformWriter(const ABCWriterConstructorArgs &args);
   virtual void create_alembic_objects(const HierarchyContext *context) override;
@@ -43,6 +40,7 @@ class ABCTransformWriter : public ABCAbstractWriter {
   virtual void do_write(HierarchyContext &context) override;
   virtual bool check_is_animated(const HierarchyContext &context) const override;
   virtual Alembic::Abc::OObject get_alembic_object() const override;
+  const IDProperty *get_id_properties(const HierarchyContext &context) const override;
 };
 
 }  // namespace blender::io::alembic

@@ -54,6 +54,12 @@ bool ABCAbstractWriter::is_supported(const HierarchyContext * /*context*/) const
   return true;
 }
 
+void ABCAbstractWriter::create_custom_properties_exporter(
+    Alembic::Abc::OCompoundProperty abc_compound_prop)
+{
+  custom_props_ = std::make_unique<CustomPropertiesExporter>(abc_compound_prop, timesample_index_);
+}
+
 void ABCAbstractWriter::write(HierarchyContext &context)
 {
   if (!frame_has_been_written_) {
@@ -67,7 +73,22 @@ void ABCAbstractWriter::write(HierarchyContext &context)
 
   do_write(context);
 
+  if (custom_props_) {
+    custom_props_->write_all(get_id_properties(context));
+  }
+
   frame_has_been_written_ = true;
+}
+
+const IDProperty *ABCAbstractWriter::get_id_properties(const HierarchyContext &context) const
+{
+  Object *object = context.object;
+  if (object->data == nullptr) {
+    return nullptr;
+  }
+
+  /* Most subclasses write object data, so default to the object data's ID properties. */
+  return static_cast<ID *>(object->data)->properties;
 }
 
 const Imath::Box3d &ABCAbstractWriter::bounding_box() const
