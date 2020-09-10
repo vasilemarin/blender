@@ -64,9 +64,9 @@ class CustomPropertiesExporter {
   void write_idparray(IDProperty *id_property);
   void write_idparray_of_strings(IDProperty *id_property);
   void write_idparray_matrix(IDProperty *id_property);
-  void write_idparray_matrix_int(IDProperty *id_property);
-  void write_idparray_matrix_float(IDProperty *id_property);
-  void write_idparray_matrix_double(IDProperty *id_property);
+
+  template<typename ABCPropertyType, typename BlenderValueType>
+  void write_idparray_matrix_typed(IDProperty *id_property);
 
   /* Write a single scalar (i.e. non-array) property as single-value array. */
   template<typename ABCPropertyType, typename BlenderValueType>

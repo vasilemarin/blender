@@ -215,7 +215,6 @@ void CustomPropertiesExporter::write_idparray(IDProperty *idp_array)
     case IDP_NUMTYPES:
       break;
   }
-  std::cout << "\n";
 }
 
 void CustomPropertiesExporter::write_idparray_of_strings(IDProperty *idp_array)
@@ -270,30 +269,23 @@ void CustomPropertiesExporter::write_idparray_matrix(IDProperty *idp_array)
   std::cout << "matrix[" << num_rows << "][" << num_cols << "]";
   switch (subtype) {
     case IDP_INT:
-      write_idparray_matrix_int(idp_array);
+      std::cout << "int";
+      write_idparray_matrix_typed<OInt32ArrayProperty, int32_t>(idp_array);
       break;
     case IDP_FLOAT:
-      write_idparray_matrix_float(idp_array);
+      std::cout << "float";
+      write_idparray_matrix_typed<OFloatArrayProperty, float>(idp_array);
       break;
     case IDP_DOUBLE:
-      write_idparray_matrix_double(idp_array);
+      std::cout << "double";
+      write_idparray_matrix_typed<ODoubleArrayProperty, double>(idp_array);
       break;
   }
 }
 
-void CustomPropertiesExporter::write_idparray_matrix_int(IDProperty * /*idp_array*/)
+template<typename ABCPropertyType, typename BlenderValueType>
+void CustomPropertiesExporter::write_idparray_matrix_typed(IDProperty *idp_array)
 {
-  std::cout << "int";
-}
-
-void CustomPropertiesExporter::write_idparray_matrix_float(IDProperty * /*idp_array*/)
-{
-  std::cout << "float";
-}
-
-void CustomPropertiesExporter::write_idparray_matrix_double(IDProperty *idp_array)
-{
-  std::cout << "double";
   BLI_assert(idp_array->type == IDP_IDPARRAY);
   BLI_assert(idp_array->len > 0);
 
@@ -301,16 +293,17 @@ void CustomPropertiesExporter::write_idparray_matrix_double(IDProperty *idp_arra
   const IDProperty *idp_rows = (IDProperty *)IDP_Array(idp_array);
   BLI_assert(idp_rows[0].type == IDP_ARRAY);
   BLI_assert(idp_rows[0].len > 0);
-  BLI_assert(idp_rows[0].subtype == IDP_DOUBLE);
+  BLI_assert(ELEM(idp_rows[0].subtype, IDP_INT, IDP_FLOAT, IDP_DOUBLE));
 
   const uint64_t num_rows = idp_array->len;
   const uint64_t num_cols = idp_rows[0].len;
-  std::unique_ptr<double[]> matrix_values = std::make_unique<double[]>(num_rows * num_cols);
+  std::unique_ptr<BlenderValueType[]> matrix_values = std::make_unique<BlenderValueType[]>(
+      num_rows * num_cols);
 
   size_t matrix_idx = 0;
   for (size_t row_idx = 0; row_idx < num_rows; ++row_idx, matrix_idx += num_cols) {
-    const double *row = (double *)IDP_Array(&idp_rows[row_idx]);
-    memcpy(&matrix_values[matrix_idx], row, sizeof(double) * num_cols);
+    const BlenderValueType *row = (BlenderValueType *)IDP_Array(&idp_rows[row_idx]);
+    memcpy(&matrix_values[matrix_idx], row, sizeof(BlenderValueType) * num_cols);
   }
 
   Alembic::Util::Dimensions array_dimensions;
@@ -318,7 +311,7 @@ void CustomPropertiesExporter::write_idparray_matrix_double(IDProperty *idp_arra
   array_dimensions[0] = num_rows;
   array_dimensions[1] = num_cols;
 
-  set_array_property<ODoubleArrayProperty, double>(
+  set_array_property<ABCPropertyType, BlenderValueType>(
       idp_array->name, matrix_values.get(), array_dimensions);
 }
 
