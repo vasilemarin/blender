@@ -51,8 +51,8 @@ using Alembic::Abc::OStringProperty;
 namespace blender::io::alembic {
 
 CustomPropertiesExporter::CustomPropertiesExporter(
-    Alembic::Abc::OCompoundProperty abc_compound_prop)
-    : abc_compound_prop_(abc_compound_prop)
+    Alembic::Abc::OCompoundProperty abc_compound_prop, uint32_t timesample_index)
+    : abc_compound_prop_(abc_compound_prop), timesample_index_(timesample_index)
 {
 }
 
@@ -91,6 +91,7 @@ void CustomPropertiesExporter::set_scalar_property(const StringRef property_name
 {
   auto create_callback = [this, property_name]() -> OArrayProperty {
     ABCPropertyType abc_property(abc_compound_prop_, property_name);
+    abc_property.setTimeSampling(timesample_index_);
     return abc_property;
   };
 
@@ -110,7 +111,7 @@ void CustomPropertiesExporter::write(IDProperty *id_property)
       break;
     }
     case IDP_INT: {
-      set_scalar_property<OInt64ArrayProperty, int>(id_property->name, IDP_Int(id_property));
+      set_scalar_property<OInt64ArrayProperty, uint64_t>(id_property->name, IDP_Int(id_property));
       break;
     }
     case IDP_FLOAT: {

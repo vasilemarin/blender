@@ -49,8 +49,11 @@ class CustomPropertiesExporter {
    * scalar properties as single-element arrays. */
   Map<std::string, Alembic::Abc::OArrayProperty> abc_properties_;
 
+  uint32_t timesample_index_;
+
  public:
-  CustomPropertiesExporter(Alembic::Abc::OCompoundProperty abc_compound_prop);
+  CustomPropertiesExporter(Alembic::Abc::OCompoundProperty abc_compound_prop,
+                           uint32_t timesample_index);
   virtual ~CustomPropertiesExporter();
 
   void write_all(IDProperty *group);

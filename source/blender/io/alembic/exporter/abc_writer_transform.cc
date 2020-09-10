@@ -52,8 +52,8 @@ void ABCTransformWriter::create_alembic_objects(const HierarchyContext * /*conte
   abc_xform_ = OXform(args_.abc_parent, args_.abc_name, timesample_index_);
   abc_xform_schema_ = abc_xform_.getSchema();
 
-  custom_props_ = std::make_unique<CustomPropertiesExporter>(
-      abc_xform_schema_.getUserProperties());
+  custom_props_ = std::make_unique<CustomPropertiesExporter>(abc_xform_schema_.getUserProperties(),
+                                                             timesample_index_);
 }
 
 void ABCTransformWriter::do_write(HierarchyContext &context)
