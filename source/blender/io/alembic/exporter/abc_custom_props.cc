@@ -23,6 +23,8 @@
 
 #include "abc_custom_props.h"
 
+#include "abc_writer_abstract.h"
+
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -37,6 +39,7 @@
 using Alembic::Abc::ArraySample;
 using Alembic::Abc::OArrayProperty;
 using Alembic::Abc::OBoolArrayProperty;
+using Alembic::Abc::OCompoundProperty;
 using Alembic::Abc::ODoubleArrayProperty;
 using Alembic::Abc::OFloatArrayProperty;
 using Alembic::Abc::OInt32ArrayProperty;
@@ -44,9 +47,9 @@ using Alembic::Abc::OStringArrayProperty;
 
 namespace blender::io::alembic {
 
-CustomPropertiesExporter::CustomPropertiesExporter(
-    Alembic::Abc::OCompoundProperty abc_compound_prop, uint32_t timesample_index)
-    : abc_compound_prop_(abc_compound_prop), timesample_index_(timesample_index)
+CustomPropertiesExporter::CustomPropertiesExporter(ABCAbstractWriter *owner,
+                                                   uint32_t timesample_index)
+    : owner_(owner), timesample_index_(timesample_index)
 {
 }
 
@@ -243,7 +246,8 @@ void CustomPropertiesExporter::set_array_property(const StringRef property_name,
 {
   /* Create an Alembic property if it doesn't exist yet. */
   auto create_callback = [this, property_name]() -> OArrayProperty {
-    ABCPropertyType abc_property(abc_compound_prop_, property_name);
+    OCompoundProperty abc_user_props = owner_->abc_user_props();
+    ABCPropertyType abc_property(abc_user_props, property_name);
     abc_property.setTimeSampling(timesample_index_);
     return abc_property;
   };

@@ -34,10 +34,14 @@ struct IDProperty;
 
 namespace blender::io::alembic {
 
+class ABCAbstractWriter;
+
 /* Write values of Custom Properties (a.k.a. ID Properties) to Alembic.
  * Create the appropriate Alembic objects for the property types. */
 class CustomPropertiesExporter {
  private:
+  ABCAbstractWriter *owner_;
+
   /* The Compound Property that will contain the exported custom properties.
    *
    * Typically this the return value of Abc::OSchema::getArbGeomParams() or
@@ -52,8 +56,7 @@ class CustomPropertiesExporter {
   uint32_t timesample_index_;
 
  public:
-  CustomPropertiesExporter(Alembic::Abc::OCompoundProperty abc_compound_prop,
-                           uint32_t timesample_index);
+  CustomPropertiesExporter(ABCAbstractWriter *owner, uint32_t timesample_index);
   virtual ~CustomPropertiesExporter();
 
   void write_all(const IDProperty *group);

@@ -62,6 +62,11 @@ Alembic::Abc::OObject ABCHairWriter::get_alembic_object() const
   return abc_curves_;
 }
 
+Alembic::Abc::OCompoundProperty ABCHairWriter::abc_user_props()
+{
+  return abc_curves_schema_.getUserProperties();
+}
+
 bool ABCHairWriter::check_is_animated(const HierarchyContext & /*context*/) const
 {
   /* We assume that hair particles are always animated. */

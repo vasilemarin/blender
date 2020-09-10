@@ -592,7 +592,7 @@ class CustomPropertiesExportTest(AbstractAlembicTest):
 
     def _run_export(self, tempdir: pathlib.Path) -> pathlib.Path:
         abc = tempdir / 'custom-properties.abc'
-        script = "import bpy; bpy.ops.wm.alembic_export(filepath='%s', start=1, end=1)" % abc.as_posix()
+        script = "import bpy; bpy.context.scene.frame_set(1); bpy.ops.wm.alembic_export(filepath='%s', start=1, end=1)" % abc.as_posix()
         self.run_blender('custom-properties.blend', script)
         return abc
 
@@ -605,12 +605,12 @@ class CustomPropertiesExportTest(AbstractAlembicTest):
         self.assertEqual(abcprop['static_int'], [327])
         self.assertEqual(abcprop['static_float'], [47.01])
         self.assertEqual(abcprop['static_string'], ['Agents'])
-        self.assertEqual(abcprop['keyed_float'], [-0.481481])
-        self.assertEqual(abcprop['keyed_int'], [78])
+        self.assertEqual(abcprop['keyed_float'], [-1])
+        self.assertEqual(abcprop['keyed_int'], [-47])
 
         # Arrays.
-        self.assertEqual(abcprop['keyed_array_float'], [0.740741, 0.259259, -0.740741])
-        self.assertEqual(abcprop['keyed_array_int'], [-139, 31, 234])
+        self.assertEqual(abcprop['keyed_array_float'], [1.000, 0.000, -1.000])
+        self.assertEqual(abcprop['keyed_array_int'], [42, 47, 327])
 
         # Multi-dimensional arrays.
         self.assertEqual(abcprop['array_of_strings'], ['ผัดไทย', 'Pad Thai'])

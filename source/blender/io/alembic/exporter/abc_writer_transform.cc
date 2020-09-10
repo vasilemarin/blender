@@ -51,7 +51,11 @@ void ABCTransformWriter::create_alembic_objects(const HierarchyContext * /*conte
   CLOG_INFO(&LOG, 2, "exporting %s", args_.abc_path.c_str());
   abc_xform_ = OXform(args_.abc_parent, args_.abc_name, timesample_index_);
   abc_xform_schema_ = abc_xform_.getSchema();
-  create_custom_properties_exporter(abc_xform_schema_.getUserProperties());
+}
+
+Alembic::Abc::OCompoundProperty ABCTransformWriter::abc_user_props()
+{
+  return abc_xform_schema_.getUserProperties();
 }
 
 const IDProperty *ABCTransformWriter::get_id_properties(const HierarchyContext &context) const

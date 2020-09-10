@@ -71,6 +71,15 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
 
   virtual Alembic::Abc::OObject get_alembic_object() const = 0;
 
+  /* Return the Alembic object's .userParameters property.
+   *
+   * This function is called whenever there are custom properties to be written
+   * to Alembic. The Alembic library will write an invalid Alembic file when
+   * .getUserProperties() is called without actually using the return value to
+   * add any properties, which is why this function is only called on demand.
+   */
+  virtual Alembic::Abc::OCompoundProperty abc_user_props() = 0;
+
  protected:
   virtual void do_write(HierarchyContext &context) = 0;
 
@@ -81,7 +90,8 @@ class ABCAbstractWriter : public AbstractHierarchyWriter {
    */
   virtual const IDProperty *get_id_properties(const HierarchyContext &context) const;
 
-  void create_custom_properties_exporter(Alembic::Abc::OCompoundProperty abc_compound_prop);
+  virtual void ensure_custom_properties_exporter(const HierarchyContext &context);
+
   void write_visibility(const HierarchyContext &context);
 };
 

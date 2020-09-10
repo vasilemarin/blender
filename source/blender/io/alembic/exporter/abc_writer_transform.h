@@ -41,6 +41,7 @@ class ABCTransformWriter : public ABCAbstractWriter {
   virtual bool check_is_animated(const HierarchyContext &context) const override;
   virtual Alembic::Abc::OObject get_alembic_object() const override;
   const IDProperty *get_id_properties(const HierarchyContext &context) const override;
+  Alembic::Abc::OCompoundProperty abc_user_props() override;
 };
 
 }  // namespace blender::io::alembic

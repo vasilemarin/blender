@@ -54,17 +54,12 @@ bool ABCAbstractWriter::is_supported(const HierarchyContext * /*context*/) const
   return true;
 }
 
-void ABCAbstractWriter::create_custom_properties_exporter(
-    Alembic::Abc::OCompoundProperty abc_compound_prop)
-{
-  custom_props_ = std::make_unique<CustomPropertiesExporter>(abc_compound_prop, timesample_index_);
-}
-
 void ABCAbstractWriter::write(HierarchyContext &context)
 {
   if (!frame_has_been_written_) {
     is_animated_ = (args_.export_params->frame_start != args_.export_params->frame_end) &&
                    check_is_animated(context);
+    ensure_custom_properties_exporter(context);
   }
   else if (!is_animated_) {
     /* A frame has already been written, and without animation one frame is enough. */
@@ -80,6 +75,21 @@ void ABCAbstractWriter::write(HierarchyContext &context)
   frame_has_been_written_ = true;
 }
 
+void ABCAbstractWriter::ensure_custom_properties_exporter(const HierarchyContext &context)
+{
+  if (custom_props_) {
+    /* Custom properties exporter already created. */
+    return;
+  }
+
+  /* Avoid creating a custom properties exporter if there are no custom properties to export. */
+  const IDProperty *id_properties = get_id_properties(context);
+  if (id_properties == nullptr || id_properties->len == 0) {
+    return;
+  }
+  custom_props_ = std::make_unique<CustomPropertiesExporter>(this, timesample_index_);
+}
+
 const IDProperty *ABCAbstractWriter::get_id_properties(const HierarchyContext &context) const
 {
   Object *object = context.object;
@@ -90,6 +100,11 @@ const IDProperty *ABCAbstractWriter::get_id_properties(const HierarchyContext &c
   /* Most subclasses write object data, so default to the object data's ID properties. */
   return static_cast<ID *>(object->data)->properties;
 }
+
+// Alembic::Abc::OCompoundProperty ABCAbstractWriter::abc_user_props()
+// {
+//   return Alembic::Abc::OCompoundProperty();
+// }
 
 const Imath::Box3d &ABCAbstractWriter::bounding_box() const
 {

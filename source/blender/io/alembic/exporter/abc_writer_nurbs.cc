@@ -78,6 +78,14 @@ OObject ABCNurbsWriter::get_alembic_object() const
   return abc_nurbs_[0];
 }
 
+Alembic::Abc::OCompoundProperty ABCNurbsWriter::abc_user_props()
+{
+  if (abc_nurbs_.empty()) {
+    return Alembic::Abc::OCompoundProperty();
+  }
+  return abc_nurbs_schemas_[0].getUserProperties();
+}
+
 bool ABCNurbsWriter::check_is_animated(const HierarchyContext &context) const
 {
   /* Check if object has shape keys. */
