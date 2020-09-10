@@ -61,12 +61,17 @@ class CustomPropertiesExporter {
  private:
   void write(IDProperty *id_property);
   void write_array(IDProperty *id_property);
+
+  /* IDProperty arrays are used to store arrays-of-arrays or arrays-of-strings. */
   void write_idparray(IDProperty *id_property);
   void write_idparray_of_strings(IDProperty *id_property);
-  void write_idparray_matrix(IDProperty *id_property);
+  void write_idparray_of_numbers(IDProperty *id_property);
 
+  /* Flatten an array-of-arrays into one long array, then write that.
+   * It is tempting to write an array of NxM numbers as a matrix, but there is
+   * no guarantee that the data actually represents a matrix. */
   template<typename ABCPropertyType, typename BlenderValueType>
-  void write_idparray_matrix_typed(IDProperty *id_property);
+  void write_idparray_flattened_typed(IDProperty *idp_array);
 
   /* Write a single scalar (i.e. non-array) property as single-value array. */
   template<typename ABCPropertyType, typename BlenderValueType>
@@ -76,11 +81,6 @@ class CustomPropertiesExporter {
   void set_array_property(StringRef property_name,
                           const BlenderValueType *array_values,
                           size_t num_array_items);
-
-  template<typename ABCPropertyType, typename BlenderValueType>
-  void set_array_property(const StringRef property_name,
-                          const BlenderValueType *array_values,
-                          const Alembic::Util::Dimensions &dimensions);
 };
 
 }  // namespace blender::io::alembic

@@ -153,7 +153,7 @@ void CustomPropertiesExporter::write_idparray(IDProperty *idp_array)
       write_idparray_of_strings(idp_array);
       break;
     case IDP_ARRAY:
-      write_idparray_matrix(idp_array);
+      write_idparray_of_numbers(idp_array);
       break;
   }
 }
@@ -177,7 +177,7 @@ void CustomPropertiesExporter::write_idparray_of_strings(IDProperty *idp_array)
       idp_array->name, array_of_strings, strings.size());
 }
 
-void CustomPropertiesExporter::write_idparray_matrix(IDProperty *idp_array)
+void CustomPropertiesExporter::write_idparray_of_numbers(IDProperty *idp_array)
 {
   BLI_assert(idp_array->type == IDP_IDPARRAY);
   BLI_assert(idp_array->len > 0);
@@ -186,71 +186,47 @@ void CustomPropertiesExporter::write_idparray_matrix(IDProperty *idp_array)
   IDProperty *idp_rows = (IDProperty *)IDP_Array(idp_array);
   BLI_assert(idp_rows[0].type == IDP_ARRAY);
 
-  /* This function is made for writing NxM matrices, and doesn't support non-numeric types or rows
-   * of varying length. */
-  const size_t num_rows = idp_array->len;
-  if (num_rows == 0) {
-    return;
-  }
-  const size_t num_cols = idp_rows[0].len;
   const int subtype = idp_rows[0].subtype;
   if (!ELEM(subtype, IDP_INT, IDP_FLOAT, IDP_DOUBLE)) {
     /* Non-numerical types are not supported. */
     return;
   }
 
-  /* All rows must have the same length, and have values of the same type. */
-  for (int row_idx = 0; row_idx < num_rows; row_idx++) {
-    const IDProperty &idp_row = idp_rows[0];
-    if (idp_row.subtype != subtype || idp_row.len != num_cols) {
-      return;
-    }
-  }
-
   switch (subtype) {
     case IDP_INT:
       static_assert(sizeof(int) == sizeof(int32_t), "Expecting 'int' to be 32-bit");
-      write_idparray_matrix_typed<OInt32ArrayProperty, int32_t>(idp_array);
+      write_idparray_flattened_typed<OInt32ArrayProperty, int32_t>(idp_array);
       break;
     case IDP_FLOAT:
-      write_idparray_matrix_typed<OFloatArrayProperty, float>(idp_array);
+      write_idparray_flattened_typed<OFloatArrayProperty, float>(idp_array);
       break;
     case IDP_DOUBLE:
-      write_idparray_matrix_typed<ODoubleArrayProperty, double>(idp_array);
+      write_idparray_flattened_typed<ODoubleArrayProperty, double>(idp_array);
       break;
   }
 }
 
 template<typename ABCPropertyType, typename BlenderValueType>
-void CustomPropertiesExporter::write_idparray_matrix_typed(IDProperty *idp_array)
+void CustomPropertiesExporter::write_idparray_flattened_typed(IDProperty *idp_array)
 {
   BLI_assert(idp_array->type == IDP_IDPARRAY);
   BLI_assert(idp_array->len > 0);
 
-  /* This must be an array of arrays of double. */
   const IDProperty *idp_rows = (IDProperty *)IDP_Array(idp_array);
   BLI_assert(idp_rows[0].type == IDP_ARRAY);
-  BLI_assert(idp_rows[0].len > 0);
   BLI_assert(ELEM(idp_rows[0].subtype, IDP_INT, IDP_FLOAT, IDP_DOUBLE));
 
   const uint64_t num_rows = idp_array->len;
-  const uint64_t num_cols = idp_rows[0].len;
-  std::unique_ptr<BlenderValueType[]> matrix_values = std::make_unique<BlenderValueType[]>(
-      num_rows * num_cols);
-
-  size_t matrix_idx = 0;
-  for (size_t row_idx = 0; row_idx < num_rows; ++row_idx, matrix_idx += num_cols) {
+  std::vector<BlenderValueType> matrix_values;
+  for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
     const BlenderValueType *row = (BlenderValueType *)IDP_Array(&idp_rows[row_idx]);
-    memcpy(&matrix_values[matrix_idx], row, sizeof(BlenderValueType) * num_cols);
+    for (size_t col_idx = 0; col_idx < idp_rows[row_idx].len; col_idx++) {
+      matrix_values.push_back(row[col_idx]);
+    }
   }
 
-  Alembic::Util::Dimensions array_dimensions;
-  array_dimensions.setRank(2);
-  array_dimensions[0] = num_rows;
-  array_dimensions[1] = num_cols;
-
   set_array_property<ABCPropertyType, BlenderValueType>(
-      idp_array->name, matrix_values.get(), array_dimensions);
+      idp_array->name, &matrix_values[0], matrix_values.size());
 }
 
 template<typename ABCPropertyType, typename BlenderValueType>
@@ -265,16 +241,6 @@ void CustomPropertiesExporter::set_array_property(const StringRef property_name,
                                                   const BlenderValueType *array_values,
                                                   const size_t num_array_items)
 {
-  Alembic::Util::Dimensions array_dimensions(num_array_items);
-  set_array_property<ABCPropertyType, BlenderValueType>(
-      property_name, array_values, array_dimensions);
-}
-
-template<typename ABCPropertyType, typename BlenderValueType>
-void CustomPropertiesExporter::set_array_property(const StringRef property_name,
-                                                  const BlenderValueType *array_values,
-                                                  const Alembic::Util::Dimensions &dimensions)
-{
   /* Create an Alembic property if it doesn't exist yet. */
   auto create_callback = [this, property_name]() -> OArrayProperty {
     ABCPropertyType abc_property(abc_compound_prop_, property_name);
@@ -282,7 +248,8 @@ void CustomPropertiesExporter::set_array_property(const StringRef property_name,
     return abc_property;
   };
   OArrayProperty array_prop = abc_properties_.lookup_or_add_cb(property_name, create_callback);
-  ArraySample sample(array_values, array_prop.getDataType(), dimensions);
+  Alembic::Util::Dimensions array_dimensions(num_array_items);
+  ArraySample sample(array_values, array_prop.getDataType(), array_dimensions);
   array_prop.set(sample);
 }
 
