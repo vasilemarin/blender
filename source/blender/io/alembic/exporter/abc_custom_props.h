@@ -62,7 +62,12 @@ class CustomPropertiesExporter {
  private:
   /* Write a single scalar (i.e. non-array) property as single-value array. */
   template<typename ABCPropertyType, typename BlenderValueType>
-  void set_scalar_property(const StringRef property_name, const BlenderValueType property_value);
+  void set_scalar_property(StringRef property_name, const BlenderValueType property_value);
+
+  template<typename ABCPropertyType, typename BlenderValueType>
+  void set_array_property(StringRef property_name,
+                          const BlenderValueType *array_values,
+                          size_t num_array_items);
 };
 
 }  // namespace blender::io::alembic

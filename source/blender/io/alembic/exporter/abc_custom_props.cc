@@ -35,18 +35,11 @@
 
 using Alembic::Abc::ArraySample;
 using Alembic::Abc::OArrayProperty;
-using Alembic::Abc::OBaseProperty;
 using Alembic::Abc::OBoolArrayProperty;
-using Alembic::Abc::OBoolProperty;
 using Alembic::Abc::ODoubleArrayProperty;
-using Alembic::Abc::ODoubleProperty;
 using Alembic::Abc::OFloatArrayProperty;
-using Alembic::Abc::OFloatProperty;
-using Alembic::Abc::OInt64ArrayProperty;
-using Alembic::Abc::OInt64Property;
-using Alembic::Abc::OScalarProperty;
+using Alembic::Abc::OInt32ArrayProperty;
 using Alembic::Abc::OStringArrayProperty;
-using Alembic::Abc::OStringProperty;
 
 namespace blender::io::alembic {
 
@@ -83,53 +76,99 @@ void CustomPropertiesExporter::write_all(IDProperty *group)
                            IDP_TYPE_FILTER_ARRAY | IDP_TYPE_FILTER_DOUBLE,
                        customPropertiesExporter_write,
                        this);
+  std::cout << "\n";
+}
+
+void CustomPropertiesExporter::write(IDProperty *id_property)
+{
+  std::cout << "    CustomPropertiesExporter::write(" << id_property->name << " ";
+  switch (id_property->type) {
+    case IDP_STRING: {
+      std::cout << "string";
+      /* The Alembic library doesn't accept NULL-terminated character arrays. */
+      const std::string prop_value = IDP_String(id_property);
+      set_scalar_property<OStringArrayProperty, std::string>(id_property->name, prop_value);
+      break;
+    }
+    case IDP_INT:
+      std::cout << "int";
+      set_scalar_property<OInt32ArrayProperty, int32_t>(id_property->name, IDP_Int(id_property));
+      break;
+    case IDP_FLOAT:
+      std::cout << "float";
+      set_scalar_property<OFloatArrayProperty, float>(id_property->name, IDP_Float(id_property));
+      break;
+    case IDP_DOUBLE:
+      std::cout << "double (" << IDP_Double(id_property) << ")";
+      set_scalar_property<ODoubleArrayProperty, double>(id_property->name,
+                                                        IDP_Double(id_property));
+      break;
+    case IDP_ARRAY:
+      switch (id_property->subtype) {
+        case IDP_INT: {
+          std::cout << "int[]";
+          const int *array = (int *)IDP_Array(id_property);
+          set_array_property<OInt32ArrayProperty, int32_t>(
+              id_property->name, array, id_property->len);
+          break;
+        }
+        case IDP_FLOAT: {
+          std::cout << "float[]";
+          const float *array = (float *)IDP_Array(id_property);
+          set_array_property<OFloatArrayProperty, float>(
+              id_property->name, array, id_property->len);
+          break;
+        }
+        case IDP_DOUBLE: {
+          std::cout << "double[]";
+          const double *array = (double *)IDP_Array(id_property);
+          set_array_property<ODoubleArrayProperty, double>(
+              id_property->name, array, id_property->len);
+          break;
+        }
+        case IDP_ARRAY:
+        case IDP_GROUP:
+        case IDP_ID:
+        case IDP_IDPARRAY:
+          std::cout << "\033[91munsupported[]\033[0m)\n";
+          /* Unsupported. */
+          break;
+      }
+      break;
+    case IDP_GROUP:
+    case IDP_ID:
+    case IDP_IDPARRAY:
+      std::cout << "\033[91munsupported\033[0m)\n";
+      /* Unsupported. */
+      break;
+  }
 }
 
 template<typename ABCPropertyType, typename BlenderValueType>
 void CustomPropertiesExporter::set_scalar_property(const StringRef property_name,
                                                    const BlenderValueType property_value)
 {
+  set_array_property<ABCPropertyType, BlenderValueType>(property_name, &property_value, 1);
+}
+
+template<typename ABCPropertyType, typename BlenderValueType>
+void CustomPropertiesExporter::set_array_property(const StringRef property_name,
+                                                  const BlenderValueType *array_values,
+                                                  const size_t num_array_items)
+{
+  std::cout << " " << array_values[0] << ")\n";
+
+  /* Create an Alembic property if it doesn't exist yet. */
   auto create_callback = [this, property_name]() -> OArrayProperty {
     ABCPropertyType abc_property(abc_compound_prop_, property_name);
     abc_property.setTimeSampling(timesample_index_);
     return abc_property;
   };
-
   OArrayProperty array_prop = abc_properties_.lookup_or_add_cb(property_name, create_callback);
-  ArraySample sample(&property_value, array_prop.getDataType(), Alembic::Util::Dimensions(1));
-  array_prop.set(sample);
-}
 
-void CustomPropertiesExporter::write(IDProperty *id_property)
-{
-  std::cout << "    CustomPropertiesExporter::write(" << id_property->name << ")\n";
-  switch (id_property->type) {
-    case IDP_STRING: {
-      /* The Alembic library doesn't accept NULL-terminated character arrays. */
-      const std::string prop_value = IDP_String(id_property);
-      set_scalar_property<OStringArrayProperty, std::string>(id_property->name, prop_value);
-      break;
-    }
-    case IDP_INT: {
-      set_scalar_property<OInt64ArrayProperty, uint64_t>(id_property->name, IDP_Int(id_property));
-      break;
-    }
-    case IDP_FLOAT: {
-      set_scalar_property<OFloatArrayProperty, float>(id_property->name, IDP_Float(id_property));
-      break;
-    }
-    case IDP_DOUBLE: {
-      set_scalar_property<ODoubleArrayProperty, double>(id_property->name,
-                                                        IDP_Double(id_property));
-      break;
-    }
-    case IDP_ARRAY:
-    case IDP_GROUP:
-    case IDP_ID:
-    case IDP_IDPARRAY:
-      /* Unsupported. */
-      break;
-  }
+  const Alembic::Util::Dimensions array_dimensions(num_array_items);
+  ArraySample sample(array_values, array_prop.getDataType(), array_dimensions);
+  array_prop.set(sample);
 }
 
 }  // namespace blender::io::alembic
