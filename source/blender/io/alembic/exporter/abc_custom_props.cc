@@ -57,54 +57,38 @@ CustomPropertiesExporter::~CustomPropertiesExporter()
 void CustomPropertiesExporter::write_all(IDProperty *group)
 {
   if (group == nullptr) {
-    std::cout << "CustomPropertiesExporter::write_all(nullptr)\n";
     return;
   }
-  std::cout << "CustomPropertiesExporter::write_all()\n";
   BLI_assert(group->type = IDP_GROUP);
 
-  /* Loop over the properties, just like IDP_foreach_property() does but without the recursion. */
+  /* Loop over the properties, just like IDP_foreach_property() does, but without the recursion. */
   LISTBASE_FOREACH (IDProperty *, id_property, &group->data.group) {
     if (STREQ(id_property->name, "_RNA_UI")) {
       continue;
     }
     write(id_property);
   }
-
-  std::cout << "\n";
 }
 
 void CustomPropertiesExporter::write(IDProperty *id_property)
 {
-  std::cout << "    CustomPropertiesExporter::write(" << id_property->name << " ";
-
-  if (id_property->name[0] == '\0') {
-    strcpy(id_property->name, "NONAME");
-    std::cout << "\033[95mskip nameless of type " << id_property->type << "\033[0m)\n";
-    /* This happens when custom properties are pointing to things like mathutils.Matrix. Not sure
-     * why they don't get a name then, though. */
-    return;
-  }
+  BLI_assert(id_property->name[0] != '\0');
 
   switch (id_property->type) {
     case IDP_STRING: {
-      std::cout << "string";
       /* The Alembic library doesn't accept NULL-terminated character arrays. */
       const std::string prop_value(IDP_String(id_property), id_property->len - 1);
       set_scalar_property<OStringArrayProperty, std::string>(id_property->name, prop_value);
       break;
     }
     case IDP_INT:
-      std::cout << "int";
       static_assert(sizeof(int) == sizeof(int32_t), "Expecting 'int' to be 32-bit");
       set_scalar_property<OInt32ArrayProperty, int32_t>(id_property->name, IDP_Int(id_property));
       break;
     case IDP_FLOAT:
-      std::cout << "float";
       set_scalar_property<OFloatArrayProperty, float>(id_property->name, IDP_Float(id_property));
       break;
     case IDP_DOUBLE:
-      std::cout << "double (" << IDP_Double(id_property) << ")";
       set_scalar_property<ODoubleArrayProperty, double>(id_property->name,
                                                         IDP_Double(id_property));
       break;
@@ -113,12 +97,6 @@ void CustomPropertiesExporter::write(IDProperty *id_property)
       break;
     case IDP_IDPARRAY:
       write_idparray(id_property);
-      break;
-
-    /* Unsupported: */
-    case IDP_GROUP:
-    case IDP_ID:
-      std::cout << "\033[91munsupported type " << (uint16_t)id_property->type << "\033[0m)\n";
       break;
   }
 }
@@ -129,38 +107,21 @@ void CustomPropertiesExporter::write_array(IDProperty *id_property)
 
   switch (id_property->subtype) {
     case IDP_INT: {
-      std::cout << "int[]";
       const int *array = (int *)IDP_Array(id_property);
       static_assert(sizeof(int) == sizeof(int32_t), "Expecting 'int' to be 32-bit");
       set_array_property<OInt32ArrayProperty, int32_t>(id_property->name, array, id_property->len);
       break;
     }
     case IDP_FLOAT: {
-      std::cout << "float[]";
       const float *array = (float *)IDP_Array(id_property);
       set_array_property<OFloatArrayProperty, float>(id_property->name, array, id_property->len);
       break;
     }
     case IDP_DOUBLE: {
-      std::cout << "double[]";
       const double *array = (double *)IDP_Array(id_property);
       set_array_property<ODoubleArrayProperty, double>(id_property->name, array, id_property->len);
       break;
     }
-
-    /* Unsupported: */
-    case IDP_ARRAY:
-      std::cout << "\033[91marray-of-arrays\033[0m\n";
-      break;
-    case IDP_GROUP:
-      std::cout << "\033[91marray-of-groups\033[0m\n";
-      break;
-    case IDP_ID:
-      std::cout << "\033[91marray-of-IDs\033[0m\n";
-      break;
-    case IDP_IDPARRAY:
-      std::cout << "\033[91array-of-IDPARRAY\033[0m)\n";
-      break;
   }
 }
 
@@ -182,37 +143,17 @@ void CustomPropertiesExporter::write_idparray(IDProperty *idp_array)
     if (idp_elements[i].type == idp_elements[0].type) {
       continue;
     }
-
     std::cerr << "Custom property " << idp_array->name << " has elements of varying type";
     BLI_assert(!"Mixed type IDP_ARRAY custom property found");
   }
 #endif
 
-  // /* Loop over the array, just like IDP_foreach_property() does but without the recursion. */
-  // IDProperty *loop = IDP_Array(idp_array);
-  // for (int i = 0; i < idp_array->len; i++) {
-  //   IDP_foreach_property(&loop[i], type_filter, callback, user_data);
-  // }
-
-  std::cout << "IDPArray of ";
   switch (idp_elements[0].type) {
     case IDP_STRING:
-      std::cout << "IDP_STRING";
       write_idparray_of_strings(idp_array);
       break;
     case IDP_ARRAY:
-      std::cout << "IDP_ARRAY: ";
       write_idparray_matrix(idp_array);
-      break;
-
-    /* Unsupported. */
-    case IDP_INT:
-    case IDP_FLOAT:
-    case IDP_DOUBLE:
-    case IDP_GROUP:
-    case IDP_ID:
-    case IDP_IDPARRAY:
-    case IDP_NUMTYPES:
       break;
   }
 }
@@ -266,18 +207,15 @@ void CustomPropertiesExporter::write_idparray_matrix(IDProperty *idp_array)
     }
   }
 
-  std::cout << "matrix[" << num_rows << "][" << num_cols << "]";
   switch (subtype) {
     case IDP_INT:
-      std::cout << "int";
+      static_assert(sizeof(int) == sizeof(int32_t), "Expecting 'int' to be 32-bit");
       write_idparray_matrix_typed<OInt32ArrayProperty, int32_t>(idp_array);
       break;
     case IDP_FLOAT:
-      std::cout << "float";
       write_idparray_matrix_typed<OFloatArrayProperty, float>(idp_array);
       break;
     case IDP_DOUBLE:
-      std::cout << "double";
       write_idparray_matrix_typed<ODoubleArrayProperty, double>(idp_array);
       break;
   }
@@ -337,8 +275,6 @@ void CustomPropertiesExporter::set_array_property(const StringRef property_name,
                                                   const BlenderValueType *array_values,
                                                   const Alembic::Util::Dimensions &dimensions)
 {
-  std::cout << " " << array_values[0] << ")\n";
-
   /* Create an Alembic property if it doesn't exist yet. */
   auto create_callback = [this, property_name]() -> OArrayProperty {
     ABCPropertyType abc_property(abc_compound_prop_, property_name);
