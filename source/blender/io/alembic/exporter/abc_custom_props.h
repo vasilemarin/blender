@@ -57,9 +57,17 @@ class CustomPropertiesExporter {
   virtual ~CustomPropertiesExporter();
 
   void write_all(IDProperty *group);
-  void write(IDProperty *id_property);
 
  private:
+  void write(IDProperty *id_property);
+  void write_array(IDProperty *id_property);
+  void write_idparray(IDProperty *id_property);
+  void write_idparray_of_strings(IDProperty *id_property);
+  void write_idparray_matrix(IDProperty *id_property);
+  void write_idparray_matrix_int(IDProperty *id_property);
+  void write_idparray_matrix_float(IDProperty *id_property);
+  void write_idparray_matrix_double(IDProperty *id_property);
+
   /* Write a single scalar (i.e. non-array) property as single-value array. */
   template<typename ABCPropertyType, typename BlenderValueType>
   void set_scalar_property(StringRef property_name, const BlenderValueType property_value);
@@ -68,6 +76,11 @@ class CustomPropertiesExporter {
   void set_array_property(StringRef property_name,
                           const BlenderValueType *array_values,
                           size_t num_array_items);
+
+  template<typename ABCPropertyType, typename BlenderValueType>
+  void set_array_property(const StringRef property_name,
+                          const BlenderValueType *array_values,
+                          const Alembic::Util::Dimensions &dimensions);
 };
 
 }  // namespace blender::io::alembic
