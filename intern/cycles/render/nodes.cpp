@@ -3874,7 +3874,7 @@ void TextureCoordinateNode::compile(SVMCompiler &compiler)
       }
       else {
         int attr = compiler.attribute(ATTR_STD_GENERATED);
-        compiler.add_node(attr_node, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT3);
+        compiler.add_node(attr_node, attr, compiler.stack_assign(out), NODE_ATTR_OUTPUT_FLOAT3);
       }
     }
   }
@@ -3891,7 +3891,7 @@ void TextureCoordinateNode::compile(SVMCompiler &compiler)
     }
     else {
       int attr = compiler.attribute(ATTR_STD_UV);
-      compiler.add_node(attr_node, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT3);
+      compiler.add_node(attr_node, attr, compiler.stack_assign(out), NODE_ATTR_OUTPUT_FLOAT3);
     }
   }
 
@@ -4009,7 +4009,7 @@ void UVMapNode::compile(SVMCompiler &compiler)
       else
         attr = compiler.attribute(ATTR_STD_UV);
 
-      compiler.add_node(attr_node, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT3);
+      compiler.add_node(attr_node, attr, compiler.stack_assign(out), NODE_ATTR_OUTPUT_FLOAT3);
     }
   }
 }
