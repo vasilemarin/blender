@@ -811,6 +811,8 @@ void blo_do_versions_userdef(UserDef *userdef)
    */
   {
     /* Keep this block, even when empty. */
+
+    userdef->animation_flag = USER_ANIM_SHOW_CHANNEL_GROUP_COLORS;
   }
 
   if (userdef->pixelsize == 0.0f) {
