@@ -1679,8 +1679,8 @@ if(WITH_COMPILER_SHORT_FILE_MACRO)
     endif()
     if(WITH_COMPILER_SHORT_FILE_MACRO)
       set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} \
--fmacro-prefix-map=\"${CMAKE_SOURCE_DIR}/\"=\"\" \
--fmacro-prefix-map=\"${CMAKE_BINARY_DIR}/\"=\"\""
+-fmacro-prefix-map='${CMAKE_SOURCE_DIR}/'='' \
+-fmacro-prefix-map='${CMAKE_BINARY_DIR}/'=''"
       )
     endif()
   else()
