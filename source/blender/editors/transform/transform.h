@@ -84,9 +84,9 @@ typedef struct TransSnap {
   /* Snapped Element Type (currently for objects only). */
   char snapElem;
   /** snapping from this point (in global-space). */
-  float snapPoint[3];
-  /** to this point (in global-space). */
   float snapTarget[3];
+  /** to this point (in global-space). */
+  float snapPoint[3];
   float snapNormal[3];
   char snapNodeBorder;
   ListBase points;
@@ -498,6 +498,7 @@ enum {
   MOD_SNAP = 1 << 2,
   MOD_SNAP_INVERT = 1 << 3,
   MOD_CONSTRAINT_PLANE = 1 << 4,
+  MOD_EDIT_SNAPWITH = 1 << 5,
 };
 
 /* use node center for transform instead of upper-left corner.
@@ -578,6 +579,8 @@ enum {
 
   TFM_MODAL_AUTOCONSTRAINT = 28,
   TFM_MODAL_AUTOCONSTRAINTPLANE = 29,
+
+  TFM_MODAL_EDIT_SNAPWITH = 30,
 };
 
 bool initTransform(struct bContext *C,
