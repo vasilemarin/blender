@@ -535,6 +535,8 @@ GHOST_SystemCocoa::GHOST_SystemCocoa()
   m_ignoreWindowSizedMessages = false;
   m_ignoreMomentumScroll = false;
   m_multiTouchScroll = false;
+  
+  [NSEvent setMouseCoalescingEnabled:NO];
 }
 
 GHOST_SystemCocoa::~GHOST_SystemCocoa()
@@ -892,7 +894,6 @@ bool GHOST_SystemCocoa::processEvents(bool waitForEvent)
   bool anyProcessed = false;
   NSEvent *event;
 
-  //  SetMouseCoalescingEnabled(false, NULL);
   // TODO : implement timer ??
 #if 0
   do {
