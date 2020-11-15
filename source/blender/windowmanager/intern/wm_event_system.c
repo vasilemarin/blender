@@ -180,7 +180,7 @@ void wm_event_free(wmEvent *event)
   MEM_freeN(event);
 }
 
-void wm_event_free_last(wmWindow *win)
+static void wm_event_free_last(wmWindow *win)
 {
   wmEvent *event = BLI_poptail(&win->queue);
   if (event != NULL) {
