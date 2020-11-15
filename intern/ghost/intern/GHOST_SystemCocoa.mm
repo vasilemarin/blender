@@ -535,7 +535,7 @@ GHOST_SystemCocoa::GHOST_SystemCocoa()
   m_ignoreWindowSizedMessages = false;
   m_ignoreMomentumScroll = false;
   m_multiTouchScroll = false;
-  
+
   [NSEvent setMouseCoalescingEnabled:NO];
 }
 

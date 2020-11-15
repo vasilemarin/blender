@@ -4420,7 +4420,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void 
       event.x = evt->x = pd->x;
       event.y = evt->y = pd->y;
       event.val = KM_NOTHING;
-	  
+
       /* The direction is inverted from the device due to system preferences. */
       event.is_direction_inverted = pd->isDirectionInverted;
 
