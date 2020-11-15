@@ -415,6 +415,8 @@ extern "C" int GHOST_HACK_getFirstFile(char buf[FIRSTFILEBUFLG])
     // with a frontmost window but an inactive application.
     [NSApp activateIgnoringOtherApps:YES];
   }
+
+  [NSEvent setMouseCoalescingEnabled:NO];
 }
 
 - (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
@@ -535,8 +537,6 @@ GHOST_SystemCocoa::GHOST_SystemCocoa()
   m_ignoreWindowSizedMessages = false;
   m_ignoreMomentumScroll = false;
   m_multiTouchScroll = false;
-
-  [NSEvent setMouseCoalescingEnabled:NO];
 }
 
 GHOST_SystemCocoa::~GHOST_SystemCocoa()
