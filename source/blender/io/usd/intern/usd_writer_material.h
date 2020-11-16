@@ -18,8 +18,8 @@
  * \ingroup busd
  */
 
-#ifndef __USD_UTIL_H__
-#define __USD_UTIL_H__
+#ifndef __USD_MATERIAL_H__
+#define __USD_MATERIAL_H__
 
 #include <string>
 
@@ -32,45 +32,31 @@
 #include <pxr/pxr.h>
 #include <pxr/usd/usd/prim.h>
 #include <pxr/usd/usd/stage.h>
-#include <pxr/usd/usdLux/light.h>
 #include <pxr/usd/usdShade/material.h>
 
 #include "usd.h"
 #include "usd_exporter_context.h"
-
-class USDPrimReader;
-
-struct bNode;
-
-struct ImportSettings;
-
-struct Light;
 
 struct Material;
 struct bNodeTree;
 
 namespace blender::io::usd {
 
-USDPrimReader *create_reader(const pxr::UsdStageRefPtr &stage,
-                             const pxr::UsdPrim &prim,
-                             const USDImportParams &params,
-                             ImportSettings &settings);
-USDPrimReader *create_fake_reader(class USDStageReader *archive, const pxr::UsdPrim &prim);
-
-template<typename T>
-T usd_define_or_over(pxr::UsdStageRefPtr stage, pxr::SdfPath path, bool as_overs = false)
-{
-  return (as_overs) ? T(stage->OverridePrim(path)) : T::Define(stage, path);
-}
-
-void localize(bNodeTree *localtree, bNodeTree *ntree);
-
-void ntree_shader_groups_expand_inputs(bNodeTree *localtree);
-
-void ntree_shader_groups_flatten(bNodeTree *localtree);
-
-std::string get_node_tex_image_filepath(bNode *node);
+void create_usd_preview_surface_material(USDExporterContext const &usd_export_context_,
+                                         Material *material,
+                                         pxr::UsdShadeMaterial &usd_material);
+void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
+                                bNodeTree *ntree,
+                                pxr::UsdShadeMaterial &usd_material,
+                                bool a_asOvers);
+void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
+                                Material *material,
+                                pxr::UsdShadeMaterial &usd_material,
+                                bool a_asOvers);
+void create_usd_viewport_material(USDExporterContext const &usd_export_context_,
+                                  Material *material,
+                                  pxr::UsdShadeMaterial &usd_material);
 
 }  // Namespace blender::io::usd
 
-#endif /* __USD_UTIL_H__ */
+#endif /* __USD_MATERIAL_H__ */
