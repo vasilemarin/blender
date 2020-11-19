@@ -2690,40 +2690,52 @@ static int euler_filter_perform_filter(ListBase /*tEulerFilter*/ *eulers, Report
       continue;
     }
 
-    /* Simple method: just treat any difference between
-     * keys of greater than 180 degrees as being a flip. */
-    /* FIXME: there are more complicated methods that
-     * will be needed to fix more cases than just some */
-    for (int f = 0; f < 3; f++) {
-      FCurve *fcu = euf->fcurves[f];
-      BezTriple *bezt, *prev;
-      uint i;
+    FCurve *fcu_rot_x = euf->fcurves[0];
+    FCurve *fcu_rot_y = euf->fcurves[1];
+    FCurve *fcu_rot_z = euf->fcurves[2];
+    if (fcu_rot_x->totvert != fcu_rot_y->totvert || fcu_rot_y->totvert != fcu_rot_z->totvert) {
+      /* Report which components are missing. */
+      BKE_reportf(reports,
+                  RPT_WARNING,
+                  "XYZ rotations not equally keyed for ID='%s' and RNA-Path='%s'",
+                  euf->id->name,
+                  euf->rna_path);
 
-      /* Skip if not enough vets to do a decent analysis of.... */
-      if (fcu->totvert <= 2) {
-        continue;
-      }
+      /* Keep track of number of failed sets, and carry on to next group. */
+      failed++;
+      continue;
+    }
 
-      /* Prev follows bezt, bezt = "current" point to be fixed. */
-      /* Our method depends on determining a "difference" from the previous vert. */
-      for (i = 1, prev = fcu->bezt, bezt = fcu->bezt + 1; i < fcu->totvert; i++, prev = bezt++) {
-        const float sign = (prev->vec[1][1] > bezt->vec[1][1]) ? 1.0f : -1.0f;
+    if (fcu_rot_x->totvert < 2) {
+      /* Single rotations are trivially "filtered". */
+      continue;
+    }
 
-        /* >= 180 degree flip? */
-        if ((sign * (prev->vec[1][1] - bezt->vec[1][1])) < (float)M_PI) {
-          continue;
-        }
+    float last_euler[3] = {
+        fcu_rot_x->bezt[0].vec[1][1],
+        fcu_rot_y->bezt[0].vec[1][1],
+        fcu_rot_z->bezt[0].vec[1][1],
+    };
 
-        /* 360 degrees to add/subtract frame value until difference
-         * is acceptably small that there's no more flip. */
-        const float fac = sign * 2.0f * (float)M_PI;
+    for (int keyframe_index = 1; keyframe_index < fcu_rot_x->totvert; ++keyframe_index) {
+      /* TODO(Sybren): check X-coordinates of keyframes to ensure they're on the same frame, and we
+       * don't accidentally just have the same number of keyframes but on different frames. */
+      const float euler[3] = {
+          fcu_rot_x->bezt[keyframe_index].vec[1][1],
+          fcu_rot_y->bezt[keyframe_index].vec[1][1],
+          fcu_rot_z->bezt[keyframe_index].vec[1][1],
+      };
 
-        while ((sign * (prev->vec[1][1] - bezt->vec[1][1])) >= (float)M_PI) {
-          bezt->vec[0][1] += fac;
-          bezt->vec[1][1] += fac;
-          bezt->vec[2][1] += fac;
-        }
-      }
+      /* TODO(Sybren): Quaternions are nice, but the calls below internally use rotation matrices.
+       * Directly using matrices here may speed things up a bit. */
+      float quaternion[4];
+      eul_to_quat(quaternion, euler);
+      quat_to_compatible_eul(last_euler, last_euler, quaternion);
+
+      /* Update the FCurves to have the new rotation values. */
+      BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_x->bezt[keyframe_index], last_euler[0]);
+      BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_y->bezt[keyframe_index], last_euler[1]);
+      BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_z->bezt[keyframe_index], last_euler[2]);
     }
   }
 
