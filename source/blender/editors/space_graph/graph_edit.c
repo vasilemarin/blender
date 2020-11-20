@@ -2610,6 +2610,14 @@ typedef struct tEulerFilter {
   const char *rna_path;
 } tEulerFilter;
 
+static bool keyframe_time_differs(const BezTriple *const keyframes[3])
+{
+  const float precision = 1e-5;
+  return fabs(keyframes[0]->vec[1][0] - keyframes[1]->vec[1][0]) > precision ||
+         fabs(keyframes[1]->vec[1][0] - keyframes[2]->vec[1][0]) > precision ||
+         fabs(keyframes[0]->vec[1][0] - keyframes[2]->vec[1][0]) > precision;
+}
+
 /* Find groups of `rotation_euler` channels. */
 static ListBase /*tEulerFilter*/ euler_filter_group_channels(
     const ListBase /*bAnimListElem*/ *anim_data, ReportList *reports, int *r_num_groups)
@@ -2709,12 +2717,21 @@ static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
   };
 
   for (int keyframe_index = 1; keyframe_index < fcu_rot_x->totvert; ++keyframe_index) {
-    /* TODO(Sybren): check X-coordinates of keyframes to ensure they're on the same frame, and we
-     * don't accidentally just have the same number of keyframes but on different frames. */
+    BezTriple *keyframes[3] = {
+        &fcu_rot_x->bezt[keyframe_index],
+        &fcu_rot_y->bezt[keyframe_index],
+        &fcu_rot_z->bezt[keyframe_index],
+    };
+
+    if (keyframe_time_differs(keyframes)) {
+      /* The X-coordinates of the keyframes are different, so we cannot correct this key. */
+      continue;
+    }
+
     const float euler[3] = {
-        fcu_rot_x->bezt[keyframe_index].vec[1][1],
-        fcu_rot_y->bezt[keyframe_index].vec[1][1],
-        fcu_rot_z->bezt[keyframe_index].vec[1][1],
+        keyframes[0]->vec[1][1],
+        keyframes[1]->vec[1][1],
+        keyframes[2]->vec[1][1],
     };
 
     /* TODO(Sybren): Quaternions are nice, but the calls below internally use rotation matrices.
@@ -2724,9 +2741,9 @@ static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
     quat_to_compatible_eul(last_euler, last_euler, quaternion);
 
     /* Update the FCurves to have the new rotation values. */
-    BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_x->bezt[keyframe_index], last_euler[0]);
-    BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_y->bezt[keyframe_index], last_euler[1]);
-    BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_z->bezt[keyframe_index], last_euler[2]);
+    BKE_fcurve_keyframe_move_value_with_handles(keyframes[0], last_euler[0]);
+    BKE_fcurve_keyframe_move_value_with_handles(keyframes[1], last_euler[1]);
+    BKE_fcurve_keyframe_move_value_with_handles(keyframes[2], last_euler[2]);
   }
 
   return true;
