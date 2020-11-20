@@ -2676,7 +2676,7 @@ static ListBase /*tEulerFilter*/ euler_filter_group_channels(
 
 /* Perform discontinuity filter based on conversion to quaternion and back.
  * Return true if the curves were filtered (which may have been a no-op), false otherwise. */
-static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
+static bool euler_filter_multi_channel(tEulerFilter *euf, ReportList *reports)
 {
   /* Sanity check: ensure that there are enough F-Curves to work on in this group. */
   if (ELEM(NULL, euf->fcurves[0], euf->fcurves[1], euf->fcurves[2])) {
@@ -2734,11 +2734,9 @@ static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
         keyframes[2]->vec[1][1],
     };
 
-    /* TODO(Sybren): Quaternions are nice, but the calls below internally use rotation matrices.
-     * Directly using matrices here may speed things up a bit. */
-    float quaternion[4];
-    eul_to_quat(quaternion, euler);
-    quat_to_compatible_eul(last_euler, last_euler, quaternion);
+    float matrix[3][3];
+    eul_to_mat3(matrix, euler);
+    mat3_normalized_to_compatible_eul(last_euler, last_euler, matrix);
 
     /* Update the FCurves to have the new rotation values. */
     BKE_fcurve_keyframe_move_value_with_handles(keyframes[0], last_euler[0]);
@@ -2801,7 +2799,7 @@ static void euler_filter_perform_filter(ListBase /*tEulerFilter*/ *eulers,
   LISTBASE_FOREACH (tEulerFilter *, euf, eulers) {
     int curves_filtered_this_group = 0;
 
-    if (euler_filter_quaternion(euf, reports)) {
+    if (euler_filter_multi_channel(euf, reports)) {
       curves_filtered_this_group = 3;
     }
 
