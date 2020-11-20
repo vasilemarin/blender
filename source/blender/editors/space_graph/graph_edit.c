@@ -2610,7 +2610,7 @@ typedef struct tEulerFilter {
   const char *rna_path;
 } tEulerFilter;
 
-static bool keyframe_time_differs(const BezTriple *const keyframes[3])
+static bool keyframe_time_differs(BezTriple *keyframes[3])
 {
   const float precision = 1e-5;
   return fabs(keyframes[0]->vec[1][0] - keyframes[1]->vec[1][0]) > precision ||
