@@ -2666,76 +2666,85 @@ static ListBase /*tEulerFilter*/ euler_filter_group_channels(
   return euler_groups;
 }
 
+/* Perform discontinuity filter based on conversion to quaternion and back.
+ * Return true if successful, false otherwise. */
+static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
+{
+  /* Sanity check: ensure that there are enough F-Curves to work on in this group. */
+  /* TODO: also enforce assumption that there be a full set of keyframes
+   * at each position by ensuring that totvert counts are same? (Joshua Leung 2011) */
+  if (ELEM(NULL, euf->fcurves[0], euf->fcurves[1], euf->fcurves[2])) {
+    /* Report which components are missing. */
+    BKE_reportf(reports,
+                RPT_INFO,
+                "Missing %s%s%s component(s) of euler rotation for ID='%s' and RNA-Path='%s'",
+                (euf->fcurves[0] == NULL) ? "X" : "",
+                (euf->fcurves[1] == NULL) ? "Y" : "",
+                (euf->fcurves[2] == NULL) ? "Z" : "",
+                euf->id->name,
+                euf->rna_path);
+    return false;
+  }
+
+  FCurve *fcu_rot_x = euf->fcurves[0];
+  FCurve *fcu_rot_y = euf->fcurves[1];
+  FCurve *fcu_rot_z = euf->fcurves[2];
+  if (fcu_rot_x->totvert != fcu_rot_y->totvert || fcu_rot_y->totvert != fcu_rot_z->totvert) {
+    /* Report which components are missing. */
+    BKE_reportf(reports,
+                RPT_INFO,
+                "XYZ rotations not equally keyed for ID='%s' and RNA-Path='%s'",
+                euf->id->name,
+                euf->rna_path);
+
+    return false;
+  }
+
+  if (fcu_rot_x->totvert < 2) {
+    /* Single rotations are trivially "filtered". */
+    return true;
+  }
+
+  float last_euler[3] = {
+      fcu_rot_x->bezt[0].vec[1][1],
+      fcu_rot_y->bezt[0].vec[1][1],
+      fcu_rot_z->bezt[0].vec[1][1],
+  };
+
+  for (int keyframe_index = 1; keyframe_index < fcu_rot_x->totvert; ++keyframe_index) {
+    /* TODO(Sybren): check X-coordinates of keyframes to ensure they're on the same frame, and we
+     * don't accidentally just have the same number of keyframes but on different frames. */
+    const float euler[3] = {
+        fcu_rot_x->bezt[keyframe_index].vec[1][1],
+        fcu_rot_y->bezt[keyframe_index].vec[1][1],
+        fcu_rot_z->bezt[keyframe_index].vec[1][1],
+    };
+
+    /* TODO(Sybren): Quaternions are nice, but the calls below internally use rotation matrices.
+     * Directly using matrices here may speed things up a bit. */
+    float quaternion[4];
+    eul_to_quat(quaternion, euler);
+    quat_to_compatible_eul(last_euler, last_euler, quaternion);
+
+    /* Update the FCurves to have the new rotation values. */
+    BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_x->bezt[keyframe_index], last_euler[0]);
+    BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_y->bezt[keyframe_index], last_euler[1]);
+    BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_z->bezt[keyframe_index], last_euler[2]);
+  }
+  return true;
+}
+
+static bool euler_filter_single_channel(FCurve *fcu)
+{
+}
+
 static int euler_filter_perform_filter(ListBase /*tEulerFilter*/ *eulers, ReportList *reports)
 {
   int failed = 0;
 
   LISTBASE_FOREACH (tEulerFilter *, euf, eulers) {
-    /* Sanity check: ensure that there are enough F-Curves to work on in this group. */
-    /* TODO: also enforce assumption that there be a full set of keyframes
-     * at each position by ensuring that totvert counts are same? (Joshua Leung 2011) */
-    if (ELEM(NULL, euf->fcurves[0], euf->fcurves[1], euf->fcurves[2])) {
-      /* Report which components are missing. */
-      BKE_reportf(reports,
-                  RPT_INFO,
-                  "Missing %s%s%s component(s) of euler rotation for ID='%s' and RNA-Path='%s'",
-                  (euf->fcurves[0] == NULL) ? "X" : "",
-                  (euf->fcurves[1] == NULL) ? "Y" : "",
-                  (euf->fcurves[2] == NULL) ? "Z" : "",
-                  euf->id->name,
-                  euf->rna_path);
-
-      /* Keep track of number of failed sets, and carry on to next group. */
-      failed++;
-      continue;
-    }
-
-    FCurve *fcu_rot_x = euf->fcurves[0];
-    FCurve *fcu_rot_y = euf->fcurves[1];
-    FCurve *fcu_rot_z = euf->fcurves[2];
-    if (fcu_rot_x->totvert != fcu_rot_y->totvert || fcu_rot_y->totvert != fcu_rot_z->totvert) {
-      /* Report which components are missing. */
-      BKE_reportf(reports,
-                  RPT_INFO,
-                  "XYZ rotations not equally keyed for ID='%s' and RNA-Path='%s'",
-                  euf->id->name,
-                  euf->rna_path);
-
-      /* Keep track of number of failed sets, and carry on to next group. */
-      failed++;
-      continue;
-    }
-
-    if (fcu_rot_x->totvert < 2) {
-      /* Single rotations are trivially "filtered". */
-      continue;
-    }
-
-    float last_euler[3] = {
-        fcu_rot_x->bezt[0].vec[1][1],
-        fcu_rot_y->bezt[0].vec[1][1],
-        fcu_rot_z->bezt[0].vec[1][1],
-    };
-
-    for (int keyframe_index = 1; keyframe_index < fcu_rot_x->totvert; ++keyframe_index) {
-      /* TODO(Sybren): check X-coordinates of keyframes to ensure they're on the same frame, and we
-       * don't accidentally just have the same number of keyframes but on different frames. */
-      const float euler[3] = {
-          fcu_rot_x->bezt[keyframe_index].vec[1][1],
-          fcu_rot_y->bezt[keyframe_index].vec[1][1],
-          fcu_rot_z->bezt[keyframe_index].vec[1][1],
-      };
-
-      /* TODO(Sybren): Quaternions are nice, but the calls below internally use rotation matrices.
-       * Directly using matrices here may speed things up a bit. */
-      float quaternion[4];
-      eul_to_quat(quaternion, euler);
-      quat_to_compatible_eul(last_euler, last_euler, quaternion);
-
-      /* Update the FCurves to have the new rotation values. */
-      BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_x->bezt[keyframe_index], last_euler[0]);
-      BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_y->bezt[keyframe_index], last_euler[1]);
-      BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_z->bezt[keyframe_index], last_euler[2]);
+    if (!euler_filter_quaternion(euf)) {
+      ++failed;
     }
   }
 
