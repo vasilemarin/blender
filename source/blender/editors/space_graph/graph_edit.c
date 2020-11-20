@@ -2674,7 +2674,7 @@ static ListBase /*tEulerFilter*/ euler_filter_group_channels(
   return euler_groups;
 }
 
-/* Perform discontinuity filter based on conversion to quaternion and back.
+/* Perform discontinuity filter based on conversion to matrix and back.
  * Return true if the curves were filtered (which may have been a no-op), false otherwise. */
 static bool euler_filter_multi_channel(tEulerFilter *euf, ReportList *reports)
 {
