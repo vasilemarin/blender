@@ -150,6 +150,7 @@ static char *usd_ensure_prim_path(char *primpath)
     primpath = legal_path;
     return legal_path;
   }
+  return primpath;
 }
 
 static int wm_usd_export_exec(bContext *C, wmOperator *op)
