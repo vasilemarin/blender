@@ -2696,7 +2696,6 @@ static bool euler_filter_multi_channel(tEulerFilter *euf, ReportList *reports)
   FCurve *fcu_rot_y = euf->fcurves[1];
   FCurve *fcu_rot_z = euf->fcurves[2];
   if (fcu_rot_x->totvert != fcu_rot_y->totvert || fcu_rot_y->totvert != fcu_rot_z->totvert) {
-    /* Report which components are missing. */
     BKE_reportf(reports,
                 RPT_INFO,
                 "XYZ rotations not equally keyed for ID='%s' and RNA-Path='%s'",
@@ -2706,11 +2705,11 @@ static bool euler_filter_multi_channel(tEulerFilter *euf, ReportList *reports)
   }
 
   if (fcu_rot_x->totvert < 2) {
-    /* Single rotations are trivially "filtered". */
+    /* Empty curves and single keyframes are trivially "filtered". */
     return false;
   }
 
-  float last_euler[3] = {
+  float filtered_euler[3] = {
       fcu_rot_x->bezt[0].vec[1][1],
       fcu_rot_y->bezt[0].vec[1][1],
       fcu_rot_z->bezt[0].vec[1][1],
@@ -2728,20 +2727,23 @@ static bool euler_filter_multi_channel(tEulerFilter *euf, ReportList *reports)
       continue;
     }
 
-    const float euler[3] = {
+    const float unfiltered_euler[3] = {
         keyframes[0]->vec[1][1],
         keyframes[1]->vec[1][1],
         keyframes[2]->vec[1][1],
     };
 
+    /* The conversion back from matrix to Euler angles actually performs the filtering. */
     float matrix[3][3];
-    eul_to_mat3(matrix, euler);
-    mat3_normalized_to_compatible_eul(last_euler, last_euler, matrix);
+    eul_to_mat3(matrix, unfiltered_euler);
+    mat3_normalized_to_compatible_eul(filtered_euler, filtered_euler, matrix);
 
-    /* Update the FCurves to have the new rotation values. */
-    BKE_fcurve_keyframe_move_value_with_handles(keyframes[0], last_euler[0]);
-    BKE_fcurve_keyframe_move_value_with_handles(keyframes[1], last_euler[1]);
-    BKE_fcurve_keyframe_move_value_with_handles(keyframes[2], last_euler[2]);
+    /* TODO(Sybren): it might be a nice touch to compare `filtered_euler` with `unfiltered_euler`,
+     * to see if there was actually a change. This could improve reporting for the artist. */
+
+    BKE_fcurve_keyframe_move_value_with_handles(keyframes[0], filtered_euler[0]);
+    BKE_fcurve_keyframe_move_value_with_handles(keyframes[1], filtered_euler[1]);
+    BKE_fcurve_keyframe_move_value_with_handles(keyframes[2], filtered_euler[2]);
   }
 
   return true;
@@ -2753,16 +2755,16 @@ static bool euler_filter_single_channel(FCurve *fcu)
 {
   /* Simple method: just treat any difference between keys of greater than 180 degrees as being a
    * flip. */
+  BezTriple *bezt, *prev;
+  uint i;
 
-  /* Skip if not enough vets to do a decent analysis. */
+  /* Skip if not enough verts to do a decent analysis. */
   if (fcu->totvert <= 2) {
     return false;
   }
 
   /* Prev follows bezt, bezt = "current" point to be fixed. */
   /* Our method depends on determining a "difference" from the previous vert. */
-  uint i;
-  BezTriple *bezt, *prev;
   bool is_modified = false;
   for (i = 1, prev = fcu->bezt, bezt = fcu->bezt + 1; i < fcu->totvert; i++, prev = bezt++) {
     const float sign = (prev->vec[1][1] > bezt->vec[1][1]) ? 1.0f : -1.0f;
