@@ -2667,12 +2667,10 @@ static ListBase /*tEulerFilter*/ euler_filter_group_channels(
 }
 
 /* Perform discontinuity filter based on conversion to quaternion and back.
- * Return true if successful, false otherwise. */
+ * Return true if the curves were filtered (which may have been a no-op), false otherwise. */
 static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
 {
   /* Sanity check: ensure that there are enough F-Curves to work on in this group. */
-  /* TODO: also enforce assumption that there be a full set of keyframes
-   * at each position by ensuring that totvert counts are same? (Joshua Leung 2011) */
   if (ELEM(NULL, euf->fcurves[0], euf->fcurves[1], euf->fcurves[2])) {
     /* Report which components are missing. */
     BKE_reportf(reports,
@@ -2696,13 +2694,12 @@ static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
                 "XYZ rotations not equally keyed for ID='%s' and RNA-Path='%s'",
                 euf->id->name,
                 euf->rna_path);
-
     return false;
   }
 
   if (fcu_rot_x->totvert < 2) {
     /* Single rotations are trivially "filtered". */
-    return true;
+    return false;
   }
 
   float last_euler[3] = {
@@ -2731,24 +2728,80 @@ static bool euler_filter_quaternion(tEulerFilter *euf, ReportList *reports)
     BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_y->bezt[keyframe_index], last_euler[1]);
     BKE_fcurve_keyframe_move_value_with_handles(&fcu_rot_z->bezt[keyframe_index], last_euler[2]);
   }
+
   return true;
 }
 
+/* Remove 360-degree flips from a single FCurve.
+ * Return true if the curve was modified, false otherwise. */
 static bool euler_filter_single_channel(FCurve *fcu)
 {
-}
+  /* Simple method: just treat any difference between keys of greater than 180 degrees as being a
+   * flip. */
 
-static int euler_filter_perform_filter(ListBase /*tEulerFilter*/ *eulers, ReportList *reports)
-{
-  int failed = 0;
-
-  LISTBASE_FOREACH (tEulerFilter *, euf, eulers) {
-    if (!euler_filter_quaternion(euf)) {
-      ++failed;
-    }
+  /* Skip if not enough vets to do a decent analysis. */
+  if (fcu->totvert <= 2) {
+    return false;
   }
 
-  return failed;
+  /* Prev follows bezt, bezt = "current" point to be fixed. */
+  /* Our method depends on determining a "difference" from the previous vert. */
+  uint i;
+  BezTriple *bezt, *prev;
+  bool is_modified = false;
+  for (i = 1, prev = fcu->bezt, bezt = fcu->bezt + 1; i < fcu->totvert; i++, prev = bezt++) {
+    const float sign = (prev->vec[1][1] > bezt->vec[1][1]) ? 1.0f : -1.0f;
+
+    /* >= 180 degree flip? */
+    if ((sign * (prev->vec[1][1] - bezt->vec[1][1])) < (float)M_PI) {
+      continue;
+    }
+
+    /* 360 degrees to add/subtract frame value until difference
+     * is acceptably small that there's no more flip. */
+    const float fac = sign * 2.0f * (float)M_PI;
+
+    while ((sign * (prev->vec[1][1] - bezt->vec[1][1])) >= (float)M_PI) {
+      bezt->vec[0][1] += fac;
+      bezt->vec[1][1] += fac;
+      bezt->vec[2][1] += fac;
+    }
+
+    is_modified = true;
+  }
+
+  return is_modified;
+}
+
+static void euler_filter_perform_filter(ListBase /*tEulerFilter*/ *eulers,
+                                        ReportList *reports,
+                                        int *r_curves_filtered,
+                                        int *r_curves_seen)
+{
+  *r_curves_filtered = 0;
+  *r_curves_seen = 0;
+
+  LISTBASE_FOREACH (tEulerFilter *, euf, eulers) {
+    int curves_filtered_this_group = 0;
+
+    if (euler_filter_quaternion(euf, reports)) {
+      curves_filtered_this_group = 3;
+    }
+
+    for (int channel_index = 0; channel_index < 3; channel_index++) {
+      FCurve *fcu = euf->fcurves[channel_index];
+      if (fcu == NULL) {
+        continue;
+      }
+      ++*r_curves_seen;
+
+      if (euler_filter_single_channel(fcu)) {
+        ++curves_filtered_this_group;
+      }
+    }
+
+    *r_curves_filtered += min_ii(3, curves_filtered_this_group);
+  }
 }
 
 static int graphkeys_euler_filter_exec(bContext *C, wmOperator *op)
@@ -2785,31 +2838,43 @@ static int graphkeys_euler_filter_exec(bContext *C, wmOperator *op)
   /* Step 2: go through each set of curves, processing the values at each keyframe.
    * - It is assumed that there must be a full set of keyframes at each keyframe position.
    */
-  const int failed = euler_filter_perform_filter(&eulers, op->reports);
-  BLI_freelistN(&eulers);
+  int curves_filtered;
+  int curves_seen;
+  euler_filter_perform_filter(&eulers, op->reports, &curves_filtered, &curves_seen);
 
+  BLI_freelistN(&eulers);
   ANIM_animdata_update(&ac, &anim_data);
   ANIM_animdata_freelist(&anim_data);
 
-  /* Updates + finishing warnings. */
-  if (failed == groups) {
-    /* Every single rotation group we found went wrong. */
-    BKE_report(
-        op->reports,
-        RPT_ERROR,
-        "No Euler Rotations could be corrected, ensure each rotation has keys for all components, "
-        "and that F-Curves for these are in consecutive XYZ order and selected");
+  if (curves_filtered == 0) {
+    if (curves_seen < 3) {
+      /* Showing the entire error message makes no sense when the artist is only trying to filter
+       * one or two curves. */
+      BKE_report(op->reports, RPT_WARNING, "No Euler Rotations could be corrected.");
+    }
+    else {
+      BKE_report(op->reports,
+                 RPT_ERROR,
+                 "No Euler Rotations could be corrected, ensure each rotation has keys for all "
+                 "components, "
+                 "and that F-Curves for these are in consecutive XYZ order and selected");
+    }
     return OPERATOR_CANCELLED;
   }
 
-  if (failed) {
-    /* This means there were some successes as well. */
-    BKE_report(
-        op->reports,
-        RPT_WARNING,
-        "Some Euler Rotations could not be corrected due to missing/unselected/out-of-order "
-        "F-Curves, ensure each rotation has keys for all components, and that F-Curves for these "
-        "are in consecutive XYZ order and selected");
+  if (curves_filtered != curves_seen) {
+    BLI_assert(curves_filtered < curves_seen);
+    BKE_reportf(op->reports,
+                RPT_INFO,
+                "%d of %d rotation channels were filtered. See the Info window for details.",
+                curves_filtered,
+                curves_seen);
+  }
+  else if (curves_seen == 1) {
+    BKE_report(op->reports, RPT_INFO, "The rotation channel was filtered.");
+  }
+  else {
+    BKE_reportf(op->reports, RPT_INFO, "All %d rotation channels were filtered.", curves_seen);
   }
 
   /* Set notifier that keyframes have changed. */
