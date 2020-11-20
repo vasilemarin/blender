@@ -2677,7 +2677,7 @@ static int euler_filter_perform_filter(ListBase /*tEulerFilter*/ *eulers, Report
     if (ELEM(NULL, euf->fcurves[0], euf->fcurves[1], euf->fcurves[2])) {
       /* Report which components are missing. */
       BKE_reportf(reports,
-                  RPT_WARNING,
+                  RPT_INFO,
                   "Missing %s%s%s component(s) of euler rotation for ID='%s' and RNA-Path='%s'",
                   (euf->fcurves[0] == NULL) ? "X" : "",
                   (euf->fcurves[1] == NULL) ? "Y" : "",
@@ -2696,7 +2696,7 @@ static int euler_filter_perform_filter(ListBase /*tEulerFilter*/ *eulers, Report
     if (fcu_rot_x->totvert != fcu_rot_y->totvert || fcu_rot_y->totvert != fcu_rot_z->totvert) {
       /* Report which components are missing. */
       BKE_reportf(reports,
-                  RPT_WARNING,
+                  RPT_INFO,
                   "XYZ rotations not equally keyed for ID='%s' and RNA-Path='%s'",
                   euf->id->name,
                   euf->rna_path);
@@ -2784,6 +2784,7 @@ static int graphkeys_euler_filter_exec(bContext *C, wmOperator *op)
 
   /* Updates + finishing warnings. */
   if (failed == groups) {
+    /* Every single rotation group we found went wrong. */
     BKE_report(
         op->reports,
         RPT_ERROR,
@@ -2793,13 +2794,13 @@ static int graphkeys_euler_filter_exec(bContext *C, wmOperator *op)
   }
 
   if (failed) {
+    /* This means there were some successes as well. */
     BKE_report(
         op->reports,
-        RPT_ERROR,
+        RPT_WARNING,
         "Some Euler Rotations could not be corrected due to missing/unselected/out-of-order "
-        "F-Curves, "
-        "ensure each rotation has keys for all components, and that F-Curves for these are in "
-        "consecutive XYZ order and selected");
+        "F-Curves, ensure each rotation has keys for all components, and that F-Curves for these "
+        "are in consecutive XYZ order and selected");
   }
 
   /* Set notifier that keyframes have changed. */
