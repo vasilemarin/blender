@@ -123,6 +123,8 @@ typedef struct bConstraintTarget {
 typedef enum eConstraintTargetFlag {
   /** temporary target-struct that needs to be freed after use */
   CONSTRAINT_TAR_TEMP = (1 << 0),
+  /** temporary target for the custom space reference */
+  CONSTRAINT_TAR_CUSTOM_SPACE = (1 << 1),
 } eConstraintTargetFlag;
 
 /* bConstraintTarget/bConstraintOb -> type */
