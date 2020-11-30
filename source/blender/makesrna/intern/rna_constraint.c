@@ -224,6 +224,12 @@ static const EnumPropertyItem target_space_pchan_items[] = {
      "Local Space",
      "The transformation of the target is evaluated relative to its local "
      "coordinate system"},
+    {CONSTRAINT_SPACE_OWNLOCAL,
+     "OWNER_LOCAL",
+     0,
+     "Owner Local Space",
+     "The local transformation of the target bone is evaluated relative to its local coordinate "
+     "system, as if the target and owner bones had the same orientation in their rest pose"},
     {0, NULL, 0, NULL, NULL},
 };
 
