@@ -14,10 +14,13 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "BKE_material.h"
+
 #include "node_geometry_util.hh"
 
 static bNodeSocketTemplate geo_node_mix_attributes_in[] = {
     {SOCK_GEOMETRY, N_("Geometry")},
+    {SOCK_STRING, N_("Factor")},
     {SOCK_STRING, N_("Attribute A")},
     {SOCK_STRING, N_("Attribute B")},
     {SOCK_STRING, N_("Result")},
@@ -31,9 +34,117 @@ static bNodeSocketTemplate geo_node_mix_attribute_out[] = {
 
 namespace blender::nodes {
 
-static void mix_attributes_calc(GeometryComponent &UNUSED(component),
-                                const GeoNodeExecParams &UNUSED(params))
+static void do_mix_operation_float(const int blend_mode,
+                                   const FloatReadAttribute &factors,
+                                   const FloatReadAttribute &inputs_a,
+                                   const FloatReadAttribute &inputs_b,
+                                   FloatWriteAttribute &results)
 {
+  const int size = results.size();
+  for (const int i : IndexRange(size)) {
+    const float factor = factors[i];
+    float3 a{inputs_a[i]};
+    const float3 b{inputs_b[i]};
+    ramp_blend(blend_mode, a, factor, b);
+    const float result = a.length();
+    results.set(i, result);
+  }
+}
+
+static void do_mix_operation_float3(const int blend_mode,
+                                    const FloatReadAttribute &factors,
+                                    const Float3ReadAttribute &inputs_a,
+                                    const Float3ReadAttribute &inputs_b,
+                                    Float3WriteAttribute &results)
+{
+  const int size = results.size();
+  for (const int i : IndexRange(size)) {
+    const float factor = factors[i];
+    float3 a = inputs_a[i];
+    const float3 b = inputs_b[i];
+    ramp_blend(blend_mode, a, factor, b);
+    results.set(i, a);
+  }
+}
+
+static void do_mix_operation_color4f(const int blend_mode,
+                                     const FloatReadAttribute &factors,
+                                     const Color4fReadAttribute &inputs_a,
+                                     const Color4fReadAttribute &inputs_b,
+                                     Color4fWriteAttribute &results)
+{
+  const int size = results.size();
+  for (const int i : IndexRange(size)) {
+    const float factor = factors[i];
+    Color4f a = inputs_a[i];
+    const Color4f b = inputs_b[i];
+    ramp_blend(blend_mode, a, factor, b);
+    results.set(i, a);
+  }
+}
+
+static void mix_attributes_calc(GeometryComponent &component, const GeoNodeExecParams &params)
+{
+  const bNode &node = params.node();
+  const int blend_mode = node.custom1;
+
+  const std::string factor_name = params.get_input<std::string>("Factor");
+  const std::string attribute_a_name = params.get_input<std::string>("Attribute A");
+  const std::string attribute_b_name = params.get_input<std::string>("Attribute B");
+  const std::string result_name = params.get_input<std::string>("Result");
+
+  CustomDataType result_type = CD_PROP_COLOR;
+  AttributeDomain result_domain = ATTR_DOMAIN_POINT;
+
+  const ReadAttributePtr result_attribute_read = component.attribute_try_get_for_read(result_name);
+  if (result_attribute_read) {
+    result_type = result_attribute_read->custom_data_type();
+    result_domain = result_attribute_read->domain();
+  }
+
+  WriteAttributePtr attribute_result = component.attribute_try_ensure_for_write(
+      result_name, result_domain, result_type);
+  if (!attribute_result) {
+    return;
+  }
+
+  FloatReadAttribute attribute_factor = component.attribute_get_for_read<float>(
+      factor_name, result_domain, 0.5f);
+  ReadAttributePtr attribute_a = component.attribute_get_for_read(
+      attribute_a_name, result_domain, result_type, nullptr);
+  ReadAttributePtr attribute_b = component.attribute_get_for_read(
+      attribute_b_name, result_domain, result_type, nullptr);
+
+  if (result_type == CD_PROP_FLOAT) {
+    FloatReadAttribute attribute_a_float = std::move(attribute_a);
+    FloatReadAttribute attribute_b_float = std::move(attribute_b);
+    FloatWriteAttribute attribute_result_float = std::move(attribute_result);
+    do_mix_operation_float(blend_mode,
+                           attribute_factor,
+                           attribute_a_float,
+                           attribute_b_float,
+                           attribute_result_float);
+  }
+  else if (result_type == CD_PROP_FLOAT3) {
+    Float3ReadAttribute attribute_a_float3 = std::move(attribute_a);
+    Float3ReadAttribute attribute_b_float3 = std::move(attribute_b);
+    Float3WriteAttribute attribute_result_float3 = std::move(attribute_result);
+    do_mix_operation_float3(blend_mode,
+                            attribute_factor,
+                            attribute_a_float3,
+                            attribute_b_float3,
+                            attribute_result_float3);
+  }
+  else if (result_type == CD_PROP_COLOR) {
+    Color4fReadAttribute attribute_a_color4f = std::move(attribute_a);
+    Color4fReadAttribute attribute_b_color4f = std::move(attribute_b);
+    Color4fWriteAttribute attribute_result_color4f = std::move(attribute_result);
+    do_mix_operation_color4f(blend_mode,
+                             attribute_factor,
+                             attribute_a_color4f,
+                             attribute_b_color4f,
+                             attribute_result_color4f);
+  }
 }
 
 static void geo_node_mix_attributes_exec(GeoNodeExecParams params)
