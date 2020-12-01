@@ -1899,10 +1899,8 @@ static bool mix_attributes_blend_mode_supported(const EnumPropertyItem *item)
 {
   return ELEM(item->value, MA_RAMP_BLEND, MA_RAMP_ADD, MA_RAMP_SUB) && item->identifier[0] != '\0';
 }
-static bool rna_GeometryNodeMixAttributes_operation_itemf(bContext *UNUSED(C),
-                                                          PointerRNA *UNUSED(ptr),
-                                                          PropertyRNA *UNUSED(prop),
-                                                          bool *r_free)
+static const EnumPropertyItem *rna_GeometryNodeMixAttributes_operation_itemf(
+    bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
 {
   *r_free = true;
   return itemf_function_check(rna_enum_ramp_blend_items, mix_attributes_blend_mode_supported);
