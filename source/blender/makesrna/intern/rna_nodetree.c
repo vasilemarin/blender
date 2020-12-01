@@ -1895,17 +1895,6 @@ static const EnumPropertyItem *rna_GeometryNodeAttributeMath_operation_itemf(
   return itemf_function_check(rna_enum_node_math_items, attribute_math_operation_supported);
 }
 
-static bool mix_attributes_blend_mode_supported(const EnumPropertyItem *item)
-{
-  return ELEM(item->value, MA_RAMP_BLEND, MA_RAMP_ADD, MA_RAMP_SUB) && item->identifier[0] != '\0';
-}
-static const EnumPropertyItem *rna_GeometryNodeMixAttributes_operation_itemf(
-    bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
-{
-  *r_free = true;
-  return itemf_function_check(rna_enum_ramp_blend_items, mix_attributes_blend_mode_supported);
-}
-
 static StructRNA *rna_ShaderNode_register(Main *bmain,
                                           ReportList *reports,
                                           void *data,
@@ -8386,7 +8375,6 @@ static void def_geo_mix_attributes(StructRNA *srna)
   prop = RNA_def_property(srna, "blend_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "custom1");
   RNA_def_property_enum_items(prop, rna_enum_ramp_blend_items);
-  RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_GeometryNodeMixAttributes_operation_itemf");
   RNA_def_property_enum_default(prop, MA_RAMP_BLEND);
   RNA_def_property_ui_text(prop, "Blending Mode", "");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
