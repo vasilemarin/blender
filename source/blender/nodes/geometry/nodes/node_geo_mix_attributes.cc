@@ -96,6 +96,7 @@ static void mix_attributes_calc(GeometryComponent &component, const GeoNodeExecP
   CustomDataType result_type = CD_PROP_COLOR;
   AttributeDomain result_domain = ATTR_DOMAIN_POINT;
 
+  /* Use type and domain from the result attribute, if it exists already. */
   const ReadAttributePtr result_attribute_read = component.attribute_try_get_for_read(result_name);
   if (result_attribute_read) {
     result_type = result_attribute_read->custom_data_type();
