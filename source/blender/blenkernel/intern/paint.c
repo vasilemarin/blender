@@ -274,7 +274,7 @@ ePaintOverlayControlFlags BKE_paint_get_overlay_flags(void)
   return overlay_flags;
 }
 
-void BKE_paint_set_overlay_override(eOverlayFlags flags)
+void BKE_paint_set_overlay_override(const uint32_t flags /* eOverlayFlags */)
 {
   if (flags & BRUSH_OVERLAY_OVERRIDE_MASK) {
     if (flags & BRUSH_OVERLAY_CURSOR_OVERRIDE_ON_STROKE) {

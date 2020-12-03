@@ -403,7 +403,9 @@ static void multires_ccg_mark_as_modified(SubdivCCG *subdiv_ccg, MultiresModifie
   }
 }
 
-void multires_mark_as_modified(Depsgraph *depsgraph, Object *object, MultiresModifiedFlags flags)
+void multires_mark_as_modified(Depsgraph *depsgraph,
+                               Object *object,
+                               uint32_t flags /* MultiresModifiedFlags */)
 {
   if (object == NULL) {
     return;

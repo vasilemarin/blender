@@ -70,8 +70,6 @@ struct BlendWriter;
 struct BlendDataReader;
 struct BlendLibReader;
 
-enum eOverlayFlags;
-
 extern const char PAINT_CURSOR_SCULPT[3];
 extern const char PAINT_CURSOR_VERTEX_PAINT[3];
 extern const char PAINT_CURSOR_WEIGHT_PAINT[3];
@@ -136,7 +134,7 @@ void BKE_paint_invalidate_cursor_overlay(struct Scene *scene,
 void BKE_paint_invalidate_overlay_all(void);
 ePaintOverlayControlFlags BKE_paint_get_overlay_flags(void);
 void BKE_paint_reset_overlay_invalid(ePaintOverlayControlFlags flag);
-void BKE_paint_set_overlay_override(enum eOverlayFlags flag);
+void BKE_paint_set_overlay_override(const uint32_t flag /* eOverlayFlags */);
 
 /* palettes */
 struct Palette *BKE_palette_add(struct Main *bmain, const char *name);

@@ -29,8 +29,6 @@
 extern "C" {
 #endif
 
-enum MultiresModifiedFlags;
-
 struct Depsgraph;
 struct DerivedMesh;
 struct MDisps;
@@ -53,7 +51,7 @@ void multires_set_tot_level(struct Object *ob, struct MultiresModifierData *mmd,
 
 void multires_mark_as_modified(struct Depsgraph *depsgraph,
                                struct Object *object,
-                               enum MultiresModifiedFlags flags);
+                               uint32_t flags /* MultiresModifiedFlags */);
 
 void multires_flush_sculpt_updates(struct Object *object);
 void multires_force_sculpt_rebuild(struct Object *object);
