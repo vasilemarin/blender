@@ -207,7 +207,7 @@ static DataTypeConversions create_implicit_conversions()
   add_implicit_conversion<float, Color4f>(
       conversions, "float to Color4f", [](float a) { return Color4f(a, a, a, 1.0f); });
   add_implicit_conversion<Color4f, float>(
-      conversions, "Color4f to float", [](Color4f a) { return float3(a.r, a.g, a.b).length(); });
+      conversions, "Color4f to float", [](Color4f a) { return rgb_to_grayscale(a); });
   return conversions;
 }
 
