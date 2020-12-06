@@ -771,32 +771,6 @@ void GHOST_WindowWin32::updateMouseCapture(GHOST_MouseCaptureEventWin32 event)
   }
 }
 
-bool GHOST_WindowWin32::getMousePressed() const
-{
-  return m_nPressedButtons;
-}
-
-bool GHOST_WindowWin32::wintabSysButPressed() const
-{
-  return m_wintab.numSysButtons;
-}
-
-void GHOST_WindowWin32::updateWintabSysBut(GHOST_MouseCaptureEventWin32 event)
-{
-  switch (event) {
-    case MousePressed:
-      m_wintab.numSysButtons++;
-      break;
-    case MouseReleased:
-      if (m_wintab.numSysButtons)
-        m_wintab.numSysButtons--;
-      break;
-    case OperatorGrab:
-    case OperatorUngrab:
-      break;
-  }
-}
-
 HCURSOR GHOST_WindowWin32::getStandardCursor(GHOST_TStandardCursor shape) const
 {
   // Convert GHOST cursor to Windows OEM cursor
@@ -1016,7 +990,6 @@ void GHOST_WindowWin32::updateWintab(bool active, bool visible)
       /* WT_PROXIMITY event doesn't occur unless tablet's cursor leaves the proximity while the
        * window is active. */
       m_tabletInRange = false;
-      m_wintab.numSysButtons = 0;
       m_wintab.sysButtonsPressed = 0;
     }
   }
@@ -1292,15 +1265,11 @@ GHOST_TSuccess GHOST_WindowWin32::getWintabInfo(std::vector<GHOST_WintabInfoWin3
 
   GHOST_SystemWin32 *system = (GHOST_SystemWin32 *)GHOST_System::getSystem();
 
-  updatePendingWintabEvents();
+  const int numPackets = m_wintab.packetsGet(m_wintab.context, m_wintab.pkts.size(), m_wintab.pkts.data());
+  outWintabInfo.resize(numPackets);
 
-  auto &pendingEvents = m_wintab.pendingEvents;
-  size_t pendingEventSize = pendingEvents.size();
-  outWintabInfo.resize(pendingEventSize);
-
-  for (int i = 0; i < pendingEventSize; i++) {
-    PACKET pkt = pendingEvents.front();
-    pendingEvents.pop();
+  for (int i = 0; i < numPackets; i++) {
+    PACKET pkt = m_wintab.pkts[i];
 
     GHOST_TabletData tabletData = GHOST_TABLET_DATA_NONE;
     switch (pkt.pkCursor % 3) { /* % 3 for multiple devices ("DualTrack") */
@@ -1354,6 +1323,7 @@ GHOST_TSuccess GHOST_WindowWin32::getWintabInfo(std::vector<GHOST_WintabInfoWin3
 
     outWintabInfo[i].x = pkt.pkX;
     outWintabInfo[i].y = pkt.pkY;
+    outWintabInfo[i].type = GHOST_kEventCursorMove;
 
     /* Some Wintab libraries don't handle relative button input correctly, so we track button
      * presses manually. Examples include Wacom's Bamboo modifying button events in the queue when
@@ -1365,76 +1335,31 @@ GHOST_TSuccess GHOST_WindowWin32::getWintabInfo(std::vector<GHOST_WintabInfoWin3
     for (DWORD diff = (unsigned)buttonsChanged >> 1; diff > 0; diff = (unsigned)diff >> 1) {
       physicalButton++;
     }
+    
+    GHOST_TButtonMask ghost_button;
+    if (buttonsChanged && wintabMouseToGhost(pkt.pkCursor, physicalButton, ghost_button)) {
+      bool pressed = (buttonsChanged & pkt.pkButtons) != 0;
+      bool sysButtonPressed;
+      system->getButtonState(ghost_button, sysButtonPressed);
 
-    if (buttonsChanged &&
-        wintabMouseToGhost(pkt.pkCursor, physicalButton, outWintabInfo[i].button)) {
-      if (buttonsChanged & pkt.pkButtons) {
+      if (pressed && sysButtonPressed) {
+        m_wintab.sysButtonsPressed ^= buttonsChanged;
+        outWintabInfo[i].button = ghost_button;
         outWintabInfo[i].type = GHOST_kEventButtonDown;
       }
-      else {
+      else if (!pressed && (buttonsChanged & m_wintab.sysButtonsPressed)) {
+        m_wintab.sysButtonsPressed ^= buttonsChanged;
+        outWintabInfo[i].button = ghost_button;
         outWintabInfo[i].type = GHOST_kEventButtonUp;
       }
     }
-    else {
-      outWintabInfo[i].type = GHOST_kEventCursorMove;
-    }
 
-    m_wintab.sysButtonsPressed = pkt.pkButtons;
 
     outWintabInfo[i].time = system->millisSinceStart(pkt.pkTime);
     outWintabInfo[i].tabletData = tabletData;
   }
 
   return GHOST_kSuccess;
-}
-
-/* Wintab (per documentation but may vary with implementation) does not update when its event
- * buffer is full. This is an issue because we need some synchronization point between Wintab
- * events and Win32 events, so we can't drain and process the queue immediately. We need to
- * associate Wintab mouse events to Win32 mouse events because Wintab buttons are modal (a button
- * associated to left click is not always a left click) and there's no way to reconstruct their
- * mode from the Wintab API alone. There is no guaranteed ordering between Wintab and Win32 mouse
- * events and no documented time stamp shared between the two, so we synchronize on mouse button
- * events. */
-void GHOST_WindowWin32::updatePendingWintabEvents()
-{
-  if (!(m_wintab.packetsGet && m_wintab.context)) {
-    return;
-  }
-
-  auto &pendingEvents = m_wintab.pendingEvents;
-
-  /* Clear outdated events from queue. */
-  DWORD currTime = ::GetTickCount();
-  DWORD millisTimeout = 500;
-  while (!pendingEvents.empty()) {
-    DWORD pkTime = pendingEvents.front().pkTime;
-
-    if (currTime > pkTime + millisTimeout) {
-      pendingEvents.pop();
-    }
-    else {
-      break;
-    }
-  }
-
-  /* Get new packets. */
-  const int numPackets = m_wintab.packetsGet(
-      m_wintab.context, m_wintab.pkts.size(), m_wintab.pkts.data());
-
-  int i = 0;
-  /* Don't queue outdated packets, such events can include packets that occurred before the current
-   * window lost and regained focus. */
-  for (; i < numPackets; i++) {
-    DWORD pkTime = m_wintab.pkts[i].pkTime;
-
-    if (currTime < pkTime + millisTimeout) {
-      break;
-    }
-  }
-  for (; i < numPackets; i++) {
-    pendingEvents.push(m_wintab.pkts[i]);
-  }
 }
 
 GHOST_TUns16 GHOST_WindowWin32::getDPIHint()

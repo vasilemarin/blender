@@ -30,11 +30,20 @@
 #endif
 
 #include <commctrl.h>
+#include <memory>
 #include <psapi.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <tlhelp32.h>
 #include <windowsx.h>
+
+#include <cfgmgr32.h>
+#include <initguid.h>  // XXX must include before devpkey.h
+
+#include <devpkey.h>
+#pragma comment(lib, "Cfgmgr32.lib")
+
+#pragma comment(lib, "Rpcrt4.lib")
 
 #include "utf_winfunc.h"
 #include "utfconv.h"
@@ -57,6 +66,8 @@
 
 #ifdef WITH_INPUT_NDOF
 #  include "GHOST_NDOFManagerWin32.h"
+#  define NDOF_USAGE_PAGE 0x01
+#  define NDOF_USAGE 0x08
 #endif
 
 // Key code values not found in winuser.h
@@ -143,12 +154,17 @@
  */
 #define BROKEN_PEEK_TOUCHPAD
 
+#define GUID_FORMAT "%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX"
+#define GUID_ARG(guid) \
+  guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], \
+      guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]
+
 static void initRawInput()
 {
 #ifdef WITH_INPUT_NDOF
-#  define DEVICE_COUNT 2
+  const int DEVICE_COUNT = 3;
 #else
-#  define DEVICE_COUNT 1
+  const int DEVICE_COUNT = 2;
 #endif
 
   RAWINPUTDEVICE devices[DEVICE_COUNT];
@@ -159,18 +175,19 @@ static void initRawInput()
   devices[0].usUsagePage = 0x01;
   devices[0].usUsage = 0x06; /* http://msdn.microsoft.com/en-us/windows/hardware/gg487473.aspx */
 
+  // Initiates WM_INPUT messages from mouse
+  devices[1].usUsagePage = 0x01;
+  devices[1].usUsage = 0x02;
+
 #ifdef WITH_INPUT_NDOF
   // multi-axis mouse (SpaceNavigator, etc.)
-  devices[1].usUsagePage = 0x01;
-  devices[1].usUsage = 0x08;
+  devices[2].usUsagePage = NDOF_USAGE_PAGE;
+  devices[2].usUsage = NDOF_USAGE;
 #endif
 
-  if (RegisterRawInputDevices(devices, DEVICE_COUNT, sizeof(RAWINPUTDEVICE)))
-    ;  // yay!
-  else
+  if (!RegisterRawInputDevices(devices, DEVICE_COUNT, sizeof(RAWINPUTDEVICE))) {
     GHOST_PRINTF("could not register for RawInput: %d\n", (int)GetLastError());
-
-#undef DEVICE_COUNT
+  }
 }
 
 #ifndef DPI_ENUMS_DECLARED
@@ -566,17 +583,22 @@ GHOST_TSuccess GHOST_SystemWin32::getButtons(GHOST_Buttons &buttons) const
 {
   /* Check for swapped buttons (left-handed mouse buttons)
    * GetAsyncKeyState() will give back the state of the physical mouse buttons.
+   *
+   * Tested Wacom tablet swapped physical buttons when the OS swapped logical mouse buttons such
+   * that behavior was unchanged. Physical buttons were swapped for both the stylus and pad
+   * buttons.
    */
   bool swapped = ::GetSystemMetrics(SM_SWAPBUTTON) == TRUE;
 
-  bool down = HIBYTE(::GetKeyState(VK_LBUTTON)) != 0;
+  bool down = HIBYTE(::GetAsyncKeyState(VK_LBUTTON)) != 0;
   buttons.set(swapped ? GHOST_kButtonMaskRight : GHOST_kButtonMaskLeft, down);
 
-  down = HIBYTE(::GetKeyState(VK_MBUTTON)) != 0;
+  down = HIBYTE(::GetAsyncKeyState(VK_MBUTTON)) != 0;
   buttons.set(GHOST_kButtonMaskMiddle, down);
 
-  down = HIBYTE(::GetKeyState(VK_RBUTTON)) != 0;
+  down = HIBYTE(::GetAsyncKeyState(VK_RBUTTON)) != 0;
   buttons.set(swapped ? GHOST_kButtonMaskLeft : GHOST_kButtonMaskRight, down);
+
   return GHOST_kSuccess;
 }
 
@@ -595,6 +617,50 @@ GHOST_TSuccess GHOST_SystemWin32::init()
     SetProcessDPIAware();
   FreeLibrary(user32);
   initRawInput();
+
+  UINT nDevices;
+  if (GetRawInputDeviceList(NULL, &nDevices, sizeof(RAWINPUTDEVICELIST)) == 0) {
+    std::vector<RAWINPUTDEVICELIST> devices(nDevices);
+    if (GetRawInputDeviceList(devices.data(), &nDevices, sizeof(RAWINPUTDEVICELIST)) != -1) {
+      for (auto device : devices) {
+        if (device.dwType != RIM_TYPEHID) {
+          continue;
+        }
+
+        RID_DEVICE_INFO deviceInfo;
+        deviceInfo.cbSize = sizeof(deviceInfo);
+        UINT deviceInfoSize = sizeof(deviceInfo);
+        if (GetRawInputDeviceInfo(device.hDevice, RIDI_DEVICEINFO, &deviceInfo, &deviceInfoSize) ==
+            -1) {
+          continue;
+        }
+        if (deviceInfo.dwType == RIM_TYPEHID && deviceInfo.hid.usUsagePage == 0x0D) {
+          if (deviceInfo.hid.usUsage == 0x01 || deviceInfo.hid.usUsage == 0x02) {
+            // get device
+            UINT nameLen;
+            GetRawInputDeviceInfoW(device.hDevice, RIDI_DEVICENAME, NULL, &nameLen);
+            std::basic_string<WCHAR> name;
+            name.resize(nameLen);
+            GetRawInputDeviceInfoW(device.hDevice, RIDI_DEVICENAME, name.data(), &nameLen);
+
+            DEVPROPTYPE type = DEVPROP_TYPE_GUID;
+            GUID containerId;
+            ULONG containerIdSize = sizeof(containerId);
+            if (CM_Get_Device_Interface_PropertyW(name.data(),
+                                                  &DEVPKEY_Device_ContainerId,
+                                                  &type,
+                                                  (PBYTE)&containerId,
+                                                  &containerIdSize,
+                                                  0) == CR_SUCCESS) {
+              RPC_STATUS status;
+              m_tabletHandles.insert(UuidHash((GUID *)&containerId, &status));
+              printf("{" GUID_FORMAT "}\n", GUID_ARG(((GUID *)&containerId)));
+            }
+          }
+        }
+      }
+    }
+  }
 
   m_lfstart = ::GetTickCount();
   // Determine whether this system has a high frequency performance counter. */
@@ -946,124 +1012,36 @@ GHOST_EventButton *GHOST_SystemWin32::processButtonEvent(GHOST_TEventType type,
     window->updateMouseCapture(MouseReleased);
   }
 
-  /* Check for active Wintab mouse emulation in addition to a tablet in range because a proximity
-   * leave event might have fired before the Windows mouse up event, thus there are still tablet
-   * events to grab. The described behavior was observed in a Wacom Bamboo CTE-450. */
-  if (window->useTabletAPI(GHOST_kTabletWintab) &&
-      (window->m_tabletInRange || window->wintabSysButPressed()) &&
-      processWintabEvent(type, window, mask, window->getMousePressed())) {
-    /* Wintab processing only handles in-contact events. */
-    return NULL;
-  }
-
   return new GHOST_EventButton(
       system->getMilliSeconds(), type, window, mask, GHOST_TABLET_DATA_NONE);
 }
 
-GHOST_TSuccess GHOST_SystemWin32::processWintabEvent(GHOST_TEventType type,
-                                                     GHOST_WindowWin32 *window,
-                                                     GHOST_TButtonMask mask,
-                                                     bool mousePressed)
+GHOST_TSuccess GHOST_SystemWin32::processWintabEvent(GHOST_WindowWin32 *window)
 {
   GHOST_SystemWin32 *system = (GHOST_SystemWin32 *)getSystem();
-
-  /* Only process Wintab packets if we can correlate them to a Window's mouse button event. When a
-   * button event associated to a mouse button by Wintab occurs outside of WM_*BUTTON events,
-   * there's no way to tell if other simultaneously pressed non-mouse mapped buttons are associated
-   * to a modifier key (shift, alt, ctrl) or a system event (scroll, etc.) and thus it is not
-   * possible to determine if a mouse click event should occur. */
-  if (!mousePressed && !window->wintabSysButPressed()) {
-    return GHOST_kFailure;
-  }
 
   std::vector<GHOST_WintabInfoWin32> wintabInfo;
   if (!window->getWintabInfo(wintabInfo)) {
     return GHOST_kFailure;
   }
 
-  auto wtiIter = wintabInfo.begin();
-
-  /* We only process events that correlate to a mouse button events, so there may exist Wintab
-   * button down events that were instead mapped to e.g. scroll still in the queue. We need to
-   * skip those and find the last button down mapped to mouse buttons. */
-  if (!window->wintabSysButPressed()) {
-    /* Assume there may be no button down event currently in the queue. */
-    wtiIter = wintabInfo.end();
-
-    for (auto it = wintabInfo.begin(); it != wintabInfo.end(); it++) {
-      if (it->type == GHOST_kEventButtonDown) {
-        wtiIter = it;
-      }
-    }
-  }
-
-  bool unhandledButton = type != GHOST_kEventCursorMove;
-
-  for (; wtiIter != wintabInfo.end(); wtiIter++) {
-    auto info = *wtiIter;
-
+  for (auto info : wintabInfo) {
     switch (info.type) {
-      case GHOST_kEventButtonDown: {
-        /* While changing windows with a tablet, Window's mouse button events normally occur before
-         * tablet proximity events, so a button up event can't be differentiated as occurring from
-         * a Wintab tablet or a normal mouse and a Ghost button event will always be generated.
-         *
-         * If we were called during a button down event create a ghost button down event, otherwise
-         * don't duplicate the prior button down as it interrupts drawing immediately after
-         * changing a window. */
-        system->pushEvent(new GHOST_EventCursor(
-            info.time, GHOST_kEventCursorMove, window, info.x, info.y, info.tabletData));
-        if (type == GHOST_kEventButtonDown && mask == info.button) {
-          system->pushEvent(
-              new GHOST_EventButton(info.time, info.type, window, info.button, info.tabletData));
-          unhandledButton = false;
-        }
-        window->updateWintabSysBut(MousePressed);
-        break;
-      }
       case GHOST_kEventCursorMove:
         system->pushEvent(new GHOST_EventCursor(
             info.time, GHOST_kEventCursorMove, window, info.x, info.y, info.tabletData));
         break;
+      case GHOST_kEventButtonDown:
+        system->pushEvent(
+            new GHOST_EventButton(info.time, info.type, window, info.button, info.tabletData));
+        break;
       case GHOST_kEventButtonUp:
         system->pushEvent(
             new GHOST_EventButton(info.time, info.type, window, info.button, info.tabletData));
-        if (type == GHOST_kEventButtonUp && mask == info.button) {
-          unhandledButton = false;
-        }
-        window->updateWintabSysBut(MouseReleased);
         break;
       default:
         break;
     }
-  }
-
-  /* No Wintab button found correlating to the system button event, handle it too.
-   *
-   * Wintab button up events may be handled during WM_MOUSEMOVE, before their corresponding
-   * WM_*BUTTONUP event has fired, which results in two GHOST Button up events for a single Wintab
-   * associated button event. Alternatively this Windows button up event may have been generated
-   * from a non-stylus device such as a button on the tablet pad and needs to be handled for some
-   * workflows.
-   *
-   * The ambiguity introduced by Windows and Wintab buttons being asynchronous and having no
-   * definitive way to associate each, and that the Wintab API does not provide enough information
-   * to differentiate whether the stylus down is or is not modified by another button to a
-   * non-mouse mapping, means that we must pessimistically generate mouse up events when we are
-   * unsure of an association to prevent the mouse locking into a down state. */
-  if (unhandledButton) {
-    if (!window->wintabSysButPressed()) {
-      GHOST_TInt32 x, y;
-      system->getCursorPosition(x, y);
-      system->pushEvent(new GHOST_EventCursor(system->getMilliSeconds(),
-                                              GHOST_kEventCursorMove,
-                                              window,
-                                              x,
-                                              y,
-                                              GHOST_TABLET_DATA_NONE));
-    }
-    system->pushEvent(new GHOST_EventButton(
-        system->getMilliSeconds(), type, window, mask, GHOST_TABLET_DATA_NONE));
   }
 
   return GHOST_kSuccess;
@@ -1146,31 +1124,15 @@ void GHOST_SystemWin32::processPointerEvent(
   system->setCursorPosition(pointerInfo[0].pixelLocation.x, pointerInfo[0].pixelLocation.y);
 }
 
-GHOST_EventCursor *GHOST_SystemWin32::processCursorEvent(GHOST_WindowWin32 *window)
+GHOST_EventCursor *GHOST_SystemWin32::processCursorEvent(GHOST_WindowWin32 *window,
+                                                         GHOST_TInt32 x_screen,
+                                                         GHOST_TInt32 y_screen)
 {
-  GHOST_TInt32 x_screen, y_screen;
   GHOST_SystemWin32 *system = (GHOST_SystemWin32 *)getSystem();
-
-  if (window->m_tabletInRange || window->wintabSysButPressed()) {
-    if (window->useTabletAPI(GHOST_kTabletWintab) &&
-        processWintabEvent(
-            GHOST_kEventCursorMove, window, GHOST_kButtonMaskNone, window->getMousePressed())) {
-      return NULL;
-    }
-    else if (window->useTabletAPI(GHOST_kTabletNative)) {
-      /* Tablet input handled in WM_POINTER* events. WM_MOUSEMOVE events in response to tablet
-       * input aren't normally generated when using WM_POINTER events, but manually moving the
-       * system cursor as we do in WM_POINTER handling does. */
-      return NULL;
-    }
-
-    /* If using Wintab but no button event is currently active,
-     * fall through to default handling. */
-  }
 
   system->getCursorPosition(x_screen, y_screen);
 
-  if (window->getCursorGrabModeIsWarp() && !window->m_tabletInRange) {
+  if (window->getCursorGrabModeIsWarp()) {
     GHOST_TInt32 x_new = x_screen;
     GHOST_TInt32 y_new = y_screen;
     GHOST_TInt32 x_accum, y_accum;
@@ -1372,23 +1334,14 @@ void GHOST_SystemWin32::processMinMaxInfo(MINMAXINFO *minmax)
 }
 
 #ifdef WITH_INPUT_NDOF
-bool GHOST_SystemWin32::processNDOF(RAWINPUT const &raw)
+bool GHOST_SystemWin32::processNDOF(RAWINPUT const &raw, RID_DEVICE_INFO_HID const &info)
 {
   bool eventSent = false;
   GHOST_TUns64 now = getMilliSeconds();
 
   static bool firstEvent = true;
   if (firstEvent) {  // determine exactly which device is plugged in
-    RID_DEVICE_INFO info;
-    unsigned infoSize = sizeof(RID_DEVICE_INFO);
-    info.cbSize = infoSize;
-
-    GetRawInputDeviceInfo(raw.header.hDevice, RIDI_DEVICEINFO, &info, &infoSize);
-    if (info.dwType == RIM_TYPEHID)
-      m_ndofManager->setDevice(info.hid.dwVendorId, info.hid.dwProductId);
-    else
-      GHOST_PRINT("<!> not a HID device... mouse/kb perhaps?\n");
-
+    m_ndofManager->setDevice(info.dwVendorId, info.dwProductId);
     firstEvent = false;
   }
 
@@ -1486,13 +1439,14 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
           }  // else wParam == RIM_INPUT
 
           RAWINPUT raw;
-          RAWINPUT *raw_ptr = &raw;
           UINT rawSize = sizeof(RAWINPUT);
 
-          GetRawInputData((HRAWINPUT)lParam, RID_INPUT, raw_ptr, &rawSize, sizeof(RAWINPUTHEADER));
+          GetRawInputData((HRAWINPUT)lParam, RID_HEADER, &raw, &rawSize, sizeof(RAWINPUTHEADER));
 
           switch (raw.header.dwType) {
             case RIM_TYPEKEYBOARD:
+              GetRawInputData(
+                  (HRAWINPUT)lParam, RID_INPUT, &raw, &rawSize, sizeof(RAWINPUTHEADER));
               event = processKeyEvent(window, raw);
               if (!event) {
                 GHOST_PRINT("GHOST_SystemWin32::wndProc: key event ");
@@ -1500,14 +1454,145 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
                 GHOST_PRINT(" key ignored\n");
               }
               break;
-#ifdef WITH_INPUT_NDOF
-            case RIM_TYPEHID:
-              if (system->processNDOF(raw)) {
+            case RIM_TYPEMOUSE: {
+              bool fromTablet = [&]() -> bool {
+                rawSize = sizeof(RAWINPUT);
+                if (GetRawInputData(
+                        (HRAWINPUT)lParam, RID_INPUT, &raw, &rawSize, sizeof(RAWINPUTHEADER)) ==
+                    -1) {
+                  printf("1\n");
+                  return false;
+                }
+                UINT nameLen;
+                if (GetRawInputDeviceInfoW(raw.header.hDevice, RIDI_DEVICENAME, NULL, &nameLen) ==
+                    -1) {
+                  LPSTR messageBuffer = nullptr;
+                  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                                     FORMAT_MESSAGE_IGNORE_INSERTS,
+                                 NULL,
+                                 ::GetLastError(),
+                                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                 (LPSTR)&messageBuffer,
+                                 0,
+                                 NULL);
+
+                  // Free the buffer.
+                  printf("2 %p %d %s",
+                         raw.header.hDevice,
+                         raw.data.mouse.ulButtons & RI_MOUSE_LEFT_BUTTON_DOWN,
+                         messageBuffer);
+                  LocalFree(messageBuffer);
+                  return false;
+                }
+                std::basic_string<WCHAR> name;
+                name.resize(nameLen);
+
+                if (GetRawInputDeviceInfoW(
+                        raw.header.hDevice, RIDI_DEVICENAME, name.data(), &nameLen) == -1) {
+                  printf("3\n");
+                  return false;
+                }
+
+                DEVPROPTYPE type = DEVPROP_TYPE_GUID;
+                GUID containerId;
+                ULONG containerIdSize = sizeof(containerId);
+                if (CM_Get_Device_Interface_PropertyW(name.data(),
+                                                      &DEVPKEY_Device_ContainerId,
+                                                      &type,
+                                                      (PBYTE)&containerId,
+                                                      &containerIdSize,
+                                                      0) != CR_SUCCESS) {
+                  printf("4\n");
+                  return false;
+                }
+
+                RPC_STATUS status;
+                if (system->m_tabletHandles.count(UuidHash((GUID *)&containerId, &status)) == 0) {
+                  printf("5");
+                  return false;
+                }
+                // printf("mouse from tablet\n");
                 eventHandled = true;
+                printf("6");
+                return true;
+              }();
+              if (!fromTablet) {
+                switch (raw.data.mouse.ulButtons) {
+                  case RI_MOUSE_LEFT_BUTTON_DOWN:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonDown, window, GHOST_kButtonMaskLeft);
+                    break;
+                  case RI_MOUSE_LEFT_BUTTON_UP:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonUp, window, GHOST_kButtonMaskLeft);
+                    break;
+                  case RI_MOUSE_RIGHT_BUTTON_DOWN:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonDown, window, GHOST_kButtonMaskRight);
+                    break;
+                  case RI_MOUSE_RIGHT_BUTTON_UP:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonUp, window, GHOST_kButtonMaskRight);
+                    break;
+                  case RI_MOUSE_MIDDLE_BUTTON_DOWN:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonDown, window, GHOST_kButtonMaskMiddle);
+                    break;
+                  case RI_MOUSE_MIDDLE_BUTTON_UP:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonUp, window, GHOST_kButtonMaskMiddle);
+                    break;
+                  case RI_MOUSE_BUTTON_4_DOWN:
+                    event = processButtonEvent(GHOST_kEventButtonDown, window, GHOST_kButtonMaskButton4);
+                    break;
+                  case RI_MOUSE_BUTTON_4_UP:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonUp, window, GHOST_kButtonMaskButton4);
+                    break;
+                  case RI_MOUSE_BUTTON_5_DOWN:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonDown, window, GHOST_kButtonMaskButton5);
+                    break;
+                  case RI_MOUSE_BUTTON_5_UP:
+                    event = processButtonEvent(
+                        GHOST_kEventButtonUp, window, GHOST_kButtonMaskButton5);
+                    break;
+                  default:
+                    event = processCursorEvent(
+                        window, raw.data.mouse.lLastX, raw.data.mouse.lLastY);
+                    break;
+                }
+                // printf("mouse but not tablet\n");
               }
               break;
+            }
+            case RIM_TYPEHID:
+              RID_DEVICE_INFO info;
+              unsigned infoSize = sizeof(RID_DEVICE_INFO);
+              info.cbSize = infoSize;  // TODO check that this is necessary in docs
+              GetRawInputDeviceInfo(raw.header.hDevice, RIDI_DEVICEINFO, &info, &infoSize);
+
+              // RAWHID uses the struct hack to create a variable length struct; using RAWINPUT on
+              // the stack risks memory corruption.
+              auto raw_struct_hack = std::unique_ptr<RAWINPUT, decltype(free) *>{
+                  reinterpret_cast<RAWINPUT *>(malloc(raw.header.dwSize)), free};
+              rawSize = raw.header.dwSize;
+              GetRawInputData((HRAWINPUT)lParam,
+                              RID_INPUT,
+                              raw_struct_hack.get(),
+                              &rawSize,
+                              sizeof(RAWINPUTHEADER));
+#ifdef WITH_INPUT_NDOF
+              if (info.hid.usUsagePage == NDOF_USAGE_PAGE && info.hid.usUsage == NDOF_USAGE) {
+                if (system->processNDOF(*raw_struct_hack, info.hid)) {
+                  eventHandled = true;
+                }
+              }
 #endif
+              break;
           }
+          // The application must call DefWindowProc so the system can perform cleanup.
+          ::DefWindowProcW(hwnd, msg, wParam, lParam);
           break;
         }
 #ifdef WITH_INPUT_IME
@@ -1614,7 +1699,7 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
           break;
         }
         case WT_PACKET:
-          window->updatePendingWintabEvents();
+          processWintabEvent(window);
           break;
         ////////////////////////////////////////////////////////////////////////
         // Pointer events, processed
@@ -1629,43 +1714,6 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
         ////////////////////////////////////////////////////////////////////////
         // Mouse events, processed
         ////////////////////////////////////////////////////////////////////////
-        case WM_LBUTTONDOWN:
-          event = processButtonEvent(GHOST_kEventButtonDown, window, GHOST_kButtonMaskLeft);
-          break;
-        case WM_MBUTTONDOWN:
-          event = processButtonEvent(GHOST_kEventButtonDown, window, GHOST_kButtonMaskMiddle);
-          break;
-        case WM_RBUTTONDOWN:
-          event = processButtonEvent(GHOST_kEventButtonDown, window, GHOST_kButtonMaskRight);
-          break;
-        case WM_XBUTTONDOWN:
-          if ((short)HIWORD(wParam) == XBUTTON1) {
-            event = processButtonEvent(GHOST_kEventButtonDown, window, GHOST_kButtonMaskButton4);
-          }
-          else if ((short)HIWORD(wParam) == XBUTTON2) {
-            event = processButtonEvent(GHOST_kEventButtonDown, window, GHOST_kButtonMaskButton5);
-          }
-          break;
-        case WM_LBUTTONUP:
-          event = processButtonEvent(GHOST_kEventButtonUp, window, GHOST_kButtonMaskLeft);
-          break;
-        case WM_MBUTTONUP:
-          event = processButtonEvent(GHOST_kEventButtonUp, window, GHOST_kButtonMaskMiddle);
-          break;
-        case WM_RBUTTONUP:
-          event = processButtonEvent(GHOST_kEventButtonUp, window, GHOST_kButtonMaskRight);
-          break;
-        case WM_XBUTTONUP:
-          if ((short)HIWORD(wParam) == XBUTTON1) {
-            event = processButtonEvent(GHOST_kEventButtonUp, window, GHOST_kButtonMaskButton4);
-          }
-          else if ((short)HIWORD(wParam) == XBUTTON2) {
-            event = processButtonEvent(GHOST_kEventButtonUp, window, GHOST_kButtonMaskButton5);
-          }
-          break;
-        case WM_MOUSEMOVE:
-          event = processCursorEvent(window);
-          break;
         case WM_MOUSEWHEEL: {
           /* The WM_MOUSEWHEEL message is sent to the focus window
            * when the mouse wheel is rotated. The DefWindowProc
@@ -1710,6 +1758,16 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
         ////////////////////////////////////////////////////////////////////////
         // Mouse events, ignored
         ////////////////////////////////////////////////////////////////////////
+        case WM_LBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_XBUTTONDOWN:
+        case WM_LBUTTONUP:
+        case WM_MBUTTONUP:
+        case WM_RBUTTONUP:
+        case WM_XBUTTONUP:
+        case WM_MOUSEMOVE:
+          eventHandled = true;
         case WM_NCMOUSEMOVE:
         /* The WM_NCMOUSEMOVE message is posted to a window when the cursor is moved
          * within the non-client area of the window. This message is posted to the window that

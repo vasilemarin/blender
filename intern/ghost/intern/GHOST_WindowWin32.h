@@ -485,11 +485,6 @@ class GHOST_WindowWin32 : public GHOST_Window {
    */
   GHOST_TSuccess getWintabInfo(std::vector<GHOST_WintabInfoWin32> &outWintabInfo);
 
-  /**
-   * Updates stored pending Wintab events.
-   */
-  void updatePendingWintabEvents();
-
   GHOST_TSuccess beginFullScreen() const
   {
     return GHOST_kFailure;
@@ -501,25 +496,6 @@ class GHOST_WindowWin32 : public GHOST_Window {
   }
 
   GHOST_TUns16 getDPIHint() override;
-
-  /**
-   * Get whether there are currently any mouse buttons pressed.
-   * \return True if there are any currently pressed mouse buttons.
-   */
-  bool getMousePressed() const;
-
-  /**
-   * Get if there are currently pressed Wintab buttons associated to a Windows mouse button press.
-   * \return True if there are currently any pressed Wintab buttons associated to a Windows
-   * mouse button press.
-   */
-  bool wintabSysButPressed() const;
-
-  /**
-   * Register a Wintab button has been associated to a Windows mouse button press.
-   * \param event: Whether the button was pressed or released.
-   */
-  void updateWintabSysBut(GHOST_MouseCaptureEventWin32 event);
 
   /** Whether a tablet stylus is being tracked. */
   bool m_tabletInRange;
@@ -625,8 +601,6 @@ class GHOST_WindowWin32 : public GHOST_Window {
     HCTX context = NULL;
     /** Number of connected Wintab digitizers */
     UINT numDevices = 0;
-    /** Number of cursors currently in contact mapped to system buttons */
-    GHOST_TUns8 numSysButtons = 0;
     /** Cursors currently in contact mapped to system buttons */
     DWORD sysButtonsPressed = 0;
     LONG maxPressure = 0;

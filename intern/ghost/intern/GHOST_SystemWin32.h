@@ -32,6 +32,8 @@
 #include <ole2.h>  // for drag-n-drop
 #include <windows.h>
 
+#include <unordered_set>
+
 #include "GHOST_System.h"
 
 class GHOST_EventButton;
@@ -322,16 +324,10 @@ class GHOST_SystemWin32 : public GHOST_System {
 
   /**
    * Creates tablet events from Wintab events.
-   * \param type: The type of pointer event.
    * \param window: The window receiving the event (the active window).
-   * \param mask: The button mask of the calling event.
-   * \param mousePressed: Whether the mouse is currently pressed.
    * \return True if the method handled the event.
    */
-  static GHOST_TSuccess processWintabEvent(GHOST_TEventType type,
-                                           GHOST_WindowWin32 *window,
-                                           GHOST_TButtonMask mask,
-                                           bool mousePressed);
+  static GHOST_TSuccess processWintabEvent(GHOST_WindowWin32 *window);
 
   /**
    * Creates tablet events from pointer events.
@@ -347,9 +343,13 @@ class GHOST_SystemWin32 : public GHOST_System {
   /**
    * Creates cursor event.
    * \param window: The window receiving the event (the active window).
+   * \param x_screen: The x coordinate of the event.
+   * \param y_screen: The y coordinate of the event.
    * \return The event created.
    */
-  static GHOST_EventCursor *processCursorEvent(GHOST_WindowWin32 *window);
+  static GHOST_EventCursor *processCursorEvent(GHOST_WindowWin32 *window,
+                                               GHOST_TInt32 x_screen,
+                                               GHOST_TInt32 y_screen);
 
   /**
    * Handles a mouse wheel event.
@@ -409,9 +409,10 @@ class GHOST_SystemWin32 : public GHOST_System {
    * Instead of returning an event object, this function communicates directly
    * with the GHOST_NDOFManager.
    * \param raw: RawInput structure with detailed info about the NDOF event.
+   * \param info: RawInput device information.
    * \return Whether an event was generated and sent.
    */
-  bool processNDOF(RAWINPUT const &raw);
+  bool processNDOF(RAWINPUT const &raw, RID_DEVICE_INFO_HID const &info);
 #endif
 
   /**
@@ -473,6 +474,8 @@ class GHOST_SystemWin32 : public GHOST_System {
 
   /** Wheel delta accumulator */
   int m_wheelDeltaAccum;
+
+  std::unordered_set<unsigned short> m_tabletHandles;
 };
 
 inline void GHOST_SystemWin32::retrieveModifierKeys(GHOST_ModifierKeys &keys) const
