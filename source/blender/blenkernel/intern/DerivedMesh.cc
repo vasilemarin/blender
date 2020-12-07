@@ -50,6 +50,7 @@
 #include "BKE_colorband.h"
 #include "BKE_deform.h"
 #include "BKE_editmesh.h"
+#include "BKE_geometry_set.hh"
 #include "BKE_key.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
@@ -892,7 +893,8 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
                                 const bool allow_shared_mesh,
                                 /* return args */
                                 Mesh **r_deform,
-                                Mesh **r_final)
+                                Mesh **r_final,
+                                GeometrySet **r_final_geometry_set)
 {
   /* Input and final mesh. Final mesh is only created the moment the first
    * constructive modifier is executed, or a deform modifier needs normals
@@ -900,6 +902,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
   Mesh *mesh_input = (Mesh *)ob->data;
   Mesh *mesh_final = nullptr;
   Mesh *mesh_deform = nullptr;
+  GeometrySet geometry_set;
   BLI_assert((mesh_input->id.tag & LIB_TAG_COPIED_ON_WRITE_EVAL_RESULT) == 0);
 
   /* Deformed vertex locations array. Deform only modifier need this type of
@@ -1197,7 +1200,29 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
 
-      Mesh *mesh_next = BKE_modifier_modify_mesh(md, &mectx, mesh_final);
+      Mesh *mesh_next = nullptr;
+      if (mti->modifyPointCloud) {
+        /* The mesh is not stored in the geometry set. It is only added temporarily for this
+         * specific modifier. Other geometry components are stored in the geometry set though. */
+        {
+          BLI_assert(!geometry_set.has<MeshComponent>());
+          MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
+          mesh_component.replace(mesh_final, GeometryOwnershipType::Editable);
+          mesh_component.copy_vertex_group_names_from_object(*ob);
+        }
+        mti->modifyPointCloud(md, &mectx, &geometry_set);
+        {
+          MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
+          mesh_next = mesh_component.release();
+          geometry_set.remove<MeshComponent>();
+          if (mesh_next == nullptr) {
+            mesh_next = BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+          }
+        }
+      }
+      else {
+        mesh_next = BKE_modifier_modify_mesh(md, &mectx, mesh_final);
+      }
       ASSERT_IS_VALID_MESH(mesh_next);
 
       if (mesh_next) {
@@ -1374,6 +1399,14 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
   *r_final = mesh_final;
   if (r_deform) {
     *r_deform = mesh_deform;
+  }
+
+  if (r_final_geometry_set) {
+    BLI_assert(!geometry_set.has<MeshComponent>());
+    MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
+    mesh_component.replace(mesh_final, GeometryOwnershipType::ReadOnly);
+    mesh_component.copy_vertex_group_names_from_object(*ob);
+    *r_final_geometry_set = new GeometrySet(std::move(geometry_set));
   }
 }
 
@@ -1803,6 +1836,7 @@ static void mesh_build_data(struct Depsgraph *depsgraph,
 #endif
 
   Mesh *mesh_eval = nullptr, *mesh_deform_eval = nullptr;
+  GeometrySet *geometry_set_eval = nullptr;
   mesh_calc_modifiers(depsgraph,
                       scene,
                       ob,
@@ -1813,7 +1847,8 @@ static void mesh_build_data(struct Depsgraph *depsgraph,
                       true,
                       true,
                       &mesh_deform_eval,
-                      &mesh_eval);
+                      &mesh_eval,
+                      &geometry_set_eval);
 
   /* The modifier stack evaluation is storing result in mesh->runtime.mesh_eval, but this result
    * is not guaranteed to be owned by object.
@@ -1824,6 +1859,7 @@ static void mesh_build_data(struct Depsgraph *depsgraph,
   Mesh *mesh = (Mesh *)ob->data;
   const bool is_mesh_eval_owned = (mesh_eval != mesh->runtime.mesh_eval);
   BKE_object_eval_assign_data(ob, &mesh_eval->id, is_mesh_eval_owned);
+  ob->runtime.geometry_set_eval = geometry_set_eval;
 
   ob->runtime.mesh_deform_eval = mesh_deform_eval;
   ob->runtime.last_data_mask = *dataMask;
@@ -2020,7 +2056,8 @@ Mesh *mesh_create_eval_final(Depsgraph *depsgraph,
 {
   Mesh *final;
 
-  mesh_calc_modifiers(depsgraph, scene, ob, 1, false, dataMask, -1, false, false, nullptr, &final);
+  mesh_calc_modifiers(
+      depsgraph, scene, ob, 1, false, dataMask, -1, false, false, nullptr, &final, nullptr);
 
   return final;
 }
@@ -2034,7 +2071,7 @@ Mesh *mesh_create_eval_final_index_render(Depsgraph *depsgraph,
   Mesh *final;
 
   mesh_calc_modifiers(
-      depsgraph, scene, ob, 1, false, dataMask, index, false, false, nullptr, &final);
+      depsgraph, scene, ob, 1, false, dataMask, index, false, false, nullptr, &final, nullptr);
 
   return final;
 }
@@ -2046,7 +2083,8 @@ Mesh *mesh_create_eval_no_deform(Depsgraph *depsgraph,
 {
   Mesh *final;
 
-  mesh_calc_modifiers(depsgraph, scene, ob, 0, false, dataMask, -1, false, false, nullptr, &final);
+  mesh_calc_modifiers(
+      depsgraph, scene, ob, 0, false, dataMask, -1, false, false, nullptr, &final, nullptr);
 
   return final;
 }
@@ -2058,7 +2096,8 @@ Mesh *mesh_create_eval_no_deform_render(Depsgraph *depsgraph,
 {
   Mesh *final;
 
-  mesh_calc_modifiers(depsgraph, scene, ob, 0, false, dataMask, -1, false, false, nullptr, &final);
+  mesh_calc_modifiers(
+      depsgraph, scene, ob, 0, false, dataMask, -1, false, false, nullptr, &final, nullptr);
 
   return final;
 }

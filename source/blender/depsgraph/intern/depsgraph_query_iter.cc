@@ -136,8 +136,8 @@ bool deg_iterator_components_step(BLI_Iterator *iter)
     return false;
   }
 
-  if (data->geometry_component_owner->type != OB_POINTCLOUD) {
-    /* Only point clouds support multiple geometry components currently. */
+  if (data->geometry_component_owner->runtime.geometry_set_eval == nullptr) {
+    /* Return the object itself, if it does not have a geometry set yet. */
     iter->current = data->geometry_component_owner;
     data->geometry_component_owner = nullptr;
     return true;
