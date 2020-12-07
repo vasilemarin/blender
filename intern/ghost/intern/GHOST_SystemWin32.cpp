@@ -45,6 +45,9 @@
 
 #pragma comment(lib, "Rpcrt4.lib")
 
+#include <hidsdi.h>
+#pragma comment(lib, "hid.lib")
+
 #include "utf_winfunc.h"
 #include "utfconv.h"
 
@@ -69,6 +72,10 @@
 #  define NDOF_USAGE_PAGE 0x01
 #  define NDOF_USAGE 0x08
 #endif
+
+#define HID_USAGE_DIGITIZER_EXTERNAL 0x01
+#define HID_USAGE_DIGITIZER_INTEGRATED 0x02
+
 
 // Key code values not found in winuser.h
 #ifndef VK_MINUS
@@ -634,14 +641,18 @@ GHOST_TSuccess GHOST_SystemWin32::init()
             -1) {
           continue;
         }
-        if (deviceInfo.dwType == RIM_TYPEHID && deviceInfo.hid.usUsagePage == 0x0D) {
-          if (deviceInfo.hid.usUsage == 0x01 || deviceInfo.hid.usUsage == 0x02) {
+        if (deviceInfo.dwType == RIM_TYPEHID &&
+            deviceInfo.hid.usUsagePage == HID_USAGE_PAGE_DIGITIZER) {
+          if (deviceInfo.hid.usUsage == HID_USAGE_DIGITIZER_INTEGRATED ||
+              deviceInfo.hid.usUsage == HID_USAGE_DIGITIZER_EXTERNAL) {
             // get device
             UINT nameLen;
             GetRawInputDeviceInfoW(device.hDevice, RIDI_DEVICENAME, NULL, &nameLen);
             std::basic_string<WCHAR> name;
             name.resize(nameLen);
             GetRawInputDeviceInfoW(device.hDevice, RIDI_DEVICENAME, name.data(), &nameLen);
+
+            printf("%d %ls\n", name.length(), name.c_str());
 
             DEVPROPTYPE type = DEVPROP_TYPE_GUID;
             GUID containerId;
@@ -1463,6 +1474,39 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
                   printf("1\n");
                   return false;
                 }
+
+                UINT nameLen;
+                if (GetRawInputDeviceInfoW(raw.header.hDevice, RIDI_DEVICENAME, NULL, &nameLen) ==
+                    -1) {
+                  LPSTR messageBuffer = nullptr;
+                  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                                     FORMAT_MESSAGE_IGNORE_INSERTS,
+                                 NULL,
+                                 ::GetLastError(),
+                                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                 (LPSTR)&messageBuffer,
+                                 0,
+                                 NULL);
+
+                  // Free the buffer.
+                  printf("2 %p %d %s",
+                         raw.header.hDevice,
+                         raw.data.mouse.ulButtons & RI_MOUSE_LEFT_BUTTON_DOWN,
+                         messageBuffer);
+                  LocalFree(messageBuffer);
+                  return false;
+                }
+                std::basic_string<WCHAR> name;
+                name.resize(nameLen);
+
+                if (GetRawInputDeviceInfoW(
+                        raw.header.hDevice, RIDI_DEVICENAME, name.data(), &nameLen) == -1) {
+                  printf("3\n");
+                  return false;
+                }
+                printf("%ls\n", name.c_str());
+
+                #if 0
                 UINT nameLen;
                 if (GetRawInputDeviceInfoW(raw.header.hDevice, RIDI_DEVICENAME, NULL, &nameLen) ==
                     -1) {
@@ -1511,7 +1555,40 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
                   printf("5");
                   return false;
                 }
-                // printf("mouse from tablet\n");
+                #endif
+
+                #if 0
+                UINT ppdSize = 0;
+                if (GetRawInputDeviceInfo(
+                        raw.header.hDevice, RIDI_PREPARSEDDATA, NULL, &ppdSize) != 0) {
+                  printf("1\n");
+                  return false;
+                }
+                std::vector<BYTE> ppdBuffer(ppdSize);
+                printf("%u", ppdSize);
+                PHIDP_PREPARSED_DATA ppd = (PHIDP_PREPARSED_DATA)ppdBuffer.data();
+                if (GetRawInputDeviceInfo(raw.header.hDevice, RIDI_PREPARSEDDATA, ppd, &ppdSize) ==
+                    -1) {
+                  printf("2\n");
+                  return false;
+                }
+                _HIDP_CAPS caps;
+                if (HidP_GetCaps(ppd, &caps) != HIDP_STATUS_SUCCESS) {
+                  printf("3\n");
+                  return false;
+                }
+                if (caps.UsagePage != HID_USAGE_PAGE_DIGITIZER) {
+                  printf("4\n");
+                  return false;
+                }
+                if (caps.Usage != HID_USAGE_DIGITIZER_INTEGRATED &&
+                    caps.Usage != HID_USAGE_DIGITIZER_EXTERNAL) {
+                  printf("5\n");
+                  return false;
+                }
+                #endif
+
+                //printf("mouse from tablet\n");
                 eventHandled = true;
                 printf("6");
                 return true;
