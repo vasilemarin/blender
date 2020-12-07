@@ -153,6 +153,11 @@ bool deg_iterator_components_step(BLI_Iterator *iter)
     data->geometry_component_id++;
 
     /* The mesh component. */
+    if (data->geometry_component_owner->type == OB_MESH) {
+      iter->current = data->geometry_component_owner;
+      return true;
+    }
+
     const Mesh *mesh = geometry_set->get_mesh_for_read();
     if (mesh != nullptr) {
       Object *temp_object = &data->temp_geometry_component_object;
