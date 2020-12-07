@@ -882,6 +882,40 @@ void BKE_mesh_wrapper_deferred_finalize(Mesh *me_eval,
   BLI_assert(me_eval->runtime.wrapper_type_finalize == 0);
 }
 
+static Mesh *modifier_modify_mesh_or_geometry_set(ModifierData *md,
+                                                  const ModifierEvalContext &mectx,
+                                                  Object *ob,
+                                                  Mesh *input_mesh,
+                                                  GeometrySet &geometry_set)
+{
+  Mesh *mesh_output = nullptr;
+  const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
+  if (mti->modifyPointCloud) {
+    BKE_mesh_wrapper_ensure_mdata(input_mesh);
+    /* The mesh is not stored in the geometry set. It is only added temporarily for this
+     * specific modifier. Other geometry components are stored in the geometry set though. */
+    {
+      BLI_assert(!geometry_set.has<MeshComponent>());
+      MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
+      mesh_component.replace(input_mesh, GeometryOwnershipType::Editable);
+      mesh_component.copy_vertex_group_names_from_object(*ob);
+    }
+    mti->modifyPointCloud(md, &mectx, &geometry_set);
+    {
+      MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
+      mesh_output = mesh_component.release();
+      geometry_set.remove<MeshComponent>();
+      if (mesh_output == nullptr) {
+        mesh_output = BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+      }
+    }
+  }
+  else {
+    mesh_output = BKE_modifier_modify_mesh(md, &mectx, input_mesh);
+  }
+  return mesh_output;
+}
+
 static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
                                 Scene *scene,
                                 Object *ob,
@@ -1200,29 +1234,8 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
 
-      Mesh *mesh_next = nullptr;
-      if (mti->modifyPointCloud) {
-        /* The mesh is not stored in the geometry set. It is only added temporarily for this
-         * specific modifier. Other geometry components are stored in the geometry set though. */
-        {
-          BLI_assert(!geometry_set.has<MeshComponent>());
-          MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
-          mesh_component.replace(mesh_final, GeometryOwnershipType::Editable);
-          mesh_component.copy_vertex_group_names_from_object(*ob);
-        }
-        mti->modifyPointCloud(md, &mectx, &geometry_set);
-        {
-          MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
-          mesh_next = mesh_component.release();
-          geometry_set.remove<MeshComponent>();
-          if (mesh_next == nullptr) {
-            mesh_next = BKE_mesh_new_nomain(0, 0, 0, 0, 0);
-          }
-        }
-      }
-      else {
-        mesh_next = BKE_modifier_modify_mesh(md, &mectx, mesh_final);
-      }
+      Mesh *mesh_next = modifier_modify_mesh_or_geometry_set(
+          md, mectx, ob, mesh_final, geometry_set);
       ASSERT_IS_VALID_MESH(mesh_next);
 
       if (mesh_next) {
@@ -1516,7 +1529,8 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
                                      const CustomData_MeshMasks *dataMask,
                                      /* return args */
                                      Mesh **r_cage,
-                                     Mesh **r_final)
+                                     Mesh **r_final,
+                                     GeometrySet **r_final_geometry_set)
 {
   /* Input and final mesh. Final mesh is only created the moment the first
    * constructive modifier is executed, or a deform modifier needs normals
@@ -1524,6 +1538,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   Mesh *mesh_input = (Mesh *)ob->data;
   Mesh *mesh_final = nullptr;
   Mesh *mesh_cage = nullptr;
+  GeometrySet geometry_set;
 
   /* Deformed vertex locations array. Deform only modifier need this type of
    * float array rather than MVert*. Tracked along with mesh_final as an
@@ -1688,7 +1703,8 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
 
-      Mesh *mesh_next = BKE_modifier_modify_mesh(md, &mectx, mesh_final);
+      Mesh *mesh_next = modifier_modify_mesh_or_geometry_set(
+          md, mectx, ob, mesh_final, geometry_set);
       ASSERT_IS_VALID_MESH(mesh_next);
 
       if (mesh_next) {
@@ -1790,6 +1806,8 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   if (r_cage) {
     *r_cage = mesh_cage;
   }
+
+  *r_final_geometry_set = new GeometrySet(std::move(geometry_set));
 }
 
 static void mesh_build_extra_data(struct Depsgraph *depsgraph, Object *ob, Mesh *mesh_eval)
@@ -1900,11 +1918,14 @@ static void editbmesh_build_data(struct Depsgraph *depsgraph,
 
   Mesh *me_cage;
   Mesh *me_final;
+  GeometrySet *geometry_set;
 
-  editbmesh_calc_modifiers(depsgraph, scene, obedit, em, dataMask, &me_cage, &me_final);
+  editbmesh_calc_modifiers(
+      depsgraph, scene, obedit, em, dataMask, &me_cage, &me_final, &geometry_set);
 
   em->mesh_eval_final = me_final;
   em->mesh_eval_cage = me_cage;
+  obedit->runtime.geometry_set_eval = geometry_set;
 
   BKE_object_boundbox_calc_from_mesh(obedit, em->mesh_eval_final);
 
