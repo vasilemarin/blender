@@ -400,7 +400,7 @@ class WeightedSampleElimination {
     }
 
     // Build a heap for the samples using their weights
-    Heap<FType, SIZE_TYPE> heap;
+    Heap heap;
     heap.SetDataPointer(w.data(), inputSize);
     heap.Build();
 
