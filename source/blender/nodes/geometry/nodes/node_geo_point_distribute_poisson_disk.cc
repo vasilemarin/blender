@@ -234,7 +234,7 @@ static void weighted_sample_elimination(Vector<float3> const *input_points,
 
   /* Copy the samples to the output array. */
   size_t target_size = do_copy_eliminated ? input_points->size() : output_points->size();
-  for (size_t i = 0; i < output_points->size(); i++) {
+  for (size_t i = 0; i < target_size; i++) {
     size_t index = POINTER_AS_INT(BLI_heap_pop_min(heap));
     output_points->data()[i] = input_points->data()[index];
   }
