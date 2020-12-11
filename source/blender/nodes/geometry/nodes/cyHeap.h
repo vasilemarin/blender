@@ -253,11 +253,11 @@ class Heap {
   //////////////////////////////////////////////////////////////////////////!//!//!
   //!@name Internal structures and methods
 
+  size_t size;           // The total item count, including the ones removed from the heap.
+  size_t heapItemCount;  // The number of items in the heap.
   float *data;           // The main data pointer.
   size_t *heap;          // The heap array, keeping the id of each data item.
   size_t *heapPos;       // The heap position of each item.
-  size_t heapItemCount;  // The number of items in the heap.
-  size_t size;           // The total item count, including the ones removed from the heap.
   bool deleteData;       // Determines whether the data pointer owns the memory it points to.
 
   // Clears the data pointer and deallocates memory if the data is owned.
