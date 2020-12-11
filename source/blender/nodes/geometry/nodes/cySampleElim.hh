@@ -201,7 +201,7 @@ class WeightedSampleElimination {
       d_max = 2 * GetMaxPoissonDiskRadius(dimensions, outputSize);
     }
     DoEliminate(inputPoints, inputSize, outputPoints, outputSize, d_max, weightFunction, false);
-    if (progressive) {
+    if (progressive && false) {
       std::vector<PointType> tmpPoints(outputSize);
       PointType *inPts = outputPoints;
       PointType *outPts = tmpPoints.data();
