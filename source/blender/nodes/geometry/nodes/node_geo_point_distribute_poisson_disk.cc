@@ -67,10 +67,9 @@ static void tile_point(std::vector<float3> *tiled_points,
  */
 static float point_weight_influence_get(const float maximum_distance,
                                         const float minimum_distance,
-                                        const float squared_distance)
+                                        float distance)
 {
   const float alpha = 8.0f;
-  float distance = std::sqrt(squared_distance);
 
   if (distance < minimum_distance) {
     distance = minimum_distance;
@@ -110,9 +109,8 @@ static void points_distance_weight_calculate(std::vector<float> *weights,
       continue;
     }
 
-    const float squared_distance = nearest_point[i].dist * nearest_point[i].dist;
     const float weight_influence = point_weight_influence_get(
-        maximum_distance, minimum_distance, squared_distance);
+        maximum_distance, minimum_distance, nearest_point[i].dist);
 
     /* In the first pass we just the weights. */
     if (heap == nullptr) {
