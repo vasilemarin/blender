@@ -21,9 +21,15 @@
  * Copyright (c) 2016, Cem Yuksel <cem@cemyuksel.com>
  * All rights reserved.
  */
+#define CYHEAP 1
 
-#include "BLI_heap.h"
 #include "BLI_kdtree.h"
+
+#ifndef CYHEAP
+#  include "BLI_heap.h"
+#else
+#  include "cyHeap.h"
+#endif
 
 #include "node_geometry_util.hh"
 
@@ -90,8 +96,13 @@ static void points_distance_weight_calculate(std::vector<float> *weights,
                                              const void *kd_tree,
                                              const float minimum_distance,
                                              const float maximum_distance,
+#ifndef CYHEAP
                                              Heap *heap,
                                              std::vector<HeapNode *> *nodes)
+#else
+                                             cy::Heap *heap,
+                                             void *UNUSED(nodes))
+#endif
 {
   KDTreeNearest_3d *nearest_point = nullptr;
   int neighbors = BLI_kdtree_3d_range_search(
@@ -119,10 +130,14 @@ static void points_distance_weight_calculate(std::vector<float> *weights,
     /* When we run again we need to update the weights and the heap. */
     else {
       weights->data()[neighbor_point_id] -= weight_influence;
+#ifndef CYHEAP
       HeapNode *node = nodes->data()[neighbor_point_id];
       if (node != nullptr) {
         BLI_heap_node_value_update(heap, node, weights->data()[neighbor_point_id]);
       }
+#else
+      heap->MoveItemDown(neighbor_point_id);
+#endif
     }
   }
 
@@ -205,16 +220,24 @@ static void weighted_sample_elimination(Vector<float3> const *input_points,
   }
 
   /* Remove the points based on their weight. */
+#ifndef CYHEAP
   Heap *heap = BLI_heap_new_ex(weights.size());
   std::vector<HeapNode *> nodes(input_points->size(), nullptr);
 
   for (size_t i = 0; i < weights.size(); i++) {
     nodes[i] = BLI_heap_insert(heap, weights[i], POINTER_FROM_INT(i));
   }
+#else
+  cy::Heap heap;
+  heap.SetDataPointer(weights.data(), input_points->size());
+  heap.Build();
+#endif
 
   size_t sample_size = input_points->size();
   while (sample_size > output_points->size()) {
     /* For each sample around it, remove its weight contribution and update the heap. */
+
+#ifndef CYHEAP
     size_t point_id = POINTER_AS_INT(BLI_heap_pop_min(heap));
     nodes[point_id] = nullptr;
 
@@ -226,6 +249,18 @@ static void weighted_sample_elimination(Vector<float3> const *input_points,
                                      maximum_distance,
                                      heap,
                                      &nodes);
+#else
+    size_t point_id = heap.GetTopItemID();
+    heap.Pop();
+    points_distance_weight_calculate(&weights,
+                                     point_id,
+                                     input_points,
+                                     kd_tree,
+                                     minimum_distance,
+                                     maximum_distance,
+                                     &heap,
+                                     nullptr);
+#endif
 
     sample_size--;
   }
@@ -233,13 +268,19 @@ static void weighted_sample_elimination(Vector<float3> const *input_points,
   /* Copy the samples to the output array. */
   size_t target_size = do_copy_eliminated ? input_points->size() : output_points->size();
   for (size_t i = 0; i < target_size; i++) {
+#ifndef CYHEAP
     size_t index = POINTER_AS_INT(BLI_heap_pop_min(heap));
+#else
+    size_t index = heap.GetIDFromHeap(i);
+#endif
     output_points->data()[i] = input_points->data()[index];
   }
 
   /* Cleanup. */
   BLI_kdtree_3d_free((KDTree_3d *)kd_tree);
+#ifndef CYHEAP
   BLI_heap_free(heap, NULL);
+#endif
 }
 
 void poisson_disk_point_elimination(Vector<float3> const *input_points,
