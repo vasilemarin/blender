@@ -116,7 +116,7 @@ static void points_distance_weight_calculate(std::vector<float> *weights,
 
     /* In the first pass we just the weights. */
     if (heap == nullptr) {
-      weights->data()[neighbor_point_id] += weight_influence;
+      weights->data()[point_id] += weight_influence;
     }
     /* When we run again we need to update the weights and the heap. */
     else {
