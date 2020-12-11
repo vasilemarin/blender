@@ -43,27 +43,39 @@ static void tile_point(Vector<float3> *tiled_points,
                        const float3 boundbox,
                        float3 const &point,
                        size_t index,
-                       int dim = 0)
+                       int dimension = 0)
 {
-  for (int d = dim; d < 3; d++) {
-    if (boundbox[d] - point[d] < maximum_distance) {
-      float3 p = point;
-      p[d] -= boundbox[d];
+  for (int dimension_iter = dimension; dimension_iter < 3; dimension_iter++) {
+    if (boundbox[dimension_iter] - point[dimension_iter] < maximum_distance) {
+      float3 point_tiled = point;
+      point_tiled[dimension_iter] -= boundbox[dimension_iter];
 
-      tiled_points->append(p);
+      tiled_points->append(point_tiled);
       indices->append(index);
 
-      tile_point(tiled_points, indices, maximum_distance, boundbox, p, index, d + 1);
+      tile_point(tiled_points,
+                 indices,
+                 maximum_distance,
+                 boundbox,
+                 point_tiled,
+                 index,
+                 dimension_iter + 1);
     }
 
-    if (point[d] < maximum_distance) {
-      float3 p = point;
-      p[d] += boundbox[d];
+    if (point[dimension_iter] < maximum_distance) {
+      float3 point_tiled = point;
+      point_tiled[dimension_iter] += boundbox[dimension_iter];
 
-      tiled_points->append(p);
+      tiled_points->append(point_tiled);
       indices->append(index);
 
-      tile_point(tiled_points, indices, maximum_distance, boundbox, p, index, d + 1);
+      tile_point(tiled_points,
+                 indices,
+                 maximum_distance,
+                 boundbox,
+                 point_tiled,
+                 index,
+                 dimension_iter + 1);
     }
   }
 }
@@ -170,20 +182,14 @@ static void points_tiling(const float3 *input_points,
   Vector<float3> tiled_points(input_points, input_points + input_size);
   Vector<size_t> indices(input_size);
 
-  /* Start building a kdtree for the samples. */
   for (size_t i = 0; i < input_size; i++) {
     indices[i] = i;
-    BLI_kdtree_3d_insert(*(KDTree_3d **)kd_tree, i, input_points[i]);
   }
-  BLI_kdtree_3d_balance(*(KDTree_3d **)kd_tree);
 
   /* Tile the tree based on the boundbox. */
   for (size_t i = 0; i < input_size; i++) {
     tile_point(&tiled_points, &indices, maximum_distance, boundbox, input_points[i], i);
   }
-
-  /* Re-use the same kdtree, so free it before re-creating it. */
-  BLI_kdtree_3d_free(*(KDTree_3d **)kd_tree);
 
   /* Build a new tree with the new indices and tiled points. */
   *kd_tree = BLI_kdtree_3d_new(tiled_points.size());
@@ -204,17 +210,8 @@ static void weighted_sample_elimination(const float3 *input_points,
   const float minimum_distance = maximum_distance *
                                  weight_limit_fraction_get(input_size, output_size);
 
-  void *kd_tree = BLI_kdtree_3d_new(input_size);
-  const bool tiling = true;
-  if (tiling) {
-    points_tiling(input_points, input_size, &kd_tree, maximum_distance, boundbox);
-  }
-  else {
-    for (size_t i = 0; i < input_size; i++) {
-      BLI_kdtree_3d_insert((KDTree_3d *)kd_tree, i, input_points[i]);
-    }
-    BLI_kdtree_3d_balance((KDTree_3d *)kd_tree);
-  }
+  void *kd_tree = nullptr;
+  points_tiling(input_points, input_size, &kd_tree, maximum_distance, boundbox);
 
   /* Assign weights to each sample. */
   Vector<float> weights(input_size, 0.0f);
