@@ -249,6 +249,9 @@ void USDGenericMeshWriter::write_uv_maps(const Mesh *mesh,
     uv_coords.push_back(pxr::GfVec2f(mloopuv[loop_idx].uv));
   }
 
+  // NOTE (Marcelo Sercheli): Code to set values at default time was removed since
+  // `timecode` will be default time in case of non-animation exports. For animated
+  // exports, USD will inter/extrapolate values linearly.
   const pxr::UsdAttribute &uv_coords_attr = uv_coords_primvar.GetAttr();
   usd_value_writer_.SetAttribute(uv_coords_attr, pxr::VtValue(uv_coords), timecode);
 }
@@ -499,6 +502,9 @@ void USDGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
     pxr::UsdAttribute attr_face_vertex_indices = usd_mesh.CreateFaceVertexIndicesAttr(
         pxr::VtValue(), true);
 
+    // NOTE (Marcelo Sercheli): Code to set values at default time was removed since
+    // `timecode` will be default time in case of non-animation exports. For animated
+    // exports, USD will inter/extrapolate values linearly.
     usd_value_writer_.SetAttribute(attr_points, pxr::VtValue(usd_mesh_data.points), timecode);
     usd_value_writer_.SetAttribute(
         attr_face_vertex_counts, pxr::VtValue(usd_mesh_data.face_vertex_counts), timecode);
@@ -513,6 +519,9 @@ void USDGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
       pxr::UsdAttribute attr_crease_sharpness = usd_mesh.CreateCreaseSharpnessesAttr(
           pxr::VtValue(), true);
 
+      // NOTE (Marcelo Sercheli): Code to set values at default time was removed since
+      // `timecode` will be default time in case of non-animation exports. For animated
+      // exports, USD will inter/extrapolate values linearly.
       usd_value_writer_.SetAttribute(
           attr_crease_lengths, pxr::VtValue(usd_mesh_data.crease_lengths), timecode);
       usd_value_writer_.SetAttribute(
@@ -722,6 +731,9 @@ void USDGenericMeshWriter::write_normals(const Mesh *mesh, pxr::UsdGeomMesh usd_
 
   pxr::UsdAttribute attr_normals = usd_mesh.CreateNormalsAttr(pxr::VtValue(), true);
 
+  // NOTE (Marcelo Sercheli): Code to set values at default time was removed since
+  // `timecode` will be default time in case of non-animation exports. For animated
+  // exports, USD will inter/extrapolate values linearly.
   usd_value_writer_.SetAttribute(attr_normals, pxr::VtValue(loop_normals), timecode);
   usd_mesh.SetNormalsInterpolation(pxr::UsdGeomTokens->faceVarying);
 }
