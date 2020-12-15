@@ -317,7 +317,7 @@ static void progressive_sampling_reorder(Vector<float3> *output_points,
 
     if (dest_points != output_points->data()) {
       mempcpy((*output_points)[dest_size],
-              temporary_points[dest_size],
+              dest_points[dest_size],
               (source_size - dest_size) * sizeof(float3));
     }
 
