@@ -116,6 +116,8 @@ void PointCloud<blender::float3, float, 3, size_t>::GetPoints(
   int neighbors = BLI_kdtree_3d_range_search((KDTree_3d *)kd_tree, position, &ptn, radius);
   float unused_radius = 0.0f;
 
+  printf("neighbors=%d\n", neighbors);
+
   for (int i = 0; i < neighbors; i++) {
     blender::float3 co(ptn[i].co);
     float dist_sq = ptn[i].dist * ptn[i].dist;
