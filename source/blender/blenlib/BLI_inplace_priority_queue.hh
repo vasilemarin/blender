@@ -200,6 +200,11 @@ class InplacePriorityQueue {
     return heap_to_orig_.as_span().drop_front(heap_size_);
   }
 
+  Span<int64_t> indices() const
+  {
+    return heap_to_orig_;
+  }
+
   /**
    * Return the heap used by the priority queue as dot graph string.
    * This exists for debugging purposes.
