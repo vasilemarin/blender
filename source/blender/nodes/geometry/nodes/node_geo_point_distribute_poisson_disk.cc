@@ -22,12 +22,10 @@
  * All rights reserved.
  */
 
-#include "BLI_heap.h"
+#include "BLI_inplace_priority_queue.hh"
 #include "BLI_kdtree.h"
 
 #include "BKE_global.h"
-
-#include "cyHeap.h"
 
 #include "node_geometry_util.hh"
 
@@ -106,9 +104,7 @@ static void points_distance_weight_calculate(Vector<float> *weights,
                                              const void *kd_tree,
                                              const float minimum_distance,
                                              const float maximum_distance,
-                                             Heap *heap,
-                                             Vector<HeapNode *> *nodes,
-                                             cy::Heap *cy_heap)
+                                             InplacePriorityQueue<float> *heap)
 {
   KDTreeNearest_3d *nearest_point = nullptr;
   int neighbors = BLI_kdtree_3d_range_search(
@@ -130,28 +126,20 @@ static void points_distance_weight_calculate(Vector<float> *weights,
         maximum_distance, minimum_distance, nearest_point[i].dist);
 
     /* In the first pass we just the weights. */
-    if ((heap == nullptr) && (cy_heap == nullptr)) {
+    if (heap == nullptr) {
       (*weights)[point_id] += weight_influence;
     }
     /* When we run again we need to update the weights and the heap. */
     else {
       (*weights)[neighbor_point_id] -= weight_influence;
-      if (nodes != NULL) {
-        HeapNode *node = (*nodes)[neighbor_point_id];
-        if (node != nullptr) {
-          BLI_heap_node_value_update(heap, node, -((*weights)[neighbor_point_id]));
-        }
-      }
-      else {
-        cy_heap->MoveItemDown(neighbor_point_id);
-      }
+      heap->priority_decreased(neighbor_point_id);
     }
   }
 
   if (nearest_point) {
     MEM_freeN(nearest_point);
   }
-}
+}  // namespace blender::nodes
 
 /**
  * Returns the minimum radius fraction used by the default weight function.
@@ -206,101 +194,37 @@ static void weighted_sample_elimination(const float3 *input_points,
                                  weight_limit_fraction_get(input_size, output_size);
 
   void *kd_tree = nullptr;
-#if 1
   points_tiling(input_points, input_size, &kd_tree, maximum_distance, boundbox);
-#else
-  kd_tree = BLI_kdtree_3d_new(input_size);
-  for (size_t i = 0; i < input_size; i++) {
-    BLI_kdtree_3d_insert((KDTree_3d *)kd_tree, i, input_points[i]);
-  }
-  BLI_kdtree_3d_balance((KDTree_3d *)kd_tree);
-#endif
 
   /* Assign weights to each sample. */
   Vector<float> weights(input_size, 0.0f);
   for (size_t point_id = 0; point_id < weights.size(); point_id++) {
-    points_distance_weight_calculate(&weights,
-                                     point_id,
-                                     input_points,
-                                     kd_tree,
-                                     minimum_distance,
-                                     maximum_distance,
-                                     nullptr,
-                                     nullptr,
-                                     nullptr);
+    points_distance_weight_calculate(
+        &weights, point_id, input_points, kd_tree, minimum_distance, maximum_distance, nullptr);
   }
 
   /* Remove the points based on their weight. */
-  Heap *heap = BLI_heap_new_ex(weights.size());
-  Vector<HeapNode *> nodes(input_size, nullptr);
-
-  for (size_t i = 0; i < weights.size(); i++) {
-    nodes[i] = BLI_heap_insert(heap, -weights[i], POINTER_FROM_INT(i));
-  }
-
-  cy::Heap cy_heap;
-  cy_heap.SetDataPointer(weights.data(), input_size);
-  cy_heap.Build();
+  InplacePriorityQueue<float> heap(weights);
 
   size_t sample_size = input_size;
   while (sample_size > output_size) {
     /* For each sample around it, remove its weight contribution and update the heap. */
-
-    if (G.debug_value == 0) {
-      size_t point_id = POINTER_AS_INT(BLI_heap_pop_min(heap));
-      nodes[point_id] = nullptr;
-      points_distance_weight_calculate(&weights,
-                                       point_id,
-                                       input_points,
-                                       kd_tree,
-                                       minimum_distance,
-                                       maximum_distance,
-                                       heap,
-                                       &nodes,
-                                       nullptr);
-    }
-    else {
-      size_t point_id = cy_heap.GetTopItemID();
-      cy_heap.Pop();
-      points_distance_weight_calculate(&weights,
-                                       point_id,
-                                       input_points,
-                                       kd_tree,
-                                       minimum_distance,
-                                       maximum_distance,
-                                       nullptr,
-                                       nullptr,
-                                       &cy_heap);
-    }
+    size_t point_id = heap.pop_index();
+    points_distance_weight_calculate(
+        &weights, point_id, input_points, kd_tree, minimum_distance, maximum_distance, &heap);
     sample_size--;
   }
 
   /* Copy the samples to the output array. */
   size_t target_size = do_copy_eliminated ? input_size : output_size;
-  /* We need to traverse in the reverted order because we want
-   * to first have the points that are more isolated (lower weight). */
-  if (G.debug_value == 0) {
-    for (int i = target_size - 1; i >= 0; i--) {
-      printf("i=%d, target_size=%lu\n", i, target_size);
-      if (BLI_heap_is_empty(heap)) {
-        break;
-      }
-      size_t index = POINTER_AS_INT(BLI_heap_pop_min(heap));
-      output_points[i] = input_points[index];
-      printf("index=%lu\n", index);
-    }
-  }
-  else {
-    for (size_t i = 0; i < target_size; i++) {
-      size_t index = cy_heap.GetIDFromHeap(i);
-      output_points[i] = input_points[index];
-    }
+  for (size_t i = 0; i < target_size; i++) {
+    size_t index = heap.indices()[i];
+    output_points[i] = input_points[index];
   }
 
   /* Cleanup. */
   BLI_kdtree_3d_free((KDTree_3d *)kd_tree);
-  BLI_heap_free(heap, NULL);
-}
+}  // namespace blender::nodes
 
 static void progressive_sampling_reorder(Vector<float3> *output_points,
                                          float maximum_density,

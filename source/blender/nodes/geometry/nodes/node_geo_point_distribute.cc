@@ -31,7 +31,6 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_pointcloud.h"
 
-#include "cySampleElim.hh"
 #include "node_geometry_util.hh"
 
 static bNodeSocketTemplate geo_node_point_distribute_in[] = {
@@ -191,19 +190,7 @@ static Vector<float3> poisson_scatter_points_from_mesh(const Mesh *mesh,
   Vector<float3> output_points(output_points_target);
 
   const float3 bounds_max = float3(point_scale_multiplier, point_scale_multiplier, 0);
-  if (G.debug_value == 1) {
-    cy::WeightedSampleElimination<float3, float, 3, size_t> wse(bounds_max);
-    wse.Eliminate(points.data(),
-                  points.size(),
-                  output_points.data(),
-                  output_points.size(),
-                  true,
-                  2.0f * minimum_distance,
-                  2);
-  }
-  else {
-    poisson_disk_point_elimination(&points, &output_points, 2.0f * minimum_distance, bounds_max);
-  }
+  poisson_disk_point_elimination(&points, &output_points, 2.0f * minimum_distance, bounds_max);
   Vector<float3> final_points;
   final_points.reserve(output_points_target);
 
