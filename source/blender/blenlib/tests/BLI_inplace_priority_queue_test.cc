@@ -74,7 +74,6 @@ TEST(inplace_priority_queue, ManyPriorityChanges)
   }
 
   InplacePriorityQueue<int> priority_queue(values);
-  std::cout << priority_queue.to_dot() << "\n";
 
   for (int i = 0; i < amount; i++) {
     const int index = rng.get_int32() % amount;
@@ -82,7 +81,6 @@ TEST(inplace_priority_queue, ManyPriorityChanges)
     values[index] = new_priority;
     priority_queue.priority_changed(index);
   }
-  std::cout << priority_queue.to_dot() << "\n";
 
   int last_value = amount;
   while (!priority_queue.is_empty()) {
