@@ -817,6 +817,8 @@ bool BKE_lib_override_library_resync(Main *bmain, Scene *scene, ViewLayer *view_
         ID *id_override_new = id->newid;
         ID *id_override_old = BLI_ghash_lookup(linkedref_to_old_override, id);
 
+        BLI_assert((id_override_new->flag & LIB_LIB_OVERRIDE_NEED_RESYNC) == 0);
+
         if (id_override_old != NULL) {
           /* Swap the names between old override ID and new one. */
           char id_name_buf[MAX_ID_NAME];
