@@ -214,6 +214,7 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
 
 class GeometryNodesEvaluator {
  private:
+  bNodeTree &btree_;
   blender::LinearAllocator<> allocator_;
   Map<const DInputSocket *, GMutablePointer> value_by_input_;
   Vector<const DInputSocket *> group_outputs_;
@@ -223,12 +224,14 @@ class GeometryNodesEvaluator {
   const Object *self_object_;
 
  public:
-  GeometryNodesEvaluator(const Map<const DOutputSocket *, GMutablePointer> &group_input_data,
+  GeometryNodesEvaluator(bNodeTree &btree,
+                         const Map<const DOutputSocket *, GMutablePointer> &group_input_data,
                          Vector<const DInputSocket *> group_outputs,
                          blender::nodes::MultiFunctionByNode &mf_by_node,
                          const PersistentDataHandleMap &handle_map,
                          const Object *self_object)
-      : group_outputs_(std::move(group_outputs)),
+      : btree_(btree),
+        group_outputs_(std::move(group_outputs)),
         mf_by_node_(mf_by_node),
         conversions_(blender::nodes::get_implicit_type_conversions()),
         handle_map_(handle_map),
@@ -306,7 +309,8 @@ class GeometryNodesEvaluator {
 
     /* Execute the node. */
     GValueMap<StringRef> node_outputs_map{allocator_};
-    GeoNodeExecParams params{bnode, node_inputs_map, node_outputs_map, handle_map_, self_object_};
+    GeoNodeExecParams params{
+        btree_, bnode, node_inputs_map, node_outputs_map, handle_map_, self_object_};
     this->execute_node(node, params);
 
     /* Forward computed outputs to linked input sockets. */
@@ -925,8 +929,9 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   Vector<const DInputSocket *> group_outputs;
   group_outputs.append(&socket_to_compute);
 
+  bNodeTree *ntree = tree.btree();
   GeometryNodesEvaluator evaluator{
-      group_inputs, group_outputs, mf_by_node, handle_map, ctx->object};
+      *ntree, group_inputs, group_outputs, mf_by_node, handle_map, ctx->object};
   Vector<GMutablePointer> results = evaluator.execute();
   BLI_assert(results.size() == 1);
   GMutablePointer result = results[0];

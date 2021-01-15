@@ -49,6 +49,7 @@
 
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_map.hh"
 #include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
@@ -97,6 +98,60 @@ bNodeType NodeTypeUndefined;
 bNodeSocketType NodeSocketTypeUndefined;
 
 static CLG_LogRef LOG = {"bke.node"};
+
+/* -------------------------------------------------------------------- */
+/** \name Runtime (Error Messages)
+ * \{ */
+
+// typedef struct bNodeTreeRuntime {
+//   blender::Map<std::string, std::string> error_messages;
+// } bNodeTreeRuntime;
+
+class bNodeTreeRuntime {
+ public:
+  blender::Map<std::string, std::string> error_messages;
+};
+
+static void nodetree_runtime_ensure(bNodeTree *ntree)
+{
+  if (ntree->runtime == nullptr) {
+    ntree->runtime = new bNodeTreeRuntime();
+    // ntree->runtime = (bNodeTreeRuntime *)MEM_callocN(sizeof(bNodeTreeRuntime), __func__);
+    // new (ntree->runtime->error_messages) blender::Map<std::string, std::string>
+    // ntree->runtime->error_messages = blender::Map<std::string, std::string>();
+    blender::Map<std::string, std::string>(ntree->runtime->error_messages);
+  }
+}
+
+void BKE_nodetree_error_message_add(bNodeTree *ntree, const bNode *node, const char *message)
+{
+  nodetree_runtime_ensure(ntree);
+  bNodeTreeRuntime *runtime = ntree->runtime;
+
+  runtime->error_messages.add(node->name, std::string(message));
+}
+
+void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
+{
+  bNodeTreeRuntime *runtime = ntree->runtime;
+  runtime->error_messages.clear();
+}
+
+const char *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *node)
+{
+  // nodetree_runtime_ensure((bNodeTree *)ntree);
+  bNodeTreeRuntime *runtime = ntree->runtime;
+  if (runtime == nullptr) {
+    return nullptr;
+  }
+  if (runtime->error_messages.contains(std::string(node->name))) {
+    return nullptr;
+  }
+  std::string message = runtime->error_messages.lookup(std::string(node->name));
+  return message.data();
+}
+
+/** \} */
 
 static void ntree_set_typeinfo(bNodeTree *ntree, bNodeTreeType *typeinfo);
 static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src, const int flag);
@@ -265,6 +320,11 @@ static void ntree_free_data(ID *id)
 
   if (ntree->id.tag & LIB_TAG_LOCALIZED) {
     BKE_libblock_free_data(&ntree->id, true);
+  }
+
+  delete ntree->runtime;
+  if (ntree->runtime != nullptr) {
+    MEM_freeN(ntree->runtime);
   }
 }
 

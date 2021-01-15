@@ -62,6 +62,8 @@ static void geo_node_point_translate_exec(GeoNodeExecParams params)
     execute_on_component(params, geometry_set.get_component_for_write<PointCloudComponent>());
   }
 
+  params.add_error_message("TEST HELLO???");
+
   params.set_output("Geometry", std::move(geometry_set));
 }
 

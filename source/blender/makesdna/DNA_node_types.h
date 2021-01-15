@@ -42,6 +42,7 @@ struct bNodeInstanceHash;
 struct bNodeLink;
 struct bNodePreview;
 struct bNodeTreeExec;
+struct bNodeTreeRuntime;
 struct bNodeType;
 struct uiBlock;
 
@@ -495,6 +496,8 @@ typedef struct bNodeTree {
   int (*test_break)(void *);
   void (*update_draw)(void *);
   void *tbh, *prh, *sdh, *udh;
+
+  struct bNodeTreeRuntime *runtime;
 } bNodeTree;
 
 /* ntree->type, index */

@@ -539,6 +539,30 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     }
   }
 
+  {
+    const char *message = BKE_nodetree_error_message_get(ntree, node);
+    if (message != NULL) {
+      uiLayout *layout = UI_block_layout(node->block,
+                                         UI_LAYOUT_VERTICAL,
+                                         UI_LAYOUT_PANEL,
+                                         locx + NODE_DYS,
+                                         dy,
+                                         NODE_WIDTH(node) - NODE_DY,
+                                         NODE_DY,
+                                         0,
+                                         UI_style_get_dpi());
+
+      if (node->flag & NODE_MUTED) {
+        uiLayoutSetActive(layout, false);
+      }
+
+      uiItemL(layout, message, ICON_ERROR);
+      UI_block_layout_resolve(node->block, NULL, &buty);
+
+      buty = min_ii(buty, dy - NODE_DY);
+    }
+  }
+
   /* little bit space in end */
   if (node->inputs.first || (node->flag & (NODE_OPTIONS | NODE_PREVIEW)) == 0) {
     dy -= NODE_DYS / 2;
@@ -1334,6 +1358,26 @@ static void node_draw_basis(const bContext *C,
       }
     }
   }
+
+  // {
+  //   const char *message = BKE_nodetree_error_message_get(ntree, node);
+  //   if (message != NULL) {
+  //     uiDefBut(block,
+  //              UI_BTYPE_LABEL,
+  //              1,
+  //              message,
+  //              0,
+  //              0,
+  //              2 * UI_UNIT_X,
+  //              UI_UNIT_Y,
+  //              NULL,
+  //              0.0,
+  //              0.0,
+  //              0,
+  //              0,
+  //              "");
+  //   }
+  // }
 
   UI_block_end(C, node->block);
   UI_block_draw(C, node->block);

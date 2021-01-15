@@ -20,6 +20,7 @@
 
 #include "BKE_attribute_access.hh"
 #include "BKE_geometry_set.hh"
+#include "BKE_node.h"
 #include "BKE_persistent_data_handle.hh"
 
 #include "DNA_node_types.h"
@@ -49,6 +50,7 @@ using fn::GValueMap;
 
 class GeoNodeExecParams {
  private:
+  bNodeTree &ntree_;
   const bNode &node_;
   GValueMap<StringRef> &input_values_;
   GValueMap<StringRef> &output_values_;
@@ -56,12 +58,14 @@ class GeoNodeExecParams {
   const Object *self_object_;
 
  public:
-  GeoNodeExecParams(const bNode &node,
+  GeoNodeExecParams(bNodeTree &ntree,
+                    const bNode &node,
                     GValueMap<StringRef> &input_values,
                     GValueMap<StringRef> &output_values,
                     const PersistentDataHandleMap &handle_map,
                     const Object *self_object)
-      : node_(node),
+      : ntree_(ntree),
+        node_(node),
         input_values_(input_values),
         output_values_(output_values),
         handle_map_(handle_map),
@@ -161,6 +165,11 @@ class GeoNodeExecParams {
   const Object *self_object() const
   {
     return self_object_;
+  }
+
+  void add_error_message(StringRef message)
+  {
+    BKE_nodetree_error_message_add(&ntree_, &node_, message.data());
   }
 
   /**

@@ -938,6 +938,14 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
                                  struct Scene *scene,
                                  const int layer_index);
 
+void BKE_nodetree_error_message_add(struct bNodeTree *ntree,
+                                    const struct bNode *node,
+                                    const char *message);
+
+void BKE_nodetree_error_messages_clear(struct bNodeTree *ntree);
+
+const char *BKE_nodetree_error_message_get(const struct bNodeTree *ntree, const bNode *node);
+
 /* -------------------------------------------------------------------- */
 /** \name Shader Nodes
  * \{ */
