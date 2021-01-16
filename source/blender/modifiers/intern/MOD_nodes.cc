@@ -244,6 +244,7 @@ class GeometryNodesEvaluator {
 
   Vector<GMutablePointer> execute()
   {
+    BKE_nodetree_error_messages_clear(&btree_);
     Vector<GMutablePointer> results;
     for (const DInputSocket *group_output : group_outputs_) {
       GMutablePointer result = this->get_input_value(*group_output);

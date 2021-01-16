@@ -134,7 +134,9 @@ void BKE_nodetree_error_message_add(bNodeTree *ntree, const bNode *node, const c
 void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
 {
   bNodeTreeRuntime *runtime = ntree->runtime;
-  runtime->error_messages.clear();
+  if (runtime != nullptr) {
+    runtime->error_messages.clear();
+  }
 }
 
 const char *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *node)
@@ -144,10 +146,12 @@ const char *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *
   if (runtime == nullptr) {
     return nullptr;
   }
-  if (runtime->error_messages.contains(std::string(node->name))) {
+
+  const std::string node_name = std::string(node->name);
+  if (runtime->error_messages.contains(node_name)) {
     return nullptr;
   }
-  std::string message = runtime->error_messages.lookup(std::string(node->name));
+  std::string message = runtime->error_messages.lookup(node_name);
   return message.data();
 }
 
