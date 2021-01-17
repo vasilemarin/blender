@@ -1127,7 +1127,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
       if (ED_gpencil_stroke_can_use(C, gps_from) == false) {
         continue;
       }
-      /* Check if the color is editable. */
+      /* Check if the material is editable. */
       if (ED_gpencil_stroke_material_editable(ob, gpl, gps_from) == false) {
         continue;
       }
