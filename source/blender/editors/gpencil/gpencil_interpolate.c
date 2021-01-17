@@ -152,7 +152,7 @@ static void gpencil_stroke_pair_table(bContext *C,
       continue;
     }
     /* check if the color is editable */
-    if (ED_gpencil_stroke_color_use(tgpi->ob, tgpil->gpl, gps_from) == false) {
+    if (ED_gpencil_stroke_material_editable(tgpi->ob, tgpil->gpl, gps_from) == false) {
       continue;
     }
     /* Try to get the related stroke. */
@@ -1128,7 +1128,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
         continue;
       }
       /* Check if the color is editable. */
-      if (ED_gpencil_stroke_color_use(ob, gpl, gps_from) == false) {
+      if (ED_gpencil_stroke_material_editable(ob, gpl, gps_from) == false) {
         continue;
       }
       /* Try to get the related stroke. */
