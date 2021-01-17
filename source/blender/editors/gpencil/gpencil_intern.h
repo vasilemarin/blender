@@ -689,7 +689,7 @@ struct GP_EditableStrokes_Iter {
               continue; \
             } \
             /* check if the color is editable */ \
-            if (ED_gpencil_stroke_color_use(obact_, gpl, gps) == false) { \
+            if (ED_gpencil_stroke_material_editable(obact_, gpl, gps) == false) { \
               continue; \
             } \
     /* ... Do Stuff With Strokes ...  */
@@ -790,7 +790,7 @@ struct GP_EditableStrokes_Iter {
                 continue; \
               } \
               /* check if the color is editable */ \
-              if (ED_gpencil_stroke_color_use(obact_, gpl, gps) == false) { \
+              if (ED_gpencil_stroke_material_editable(obact_, gpl, gps) == false) { \
                 continue; \
               } \
     /* ... Do Stuff With Strokes ...  */
