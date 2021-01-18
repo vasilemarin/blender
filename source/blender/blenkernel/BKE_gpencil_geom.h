@@ -27,10 +27,13 @@
 extern "C" {
 #endif
 
+struct ARegion;
+struct bContext;
 struct BoundBox;
 struct Depsgraph;
 struct Main;
 struct Object;
+struct RegionView3D;
 struct Scene;
 struct bGPDcurve;
 struct bGPDframe;
@@ -168,6 +171,24 @@ void BKE_gpencil_stroke_uniform_subdivide(struct bGPdata *gpd,
                                           const uint32_t target_number,
                                           const bool select);
 
+void BKE_gpencil_stroke_to_view_space(struct RegionView3D *rv3d,
+                                      struct bGPDstroke *gps,
+                                      float diff_mat[4][4]);
+void BKE_gpencil_stroke_from_view_space(struct RegionView3D *rv3d,
+                                        struct bGPDstroke *gps,
+                                        float diff_mat[4][4]);
+struct bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *rv3d,
+                                                          struct bGPdata *gpd,
+                                                          const struct bGPDlayer *gpl,
+                                                          struct bGPDstroke *gps,
+                                                          int subdivisions,
+                                                          float diff_mat[4][4]);
+struct bGPDstroke *BKE_gpencil_stroke_perimeter_from_view_2d(struct ARegion *region,
+                                                             const struct bGPdata *gpd,
+                                                             const struct bGPDlayer *gpl,
+                                                             struct bGPDstroke *gps,
+                                                             int subdivisions,
+                                                             float diff_mat[4][4]);
 #ifdef __cplusplus
 }
 #endif

@@ -38,6 +38,7 @@
 #endif
 
 #include "io_cache.h"
+#include "io_gpencil.h"
 
 void ED_operatortypes_io(void)
 {
@@ -53,6 +54,10 @@ void ED_operatortypes_io(void)
 #ifdef WITH_USD
   WM_operatortype_append(WM_OT_usd_export);
 #endif
+
+  WM_operatortype_append(WM_OT_gpencil_import_svg);
+  WM_operatortype_append(WM_OT_gpencil_export_svg);
+  WM_operatortype_append(WM_OT_gpencil_export_pdf);
 
   WM_operatortype_append(CACHEFILE_OT_open);
   WM_operatortype_append(CACHEFILE_OT_reload);
