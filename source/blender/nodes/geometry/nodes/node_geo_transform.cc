@@ -112,16 +112,11 @@ static void transform_instances(InstancesComponent &instances,
   }
 }
 
-static void transform_volume(VolumeComponent &component,
+static void transform_volume(Volume *volume,
                              const float3 translation,
                              const float3 rotation,
                              const float3 scale)
 {
-  Volume *volume = component.get_for_write();
-  if (volume == nullptr) {
-    return;
-  }
-
   // BKE_volume_load(volume, bmain);
 
   float matrix[4][4];
@@ -163,9 +158,9 @@ static void geo_node_transform_exec(GeoNodeExecParams params)
     transform_instances(instances, translation, rotation, scale);
   }
 
-  if (geometry_set.has<VolumeComponent>()) {
-    VolumeComponent &volume_component = geometry_set.get_component_for_write<VolumeComponent>();
-    transform_volume(volume_component, translation, rotation, scale);
+  if (geometry_set.has_volume()) {
+    Volume *volume = geometry_set.get_volume_for_write();
+    transform_volume(volume, translation, rotation, scale);
   }
 
   params.set_output("Geometry", std::move(geometry_set));

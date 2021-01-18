@@ -321,10 +321,13 @@ struct GeometrySet {
   bool has_mesh() const;
   bool has_pointcloud() const;
   bool has_instances() const;
+  bool has_volume() const;
   const Mesh *get_mesh_for_read() const;
   const PointCloud *get_pointcloud_for_read() const;
+  const Volume *get_volume_for_read() const;
   Mesh *get_mesh_for_write();
   PointCloud *get_pointcloud_for_write();
+  Volume *get_volume_for_write();
 
   /* Utility methods for replacement. */
   void replace_mesh(Mesh *mesh, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);

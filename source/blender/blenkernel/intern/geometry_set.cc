@@ -204,6 +204,13 @@ const PointCloud *GeometrySet::get_pointcloud_for_read() const
   return (component == nullptr) ? nullptr : component->get_for_read();
 }
 
+/* Returns a read-only volume or null. */
+const Volume *GeometrySet::get_volume_for_read() const
+{
+  const VolumeComponent *component = this->get_component_for_read<VolumeComponent>();
+  return (component == nullptr) ? nullptr : component->get_for_read();
+}
+
 /* Returns true when the geometry set has a point cloud component that has a point cloud. */
 bool GeometrySet::has_pointcloud() const
 {
@@ -216,6 +223,13 @@ bool GeometrySet::has_instances() const
 {
   const InstancesComponent *component = this->get_component_for_read<InstancesComponent>();
   return component != nullptr && component->instances_amount() >= 1;
+}
+
+/* Returns true when the geometry set has a volume component that has a volume. */
+bool GeometrySet::has_volume() const
+{
+  const VolumeComponent *component = this->get_component_for_read<VolumeComponent>();
+  return component != nullptr && component->has_volume();
 }
 
 /* Create a new geometry set that only contains the given mesh. */
@@ -262,6 +276,13 @@ Mesh *GeometrySet::get_mesh_for_write()
 PointCloud *GeometrySet::get_pointcloud_for_write()
 {
   PointCloudComponent &component = this->get_component_for_write<PointCloudComponent>();
+  return component.get_for_write();
+}
+
+/* Returns a mutable volume or null. No ownership is transferred. */
+Volume *GeometrySet::get_volume_for_write()
+{
+  VolumeComponent &component = this->get_component_for_write<VolumeComponent>();
   return component.get_for_write();
 }
 
