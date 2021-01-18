@@ -327,9 +327,7 @@ static void ntree_free_data(ID *id)
   }
 
   delete ntree->runtime;
-  if (ntree->runtime != nullptr) {
-    MEM_freeN(ntree->runtime);
-  }
+  ntree->runtime = nullptr;
 }
 
 static void library_foreach_node_socket(LibraryForeachIDData *data, bNodeSocket *sock)
