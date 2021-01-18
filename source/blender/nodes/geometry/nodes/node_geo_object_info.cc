@@ -19,6 +19,7 @@
 #include "BKE_mesh.h"
 #include "BKE_mesh_wrapper.h"
 #include "BKE_modifier.h"
+#include "BKE_volume.h"
 
 #include "BLI_math_matrix.h"
 
@@ -73,6 +74,15 @@ static void geo_node_object_info_exec(GeoNodeExecParams params)
           mesh_component.replace(copied_mesh);
           mesh_component.copy_vertex_group_names_from_object(*object);
         }
+      }
+      if (object->type == OB_VOLUME) {
+        Volume *volume = (Volume *)object->data;
+
+        Volume *copied_volume = BKE_volume_copy_for_eval(volume, false);
+
+        VolumeComponent &volume_component =
+            geometry_set.get_component_for_write<VolumeComponent>();
+        volume_component.replace(copied_volume);
       }
     }
   }
