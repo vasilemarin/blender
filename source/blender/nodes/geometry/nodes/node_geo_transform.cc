@@ -14,11 +14,15 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include <openvdb/openvdb.h>
+
 #include "BLI_math_matrix.h"
 
 #include "DNA_pointcloud_types.h"
+#include "DNA_volume_types.h"
 
 #include "BKE_mesh.h"
+#include "BKE_volume.h"
 
 #include "node_geometry_util.hh"
 
@@ -108,6 +112,35 @@ static void transform_instances(InstancesComponent &instances,
   }
 }
 
+static void transform_volume(VolumeComponent &component,
+                             const float3 translation,
+                             const float3 rotation,
+                             const float3 scale)
+{
+  Volume *volume = component.get_for_write();
+  if (volume == nullptr) {
+    return;
+  }
+
+  // BKE_volume_load(volume, bmain);
+
+  float matrix[4][4];
+  loc_eul_size_to_mat4(matrix, translation, rotation, scale);
+
+  openvdb::Mat4s vdb_matrix;
+  memcpy(vdb_matrix.asPointer(), matrix, sizeof(float[4][4]));
+  openvdb::Mat4d vdb_matrix_d{vdb_matrix};
+
+  const int num_grids = BKE_volume_num_grids(volume);
+  for (const int i : IndexRange(num_grids)) {
+    VolumeGrid *volume_grid = BKE_volume_grid_get(volume, i);
+
+    openvdb::GridBase::Ptr grid = BKE_volume_grid_openvdb_for_write(volume, volume_grid, false);
+    openvdb::math::Transform &grid_transform = grid->transform();
+    grid_transform.postMult(vdb_matrix_d);
+  }
+}
+
 static void geo_node_transform_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
@@ -128,6 +161,11 @@ static void geo_node_transform_exec(GeoNodeExecParams params)
   if (geometry_set.has_instances()) {
     InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
     transform_instances(instances, translation, rotation, scale);
+  }
+
+  if (geometry_set.has<VolumeComponent>()) {
+    VolumeComponent &volume_component = geometry_set.get_component_for_write<VolumeComponent>();
+    transform_volume(volume_component, translation, rotation, scale);
   }
 
   params.set_output("Geometry", std::move(geometry_set));
