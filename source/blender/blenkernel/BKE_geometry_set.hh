@@ -36,6 +36,7 @@ struct Collection;
 struct Mesh;
 struct Object;
 struct PointCloud;
+struct Volume;
 
 /* Each geometry component has a specific type. The type determines what kind of data the component
  * stores. Functions modifying a geometry will usually just modify a subset of the component types.
@@ -44,6 +45,7 @@ enum class GeometryComponentType {
   Mesh = 0,
   PointCloud = 1,
   Instances = 2,
+  Volume = 3,
 };
 
 enum class GeometryOwnershipType {
@@ -461,4 +463,26 @@ class InstancesComponent : public GeometryComponent {
   bool is_empty() const final;
 
   static constexpr inline GeometryComponentType static_type = GeometryComponentType::Instances;
+};
+
+/** A geometry component that stores volume grids. */
+class VolumeComponent : public GeometryComponent {
+ private:
+  Volume *volume_ = nullptr;
+  GeometryOwnershipType ownership_ = GeometryOwnershipType::Owned;
+
+ public:
+  VolumeComponent();
+  ~VolumeComponent();
+  GeometryComponent *copy() const override;
+
+  void clear();
+  bool has_volume() const;
+  void replace(Volume *volume, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
+  Volume *release();
+
+  const Volume *get_for_read() const;
+  Volume *get_for_write();
+
+  static constexpr inline GeometryComponentType static_type = GeometryComponentType::Volume;
 };

@@ -19,6 +19,7 @@
 #include "BKE_mesh.h"
 #include "BKE_mesh_wrapper.h"
 #include "BKE_pointcloud.h"
+#include "BKE_volume.h"
 
 #include "DNA_object_types.h"
 
@@ -51,6 +52,8 @@ GeometryComponent *GeometryComponent::create(GeometryComponentType component_typ
       return new PointCloudComponent();
     case GeometryComponentType::Instances:
       return new InstancesComponent();
+    case GeometryComponentType::Volume:
+      return new VolumeComponent();
   }
   BLI_assert(false);
   return nullptr;
@@ -552,6 +555,78 @@ int InstancesComponent::instances_amount() const
 bool InstancesComponent::is_empty() const
 {
   return positions_.size() == 0;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Volume Component
+ * \{ */
+
+VolumeComponent::VolumeComponent() : GeometryComponent(GeometryComponentType::Volume)
+{
+}
+
+VolumeComponent::~VolumeComponent()
+{
+  this->clear();
+}
+
+GeometryComponent *VolumeComponent::copy() const
+{
+  VolumeComponent *new_component = new VolumeComponent();
+  if (volume_ != nullptr) {
+    new_component->volume_ = BKE_volume_copy_for_eval(volume_, false);
+    new_component->ownership_ = GeometryOwnershipType::Owned;
+  }
+  return new_component;
+}
+
+void VolumeComponent::clear()
+{
+  BLI_assert(this->is_mutable());
+  if (volume_ != nullptr) {
+    if (ownership_ == GeometryOwnershipType::Owned) {
+      BKE_id_free(nullptr, volume_);
+    }
+    volume_ = nullptr;
+  }
+}
+
+bool VolumeComponent::has_volume() const
+{
+  return volume_ != nullptr;
+}
+
+void VolumeComponent::replace(Volume *volume, GeometryOwnershipType ownership)
+{
+  BLI_assert(this->is_mutable());
+  this->clear();
+  volume_ = volume;
+  ownership_ = ownership;
+}
+
+Volume *VolumeComponent::release()
+{
+  BLI_assert(this->is_mutable());
+  Volume *volume = volume_;
+  volume_ = nullptr;
+  return volume;
+}
+
+const Volume *VolumeComponent::get_for_read() const
+{
+  return volume_;
+}
+
+Volume *VolumeComponent::get_for_write()
+{
+  BLI_assert(this->is_mutable());
+  if (ownership_ == GeometryOwnershipType::ReadOnly) {
+    volume_ = BKE_volume_copy_for_eval(volume_, false);
+    ownership_ = GeometryOwnershipType::Owned;
+  }
+  return volume_;
 }
 
 /** \} */
