@@ -239,9 +239,7 @@ bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2
  * \param co: 3D position
  * \param r_co: 2D position
  */
-void GpencilIO::gpencil_3d_point_to_project_space(const float mat[4][4],
-                                                  const float co[3],
-                                                  float r_co[2])
+void GpencilIO::gpencil_3d_point_to_project_space(const float co[3], float r_co[2])
 {
   float parent_co[3];
   mul_v3_m4v3(parent_co, diff_mat_, co);
@@ -249,7 +247,7 @@ void GpencilIO::gpencil_3d_point_to_project_space(const float mat[4][4],
   float tmp[4];
   copy_v3_v3(tmp, parent_co);
   tmp[3] = 1.0f;
-  mul_m4_v4(mat, tmp);
+  mul_m4_v4(rv3d_->viewmat, tmp);
 
   copy_v2_v2(r_co, tmp);
 
@@ -272,7 +270,7 @@ void GpencilIO::gpencil_3d_point_to_2D(const float co[3], float r_co[2])
 {
   const bool is_camera = (bool)(rv3d_->persp == RV3D_CAMOB);
   if (is_camera) {
-    gpencil_3d_point_to_project_space(rv3d_->viewmat, co, r_co);
+    gpencil_3d_point_to_project_space(co, r_co);
   }
   else {
     gpencil_3d_point_to_screen_space(co, r_co);
