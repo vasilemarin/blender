@@ -773,7 +773,10 @@ ReadAttributePtr GeometryComponent::attribute_get_for_read(const StringRef attri
   if (attribute) {
     return attribute;
   }
-  return this->attribute_get_constant_for_read(domain, data_type, default_value);
+  if (default_value != nullptr) {
+    return this->attribute_get_constant_for_read(domain, data_type, default_value);
+  }
+  return nullptr;
 }
 
 blender::bke::ReadAttributePtr GeometryComponent::attribute_get_constant_for_read(
@@ -930,6 +933,7 @@ void OutputAttributePtr::save()
 OutputAttributePtr::~OutputAttributePtr()
 {
   if (attribute_) {
+    /* TODO: Fix that this is printing all the time now, even after applying and saving. */
     CLOG_ERROR(&LOG, "Forgot to call #save or #apply_span_and_save.");
   }
 }

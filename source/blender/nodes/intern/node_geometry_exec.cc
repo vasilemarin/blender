@@ -21,7 +21,7 @@
 
 namespace blender::nodes {
 
-void GeoNodeExecParams::add_error_message(StringRef message)
+void GeoNodeExecParams::error_message_add(const std::string message) const
 {
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
   if (original_ntree != nullptr) {
@@ -57,7 +57,16 @@ ReadAttributePtr GeoNodeExecParams::get_input_attribute(const StringRef name,
 
   if (found_socket->type == SOCK_STRING) {
     const std::string name = this->get_input<std::string>(found_socket->identifier);
-    return component.attribute_get_for_read(name, domain, type, default_value);
+    if (name.empty()) {
+      return nullptr;
+    }
+
+    ReadAttributePtr attribute = component.attribute_get_for_read(
+        name, domain, type, default_value);
+    if (!attribute) {
+      this->error_message_add(std::string("No attribute with name '") + name + "'.");
+    }
+    return attribute;
   }
   if (found_socket->type == SOCK_FLOAT) {
     const float value = this->get_input<float>(found_socket->identifier);

@@ -86,6 +86,12 @@ static void get_instanced_data__collection(
     return;
   }
 
+  if (BLI_listbase_is_empty(&collection->children) &&
+      BLI_listbase_is_empty(&collection->gobject)) {
+    params.error_message_add("Collection is empty");
+    return;
+  }
+
   const bool use_whole_collection = node.custom2 == 0;
   if (use_whole_collection) {
     InstancedData instance;

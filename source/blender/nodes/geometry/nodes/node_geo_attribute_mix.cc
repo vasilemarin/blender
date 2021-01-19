@@ -148,6 +148,9 @@ static void attribute_mix_calc(GeometryComponent &component, const GeoNodeExecPa
       "A", component, result_domain, result_type, nullptr);
   ReadAttributePtr attribute_b = params.get_input_attribute(
       "B", component, result_domain, result_type, nullptr);
+  if (!attribute_a || !attribute_b) {
+    return;
+  }
 
   do_mix_operation(result_type,
                    node_storage->blend_type,
