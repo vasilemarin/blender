@@ -235,6 +235,42 @@ bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2
 }
 
 /**
+ * Convert to project space
+ * \param co: 3D position
+ * \param r_co: 2D position
+ */
+void GpencilIO::gpencil_3d_point_to_project_space(const float mat[4][4],
+                                                  const float co[3],
+                                                  float r_co[2])
+{
+  float parent_co[3];
+  mul_v3_m4v3(parent_co, diff_mat_, co);
+
+  float tmp[4];
+  copy_v3_v3(tmp, parent_co);
+  tmp[3] = 1.0f;
+  mul_m4_v4(mat, tmp);
+
+  copy_v2_v2(r_co, tmp);
+}
+
+/**
+ * Convert to 2D
+ * \param co: 3D position
+ * \param r_co: 2D position
+ */
+void GpencilIO::gpencil_3d_point_to_2D(const float co[3], float r_co[2])
+{
+  const bool is_camera = (bool)(rv3d_->persp == RV3D_CAMOB);
+  if (is_camera) {
+    gpencil_3d_point_to_project_space(rv3d_->viewmat, co, r_co);
+  }
+  else {
+    gpencil_3d_point_to_screen_space(co, r_co);
+  }
+}
+
+/**
  * Get average pressure
  * \param gps: Pointer to stroke
  * \retun value
@@ -293,14 +329,14 @@ float GpencilIO::stroke_point_radius_get(struct bGPDstroke *gps)
   float v1[2], screen_co[2], screen_ex[2];
 
   pt = &gps->points[0];
-  gpencil_3d_point_to_screen_space(&pt->x, screen_co);
+  gpencil_3d_point_to_2D(&pt->x, screen_co);
 
   /* Radius. */
   bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
       rv3d_, gpd_, gpl, gps, 3, diff_mat_);
 
   pt = &gps_perimeter->points[0];
-  gpencil_3d_point_to_screen_space(&pt->x, screen_ex);
+  gpencil_3d_point_to_2D(&pt->x, screen_ex);
 
   sub_v2_v2v2(v1, screen_co, screen_ex);
   float radius = len_v2(v1);
@@ -478,7 +514,7 @@ void GpencilIO::selected_objects_boundbox_set(void)
         }
         for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
           /* Convert to 2D. */
-          gpencil_3d_point_to_screen_space(&pt->x, screen_co);
+          gpencil_3d_point_to_2D(&pt->x, screen_co);
           minmax_v2v2_v2(r_min, r_max, screen_co);
         }
       }

@@ -91,6 +91,8 @@ class GpencilIO {
 
   /* Geometry functions. */
   bool gpencil_3d_point_to_screen_space(const float co[3], float r_co[2]);
+  void gpencil_3d_point_to_project_space(const float mat[4][4], const float co[3], float r_co[2]);
+  void gpencil_3d_point_to_2D(const float co[3], float r_co[2]);
 
   float stroke_point_radius_get(struct bGPDstroke *gps);
   void create_object_list(void);

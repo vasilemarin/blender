@@ -241,7 +241,7 @@ void GpencilExporterPDF::export_stroke_to_point(void)
   float screen_co[2];
 
   bGPDspoint *pt = &gps->points[0];
-  gpencil_3d_point_to_screen_space(&pt->x, screen_co);
+  gpencil_3d_point_to_2D(&pt->x, screen_co);
   /* Radius. */
   float radius = stroke_point_radius_get(gps);
 
@@ -292,13 +292,12 @@ void GpencilExporterPDF::export_stroke_to_polyline(const bool do_fill, const boo
     pt = &gps->points[i];
     float screen_co[2];
     HPDF_STATUS err;
-    if (gpencil_3d_point_to_screen_space(&pt->x, screen_co)) {
-      if (i == 0) {
-        err = HPDF_Page_MoveTo(page_, screen_co[0], render_y_ - screen_co[1]);
-      }
-      else {
-        err = HPDF_Page_LineTo(page_, screen_co[0], render_y_ - screen_co[1]);
-      }
+    gpencil_3d_point_to_2D(&pt->x, screen_co);
+    if (i == 0) {
+      err = HPDF_Page_MoveTo(page_, screen_co[0], render_y_ - screen_co[1]);
+    }
+    else {
+      err = HPDF_Page_LineTo(page_, screen_co[0], render_y_ - screen_co[1]);
     }
   }
   if (do_fill || !normalize) {
