@@ -14,10 +14,20 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "DEG_depsgraph_query.h"
+
 #include "NOD_geometry_exec.hh"
 #include "NOD_type_callbacks.hh"
 
 namespace blender::nodes {
+
+void GeoNodeExecParams::add_error_message(StringRef message)
+{
+  bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
+  if (original_ntree != nullptr) {
+    BKE_nodetree_error_message_add(original_ntree, &node_, message.data());
+  }
+}
 
 const bNodeSocket *GeoNodeExecParams::find_available_socket(const StringRef name) const
 {

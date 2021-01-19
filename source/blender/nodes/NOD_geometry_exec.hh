@@ -177,13 +177,11 @@ class GeoNodeExecParams {
     return depsgraph_;
   }
 
-  void add_error_message(StringRef message)
-  {
-    bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
-    if (original_ntree != nullptr) {
-      BKE_nodetree_error_message_add(original_ntree, &node_, message.data());
-    }
-  }
+  /**
+   * Add an error message displayed at the bottom of the node when displaying the node tree,
+   * and potentially elsewhere in Blender.
+   */
+  void add_error_message(StringRef message);
 
   /**
    * Creates a read-only attribute based on node inputs. The method automatically detects which

@@ -103,23 +103,15 @@ static CLG_LogRef LOG = {"bke.node"};
 /** \name Runtime (Error Messages)
  * \{ */
 
-// typedef struct bNodeTreeRuntime {
-//   blender::Map<std::string, std::string> error_messages;
-// } bNodeTreeRuntime;
-
 class bNodeTreeRuntime {
  public:
-  blender::Map<std::string, std::string> error_messages;
+  blender::Map<const std::string, const std::string> error_messages;
 };
 
 static void nodetree_runtime_ensure(bNodeTree *ntree)
 {
   if (ntree->runtime == nullptr) {
     ntree->runtime = new bNodeTreeRuntime();
-    // ntree->runtime = (bNodeTreeRuntime *)MEM_callocN(sizeof(bNodeTreeRuntime), __func__);
-    // new (ntree->runtime->error_messages) blender::Map<std::string, std::string>
-    // ntree->runtime->error_messages = blender::Map<std::string, std::string>();
-    blender::Map<std::string, std::string>(ntree->runtime->error_messages);
   }
 }
 
@@ -128,7 +120,9 @@ void BKE_nodetree_error_message_add(bNodeTree *ntree, const bNode *node, const c
   nodetree_runtime_ensure(ntree);
   bNodeTreeRuntime *runtime = ntree->runtime;
 
-  runtime->error_messages.add(node->name, std::string(message));
+  const std::string message_string(message);
+
+  runtime->error_messages.add(node->name, std::move(message_string));
 }
 
 void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
@@ -141,7 +135,6 @@ void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
 
 const char *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *node)
 {
-  // nodetree_runtime_ensure((bNodeTree *)ntree);
   bNodeTreeRuntime *runtime = ntree->runtime;
   if (runtime == nullptr) {
     return nullptr;
@@ -149,10 +142,10 @@ const char *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *
 
   const std::string node_name = std::string(node->name);
   if (runtime->error_messages.contains(node_name)) {
-    return nullptr;
+    return runtime->error_messages.lookup(node_name).data();
   }
-  std::string message = runtime->error_messages.lookup(node_name);
-  return message.data();
+
+  return nullptr;
 }
 
 /** \} */
@@ -618,6 +611,7 @@ static void ntree_blend_write(BlendWriter *writer, ID *id, const void *id_addres
     ntree->interface_type = NULL;
     ntree->progress = NULL;
     ntree->execdata = NULL;
+    ntree->runtime = NULL;
 
     BLO_write_id_struct(writer, bNodeTree, id_address, &ntree->id);
 
@@ -648,6 +642,7 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
 
   ntree->progress = NULL;
   ntree->execdata = NULL;
+  ntree->runtime = NULL;
 
   BLO_read_data_address(reader, &ntree->adt);
   BKE_animdata_blend_read_data(reader, ntree->adt);
