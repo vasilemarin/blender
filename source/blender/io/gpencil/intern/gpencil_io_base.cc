@@ -252,6 +252,15 @@ void GpencilIO::gpencil_3d_point_to_project_space(const float mat[4][4],
   mul_m4_v4(mat, tmp);
 
   copy_v2_v2(r_co, tmp);
+
+  /* Invert X axis. */
+  if (invert_axis_[0]) {
+    r_co[0] = winx_ - r_co[0];
+  }
+  /* Invert Y axis. */
+  if (invert_axis_[1]) {
+    r_co[1] = winy_ - r_co[1];
+  }
 }
 
 /**
