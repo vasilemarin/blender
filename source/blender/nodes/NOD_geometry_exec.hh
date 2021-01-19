@@ -25,6 +25,8 @@
 
 #include "DNA_node_types.h"
 
+struct Depsgraph;
+
 namespace blender::nodes {
 
 using bke::BooleanReadAttribute;
@@ -56,6 +58,7 @@ class GeoNodeExecParams {
   GValueMap<StringRef> &output_values_;
   const PersistentDataHandleMap &handle_map_;
   const Object *self_object_;
+  Depsgraph *depsgraph_;
 
  public:
   GeoNodeExecParams(bNodeTree &ntree,
@@ -63,13 +66,15 @@ class GeoNodeExecParams {
                     GValueMap<StringRef> &input_values,
                     GValueMap<StringRef> &output_values,
                     const PersistentDataHandleMap &handle_map,
-                    const Object *self_object)
+                    const Object *self_object,
+                    Depsgraph *depsgraph)
       : ntree_(ntree),
         node_(node),
         input_values_(input_values),
         output_values_(output_values),
         handle_map_(handle_map),
-        self_object_(self_object)
+        self_object_(self_object),
+        depsgraph_(depsgraph)
   {
   }
 
@@ -167,9 +172,17 @@ class GeoNodeExecParams {
     return self_object_;
   }
 
+  Depsgraph *depsgraph() const
+  {
+    return depsgraph_;
+  }
+
   void add_error_message(StringRef message)
   {
-    BKE_nodetree_error_message_add(&ntree_, &node_, message.data());
+    bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
+    if (original_ntree != nullptr) {
+      BKE_nodetree_error_message_add(original_ntree, &node_, message.data());
+    }
   }
 
   /**
