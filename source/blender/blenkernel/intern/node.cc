@@ -265,6 +265,10 @@ static void ntree_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, c
 
   /* node tree will generate its own interface type */
   ntree_dst->interface_type = NULL;
+
+  /* Don't copy error messages in the runtime struct.
+   * They should be filled during execution anyway. */
+  ntree_dst->runtime = nullptr;
 }
 
 static void ntree_free_data(ID *id)
