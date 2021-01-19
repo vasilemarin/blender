@@ -560,6 +560,7 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
       UI_block_layout_resolve(node->block, NULL, &buty);
 
       buty = min_ii(buty, dy - NODE_DY);
+      dy = buty;
     }
   }
 
