@@ -261,7 +261,7 @@ bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2
 }
 
 /**
- * Convert to project space
+ * Convert to render space
  * \param co: 3D position
  * \param r_co: 2D position
  */
