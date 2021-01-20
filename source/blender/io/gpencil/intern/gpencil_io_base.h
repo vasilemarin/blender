@@ -126,6 +126,9 @@ class GpencilIO {
   float avg_opacity_;
   bool is_camera_;
   rctf select_boundbox_;
+
+  /* Camera matrix. */
+  float persmat_[4][4];
 };
 
 }  // namespace blender::io::gpencil

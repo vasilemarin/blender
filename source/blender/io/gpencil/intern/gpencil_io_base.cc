@@ -25,6 +25,9 @@
 #include <algorithm>
 #include <string>
 
+#include "DNA_vec_types.h"
+
+#include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_geom.h"
@@ -78,6 +81,29 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
   rv3d_ = (RegionView3D *)params_.region->regiondata;
   gpd_ = (params_.ob != NULL) ? (bGPdata *)params_.ob->data : nullptr;
   cfra_ = iparams->frame_cur;
+
+  /* Calculate camera matrix. */
+  Object *cam_ob = (Object *)params_.v3d->camera;
+  if (cam_ob != NULL) {
+    RenderData *re = &scene_->r;
+    CameraParams params;
+
+    /* Setup parameters. */
+    BKE_camera_params_init(&params);
+    BKE_camera_params_from_object(&params, cam_ob);
+
+    /* Compute matrix, viewplane, .. */
+    BKE_camera_params_compute_viewplane(&params, re->xsch, re->ysch, re->xasp, re->yasp);
+    BKE_camera_params_compute_matrix(&params);
+
+    float viewmat[4][4];
+    invert_m4_m4(viewmat, cam_ob->obmat);
+
+    mul_m4_m4m4(persmat_, params.winmat, viewmat);
+  }
+  else {
+    unit_m4(persmat_);
+  }
 
   /* Load list of selected objects. */
   create_object_list();
@@ -243,21 +269,21 @@ void GpencilIO::gpencil_3d_point_to_project_space(const float co[3], float r_co[
 {
   float parent_co[3];
   mul_v3_m4v3(parent_co, diff_mat_, co);
+  mul_m4_v3(persmat_, parent_co);
 
-  float tmp[4];
-  copy_v3_v3(tmp, parent_co);
-  tmp[3] = 1.0f;
-  mul_m4_v4(rv3d_->viewmat, tmp);
+  parent_co[0] = parent_co[0] / max_ff(FLT_MIN, parent_co[2]);
+  parent_co[1] = parent_co[1] / max_ff(FLT_MIN, parent_co[2]);
 
-  copy_v2_v2(r_co, tmp);
+  r_co[0] = (parent_co[0] + 1.0f) / 2.0f * (float)render_x_;
+  r_co[1] = (parent_co[1] + 1.0f) / 2.0f * (float)render_y_;
 
   /* Invert X axis. */
   if (invert_axis_[0]) {
-    r_co[0] = winx_ - r_co[0];
+    r_co[0] = (float)render_x_ - r_co[0];
   }
   /* Invert Y axis. */
   if (invert_axis_[1]) {
-    r_co[1] = winy_ - r_co[1];
+    r_co[1] = (float)render_y_ - r_co[1];
   }
 }
 
