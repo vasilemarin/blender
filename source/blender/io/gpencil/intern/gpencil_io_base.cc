@@ -112,9 +112,6 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
   winx_ = params_.region->winx;
   winy_ = params_.region->winy;
 
-  invert_axis_[0] = false;
-  invert_axis_[1] = true;
-
   /* Camera rectangle. */
   if (rv3d_->persp == RV3D_CAMOB) {
     render_x_ = (scene_->r.xsch * scene_->r.size) / 100;

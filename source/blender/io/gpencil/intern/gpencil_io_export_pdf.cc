@@ -73,6 +73,9 @@ GpencilExporterPDF::GpencilExporterPDF(const char *filename, const struct Gpenci
 {
   filename_set(filename);
 
+  invert_axis_[0] = false;
+  invert_axis_[1] = false;
+
   pdf_ = nullptr;
   page_ = nullptr;
   gstate_ = nullptr;
@@ -245,7 +248,7 @@ void GpencilExporterPDF::export_stroke_to_point(void)
   /* Radius. */
   float radius = stroke_point_radius_get(gps);
 
-  HPDF_Page_Circle(page_, screen_co[0], render_y_ - screen_co[1], radius);
+  HPDF_Page_Circle(page_, screen_co[0], screen_co[1], radius);
   HPDF_Page_ClosePathFillStroke(page_);
 }
 
@@ -294,10 +297,10 @@ void GpencilExporterPDF::export_stroke_to_polyline(const bool do_fill, const boo
     HPDF_STATUS err;
     gpencil_3d_point_to_2D(&pt->x, screen_co);
     if (i == 0) {
-      err = HPDF_Page_MoveTo(page_, screen_co[0], render_y_ - screen_co[1]);
+      err = HPDF_Page_MoveTo(page_, screen_co[0], screen_co[1]);
     }
     else {
-      err = HPDF_Page_LineTo(page_, screen_co[0], render_y_ - screen_co[1]);
+      err = HPDF_Page_LineTo(page_, screen_co[0], screen_co[1]);
     }
   }
   /* Close cyclic */
