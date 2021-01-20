@@ -300,6 +300,11 @@ void GpencilExporterPDF::export_stroke_to_polyline(const bool do_fill, const boo
       err = HPDF_Page_LineTo(page_, screen_co[0], render_y_ - screen_co[1]);
     }
   }
+  /* Close cyclic */
+  if (cyclic) {
+    HPDF_Page_ClosePath(page_);
+  }
+
   if (do_fill || !normalize) {
     HPDF_Page_Fill(page_);
   }
