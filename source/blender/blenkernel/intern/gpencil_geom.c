@@ -3892,6 +3892,21 @@ bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *rv3d,
     return NULL;
   }
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, true, false);
+  const bool cyclic = ((gps_temp->flag & GP_STROKE_CYCLIC) != 0);
+
+  /* If Cyclic, add a new point. */
+  if ((cyclic) && (gps_temp->totpoints > 1)) {
+    gps_temp->totpoints++;
+    gps_temp->points = MEM_recallocN(gps_temp->points,
+                                     sizeof(*gps_temp->points) * gps_temp->totpoints);
+    bGPDspoint *pt_src = &gps_temp->points[0];
+    bGPDspoint *pt_dst = &gps_temp->points[gps_temp->totpoints - 1];
+    copy_v3_v3(&pt_dst->x, &pt_src->x);
+    pt_dst->pressure = pt_src->pressure;
+    pt_dst->strength = pt_src->strength;
+    pt_dst->uv_fac = 1.0f;
+    pt_dst->uv_rot = 0;
+  }
 
   BKE_gpencil_stroke_to_view_space(rv3d, gps_temp, diff_mat);
   int num_perimeter_points = 0;
