@@ -360,10 +360,10 @@ static void gpencil_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
 
     tgpil->gpl = gpl;
     bGPDframe *gpf = gpencil_get_previous_keyframe(gpl, CFRA);
-    tgpil->prevFrame = BKE_gpencil_frame_duplicate(gpf);
+    tgpil->prevFrame = BKE_gpencil_frame_duplicate(gpf, true);
 
     gpf = gpencil_get_next_keyframe(gpl, CFRA);
-    tgpil->nextFrame = BKE_gpencil_frame_duplicate(gpf);
+    tgpil->nextFrame = BKE_gpencil_frame_duplicate(gpf, true);
 
     BLI_addtail(&tgpi->ilayers, tgpil);
 
@@ -1109,8 +1109,8 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
     }
 
     /* Store extremes. */
-    bGPDframe *prevFrame = BKE_gpencil_frame_duplicate(gpf_prv);
-    bGPDframe *nextFrame = BKE_gpencil_frame_duplicate(gpf_next);
+    bGPDframe *prevFrame = BKE_gpencil_frame_duplicate(gpf_prv, true);
+    bGPDframe *nextFrame = BKE_gpencil_frame_duplicate(gpf_next, true);
 
     /* Create a table with source and target pair of strokes. */
     GHash *used_strokes = BLI_ghash_ptr_new(__func__);
