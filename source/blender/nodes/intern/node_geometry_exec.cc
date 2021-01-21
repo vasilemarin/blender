@@ -21,11 +21,12 @@
 
 namespace blender::nodes {
 
-void GeoNodeExecParams::error_message_add(const std::string message) const
+void GeoNodeExecParams::error_message_add(const eNodeWarningType type,
+                                          const std::string message) const
 {
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
   if (original_ntree != nullptr) {
-    BKE_nodetree_error_message_add(original_ntree, &node_, message.data());
+    BKE_nodetree_error_message_add(original_ntree, &node_, type, message.data());
   }
 }
 
@@ -64,7 +65,8 @@ ReadAttributePtr GeoNodeExecParams::get_input_attribute(const StringRef name,
     ReadAttributePtr attribute = component.attribute_get_for_read(
         name, domain, type, default_value);
     if (!attribute) {
-      this->error_message_add(std::string("No attribute with name '") + name + "'.");
+      this->error_message_add(NODE_WARNING_ERROR,
+                              std::string("No attribute with name '") + name + "'.");
     }
     return attribute;
   }

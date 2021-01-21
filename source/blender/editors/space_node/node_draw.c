@@ -22,6 +22,8 @@
  * \brief higher level node drawing for the node editor.
  */
 
+#include "MEM_guardedalloc.h"
+
 #include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
@@ -536,31 +538,6 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     dy = buty;
     if (nsock->next) {
       dy -= NODE_SOCKDY;
-    }
-  }
-
-  {
-    const char *message = BKE_nodetree_error_message_get(ntree, node);
-    if (message != NULL) {
-      uiLayout *layout = UI_block_layout(node->block,
-                                         UI_LAYOUT_VERTICAL,
-                                         UI_LAYOUT_PANEL,
-                                         locx + NODE_DYS,
-                                         dy,
-                                         NODE_WIDTH(node) - NODE_DY,
-                                         NODE_DY,
-                                         0,
-                                         UI_style_get_dpi());
-
-      if (node->flag & NODE_MUTED) {
-        uiLayoutSetActive(layout, false);
-      }
-
-      uiItemL(layout, message, ICON_ERROR);
-      UI_block_layout_resolve(node->block, NULL, &buty);
-
-      buty = min_ii(buty, dy - NODE_DY);
-      dy = buty;
     }
   }
 
@@ -1142,6 +1119,65 @@ void node_draw_sockets(const View2D *v2d,
   GPU_blend(GPU_BLEND_NONE);
 }
 
+static int node_error_type_to_icon(const eNodeWarningType type)
+{
+  switch (type) {
+    case NODE_WARNING_ERROR:
+      return ICON_ERROR;
+    case NODE_WARNING_INFO:
+      return ICON_INFO;
+  }
+
+  BLI_assert(false);
+  return ICON_ERROR;
+}
+
+static char *node_errros_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
+{
+  NodeWarning *message = (NodeWarning *)argN;
+
+  return BLI_strdup(message->message);
+}
+
+#define NODE_HEADER_ICON_SIZE 0.8f * U.widget_unit
+
+static int node_add_error_message_button(bNodeTree *ntree,
+                                         bNode *node,
+                                         const rctf *rect,
+                                         int icon_offset)
+{
+  const NodeWarning *message = BKE_nodetree_error_message_get(ntree, node);
+  if (message == NULL) {
+    return icon_offset;
+  }
+
+  icon_offset -= NODE_HEADER_ICON_SIZE;
+
+  UI_block_emboss_set(node->block, UI_EMBOSS_NONE);
+  NodeWarning *warning_alloc = MEM_mallocN(sizeof(NodeWarning), __func__);
+  warning_alloc->type = message->type;
+  warning_alloc->message = message->message;
+  uiBut *but = uiDefIconBut(node->block,
+                            UI_BTYPE_BUT,
+                            0,
+                            node_error_type_to_icon(message->type),
+                            icon_offset,
+                            rect->ymax - NODE_DY,
+                            NODE_HEADER_ICON_SIZE,
+                            UI_UNIT_Y,
+                            NULL,
+                            0,
+                            0,
+                            0,
+                            0,
+                            NULL);
+  UI_but_func_tooltip_set(but, node_errros_tooltip_fn, warning_alloc);
+  UI_but_flag_enable(but, UI_BUT_REDALERT);
+  UI_block_emboss_set(node->block, UI_EMBOSS);
+
+  return icon_offset;
+}
+
 static void node_draw_basis(const bContext *C,
                             const View2D *v2d,
                             const SpaceNode *snode,
@@ -1150,7 +1186,7 @@ static void node_draw_basis(const bContext *C,
                             bNodeInstanceKey key)
 {
   /* float socket_size = NODE_SOCKSIZE*U.dpi/72; */ /* UNUSED */
-  float iconbutw = 0.8f * UI_UNIT_X;
+  const float iconbutw = NODE_HEADER_ICON_SIZE;
 
   /* skip if out of view */
   if (BLI_rctf_isect(&node->totr, &v2d->cur, NULL) == false) {
@@ -1252,6 +1288,8 @@ static void node_draw_basis(const bContext *C,
                  "");
     UI_block_emboss_set(node->block, UI_EMBOSS);
   }
+
+  iconofs = node_add_error_message_button(ntree, node, rct, iconofs);
 
   /* title */
   if (node->flag & SELECT) {
@@ -1359,26 +1397,6 @@ static void node_draw_basis(const bContext *C,
       }
     }
   }
-
-  // {
-  //   const char *message = BKE_nodetree_error_message_get(ntree, node);
-  //   if (message != NULL) {
-  //     uiDefBut(block,
-  //              UI_BTYPE_LABEL,
-  //              1,
-  //              message,
-  //              0,
-  //              0,
-  //              2 * UI_UNIT_X,
-  //              UI_UNIT_Y,
-  //              NULL,
-  //              0.0,
-  //              0.0,
-  //              0,
-  //              0,
-  //              "");
-  //   }
-  // }
 
   UI_block_end(C, node->block);
   UI_block_draw(C, node->block);

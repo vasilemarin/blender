@@ -938,13 +938,25 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
                                  struct Scene *scene,
                                  const int layer_index);
 
+typedef enum eNodeWarningType {
+  NODE_WARNING_ERROR,
+  NODE_WARNING_INFO,
+} eNodeWarningType;
+
+typedef struct NodeWarning {
+  eNodeWarningType type;
+  char *message;
+} NodeWarning;
+
 void BKE_nodetree_error_message_add(struct bNodeTree *ntree,
                                     const struct bNode *node,
+                                    const eNodeWarningType type,
                                     const char *message);
 
 void BKE_nodetree_error_messages_clear(struct bNodeTree *ntree);
 
-const char *BKE_nodetree_error_message_get(const struct bNodeTree *ntree, const bNode *node);
+const NodeWarning *BKE_nodetree_error_message_get(const struct bNodeTree *ntree,
+                                                  const bNode *node);
 
 /* -------------------------------------------------------------------- */
 /** \name Shader Nodes

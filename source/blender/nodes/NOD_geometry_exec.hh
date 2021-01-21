@@ -183,7 +183,7 @@ class GeoNodeExecParams {
    * Add an error message displayed at the bottom of the node when displaying the node tree,
    * and potentially elsewhere in Blender.
    */
-  void error_message_add(const std::string message) const;
+  void error_message_add(const eNodeWarningType type, const std::string message) const;
 
   /**
    * Creates a read-only attribute based on node inputs. The method automatically detects which

@@ -105,7 +105,7 @@ static CLG_LogRef LOG = {"bke.node"};
 
 class bNodeTreeRuntime {
  public:
-  blender::Map<const std::string, const std::string> error_messages;
+  blender::Map<const std::string, NodeWarning> error_messages;
 };
 
 static void nodetree_runtime_ensure(bNodeTree *ntree)
@@ -115,14 +115,17 @@ static void nodetree_runtime_ensure(bNodeTree *ntree)
   }
 }
 
-void BKE_nodetree_error_message_add(bNodeTree *ntree, const bNode *node, const char *message)
+void BKE_nodetree_error_message_add(bNodeTree *ntree,
+                                    const bNode *node,
+                                    const eNodeWarningType type,
+                                    const char *message)
 {
   nodetree_runtime_ensure(ntree);
   bNodeTreeRuntime *runtime = ntree->runtime;
 
-  const std::string message_string(message);
+  NodeWarning warning = {type, BLI_strdup(message)};
 
-  runtime->error_messages.add(node->name, std::move(message_string));
+  runtime->error_messages.add(node->name, warning);
 }
 
 void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
@@ -133,7 +136,7 @@ void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
   }
 }
 
-const char *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *node)
+const NodeWarning *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *node)
 {
   bNodeTreeRuntime *runtime = ntree->runtime;
   if (runtime == nullptr) {
@@ -142,7 +145,7 @@ const char *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *
 
   const std::string node_name = std::string(node->name);
   if (runtime->error_messages.contains(node_name)) {
-    return runtime->error_messages.lookup(node_name).data();
+    return &runtime->error_messages.lookup(node_name);
   }
 
   return nullptr;

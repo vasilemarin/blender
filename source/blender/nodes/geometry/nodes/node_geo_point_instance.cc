@@ -88,7 +88,7 @@ static void get_instanced_data__collection(
 
   if (BLI_listbase_is_empty(&collection->children) &&
       BLI_listbase_is_empty(&collection->gobject)) {
-    params.error_message_add("Collection is empty");
+    params.error_message_add(NODE_WARNING_INFO, "Collection is empty");
     return;
   }
 
