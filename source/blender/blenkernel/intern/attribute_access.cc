@@ -498,17 +498,6 @@ CustomDataType cpp_type_to_custom_data_type(const blender::fn::CPPType &type)
 /** \name Utilities for Accessing Attributes
  * \{ */
 
-static CustomDataType attribute_name_to_custom_data_type_extra(const StringRef attribute_name,
-                                                               bool &use_data_type_layer)
-{
-  if (attribute_name == "normal") {
-    use_data_type_layer = true;
-    return CD_NORMAL;
-  }
-  use_data_type_layer = false;
-  return CD_PROP_BOOL;
-}
-
 static ReadAttributePtr read_attribute_from_custom_data_layer(const CustomDataLayer &layer,
                                                               const AttributeDomain domain,
                                                               const int size)
@@ -548,32 +537,31 @@ static ReadAttributePtr read_attribute_from_custom_data(const CustomData &custom
                                                         const StringRef attribute_name,
                                                         const AttributeDomain domain)
 {
-  bool use_data_type_layer;
-  CustomDataType special_type = attribute_name_to_custom_data_type_extra(attribute_name,
-                                                                         use_data_type_layer);
-  if (use_data_type_layer) {
-    const int layer_index = CustomData_get_active_layer_index(&custom_data, special_type);
-    if (layer_index != -1) {
-      const CustomDataLayer &layer = custom_data.layers[layer_index];
+  for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
+    if (layer.name != nullptr && layer.name == attribute_name) {
       return read_attribute_from_custom_data_layer(layer, domain, size);
     }
   }
-  else {
-    for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
-      if (layer.name != nullptr && layer.name == attribute_name) {
-        return read_attribute_from_custom_data_layer(layer, domain, size);
-      }
-    }
-  }
+
   return {};
 }
 
-static WriteAttributePtr write_attribute_from_custom_data_layer(const CustomDataLayer &layer,
-                                                                const AttributeDomain domain,
-                                                                const int size)
+static WriteAttributePtr write_attribute_from_custom_data_layer(
+    CustomData &custom_data,
+    const CustomDataLayer &layer,
+    const int size,
+    const AttributeDomain domain,
+    const std::function<void()> &update_customdata_pointers)
 {
   using namespace blender;
   using namespace blender::bke;
+  const void *data_before = layer.data;
+  /* The data layer might be shared with someone else.
+   * In that case, copy it since the caller wants to modify it. */
+  CustomData_duplicate_referenced_layer_named(&custom_data, layer.type, layer.name, size);
+  if (data_before != layer.data) {
+    update_customdata_pointers();
+  }
   switch (layer.type) {
     case CD_PROP_FLOAT:
       return std::make_unique<ArrayWriteAttribute<float>>(
@@ -603,23 +591,6 @@ static WriteAttributePtr write_attribute_from_custom_data_layer(const CustomData
   return {};
 }
 
-/**
- * The data layer might be shared with someone else.
- * Since the caller wants to modify it, we copy it first.
- */
-static void custom_data_layer_ensure_writable(
-    CustomData &custom_data,
-    const int size,
-    const CustomDataLayer &layer,
-    const std::function<void()> &update_customdata_pointers)
-{
-  const void *data_before = layer.data;
-  CustomData_duplicate_referenced_layer_named(&custom_data, layer.type, layer.name, size);
-  if (data_before != layer.data) {
-    update_customdata_pointers();
-  }
-}
-
 static WriteAttributePtr write_attribute_from_custom_data(
     CustomData &custom_data,
     const int size,
@@ -627,22 +598,10 @@ static WriteAttributePtr write_attribute_from_custom_data(
     const AttributeDomain domain,
     const std::function<void()> &update_customdata_pointers)
 {
-  bool use_data_type_layer;
-  CustomDataType special_type = attribute_name_to_custom_data_type_extra(attribute_name,
-                                                                         use_data_type_layer);
-  if (use_data_type_layer) {
-    const int layer_index = CustomData_get_active_layer_index(&custom_data, special_type);
-    if (layer_index != -1) {
-      const CustomDataLayer &layer = custom_data.layers[layer_index];
-      custom_data_layer_ensure_writable(custom_data, size, layer, update_customdata_pointers);
-      return write_attribute_from_custom_data_layer(layer, domain, size);
-    }
-  }
-
   for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
     if (layer.name != nullptr && layer.name == attribute_name) {
-      custom_data_layer_ensure_writable(custom_data, size, layer, update_customdata_pointers);
-      return write_attribute_from_custom_data_layer(layer, domain, size);
+      return write_attribute_from_custom_data_layer(
+          custom_data, layer, size, domain, update_customdata_pointers);
     }
   }
   return {};
@@ -1205,6 +1164,35 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
         ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert), get_vertex_position);
   }
 
+  if (attribute_name == "normal") {
+    const int layer_index_loop = CustomData_get_active_layer_index(&mesh_->ldata, CD_NORMAL);
+    if (layer_index_loop != -1) {
+      const CustomDataLayer &layer = mesh_->ldata.layers[layer_index_loop];
+      return read_attribute_from_custom_data_layer(layer, ATTR_DOMAIN_CORNER, mesh_->totloop);
+    }
+    const int layer_index_vert = CustomData_get_active_layer_index(&mesh_->vdata, CD_NORMAL);
+    if (layer_index_vert != -1) {
+      const CustomDataLayer &layer = mesh_->vdata.layers[layer_index_vert];
+      return read_attribute_from_custom_data_layer(layer, ATTR_DOMAIN_POINT, mesh_->totvert);
+    }
+    const int layer_index_poly = CustomData_get_active_layer_index(&mesh_->pdata, CD_NORMAL);
+    if (layer_index_poly != -1) {
+      const CustomDataLayer &layer = mesh_->pdata.layers[layer_index_poly];
+      return read_attribute_from_custom_data_layer(layer, ATTR_DOMAIN_POLYGON, mesh_->totpoly);
+    }
+
+    /* Normals are also stored in MVert, so if no CD_NORMAL
+     * custom data layer was found, retrieve them from there. */
+    auto get_vertex_normal = [](const MVert &vert) {
+      float3 result;
+      normal_short_to_float_v3(result, vert.no);
+      return result;
+    };
+    return std::make_unique<
+        blender::bke::DerivedArrayReadAttribute<MVert, float3, decltype(get_vertex_normal)>>(
+        ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert), get_vertex_normal);
+  }
+
   ReadAttributePtr corner_attribute = read_attribute_from_custom_data(
       mesh_->ldata, mesh_->totloop, attribute_name, ATTR_DOMAIN_CORNER);
   if (corner_attribute) {
@@ -1233,19 +1221,6 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
       mesh_->pdata, mesh_->totpoly, attribute_name, ATTR_DOMAIN_POLYGON);
   if (polygon_attribute) {
     return polygon_attribute;
-  }
-
-  /* Normals are also stored in MVert, so if no CD_NORMAL
-   * custom data layer was found, retrieve them from there. */
-  if (attribute_name == "normal") {
-    auto get_vertex_normal = [](const MVert &vert) {
-      float3 result;
-      normal_short_to_float_v3(result, vert.no);
-      return result;
-    };
-    return std::make_unique<
-        blender::bke::DerivedArrayReadAttribute<MVert, float3, decltype(get_vertex_normal)>>(
-        ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert), get_vertex_normal);
   }
 
   return {};
@@ -1277,6 +1252,47 @@ WriteAttributePtr MeshComponent::attribute_try_get_for_write(const StringRef att
         blender::MutableSpan(mesh_->mvert, mesh_->totvert),
         get_vertex_position,
         set_vertex_position);
+  }
+
+  if (attribute_name == "normal") {
+    const int layer_index_loop = CustomData_get_active_layer_index(&mesh_->ldata, CD_NORMAL);
+    if (layer_index_loop != -1) {
+      const CustomDataLayer &layer = mesh_->ldata.layers[layer_index_loop];
+      return write_attribute_from_custom_data_layer(
+          mesh_->ldata, layer, mesh_->totloop, ATTR_DOMAIN_CORNER, update_mesh_pointers);
+    }
+    const int layer_index_vert = CustomData_get_active_layer_index(&mesh_->vdata, CD_NORMAL);
+    if (layer_index_vert != -1) {
+      const CustomDataLayer &layer = mesh_->vdata.layers[layer_index_vert];
+      return write_attribute_from_custom_data_layer(
+          mesh_->vdata, layer, mesh_->totvert, ATTR_DOMAIN_POINT, update_mesh_pointers);
+    }
+    const int layer_index_poly = CustomData_get_active_layer_index(&mesh_->pdata, CD_NORMAL);
+    if (layer_index_poly != -1) {
+      const CustomDataLayer &layer = mesh_->pdata.layers[layer_index_poly];
+      return write_attribute_from_custom_data_layer(
+          mesh_->pdata, layer, mesh_->totpoly, ATTR_DOMAIN_POLYGON, update_mesh_pointers);
+    }
+
+    /* Normals are also stored in MVert, so if no CD_NORMAL
+     * custom data layer was found, retrieve them from there. */
+    auto get_vertex_normal = [](const MVert &vert) {
+      float3 result;
+      normal_short_to_float_v3(result, vert.no);
+      return result;
+    };
+    auto set_vertex_normal = [](MVert &vert, const float3 &no) {
+      normal_float_to_short_v3(vert.no, no.normalized());
+      // normal_float_to_short_v3(vert.no, no);
+    };
+    return std::make_unique<blender::bke::DerivedArrayWriteAttribute<MVert,
+                                                                     float3,
+                                                                     decltype(get_vertex_normal),
+                                                                     decltype(set_vertex_normal)>>(
+        ATTR_DOMAIN_POINT,
+        blender::MutableSpan(mesh_->mvert, mesh_->totvert),
+        get_vertex_normal,
+        set_vertex_normal);
   }
 
   WriteAttributePtr corner_attribute = write_attribute_from_custom_data(
@@ -1315,27 +1331,6 @@ WriteAttributePtr MeshComponent::attribute_try_get_for_write(const StringRef att
       mesh_->pdata, mesh_->totpoly, attribute_name, ATTR_DOMAIN_POLYGON, update_mesh_pointers);
   if (polygon_attribute) {
     return polygon_attribute;
-  }
-
-  /* Normals are also stored in MVert, so if no CD_NORMAL
-   * custom data layer was found, retrieve them from there. */
-  if (attribute_name == "normal") {
-    auto get_vertex_normal = [](const MVert &vert) {
-      float3 result;
-      normal_short_to_float_v3(result, vert.no);
-      return result;
-    };
-    auto set_vertex_normal = [](MVert &vert, const float3 &no) {
-      normal_float_to_short_v3(vert.no, no.normalized());
-    };
-    return std::make_unique<blender::bke::DerivedArrayWriteAttribute<MVert,
-                                                                     float3,
-                                                                     decltype(get_vertex_normal),
-                                                                     decltype(set_vertex_normal)>>(
-        ATTR_DOMAIN_POINT,
-        blender::MutableSpan(mesh_->mvert, mesh_->totvert),
-        get_vertex_normal,
-        set_vertex_normal);
   }
 
   return {};
@@ -1384,7 +1379,6 @@ bool MeshComponent::attribute_try_create(const StringRef attribute_name,
   }
 
   char attribute_name_c[MAX_NAME];
-
   attribute_name.copy(attribute_name_c);
 
   switch (domain) {
@@ -1439,6 +1433,9 @@ Set<std::string> MeshComponent::attribute_names() const
   for (StringRef name : vertex_group_names_.keys()) {
     names.add(name);
   }
+  /* Since normals can be stored in #MVert as well as in separate data layers,
+   * always add the normals attribute, just like we always add "position". */
+  names.add("normal");
   get_custom_data_layer_attribute_names(mesh_->ldata, *this, ATTR_DOMAIN_CORNER, names);
   get_custom_data_layer_attribute_names(mesh_->vdata, *this, ATTR_DOMAIN_POINT, names);
   get_custom_data_layer_attribute_names(mesh_->edata, *this, ATTR_DOMAIN_EDGE, names);
