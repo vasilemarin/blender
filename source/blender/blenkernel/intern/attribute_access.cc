@@ -1235,8 +1235,8 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
     return polygon_attribute;
   }
 
-  /* Normals are also stored in MVert, so if no CD_NORMAL custom data layer
-   * was found, retrieve them from there. */
+  /* Normals are also stored in MVert, so if no CD_NORMAL
+   * custom data layer was found, retrieve them from there. */
   if (attribute_name == "normal") {
     auto get_vertex_normal = [](const MVert &vert) {
       float3 result;
@@ -1315,6 +1315,27 @@ WriteAttributePtr MeshComponent::attribute_try_get_for_write(const StringRef att
       mesh_->pdata, mesh_->totpoly, attribute_name, ATTR_DOMAIN_POLYGON, update_mesh_pointers);
   if (polygon_attribute) {
     return polygon_attribute;
+  }
+
+  /* Normals are also stored in MVert, so if no CD_NORMAL
+   * custom data layer was found, retrieve them from there. */
+  if (attribute_name == "normal") {
+    auto get_vertex_normal = [](const MVert &vert) {
+      float3 result;
+      normal_short_to_float_v3(result, vert.no);
+      return result;
+    };
+    auto set_vertex_normal = [](MVert &vert, const float3 &no) {
+      normal_float_to_short_v3(vert.no, no.normalized());
+    };
+    return std::make_unique<blender::bke::DerivedArrayWriteAttribute<MVert,
+                                                                     float3,
+                                                                     decltype(get_vertex_normal),
+                                                                     decltype(set_vertex_normal)>>(
+        ATTR_DOMAIN_POINT,
+        blender::MutableSpan(mesh_->mvert, mesh_->totvert),
+        get_vertex_normal,
+        set_vertex_normal);
   }
 
   return {};
