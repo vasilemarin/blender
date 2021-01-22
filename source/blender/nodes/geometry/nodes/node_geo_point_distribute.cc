@@ -327,7 +327,7 @@ BLI_NOINLINE static void interpolate_existing_attributes(const MeshComponent &me
 
   Set<std::string> attribute_names = mesh_component.attribute_names();
   for (StringRefNull attribute_name : attribute_names) {
-    if (ELEM(attribute_name, "position", "normal", "id")) {
+    if (ELEM(attribute_name, "position", "id")) {
       continue;
     }
 
@@ -337,42 +337,45 @@ BLI_NOINLINE static void interpolate_existing_attributes(const MeshComponent &me
   }
 }
 
-BLI_NOINLINE static void compute_special_attributes(const Mesh &mesh,
-                                                    GeometryComponent &component,
-                                                    Span<float3> bary_coords,
-                                                    Span<int> looptri_indices)
+BLI_NOINLINE static void compute_id_attribute(GeometryComponent &component,
+                                              Span<float3> bary_coords,
+                                              Span<int> looptri_indices)
 {
   OutputAttributePtr id_attribute = component.attribute_try_get_for_output(
       "id", ATTR_DOMAIN_POINT, CD_PROP_INT32);
-  OutputAttributePtr normal_attribute = component.attribute_try_get_for_output(
-      "normal", ATTR_DOMAIN_POINT, CD_PROP_FLOAT3);
-  OutputAttributePtr rotation_attribute = component.attribute_try_get_for_output(
-      "rotation", ATTR_DOMAIN_POINT, CD_PROP_FLOAT3);
-
   MutableSpan<int> ids = id_attribute->get_span_for_write_only<int>();
-  MutableSpan<float3> normals = normal_attribute->get_span_for_write_only<float3>();
-  MutableSpan<float3> rotations = rotation_attribute->get_span_for_write_only<float3>();
 
-  Span<MLoopTri> looptris = get_mesh_looptris(mesh);
   for (const int i : bary_coords.index_range()) {
     const int looptri_index = looptri_indices[i];
-    const MLoopTri &looptri = looptris[looptri_index];
     const float3 &bary_coord = bary_coords[i];
-
-    const int v0_index = mesh.mloop[looptri.tri[0]].v;
-    const int v1_index = mesh.mloop[looptri.tri[1]].v;
-    const int v2_index = mesh.mloop[looptri.tri[2]].v;
-    const float3 v0_pos = mesh.mvert[v0_index].co;
-    const float3 v1_pos = mesh.mvert[v1_index].co;
-    const float3 v2_pos = mesh.mvert[v2_index].co;
-
     ids[i] = (int)(bary_coord.hash()) + looptri_index;
-    normal_tri_v3(normals[i], v0_pos, v1_pos, v2_pos);
-    rotations[i] = normal_to_euler_rotation(normals[i]);
   }
 
   id_attribute.apply_span_and_save();
-  normal_attribute.apply_span_and_save();
+}
+
+/**
+ * Write the "rotation" attribute based on the normals so that there is a usable rotation without
+ * any other nodes. This is just a convenience, since the same result could be achieved with the
+ * "Align Points to Vector" node.
+ */
+BLI_NOINLINE static void compute_rotation_attribute(GeometryComponent &component)
+{
+  ReadAttributePtr normals_attribute = component.attribute_try_get_for_read("normal");
+  BLI_assert(normals_attribute);
+  if (!normals_attribute) {
+    return;
+  }
+  BLI_assert(normals_attribute->custom_data_type() == CD_PROP_FLOAT3);
+
+  OutputAttributePtr rotation_attribute = component.attribute_try_get_for_output(
+      "rotation", ATTR_DOMAIN_POINT, CD_PROP_FLOAT3);
+  MutableSpan<float3> rotations = rotation_attribute->get_span_for_write_only<float3>();
+  Span<float3> normals = normals_attribute->get_span().typed<float3>();
+  for (const int i : normals.index_range()) {
+    rotations[i] = normal_to_euler_rotation(normals[i]);
+  }
+
   rotation_attribute.apply_span_and_save();
 }
 
@@ -382,8 +385,8 @@ BLI_NOINLINE static void add_remaining_point_attributes(const MeshComponent &mes
                                                         Span<int> looptri_indices)
 {
   interpolate_existing_attributes(mesh_component, component, bary_coords, looptri_indices);
-  compute_special_attributes(
-      *mesh_component.get_for_read(), component, bary_coords, looptri_indices);
+  compute_id_attribute(component, bary_coords, looptri_indices);
+  compute_rotation_attribute(component);
 }
 
 static void sample_mesh_surface_with_minimum_distance(const Mesh &mesh,
