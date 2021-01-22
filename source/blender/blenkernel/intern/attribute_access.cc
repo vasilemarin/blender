@@ -630,12 +630,10 @@ static void get_custom_data_layer_attribute_names(const CustomData &custom_data,
   for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
     const CustomDataType data_type = static_cast<CustomDataType>(layer.type);
     if (component.attribute_domain_with_type_supported(domain, data_type) ||
-        ELEM(data_type, CD_MLOOPUV, CD_NORMAL)) {
+        ELEM(data_type, CD_MLOOPUV)) {
+      /* CD_NORMAL is also supported, but those layers are not named
+       * and "normal" is always added for vertices anyway. */
       r_names.add(layer.name);
-    }
-    /* Why not just add CD_MLOOP_UV and CD_NORMAL to the domain and type supported check? */
-    if (data_type == CD_MVERT) {
-      r_names.add("normal");
     }
   }
 }
@@ -1282,8 +1280,8 @@ WriteAttributePtr MeshComponent::attribute_try_get_for_write(const StringRef att
       return result;
     };
     auto set_vertex_normal = [](MVert &vert, const float3 &no) {
-      normal_float_to_short_v3(vert.no, no.normalized());
-      // normal_float_to_short_v3(vert.no, no);
+      /* Skipping normalization may cause issues-- most code expects normals to be normalized. */
+      normal_float_to_short_v3(vert.no, no);
     };
     return std::make_unique<blender::bke::DerivedArrayWriteAttribute<MVert,
                                                                      float3,
@@ -1434,7 +1432,7 @@ Set<std::string> MeshComponent::attribute_names() const
     names.add(name);
   }
   /* Since normals can be stored in #MVert as well as in separate data layers,
-   * always add the normals attribute, just like we always add "position". */
+   * always add the normals attribute, just like "position" is always added. */
   names.add("normal");
   get_custom_data_layer_attribute_names(mesh_->ldata, *this, ATTR_DOMAIN_CORNER, names);
   get_custom_data_layer_attribute_names(mesh_->vdata, *this, ATTR_DOMAIN_POINT, names);
