@@ -498,42 +498,126 @@ CustomDataType cpp_type_to_custom_data_type(const blender::fn::CPPType &type)
 /** \name Utilities for Accessing Attributes
  * \{ */
 
+static CustomDataType attribute_name_to_custom_data_type_extra(const StringRef attribute_name,
+                                                               bool &use_data_type_layer)
+{
+  if (attribute_name == "normal") {
+    use_data_type_layer = true;
+    return CD_NORMAL;
+  }
+  use_data_type_layer = false;
+  return CD_PROP_BOOL;
+}
+
+static ReadAttributePtr read_attribute_from_custom_data_layer(const CustomDataLayer &layer,
+                                                              const AttributeDomain domain,
+                                                              const int size)
+{
+  using namespace blender;
+  using namespace blender::bke;
+  switch (layer.type) {
+    case CD_PROP_FLOAT:
+      return std::make_unique<ArrayReadAttribute<float>>(
+          domain, Span(static_cast<float *>(layer.data), size));
+    case CD_PROP_FLOAT2:
+      return std::make_unique<ArrayReadAttribute<float2>>(
+          domain, Span(static_cast<float2 *>(layer.data), size));
+    case CD_NORMAL:
+    case CD_PROP_FLOAT3:
+      return std::make_unique<ArrayReadAttribute<float3>>(
+          domain, Span(static_cast<float3 *>(layer.data), size));
+    case CD_PROP_INT32:
+      return std::make_unique<ArrayReadAttribute<int>>(domain,
+                                                       Span(static_cast<int *>(layer.data), size));
+    case CD_PROP_COLOR:
+      return std::make_unique<ArrayReadAttribute<Color4f>>(
+          domain, Span(static_cast<Color4f *>(layer.data), size));
+    case CD_PROP_BOOL:
+      return std::make_unique<ArrayReadAttribute<bool>>(
+          domain, Span(static_cast<bool *>(layer.data), size));
+    case CD_MLOOPUV:
+      auto get_uv = [](const MLoopUV &uv) { return float2(uv.uv); };
+      return std::make_unique<DerivedArrayReadAttribute<MLoopUV, float2, decltype(get_uv)>>(
+          domain, Span(static_cast<MLoopUV *>(layer.data), size), get_uv);
+  }
+  return {};
+}
+
 static ReadAttributePtr read_attribute_from_custom_data(const CustomData &custom_data,
                                                         const int size,
                                                         const StringRef attribute_name,
                                                         const AttributeDomain domain)
 {
-  using namespace blender;
-  using namespace blender::bke;
-  for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
-    if (layer.name != nullptr && layer.name == attribute_name) {
-      switch (layer.type) {
-        case CD_PROP_FLOAT:
-          return std::make_unique<ArrayReadAttribute<float>>(
-              domain, Span(static_cast<float *>(layer.data), size));
-        case CD_PROP_FLOAT2:
-          return std::make_unique<ArrayReadAttribute<float2>>(
-              domain, Span(static_cast<float2 *>(layer.data), size));
-        case CD_PROP_FLOAT3:
-          return std::make_unique<ArrayReadAttribute<float3>>(
-              domain, Span(static_cast<float3 *>(layer.data), size));
-        case CD_PROP_INT32:
-          return std::make_unique<ArrayReadAttribute<int>>(
-              domain, Span(static_cast<int *>(layer.data), size));
-        case CD_PROP_COLOR:
-          return std::make_unique<ArrayReadAttribute<Color4f>>(
-              domain, Span(static_cast<Color4f *>(layer.data), size));
-        case CD_PROP_BOOL:
-          return std::make_unique<ArrayReadAttribute<bool>>(
-              domain, Span(static_cast<bool *>(layer.data), size));
-        case CD_MLOOPUV:
-          auto get_uv = [](const MLoopUV &uv) { return float2(uv.uv); };
-          return std::make_unique<DerivedArrayReadAttribute<MLoopUV, float2, decltype(get_uv)>>(
-              domain, Span(static_cast<MLoopUV *>(layer.data), size), get_uv);
+  bool use_data_type_layer;
+  CustomDataType special_type = attribute_name_to_custom_data_type_extra(attribute_name,
+                                                                         use_data_type_layer);
+  if (use_data_type_layer) {
+    const int layer_index = CustomData_get_active_layer_index(&custom_data, special_type);
+    if (layer_index != -1) {
+      const CustomDataLayer &layer = custom_data.layers[layer_index];
+      return read_attribute_from_custom_data_layer(layer, domain, size);
+    }
+  }
+  else {
+    for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
+      if (layer.name != nullptr && layer.name == attribute_name) {
+        return read_attribute_from_custom_data_layer(layer, domain, size);
       }
     }
   }
   return {};
+}
+
+static WriteAttributePtr write_attribute_from_custom_data_layer(const CustomDataLayer &layer,
+                                                                const AttributeDomain domain,
+                                                                const int size)
+{
+  using namespace blender;
+  using namespace blender::bke;
+  switch (layer.type) {
+    case CD_PROP_FLOAT:
+      return std::make_unique<ArrayWriteAttribute<float>>(
+          domain, MutableSpan(static_cast<float *>(layer.data), size));
+    case CD_PROP_FLOAT2:
+      return std::make_unique<ArrayWriteAttribute<float2>>(
+          domain, MutableSpan(static_cast<float2 *>(layer.data), size));
+    case CD_PROP_FLOAT3:
+      return std::make_unique<ArrayWriteAttribute<float3>>(
+          domain, MutableSpan(static_cast<float3 *>(layer.data), size));
+    case CD_PROP_INT32:
+      return std::make_unique<ArrayWriteAttribute<int>>(
+          domain, MutableSpan(static_cast<int *>(layer.data), size));
+    case CD_PROP_COLOR:
+      return std::make_unique<ArrayWriteAttribute<Color4f>>(
+          domain, MutableSpan(static_cast<Color4f *>(layer.data), size));
+    case CD_PROP_BOOL:
+      return std::make_unique<ArrayWriteAttribute<bool>>(
+          domain, MutableSpan(static_cast<bool *>(layer.data), size));
+    case CD_MLOOPUV:
+      auto get_uv = [](const MLoopUV &uv) { return float2(uv.uv); };
+      auto set_uv = [](MLoopUV &uv, const float2 value) { copy_v2_v2(uv.uv, value); };
+      return std::make_unique<
+          DerivedArrayWriteAttribute<MLoopUV, float2, decltype(get_uv), decltype(set_uv)>>(
+          domain, MutableSpan(static_cast<MLoopUV *>(layer.data), size), get_uv, set_uv);
+  }
+  return {};
+}
+
+/**
+ * The data layer might be shared with someone else.
+ * Since the caller wants to modify it, we copy it first.
+ */
+static void custom_data_layer_ensure_writable(
+    CustomData &custom_data,
+    const int size,
+    const CustomDataLayer &layer,
+    const std::function<void()> &update_customdata_pointers)
+{
+  const void *data_before = layer.data;
+  CustomData_duplicate_referenced_layer_named(&custom_data, layer.type, layer.name, size);
+  if (data_before != layer.data) {
+    update_customdata_pointers();
+  }
 }
 
 static WriteAttributePtr write_attribute_from_custom_data(
@@ -543,44 +627,22 @@ static WriteAttributePtr write_attribute_from_custom_data(
     const AttributeDomain domain,
     const std::function<void()> &update_customdata_pointers)
 {
+  bool use_data_type_layer;
+  CustomDataType special_type = attribute_name_to_custom_data_type_extra(attribute_name,
+                                                                         use_data_type_layer);
+  if (use_data_type_layer) {
+    const int layer_index = CustomData_get_active_layer_index(&custom_data, special_type);
+    if (layer_index != -1) {
+      const CustomDataLayer &layer = custom_data.layers[layer_index];
+      custom_data_layer_ensure_writable(custom_data, size, layer, update_customdata_pointers);
+      return write_attribute_from_custom_data_layer(layer, domain, size);
+    }
+  }
 
-  using namespace blender;
-  using namespace blender::bke;
-  for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
+  for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
     if (layer.name != nullptr && layer.name == attribute_name) {
-      const void *data_before = layer.data;
-      /* The data layer might be shared with someone else. Since the caller wants to modify it, we
-       * copy it first. */
-      CustomData_duplicate_referenced_layer_named(&custom_data, layer.type, layer.name, size);
-      if (data_before != layer.data) {
-        update_customdata_pointers();
-      }
-      switch (layer.type) {
-        case CD_PROP_FLOAT:
-          return std::make_unique<ArrayWriteAttribute<float>>(
-              domain, MutableSpan(static_cast<float *>(layer.data), size));
-        case CD_PROP_FLOAT2:
-          return std::make_unique<ArrayWriteAttribute<float2>>(
-              domain, MutableSpan(static_cast<float2 *>(layer.data), size));
-        case CD_PROP_FLOAT3:
-          return std::make_unique<ArrayWriteAttribute<float3>>(
-              domain, MutableSpan(static_cast<float3 *>(layer.data), size));
-        case CD_PROP_INT32:
-          return std::make_unique<ArrayWriteAttribute<int>>(
-              domain, MutableSpan(static_cast<int *>(layer.data), size));
-        case CD_PROP_COLOR:
-          return std::make_unique<ArrayWriteAttribute<Color4f>>(
-              domain, MutableSpan(static_cast<Color4f *>(layer.data), size));
-        case CD_PROP_BOOL:
-          return std::make_unique<ArrayWriteAttribute<bool>>(
-              domain, MutableSpan(static_cast<bool *>(layer.data), size));
-        case CD_MLOOPUV:
-          auto get_uv = [](const MLoopUV &uv) { return float2(uv.uv); };
-          auto set_uv = [](MLoopUV &uv, const float2 value) { copy_v2_v2(uv.uv, value); };
-          return std::make_unique<
-              DerivedArrayWriteAttribute<MLoopUV, float2, decltype(get_uv), decltype(set_uv)>>(
-              domain, MutableSpan(static_cast<MLoopUV *>(layer.data), size), get_uv, set_uv);
-      }
+      custom_data_layer_ensure_writable(custom_data, size, layer, update_customdata_pointers);
+      return write_attribute_from_custom_data_layer(layer, domain, size);
     }
   }
   return {};
@@ -609,8 +671,12 @@ static void get_custom_data_layer_attribute_names(const CustomData &custom_data,
   for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
     const CustomDataType data_type = static_cast<CustomDataType>(layer.type);
     if (component.attribute_domain_with_type_supported(domain, data_type) ||
-        ELEM(data_type, CD_MLOOPUV)) {
+        ELEM(data_type, CD_MLOOPUV, CD_NORMAL)) {
       r_names.add(layer.name);
+    }
+    /* Why not just add CD_MLOOP_UV and CD_NORMAL to the domain and type supported check? */
+    if (data_type == CD_MVERT) {
+      r_names.add("normal");
     }
   }
 }
@@ -1160,6 +1226,19 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
     return polygon_attribute;
   }
 
+  /* Normals are also stored in MVert, so if no CD_NORMAL custom data layer
+   * was found, retrieve them from there. */
+  if (attribute_name == "normal") {
+    auto get_vertex_normal = [](const MVert &vert) {
+      float3 result;
+      normal_short_to_float_v3(result, vert.no);
+      return result;
+    };
+    return std::make_unique<
+        blender::bke::DerivedArrayReadAttribute<MVert, float3, decltype(get_vertex_normal)>>(
+        ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert), get_vertex_normal);
+  }
+
   return {};
 }
 
@@ -1275,6 +1354,7 @@ bool MeshComponent::attribute_try_create(const StringRef attribute_name,
   }
 
   char attribute_name_c[MAX_NAME];
+
   attribute_name.copy(attribute_name_c);
 
   switch (domain) {
