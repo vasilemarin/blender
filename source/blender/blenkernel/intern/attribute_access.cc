@@ -1191,6 +1191,13 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
         ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert), get_vertex_normal);
   }
 
+  if (attribute_name == "material_index") {
+    auto get_material_index = [](const MPoly &poly) { return static_cast<int>(poly.mat_nr); };
+    return std::make_unique<
+        blender::bke::DerivedArrayReadAttribute<MPoly, int, decltype(get_material_index)>>(
+        ATTR_DOMAIN_POLYGON, blender::Span(mesh_->mpoly, mesh_->totpoly), get_material_index);
+  }
+
   ReadAttributePtr corner_attribute = read_attribute_from_custom_data(
       mesh_->ldata, mesh_->totloop, attribute_name, ATTR_DOMAIN_CORNER);
   if (corner_attribute) {
@@ -1291,6 +1298,22 @@ WriteAttributePtr MeshComponent::attribute_try_get_for_write(const StringRef att
         blender::MutableSpan(mesh_->mvert, mesh_->totvert),
         get_vertex_normal,
         set_vertex_normal);
+  }
+
+  if (attribute_name == "material_index") {
+    auto get_material_index = [](const MPoly &poly) { return static_cast<int>(poly.mat_nr); };
+    auto set_material_index = [](MPoly &poly, const int no) {
+      poly.mat_nr = static_cast<short>(no);
+    };
+    return std::make_unique<
+        blender::bke::DerivedArrayWriteAttribute<MPoly,
+                                                 int,
+                                                 decltype(get_material_index),
+                                                 decltype(set_material_index)>>(
+        ATTR_DOMAIN_POLYGON,
+        blender::MutableSpan(mesh_->mpoly, mesh_->totpoly),
+        get_material_index,
+        set_material_index);
   }
 
   WriteAttributePtr corner_attribute = write_attribute_from_custom_data(
@@ -1434,6 +1457,7 @@ Set<std::string> MeshComponent::attribute_names() const
   /* Since normals can be stored in #MVert as well as in separate data layers,
    * always add the normals attribute, just like "position" is always added. */
   names.add("normal");
+  names.add("material_index");
   get_custom_data_layer_attribute_names(mesh_->ldata, *this, ATTR_DOMAIN_CORNER, names);
   get_custom_data_layer_attribute_names(mesh_->vdata, *this, ATTR_DOMAIN_POINT, names);
   get_custom_data_layer_attribute_names(mesh_->edata, *this, ATTR_DOMAIN_EDGE, names);
