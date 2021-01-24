@@ -1605,6 +1605,7 @@ typedef enum GeometryNodeAttributeInputMode {
   GEO_NODE_ATTRIBUTE_INPUT_VECTOR = 2,
   GEO_NODE_ATTRIBUTE_INPUT_COLOR = 3,
   GEO_NODE_ATTRIBUTE_INPUT_BOOLEAN = 4,
+  GEO_NODE_ATTRIBUTE_INPUT_INT = 5,
 } GeometryNodeAttributeInputMode;
 
 typedef enum GeometryNodePointDistributeMethod {

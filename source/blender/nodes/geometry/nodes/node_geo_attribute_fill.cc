@@ -27,7 +27,8 @@ static bNodeSocketTemplate geo_node_attribute_fill_in[] = {
     {SOCK_VECTOR, N_("Value"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
     {SOCK_FLOAT, N_("Value"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
     {SOCK_RGBA, N_("Value"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
-    {SOCK_BOOLEAN, N_("Value"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
+    {SOCK_BOOLEAN, N_("Value")},
+    {SOCK_INT, N_("Value"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
     {-1, ""},
 };
 
@@ -96,6 +97,12 @@ static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams
     case CD_PROP_BOOL: {
       const bool value = params.get_input<bool>("Value_003");
       MutableSpan<bool> attribute_span = attribute->get_span_for_write_only<bool>();
+      attribute_span.fill(value);
+      break;
+    }
+    case CD_PROP_INT32: {
+      const int value = params.get_input<int>("Value_004");
+      MutableSpan<int> attribute_span = attribute->get_span_for_write_only<int>();
       attribute_span.fill(value);
       break;
     }

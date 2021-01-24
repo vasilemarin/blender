@@ -64,6 +64,11 @@ ReadAttributePtr GeoNodeExecParams::get_input_attribute(const StringRef name,
     return component.attribute_get_constant_for_read_converted(
         domain, CD_PROP_COLOR, type, &value);
   }
+  if (found_socket->type == SOCK_INT) {
+    const int value = this->get_input<int>(found_socket->identifier);
+    return component.attribute_get_constant_for_read_converted(
+        domain, CD_PROP_INT32, type, &value);
+  }
   BLI_assert(false);
   return component.attribute_get_constant_for_read(domain, type, default_value);
 }

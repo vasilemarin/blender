@@ -463,6 +463,10 @@ static const EnumPropertyItem rna_node_geometry_point_distribute_method_items[] 
   { \
     GEO_NODE_ATTRIBUTE_INPUT_BOOLEAN, "BOOLEAN", 0, "Boolean", "" \
   }
+#define ITEM_INT32 \
+  { \
+    GEO_NODE_ATTRIBUTE_INPUT_INT, "INT32", 0, "Integer", "" \
+  }
 
 /* Used in both runtime and static code. */
 static const EnumPropertyItem rna_node_geometry_attribute_input_type_items_any[] = {
@@ -471,6 +475,7 @@ static const EnumPropertyItem rna_node_geometry_attribute_input_type_items_any[]
     ITEM_VECTOR,
     ITEM_COLOR,
     ITEM_BOOLEAN,
+    ITEM_INT32,
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -491,6 +496,16 @@ static const EnumPropertyItem rna_node_geometry_attribute_input_type_items_no_bo
     ITEM_FLOAT,
     ITEM_VECTOR,
     ITEM_COLOR,
+    ITEM_INT32,
+    {0, NULL, 0, NULL, NULL},
+};
+
+static const EnumPropertyItem rna_node_geometry_attribute_input_type_items_no_attribute[] = {
+    ITEM_FLOAT,
+    ITEM_VECTOR,
+    ITEM_COLOR,
+    ITEM_BOOLEAN,
+    ITEM_INT32,
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -1958,7 +1973,8 @@ static const EnumPropertyItem *rna_GeometryNodeAttributeRandom_domain_itemf(
 
 static bool attribute_fill_type_supported(const EnumPropertyItem *item)
 {
-  return ELEM(item->value, CD_PROP_FLOAT, CD_PROP_FLOAT3, CD_PROP_COLOR, CD_PROP_BOOL);
+  return ELEM(
+      item->value, CD_PROP_FLOAT, CD_PROP_FLOAT3, CD_PROP_COLOR, CD_PROP_BOOL, CD_PROP_INT32);
 }
 static const EnumPropertyItem *rna_GeometryNodeAttributeFill_type_itemf(bContext *UNUSED(C),
                                                                         PointerRNA *UNUSED(ptr),
