@@ -371,6 +371,9 @@ class MeshComponent : public GeometryComponent {
   blender::bke::WriteAttributePtr attribute_try_get_for_write(
       const blender::StringRef attribute_name) final;
 
+  virtual blender::bke::ReadAttributePtr attribute_try_adapt_domain(
+      blender::bke::ReadAttributePtr attribute, const AttributeDomain domain) const final;
+
   bool attribute_try_delete(const blender::StringRef attribute_name) final;
   bool attribute_try_create(const blender::StringRef attribute_name,
                             const AttributeDomain domain,

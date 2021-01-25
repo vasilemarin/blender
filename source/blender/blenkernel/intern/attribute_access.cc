@@ -38,7 +38,9 @@
 static CLG_LogRef LOG = {"bke.attribute_access"};
 
 using blender::float3;
+using blender::IndexRange;
 using blender::Set;
+using blender::Span;
 using blender::StringRef;
 using blender::StringRefNull;
 using blender::bke::ReadAttributePtr;
@@ -1228,6 +1230,280 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
     return polygon_attribute;
   }
 
+  return {};
+}
+
+static ReadAttributePtr mesh_adapt_domain_polygon_point(const Mesh &mesh,
+                                                        ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totvert, 0.0f);
+  blender::Array<int> numbers(mesh.totvert, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      const MLoop &loop = mesh.mloop[i_loop];
+      values[loop.v] = totals[loop.v] + attribute[i_poly];
+      numbers[loop.v] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_polygon_edge(const Mesh &mesh,
+                                                       ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totedge, 0.0f);
+  blender::Array<int> numbers(mesh.totedge, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      const MLoop &loop = mesh.mloop[i_loop];
+      values[loop.e] = values[loop.v] + attribute[i_poly];
+      numbers[loop.e] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_polygon_corner(const Mesh &mesh,
+                                                         ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totedge, 0.0f);
+  blender::Array<int> numbers(mesh.totedge, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      values[i_loop] = values[i_loop] + attribute[i_poly];
+      numbers[i_loop] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_point_polygon(const Mesh &mesh,
+                                                        ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totpoly, 0.0f);
+  blender::Array<int> numbers(mesh.totpoly, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      const MLoop &loop = mesh.mloop[i_loop];
+      values[i_poly] = values[i_poly] + attribute[loop.v];
+      numbers[i_poly] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_point_edge(const Mesh &mesh, ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totedge, 0.0f);
+  for (const int i_edge : IndexRange(mesh.totedge)) {
+    const MEdge &edge = mesh.medge[i_edge];
+    values[i_edge] = (attribute[edge.v1] + attribute[edge.v2]) / 2.0f;
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_point_corner(const Mesh &mesh,
+                                                       ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totloop, 0.0f);
+  blender::Array<int> numbers(mesh.totloop, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      const MLoop &loop = mesh.mloop[i_loop];
+      values[i_loop] = values[i_loop] + attribute[loop.v];
+      numbers[i_loop] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_edge_polygon(const Mesh &mesh,
+                                                       ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totpoly, 0.0f);
+  blender::Array<int> numbers(mesh.totpoly, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      const MLoop &loop = mesh.mloop[i_loop];
+      values[i_poly] = values[i_poly] + attribute[loop.e];
+      numbers[i_poly] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_edge_point(const Mesh &mesh, ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totloop, 0.0f);
+  blender::Array<int> numbers(mesh.totloop, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      const MLoop &loop = mesh.mloop[i_loop];
+      values[loop.v] = values[loop.v] + attribute[loop.e];
+      numbers[loop.v] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_edge_corner(const Mesh &mesh, ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totloop, 0.0f);
+  blender::Array<int> numbers(mesh.totloop, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      const MLoop &loop = mesh.mloop[i_loop];
+      values[i_loop] = values[i_loop] + attribute[loop.e];
+      numbers[i_loop] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_corner_point(const Mesh &mesh,
+                                                       ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totvert, 0.0f);
+  blender::Array<int> numbers(mesh.totvert, 0);
+  for (const int i_loop : IndexRange(mesh.totloop)) {
+    const MLoop &loop = mesh.mloop[i_loop];
+    values[loop.v] = values[loop.v] + attribute[i_loop];
+    numbers[loop.v] += 1;
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_corner_polygon(const Mesh &mesh,
+                                                         ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totpoly, 0.0f);
+  blender::Array<int> numbers(mesh.totpoly, 0);
+  for (const int i_poly : IndexRange(mesh.totpoly)) {
+    const MPoly &poly = mesh.mpoly[i_poly];
+    for (const int &i_loop : IndexRange(poly.loopstart, poly.loopstart)) {
+      values[i_poly] = values[i_poly] + attribute[i_loop];
+      numbers[i_poly] += 1;
+    }
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+static ReadAttributePtr mesh_adapt_domain_corner_edge(const Mesh &mesh, ReadAttributePtr attribute)
+{
+  blender::Array<float> values(mesh.totedge, 0.0f);
+  blender::Array<int> numbers(mesh.totedge, 0);
+  for (const int i_loop : IndexRange(mesh.totloop)) {
+    const MLoop &loop = mesh.mloop[i_loop];
+    values[loop.e] = values[loop.e] + attribute[i_loop];
+    numbers[loop.e] += 1;
+  }
+  for (const int i : values.index_range()) {
+    values[i] = values[i] / static_cast<float>(numbers[i]);
+  }
+}
+
+ReadAttributePtr MeshComponent::attribute_try_adapt_domain(ReadAttributePtr attribute,
+                                                           const AttributeDomain domain) const
+{
+  if (attribute && attribute->domain() == domain) {
+    return attribute;
+  }
+
+  const Mesh *mesh = this->get_for_read();
+
+  switch (attribute->domain()) {
+    case ATTR_DOMAIN_POLYGON:
+      switch (domain) {
+        case ATTR_DOMAIN_POINT:
+          return mesh_adapt_domain_polygon_point(*mesh, std::move(attribute));
+        case ATTR_DOMAIN_EDGE:
+          return mesh_adapt_domain_polygon_edge(*mesh, std::move(attribute));
+        case ATTR_DOMAIN_CORNER:
+          return mesh_adapt_domain_polygon_corner(*mesh, std::move(attribute));
+        default:
+          BLI_assert(false);
+          return {};
+      }
+      break;
+    case ATTR_DOMAIN_POINT:
+      switch (domain) {
+        case ATTR_DOMAIN_POLYGON:
+          return mesh_adapt_domain_point_polygon(*mesh, std::move(attribute));
+          break;
+        case ATTR_DOMAIN_EDGE:
+          return mesh_adapt_domain_point_edge(*mesh, std::move(attribute));
+          break;
+        case ATTR_DOMAIN_CORNER:
+          return mesh_adapt_domain_point_corner(*mesh, std::move(attribute));
+          break;
+        default:
+          BLI_assert(false);
+          return {};
+      }
+      break;
+    case ATTR_DOMAIN_EDGE:
+      switch (domain) {
+        case ATTR_DOMAIN_POLYGON:
+          return mesh_adapt_domain_edge_polygon(*mesh, std::move(attribute));
+          break;
+        case ATTR_DOMAIN_POINT:
+          return mesh_adapt_domain_edge_point(*mesh, std::move(attribute));
+          break;
+        case ATTR_DOMAIN_CORNER:
+          return mesh_adapt_domain_edge_corner(*mesh, std::move(attribute));
+          break;
+        default:
+          BLI_assert(false);
+          return {};
+      }
+      break;
+    case ATTR_DOMAIN_CORNER:
+      switch (domain) {
+        case ATTR_DOMAIN_POLYGON:
+          return mesh_adapt_domain_corner_polygon(*mesh, std::move(attribute));
+          break;
+        case ATTR_DOMAIN_POINT:
+          return mesh_adapt_domain_corner_point(*mesh, std::move(attribute));
+          break;
+        case ATTR_DOMAIN_EDGE:
+          return mesh_adapt_domain_corner_edge(*mesh, std::move(attribute));
+          break;
+        default:
+          BLI_assert(false);
+          return {};
+      }
+      break;
+    default:
+      BLI_assert(false);
+      return {};
+  }
   return {};
 }
 
