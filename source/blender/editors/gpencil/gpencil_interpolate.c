@@ -614,6 +614,10 @@ static int gpencil_interpolate_invoke(bContext *C, wmOperator *op, const wmEvent
     return OPERATOR_CANCELLED;
   }
 
+  if (GPENCIL_CURVE_EDIT_SESSIONS_ON(gpd)) {
+    BKE_report(op->reports, RPT_ERROR, "Cannot interpolate in curve edit mode");
+    return OPERATOR_CANCELLED;
+  }
   /* try to initialize context data needed */
   if (!gpencil_interpolate_init(C, op)) {
     if (op->customdata) {
@@ -1087,6 +1091,11 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
         op->reports,
         RPT_ERROR,
         "Cannot find a pair of grease pencil frames to interpolate between in active layer");
+    return OPERATOR_CANCELLED;
+  }
+
+  if (GPENCIL_CURVE_EDIT_SESSIONS_ON(gpd)) {
+    BKE_report(op->reports, RPT_ERROR, "Cannot interpolate in curve edit mode");
     return OPERATOR_CANCELLED;
   }
 
