@@ -226,17 +226,15 @@ static void gizmo_axis_draw(const bContext *C, wmGizmo *gz)
     if (!is_aligned_back) {
       float *inner_color = fading_color;
       float *outline_color = fading_color;
+      float negative_color[4];
       if (!is_pos) {
-        float negative_color[4];
         if (is_aligned_front) {
-          inner_color = fading_color;
           interp_v4_v4v4(
               negative_color, (float[4]){1.0f, 1.0f, 1.0f, 1.0f}, axis_color[axis], 0.5f);
           negative_color[3] = MIN2(depth + 1, 1.0f);
           outline_color = negative_color;
         }
         else {
-          outline_color = fading_color;
           interp_v4_v4v4(negative_color, view_color, axis_color[axis], 0.25f);
           negative_color[3] = MIN2(depth + 1, 1.0f);
           inner_color = negative_color;
@@ -354,6 +352,16 @@ static int gizmo_axis_cursor_get(wmGizmo *UNUSED(gz))
   return WM_CURSOR_DEFAULT;
 }
 
+static void gizmo_axis_screen_bounds_get(bContext *C, wmGizmo *gz, rcti *r_bounding_box)
+{
+  ScrArea *area = CTX_wm_area(C);
+  const float rad = WIDGET_RADIUS;
+  r_bounding_box->xmin = gz->matrix_basis[3][0] + area->totrct.xmin - rad;
+  r_bounding_box->ymin = gz->matrix_basis[3][1] + area->totrct.ymin - rad;
+  r_bounding_box->xmax = r_bounding_box->xmin + rad;
+  r_bounding_box->ymax = r_bounding_box->ymin + rad;
+}
+
 void VIEW3D_GT_navigate_rotate(wmGizmoType *gzt)
 {
   /* identifiers */
@@ -363,6 +371,7 @@ void VIEW3D_GT_navigate_rotate(wmGizmoType *gzt)
   gzt->draw = gizmo_axis_draw;
   gzt->test_select = gizmo_axis_test_select;
   gzt->cursor_get = gizmo_axis_cursor_get;
+  gzt->screen_bounds_get = gizmo_axis_screen_bounds_get;
 
   gzt->struct_size = sizeof(wmGizmo);
 }
