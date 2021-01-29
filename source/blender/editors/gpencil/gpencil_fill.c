@@ -1773,7 +1773,6 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
 static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   tGPDfill *tgpf = op->customdata;
-  Scene *scene = tgpf->scene;
   Brush *brush = tgpf->brush;
   BrushGpencilSettings *brush_settings = brush->gpencil_settings;
   const bool is_brush_inv = brush_settings->fill_direction == BRUSH_DIR_IN;
@@ -1822,14 +1821,16 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             BKE_gpencil_frame_selected_hash(tgpf->gpd, frame_list);
 
             /* Loop all frames. */
-            int cfra_prv = CFRA;
+            wmWindow *win = CTX_wm_window(C);
 
             GHashIterator gh_iter;
+            int total = BLI_ghash_len(frame_list);
+            int i = 1;
             GHASH_ITER (gh_iter, frame_list) {
               /* Set active frame as current for filling. */
               tgpf->active_cfra = POINTER_AS_INT(BLI_ghashIterator_getKey(&gh_iter));
-              CFRA = tgpf->active_cfra;
-
+              int step = ((float)i / (float)total) * 100.0f;
+              WM_cursor_time(win, step);
               /* Render screen to temp image and do fill. */
               gpencil_do_frame_fill(tgpf, is_inverted);
 
@@ -1837,13 +1838,11 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
               tgpf->region->winx = (short)tgpf->bwinx;
               tgpf->region->winy = (short)tgpf->bwiny;
               tgpf->region->winrct = tgpf->brect;
+              i++;
             }
-
+            WM_cursor_modal_restore(win);
             /* Free hash table. */
             BLI_ghash_free(frame_list, NULL, NULL);
-
-            /* Back to previous frame. */
-            CFRA = cfra_prv;
 
             /* Free temp stroke. */
             BKE_gpencil_free_stroke(tgpf->gps_mouse);
