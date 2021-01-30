@@ -1616,6 +1616,12 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
  */
 static void gpencil_zoom_level_set(tGPDfill *tgpf, const bool is_inverted)
 {
+  Brush *brush = tgpf->brush;
+  if (brush->gpencil_settings->flag & GP_BRUSH_FILL_FIT_DISABLE) {
+    tgpf->zoom = 1.0f;
+    return;
+  }
+
   Object *ob = tgpf->ob;
   bGPdata *gpd = tgpf->gpd;
   BrushGpencilSettings *brush_settings = tgpf->brush->gpencil_settings;

@@ -1457,6 +1457,7 @@ class VIEW3D_PT_tools_grease_pencil_brush_advanced(View3DPanel, Panel):
                     sub = sub.row(align=True)
                     sub.active = gp_settings.show_fill
                     sub.prop(gp_settings, "fill_threshold", text="")
+                    col.prop(gp_settings, "use_fill_autofit")
 
 
 class VIEW3D_PT_tools_grease_pencil_brush_stroke(Panel, View3DPanel):
