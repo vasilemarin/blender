@@ -2946,7 +2946,8 @@ void BKE_gpencil_frame_selected_hash(const struct bGPdata *gpd, struct GHash *r_
 
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+      if (((gpf == gpl->actframe) && (!is_multiedit)) ||
+          ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
         if (!BLI_ghash_lookup(r_list, POINTER_FROM_INT(gpf->framenum))) {
           BLI_ghash_insert(r_list, POINTER_FROM_INT(gpf->framenum), gpf);
         }
