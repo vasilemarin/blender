@@ -246,23 +246,22 @@ static void draw_mouse_position(tGPDfill *tgpf)
   if (tgpf->gps_mouse == NULL) {
     return;
   }
-  tGPDdraw tgpw;
-  tgpw.rv3d = tgpf->rv3d;
-  tgpw.depsgraph = tgpf->depsgraph;
-  tgpw.ob = tgpf->ob;
-  tgpw.gpd = tgpf->gpd;
-  tgpw.offsx = 0;
-  tgpw.offsy = 0;
-  tgpw.winx = tgpf->region->winx;
-  tgpw.winy = tgpf->region->winy;
-  tgpw.dflag = 0;
-  tgpw.disable_fill = 1;
-  tgpw.dflag |= (GP_DRAWFILLS_ONLY3D | GP_DRAWFILLS_NOSTATUS);
-  unit_m4(tgpw.diff_mat);
+  uchar mouse_color[4] = {0, 0, 255, 255};
+
+  bGPDspoint *pt = &tgpf->gps_mouse->points[0];
+
+  GPUVertFormat *format = immVertexFormat();
+  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+  uint col = GPU_vertformat_attr_add(format, "color", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
 
   /* Draw mouse click position in Blue. */
-  const float mouse_color[4] = {0.0f, 0.0f, 1.0f, 1.0f};
-  gpencil_draw_basic_stroke(tgpf, tgpf->gps_mouse, tgpw.diff_mat, 0, mouse_color, 0, 1.0f, 5.0f);
+  immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
+  GPU_point_size(10.0f);
+  immBegin(GPU_PRIM_POINTS, 1);
+  immAttr4ubv(col, mouse_color);
+  immVertex3fv(pos, &pt->x);
+  immEnd();
+  immUnbindProgram();
 }
 
 /* Helper: Check if must skip the layer */
@@ -1810,16 +1809,10 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             /* Define Zoom level. */
             gpencil_zoom_level_set(tgpf, is_inverted);
             /* Create Temp stroke. */
-            tgpf->gps_mouse = BKE_gpencil_stroke_new(0, 2, 10.0f);
-            /* Add two points to have a line. */
+            tgpf->gps_mouse = BKE_gpencil_stroke_new(0, 1, 10.0f);
             tGPspoint point2D;
             bGPDspoint *pt = &tgpf->gps_mouse->points[0];
             copy_v2fl_v2i(&point2D.x, tgpf->mouse);
-            gpencil_stroke_convertcoords_tpoint(
-                tgpf->scene, tgpf->region, tgpf->ob, &point2D, NULL, &pt->x);
-
-            pt = &tgpf->gps_mouse->points[1];
-            point2D.x += 3.0f * tgpf->zoom;
             gpencil_stroke_convertcoords_tpoint(
                 tgpf->scene, tgpf->region, tgpf->ob, &point2D, NULL, &pt->x);
 
