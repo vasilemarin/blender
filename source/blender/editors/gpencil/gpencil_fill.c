@@ -84,6 +84,9 @@
 #define LEAK_VERT 1
 #define MIN_WINDOW_SIZE 128
 
+/* Set to 1 to debug filling internal image. By default, the value must be 0. */
+#define FILL_DEBUG 0
+
 /* Duplicated: etempFlags */
 const enum {
   GP_DRAWFILLS_NOSTATUS = (1 << 0), /* don't draw status info */
@@ -256,7 +259,7 @@ static void draw_mouse_position(tGPDfill *tgpf)
 
   /* Draw mouse click position in Blue. */
   immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
-  GPU_point_size(10.0f);
+  GPU_point_size(5.0f * tgpf->zoom);
   immBegin(GPU_PRIM_POINTS, 1);
   immAttr4ubv(col, mouse_color);
   immVertex3fv(pos, &pt->x);
@@ -718,7 +721,9 @@ static void gpencil_boundaryfill_area(tGPDfill *tgpf)
   }
 
   if ((index >= 0) && (index <= maxpixel)) {
-    BLI_stack_push(stack, &index);
+    if (!FILL_DEBUG) {
+      BLI_stack_push(stack, &index);
+    }
   }
 
   /* the fill use a stack to save the pixel list instead of the common recursive
@@ -1765,7 +1770,7 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
     }
 
     /* Delete temp image. */
-    if (tgpf->ima) {
+    if ((tgpf->ima) && (!FILL_DEBUG)) {
       BKE_id_free(tgpf->bmain, tgpf->ima);
     }
 
