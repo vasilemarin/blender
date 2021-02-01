@@ -2949,12 +2949,17 @@ int BKE_gpencil_material_find_index_by_name_prefix(Object *ob, const char *name_
 }
 
 /* Create a hash with the list of selected frame number. */
-void BKE_gpencil_frame_selected_hash(const struct bGPdata *gpd, struct GHash *r_list)
+void BKE_gpencil_frame_selected_hash(bGPdata *gpd, struct GHash *r_list)
 {
   const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+  bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
 
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+  LISTBASE_FOREACH (bGPDlayer *, gpl_iter, &gpd->layers) {
+    if ((gpl != NULL) && (!is_multiedit) && (gpl != gpl_iter)) {
+      continue;
+    }
+
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl_iter->frames) {
       if (((gpf == gpl->actframe) && (!is_multiedit)) ||
           ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
         if (!BLI_ghash_lookup(r_list, POINTER_FROM_INT(gpf->framenum))) {

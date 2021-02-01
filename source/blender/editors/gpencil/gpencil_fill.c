@@ -252,14 +252,14 @@ static void draw_mouse_position(tGPDfill *tgpf)
   uchar mouse_color[4] = {0, 0, 255, 255};
 
   bGPDspoint *pt = &tgpf->gps_mouse->points[0];
-
+  float point_size = (tgpf->zoom == 1.0f) ? 5.0f : 0.7f * tgpf->zoom;
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
   uint col = GPU_vertformat_attr_add(format, "color", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
 
   /* Draw mouse click position in Blue. */
   immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
-  GPU_point_size(5.0f * tgpf->zoom);
+  GPU_point_size(point_size);
   immBegin(GPU_PRIM_POINTS, 1);
   immAttr4ubv(col, mouse_color);
   immVertex3fv(pos, &pt->x);
@@ -1714,7 +1714,7 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf, const bool is_inverted)
   float zoomx = (width > tgpf->region->winx) ? width / (float)tgpf->region->winx : 1.0f;
   float zoomy = (height > tgpf->region->winy) ? height / (float)tgpf->region->winy : 1.0f;
   if ((zoomx != 1.0f) || (zoomy != 1.0f)) {
-    tgpf->zoom = min_ff(ceil(max_ff(zoomx, zoomy) + 1.5f), 6.0f);
+    tgpf->zoom = min_ff(ceil(max_ff(zoomx, zoomy) + 0.5f), 6.0f);
   }
 }
 
