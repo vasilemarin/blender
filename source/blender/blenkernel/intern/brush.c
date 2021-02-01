@@ -975,7 +975,7 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
       break;
     }
     case GP_BRUSH_PRESET_FILL_AREA: {
-      brush->size = 20.0f;
+      brush->size = 5.0f;
 
       brush->gpencil_settings->fill_leak = 3;
       brush->gpencil_settings->fill_threshold = 0.1f;
