@@ -182,6 +182,108 @@ typedef struct tGPDfill {
   float zoom;
 } tGPDfill;
 
+bool skip_layer_check(short fill_layer_mode, int gpl_active_index, int gpl_index);
+
+/* Delete any temporary stroke. */
+static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf)
+{
+  CTX_DATA_BEGIN (tgpf->C, bGPDlayer *, gpl, editable_gpencil_layers) {
+    bGPDframe *init_gpf = gpl->frames.first;
+    for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+      LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
+        /* free stroke */
+        if ((gps->flag & GP_STROKE_NOFILL) && (gps->flag & GP_STROKE_TAG)) {
+          BLI_freelinkN(&gpf->strokes, gps);
+          BKE_gpencil_free_stroke(gps);
+        }
+      }
+    }
+  }
+  CTX_DATA_END;
+}
+
+/* Loop all layers create stroke extensions. */
+static void gpencil_create_extensions(tGPDfill *tgpf)
+{
+  Object *ob = tgpf->ob;
+  bGPdata *gpd = tgpf->gpd;
+  Brush *brush = tgpf->brush;
+  BrushGpencilSettings *brush_settings = brush->gpencil_settings;
+
+  bGPDlayer *gpl_active = BKE_gpencil_layer_active_get(gpd);
+  BLI_assert(gpl_active != NULL);
+
+  const int gpl_active_index = BLI_findindex(&gpd->layers, gpl_active);
+  BLI_assert(gpl_active_index >= 0);
+
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    if (gpl->flag & GP_LAYER_HIDE) {
+      continue;
+    }
+
+    /* Decide if the strokes of layers are included or not depending on the layer mode. */
+    const int gpl_index = BLI_findindex(&gpd->layers, gpl);
+    bool skip = skip_layer_check(brush_settings->fill_layer_mode, gpl_active_index, gpl_index);
+    if (skip) {
+      continue;
+    }
+
+    bGPDframe *gpf = BKE_gpencil_layer_frame_get(gpl, tgpf->active_cfra, GP_GETFRAME_USE_PREV);
+    if (gpf == NULL) {
+      continue;
+    }
+
+    LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+      /* Check if stroke can be drawn. */
+      if ((gps->points == NULL) || (gps->totpoints < 2)) {
+        continue;
+      }
+      if (gps->flag & (GP_STROKE_NOFILL | GP_STROKE_TAG)) {
+        continue;
+      }
+      /* Check if the color is visible. */
+      MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
+      if ((gp_style == NULL) || (gp_style->flag & GP_MATERIAL_HIDE)) {
+        continue;
+      }
+
+      /* Extend start. */
+      bGPDspoint *pt0 = &gps->points[1];
+      bGPDspoint *pt1 = &gps->points[0];
+      bGPDstroke *gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 10.0f);
+      gps_new->flag |= GP_STROKE_NOFILL | GP_STROKE_TAG;
+      BLI_addtail(&gpf->strokes, gps_new);
+
+      bGPDspoint *pt = &gps->points[0];
+      copy_v3_v3(&pt->x, &pt1->x);
+      pt->strength = 1.0f;
+      pt->pressure = 1.0f;
+
+      pt = &gps->points[1];
+      interp_v3_v3v3(&pt->x, &pt0->x, &pt1->x, 1.0f + brush_settings->fill_extend_fac);
+      pt->strength = 1.0f;
+      pt->pressure = 1.0f;
+
+      /* Extend end. */
+      pt0 = &gps->points[gps->totpoints - 2];
+      pt1 = &gps->points[gps->totpoints - 1];
+      gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 10.0f);
+      gps_new->flag |= GP_STROKE_NOFILL | GP_STROKE_TAG;
+      BLI_addtail(&gpf->strokes, gps_new);
+
+      pt = &gps->points[0];
+      copy_v3_v3(&pt->x, &pt1->x);
+      pt->strength = 1.0f;
+      pt->pressure = 1.0f;
+
+      pt = &gps->points[1];
+      interp_v3_v3v3(&pt->x, &pt0->x, &pt1->x, 1.0f + brush_settings->fill_extend_fac);
+      pt->strength = 1.0f;
+      pt->pressure = 1.0f;
+    }
+  }
+}
+
 /* draw a given stroke using same thickness and color for all points */
 static void gpencil_draw_basic_stroke(tGPDfill *tgpf,
                                       bGPDstroke *gps,
@@ -1509,6 +1611,9 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
     MEM_SAFE_FREE(tgpf->sbuffer);
     MEM_SAFE_FREE(tgpf->depth_arr);
 
+    /* Remove any temp stroke. */
+    gpencil_delete_temp_stroke_extension(tgpf);
+
     /* remove drawing handler */
     if (tgpf->draw_handle_3d) {
       ED_region_draw_cb_exit(tgpf->region->type, tgpf->draw_handle_3d);
@@ -1791,8 +1896,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
   const bool is_inverted = (is_brush_inv && !event->ctrl) || (!is_brush_inv && event->ctrl);
   const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(tgpf->gpd);
 
-  int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */
-
+  int estate = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) == 0) ? OPERATOR_PASS_THROUGH :
+                                                                    OPERATOR_RUNNING_MODAL;
   switch (event->type) {
     case EVT_ESCKEY:
     case RIGHTMOUSE:
@@ -1881,6 +1986,22 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
         }
       }
       tgpf->oldkey = event->type;
+      break;
+    case EVT_PAGEUPKEY:
+    case WHEELUPMOUSE:
+      if (tgpf->oldkey == 1) {
+        brush->gpencil_settings->fill_extend_fac -= 0.1f;
+        CLAMP_MIN(brush->gpencil_settings->fill_extend_fac, 0.0f);
+      }
+      break;
+    case EVT_PAGEDOWNKEY:
+    case WHEELDOWNMOUSE:
+      if (tgpf->oldkey == 1) {
+        brush->gpencil_settings->fill_extend_fac += 0.1f;
+        CLAMP_MAX(brush->gpencil_settings->fill_extend_fac, 100.0f);
+      }
+      break;
+    default:
       break;
   }
   /* process last operations before exiting */
