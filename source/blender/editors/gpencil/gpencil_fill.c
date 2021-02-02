@@ -252,7 +252,8 @@ static void draw_mouse_position(tGPDfill *tgpf)
   uchar mouse_color[4] = {0, 0, 255, 255};
 
   bGPDspoint *pt = &tgpf->gps_mouse->points[0];
-  float point_size = (tgpf->zoom == 1.0f) ? 5.0f : 0.7f * tgpf->zoom;
+  float point_size = (tgpf->zoom == 1.0f) ? 4.0f * tgpf->fill_factor :
+                                            (0.5f * tgpf->zoom) + tgpf->fill_factor;
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
   uint col = GPU_vertformat_attr_add(format, "color", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
@@ -1813,6 +1814,11 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             tgpf->mouse[1] = event->mval[1];
             /* Define Zoom level. */
             gpencil_zoom_level_set(tgpf, is_inverted);
+            /* Adjust resolution factor if zoom factor is high. */
+            if (tgpf->zoom > 3.0f) {
+              tgpf->fill_factor = min_ff(tgpf->fill_factor + 1.5f, 8.0f);
+            }
+
             /* Create Temp stroke. */
             tgpf->gps_mouse = BKE_gpencil_stroke_new(0, 1, 10.0f);
             tGPspoint point2D;
