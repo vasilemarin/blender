@@ -1789,6 +1789,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
   BrushGpencilSettings *brush_settings = brush->gpencil_settings;
   const bool is_brush_inv = brush_settings->fill_direction == BRUSH_DIR_IN;
   const bool is_inverted = (is_brush_inv && !event->ctrl) || (!is_brush_inv && event->ctrl);
+  const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(tgpf->gpd);
 
   int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */
 
@@ -1826,6 +1827,14 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             copy_v2fl_v2i(&point2D.x, tgpf->mouse);
             gpencil_stroke_convertcoords_tpoint(
                 tgpf->scene, tgpf->region, tgpf->ob, &point2D, NULL, &pt->x);
+
+            /* If not multiframe and there is no frame in CFRA for the active layer, create
+             * a new frame before to make the hash function can find something. */
+            if (!is_multiedit) {
+              tgpf->gpf = BKE_gpencil_layer_frame_get(
+                  tgpf->gpl, tgpf->active_cfra, GP_GETFRAME_ADD_NEW);
+              tgpf->gpf->flag |= GP_FRAME_SELECT;
+            }
 
             /* Hash of selected frames.*/
             GHash *frame_list = BLI_ghash_int_new_ex(__func__, 64);
