@@ -851,6 +851,7 @@ bGPDstroke *BKE_gpencil_stroke_new(int mat_idx, int totpoints, short thickness)
 
   gps->mat_nr = mat_idx;
 
+  gps->dvert = NULL;
   gps->editcurve = NULL;
 
   return gps;

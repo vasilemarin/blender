@@ -131,7 +131,8 @@ typedef struct tGPDfill {
   short oldkey;
   /** send to back stroke */
   bool on_back;
-
+  /** Flag for render mode */
+  bool is_render;
   /** mouse fill center position */
   int mouse[2];
   /** windows width */
@@ -180,9 +181,14 @@ typedef struct tGPDfill {
 
   /** Zoom factor. */
   float zoom;
+
+  /** Factor of extension. */
+  float fill_extend_fac;
+
 } tGPDfill;
 
 bool skip_layer_check(short fill_layer_mode, int gpl_active_index, int gpl_index);
+static void gpencil_draw_boundary_lines(const struct bContext *UNUSED(C), struct tGPDfill *tgpf);
 
 /* Delete any temporary stroke. */
 static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf)
@@ -193,13 +199,25 @@ static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf)
       LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
         /* free stroke */
         if ((gps->flag & GP_STROKE_NOFILL) && (gps->flag & GP_STROKE_TAG)) {
-          BLI_freelinkN(&gpf->strokes, gps);
+          BLI_remlink(&gpf->strokes, gps);
           BKE_gpencil_free_stroke(gps);
         }
       }
     }
   }
   CTX_DATA_END;
+}
+
+static void extrapolate_points_by_length(bGPDspoint *a,
+                                         bGPDspoint *b,
+                                         float length,
+                                         float r_point[3])
+{
+  float ab[3];
+  sub_v3_v3v3(ab, &b->x, &a->x);
+  normalize_v3(ab);
+  mul_v3_fl(ab, length);
+  add_v3_v3v3(r_point, &b->x, ab);
 }
 
 /* Loop all layers create stroke extensions. */
@@ -250,38 +268,48 @@ static void gpencil_create_extensions(tGPDfill *tgpf)
       /* Extend start. */
       bGPDspoint *pt0 = &gps->points[1];
       bGPDspoint *pt1 = &gps->points[0];
-      bGPDstroke *gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 10.0f);
+      bGPDstroke *gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 20.0f);
       gps_new->flag |= GP_STROKE_NOFILL | GP_STROKE_TAG;
       BLI_addtail(&gpf->strokes, gps_new);
 
-      bGPDspoint *pt = &gps->points[0];
+      bGPDspoint *pt = &gps_new->points[0];
       copy_v3_v3(&pt->x, &pt1->x);
       pt->strength = 1.0f;
       pt->pressure = 1.0f;
 
-      pt = &gps->points[1];
-      interp_v3_v3v3(&pt->x, &pt0->x, &pt1->x, 1.0f + brush_settings->fill_extend_fac);
+      pt = &gps_new->points[1];
       pt->strength = 1.0f;
       pt->pressure = 1.0f;
+      extrapolate_points_by_length(pt0, pt1, tgpf->fill_extend_fac, &pt->x);
 
       /* Extend end. */
       pt0 = &gps->points[gps->totpoints - 2];
       pt1 = &gps->points[gps->totpoints - 1];
-      gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 10.0f);
+      gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 20.0f);
       gps_new->flag |= GP_STROKE_NOFILL | GP_STROKE_TAG;
       BLI_addtail(&gpf->strokes, gps_new);
 
-      pt = &gps->points[0];
+      pt = &gps_new->points[0];
       copy_v3_v3(&pt->x, &pt1->x);
       pt->strength = 1.0f;
       pt->pressure = 1.0f;
 
-      pt = &gps->points[1];
-      interp_v3_v3v3(&pt->x, &pt0->x, &pt1->x, 1.0f + brush_settings->fill_extend_fac);
+      pt = &gps_new->points[1];
       pt->strength = 1.0f;
       pt->pressure = 1.0f;
+      extrapolate_points_by_length(pt0, pt1, tgpf->fill_extend_fac, &pt->x);
     }
   }
+}
+
+static void gpencil_update_extend(tGPDfill *tgpf)
+{
+  gpencil_delete_temp_stroke_extension(tgpf);
+
+  if (tgpf->fill_extend_fac > 0.0f) {
+    gpencil_create_extensions(tgpf);
+  }
+  WM_event_add_notifier(tgpf->C, NC_GPENCIL | NA_EDITED, NULL);
 }
 
 /* draw a given stroke using same thickness and color for all points */
@@ -302,9 +330,14 @@ static void gpencil_draw_basic_stroke(tGPDfill *tgpf,
   int totpoints = gps->totpoints;
   float fpt[3];
   float col[4];
-
-  copy_v4_v4(col, ink);
-
+  const float extend_col[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+  const bool is_extend = (gps->flag & GP_STROKE_NOFILL) && (gps->flag & GP_STROKE_TAG);
+  if ((is_extend) && (!tgpf->is_render)) {
+    copy_v4_v4(col, extend_col);
+  }
+  else {
+    copy_v4_v4(col, ink);
+  }
   /* if cyclic needs more vertex */
   int cyclic_add = (cyclic) ? 1 : 0;
 
@@ -315,7 +348,7 @@ static void gpencil_draw_basic_stroke(tGPDfill *tgpf,
   immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
   /* draw stroke curve */
-  GPU_line_width(thickness);
+  GPU_line_width((!is_extend) ? thickness : 5.0f);
   immBeginAtMost(GPU_PRIM_LINE_STRIP, totpoints + cyclic_add);
   const bGPDspoint *pt = points;
 
@@ -509,7 +542,9 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
 
       /* normal strokes */
       if (ELEM(tgpf->fill_draw_mode, GP_FILL_DMODE_STROKE, GP_FILL_DMODE_BOTH)) {
-        ED_gpencil_draw_fill(&tgpw);
+        if ((gps->flag & GP_STROKE_TAG) == 0) {
+          ED_gpencil_draw_fill(&tgpw);
+        }
       }
 
       /* 3D Lines with basic shapes and invisible lines */
@@ -1490,7 +1525,6 @@ static void gpencil_fill_draw_3d(const bContext *C, ARegion *UNUSED(region), voi
   if (region != tgpf->region) {
     return;
   }
-
   gpencil_draw_boundary_lines(C, tgpf);
 }
 
@@ -1555,6 +1589,7 @@ static tGPDfill *gpencil_session_init_fill(bContext *C, wmOperator *UNUSED(op))
   tgpf->lock_axis = ts->gp_sculpt.lock_axis;
 
   tgpf->oldkey = -1;
+  tgpf->is_render = false;
   tgpf->sbuffer_used = 0;
   tgpf->sbuffer = NULL;
   tgpf->depth_arr = NULL;
@@ -1566,6 +1601,7 @@ static tGPDfill *gpencil_session_init_fill(bContext *C, wmOperator *UNUSED(op))
   tgpf->fill_threshold = brush->gpencil_settings->fill_threshold;
   tgpf->fill_simplylvl = brush->gpencil_settings->fill_simplylvl;
   tgpf->fill_draw_mode = brush->gpencil_settings->fill_draw_mode;
+  tgpf->fill_extend_fac = brush->gpencil_settings->fill_extend_fac;
   tgpf->fill_factor = max_ff(GPENCIL_MIN_FILL_FAC,
                              min_ff(brush->gpencil_settings->fill_factor, 8.0f));
   tgpf->fill_leak = (int)ceil((float)brush->gpencil_settings->fill_leak * tgpf->fill_factor);
@@ -1905,19 +1941,20 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
       break;
     case LEFTMOUSE:
       tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
+      gpencil_update_extend(tgpf);
       /* first time the event is not enabled to show help lines. */
       if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) == 0)) {
         ARegion *region = BKE_area_find_region_xy(
             CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
         if (region) {
           bool in_bounds = false;
-
           /* Perform bounds check */
           in_bounds = BLI_rcti_isect_pt(&region->winrct, event->x, event->y);
 
           if ((in_bounds) && (region->regiontype == RGN_TYPE_WINDOW)) {
             tgpf->mouse[0] = event->mval[0];
             tgpf->mouse[1] = event->mval[1];
+            tgpf->is_render = true;
             /* Define Zoom level. */
             gpencil_zoom_level_set(tgpf, is_inverted);
             /* Adjust resolution factor if zoom factor is high. */
@@ -1990,15 +2027,17 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEUPKEY:
     case WHEELUPMOUSE:
       if (tgpf->oldkey == 1) {
-        brush->gpencil_settings->fill_extend_fac -= 0.1f;
-        CLAMP_MIN(brush->gpencil_settings->fill_extend_fac, 0.0f);
+        tgpf->fill_extend_fac -= 0.01f;
+        CLAMP_MIN(tgpf->fill_extend_fac, 0.0f);
+        gpencil_update_extend(tgpf);
       }
       break;
     case EVT_PAGEDOWNKEY:
     case WHEELDOWNMOUSE:
       if (tgpf->oldkey == 1) {
-        brush->gpencil_settings->fill_extend_fac += 0.1f;
-        CLAMP_MAX(brush->gpencil_settings->fill_extend_fac, 100.0f);
+        tgpf->fill_extend_fac += 0.01f;
+        CLAMP_MAX(tgpf->fill_extend_fac, 100.0f);
+        gpencil_update_extend(tgpf);
       }
       break;
     default:
