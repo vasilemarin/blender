@@ -5090,6 +5090,7 @@ static void rna_def_space_sequencer(BlenderRNA *brna)
       {SEQ_RENDER_SIZE_PROXY_75, "PROXY_75", 0, "Proxy size 75%", ""},
       {SEQ_RENDER_SIZE_PROXY_100, "PROXY_100", 0, "Proxy size 100%", ""},
       {SEQ_RENDER_SIZE_FULL, "FULL", 0, "No proxy, full render", ""},
+      {SEQ_RENDER_SIZE_AUTOMATIC, "AUTO", 0, "Automatic", "Use size closest to viewport size"},
       {0, NULL, 0, NULL, NULL},
   };
 

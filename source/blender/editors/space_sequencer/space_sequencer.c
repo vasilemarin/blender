@@ -690,6 +690,7 @@ static void sequencer_preview_region_layout(const bContext *C, ARegion *region)
   if (sseq->flag & SEQ_ZOOM_TO_FIT) {
     View2D *v2d = &region->v2d;
     v2d->cur = v2d->tot;
+    UI_view2d_curRect_validate(v2d);
   }
 }
 

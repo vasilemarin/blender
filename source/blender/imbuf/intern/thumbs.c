@@ -409,7 +409,7 @@ static ImBuf *thumb_create_ex(const char *file_path,
         struct anim *anim = NULL;
         anim = IMB_open_anim(file_path, IB_rect | IB_metadata, 0, NULL);
         if (anim != NULL) {
-          img = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE);
+          img = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
           if (img == NULL) {
             printf("not an anim; %s\n", file_path);
           }

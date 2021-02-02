@@ -44,6 +44,7 @@ typedef struct SeqRenderData {
   int rectx;
   int recty;
   int preview_render_size;
+  float downscale_factor;
   int for_render;
   int motion_blur_samples;
   float motion_blur_shutter;

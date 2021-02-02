@@ -111,6 +111,7 @@ typedef struct DiskCacheHeaderEntry {
   uint64_t size_compressed;
   uint64_t size_raw;
   uint64_t offset;
+  uint64_t downscale_index;
   char colorspace_name[COLORSPACE_NAME_MAX];
 } DiskCacheHeaderEntry;
 
@@ -153,6 +154,8 @@ typedef struct SeqCache {
 typedef struct SeqCacheItem {
   struct SeqCache *cache_owner;
   struct ImBuf *ibuf;
+  IMB_Downscale downscale_index; /* Used downscale for RAW images, so we have information about
+                                   original size. */
 } SeqCacheItem;
 
 typedef struct SeqCacheKey {
@@ -541,7 +544,10 @@ static size_t seq_disk_cache_write_header(FILE *file, DiskCacheHeader *header)
   return fwrite(header, sizeof(*header), 1, file);
 }
 
-static int seq_disk_cache_add_header_entry(SeqCacheKey *key, ImBuf *ibuf, DiskCacheHeader *header)
+static int seq_disk_cache_add_header_entry(SeqCacheKey *key,
+                                           ImBuf *ibuf,
+                                           IMB_Downscale downscale_index,
+                                           DiskCacheHeader *header)
 {
   int i;
   uint64_t offset = sizeof(*header);
@@ -575,6 +581,7 @@ static int seq_disk_cache_add_header_entry(SeqCacheKey *key, ImBuf *ibuf, DiskCa
 
   header->entry[i].offset = offset;
   header->entry[i].frameno = key->frame_index;
+  header->entry[i].downscale_index = downscale_index;
 
   /* Store colorspace name of ibuf. */
   const char *colorspace_name;
@@ -603,7 +610,10 @@ static int seq_disk_cache_get_header_entry(SeqCacheKey *key, DiskCacheHeader *he
   return -1;
 }
 
-static bool seq_disk_cache_write_file(SeqDiskCache *disk_cache, SeqCacheKey *key, ImBuf *ibuf)
+static bool seq_disk_cache_write_file(SeqDiskCache *disk_cache,
+                                      SeqCacheKey *key,
+                                      ImBuf *ibuf,
+                                      IMB_Downscale downscale_index)
 {
   char path[FILE_MAX];
 
@@ -629,7 +639,7 @@ static bool seq_disk_cache_write_file(SeqDiskCache *disk_cache, SeqCacheKey *key
     seq_disk_cache_delete_file(disk_cache, cache_file);
     return false;
   }
-  int entry_index = seq_disk_cache_add_header_entry(key, ibuf, &header);
+  int entry_index = seq_disk_cache_add_header_entry(key, ibuf, downscale_index, &header);
 
   size_t bytes_written = deflate_imbuf_to_file(
       ibuf, file, seq_disk_cache_compression_level(), &header.entry[entry_index]);
@@ -649,7 +659,9 @@ static bool seq_disk_cache_write_file(SeqDiskCache *disk_cache, SeqCacheKey *key
   return false;
 }
 
-static ImBuf *seq_disk_cache_read_file(SeqDiskCache *disk_cache, SeqCacheKey *key)
+static ImBuf *seq_disk_cache_read_file(SeqDiskCache *disk_cache,
+                                       SeqCacheKey *key,
+                                       IMB_Downscale *downscale_index)
 {
   char path[FILE_MAX];
   DiskCacheHeader header;
@@ -706,6 +718,9 @@ static ImBuf *seq_disk_cache_read_file(SeqDiskCache *disk_cache, SeqCacheKey *ke
   seq_disk_cache_update_file(disk_cache, path);
   fclose(file);
 
+  if (downscale_index != NULL) {
+    *downscale_index = header.entry[entry_index].downscale_index;
+  }
   return ibuf;
 }
 
@@ -840,13 +855,17 @@ static int get_stored_types_flag(Scene *scene, SeqCacheKey *key)
   return flag;
 }
 
-static void seq_cache_put_ex(Scene *scene, SeqCacheKey *key, ImBuf *ibuf)
+static void seq_cache_put_ex(Scene *scene,
+                             SeqCacheKey *key,
+                             ImBuf *ibuf,
+                             IMB_Downscale downscale_index)
 {
   SeqCache *cache = seq_cache_get_from_scene(scene);
   SeqCacheItem *item;
   item = BLI_mempool_alloc(cache->items_pool);
   item->cache_owner = cache;
   item->ibuf = ibuf;
+  item->downscale_index = downscale_index;
 
   const int stored_types_flag = get_stored_types_flag(scene, key);
 
@@ -880,12 +899,15 @@ static void seq_cache_put_ex(Scene *scene, SeqCacheKey *key, ImBuf *ibuf)
   }
 }
 
-static ImBuf *seq_cache_get_ex(SeqCache *cache, SeqCacheKey *key)
+static ImBuf *seq_cache_get_ex(SeqCache *cache, SeqCacheKey *key, IMB_Downscale *downscale_index)
 {
   SeqCacheItem *item = BLI_ghash_lookup(cache->hash, key);
 
   if (item && item->ibuf) {
     IMB_refImBuf(item->ibuf);
+    if (downscale_index != NULL) {
+      *downscale_index = item->downscale_index;
+    }
 
     return item->ibuf;
   }
@@ -1315,7 +1337,8 @@ void seq_cache_cleanup_sequence(Scene *scene,
 struct ImBuf *seq_cache_get(const SeqRenderData *context,
                             Sequence *seq,
                             float timeline_frame,
-                            int type)
+                            int type,
+                            IMB_Downscale *downscale_index)
 {
 
   if (context->skip_cache || context->is_proxy_render || !seq) {
@@ -1346,7 +1369,7 @@ struct ImBuf *seq_cache_get(const SeqRenderData *context,
   /* Try RAM cache: */
   if (cache && seq) {
     seq_cache_populate_key(&key, context, seq, timeline_frame, type);
-    ibuf = seq_cache_get_ex(cache, &key);
+    ibuf = seq_cache_get_ex(cache, &key, downscale_index);
   }
   seq_cache_unlock(scene);
 
@@ -1361,7 +1384,7 @@ struct ImBuf *seq_cache_get(const SeqRenderData *context,
     }
 
     BLI_mutex_lock(&cache->disk_cache->read_write_mutex);
-    ibuf = seq_disk_cache_read_file(cache->disk_cache, &key);
+    ibuf = seq_disk_cache_read_file(cache->disk_cache, &key, downscale_index);
     BLI_mutex_unlock(&cache->disk_cache->read_write_mutex);
 
     if (ibuf == NULL) {
@@ -1371,7 +1394,7 @@ struct ImBuf *seq_cache_get(const SeqRenderData *context,
     /* Store read image in RAM. Only recycle item for final type. */
     if (key.type != SEQ_CACHE_STORE_FINAL_OUT || seq_cache_recycle_item(scene)) {
       SeqCacheKey *new_key = seq_cache_allocate_key(cache, context, seq, timeline_frame, type);
-      seq_cache_put_ex(scene, new_key, ibuf);
+      seq_cache_put_ex(scene, new_key, ibuf, IMB_DOWNSCALE_NONE);
     }
   }
 
@@ -1394,7 +1417,7 @@ bool seq_cache_put_if_possible(
   }
 
   if (seq_cache_recycle_item(scene)) {
-    seq_cache_put(context, seq, timeline_frame, type, ibuf);
+    seq_cache_put(context, seq, timeline_frame, type, ibuf, IMB_DOWNSCALE_NONE);
     return true;
   }
 
@@ -1403,8 +1426,12 @@ bool seq_cache_put_if_possible(
   return false;
 }
 
-void seq_cache_put(
-    const SeqRenderData *context, Sequence *seq, float timeline_frame, int type, ImBuf *i)
+void seq_cache_put(const SeqRenderData *context,
+                   Sequence *seq,
+                   float timeline_frame,
+                   int type,
+                   ImBuf *i,
+                   IMB_Downscale downscale_index)
 {
   if (i == NULL || context->skip_cache || context->is_proxy_render || !seq) {
     return;
@@ -1420,7 +1447,7 @@ void seq_cache_put(
   }
 
   /* Prevent reinserting, it breaks cache key linking. */
-  ImBuf *test = seq_cache_get(context, seq, timeline_frame, type);
+  ImBuf *test = seq_cache_get(context, seq, timeline_frame, type, NULL);
   if (test) {
     IMB_freeImBuf(test);
     return;
@@ -1433,7 +1460,7 @@ void seq_cache_put(
   seq_cache_lock(scene);
   SeqCache *cache = seq_cache_get_from_scene(scene);
   SeqCacheKey *key = seq_cache_allocate_key(cache, context, seq, timeline_frame, type);
-  seq_cache_put_ex(scene, key, i);
+  seq_cache_put_ex(scene, key, i, downscale_index);
   seq_cache_unlock(scene);
 
   if (!key->is_temp_cache) {
@@ -1443,7 +1470,7 @@ void seq_cache_put(
       }
 
       BLI_mutex_lock(&cache->disk_cache->read_write_mutex);
-      seq_disk_cache_write_file(cache->disk_cache, key, i);
+      seq_disk_cache_write_file(cache->disk_cache, key, i, downscale_index);
       BLI_mutex_unlock(&cache->disk_cache->read_write_mutex);
       seq_disk_cache_enforce_limits(cache->disk_cache);
     }

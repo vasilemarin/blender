@@ -3090,7 +3090,7 @@ struct anim *openanim(const char *name, int flags, int streamindex, char colorsp
     return NULL;
   }
 
-  ibuf = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE);
+  ibuf = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
   if (ibuf == NULL) {
     if (BLI_exists(name)) {
       printf("not an anim: %s\n", name);
@@ -4303,7 +4303,8 @@ static ImBuf *load_movie_single(Image *ima, ImageUser *iuser, int frame, const i
     if (fra > (dur - 1)) {
       fra = dur - 1;
     }
-    ibuf = IMB_makeSingleUser(IMB_anim_absolute(ia->anim, fra, IMB_TC_RECORD_RUN, IMB_PROXY_NONE));
+    ibuf = IMB_makeSingleUser(
+        IMB_anim_absolute(ia->anim, fra, IMB_TC_RECORD_RUN, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE));
 
     if (ibuf) {
       image_init_after_load(ima, iuser, ibuf);

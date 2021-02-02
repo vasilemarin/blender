@@ -657,6 +657,7 @@ typedef enum eSpaceSeq_Proxy_RenderSize {
   SEQ_RENDER_SIZE_PROXY_75 = 75,
   SEQ_RENDER_SIZE_PROXY_100 = 99,
   SEQ_RENDER_SIZE_FULL = 100,
+  SEQ_RENDER_SIZE_AUTOMATIC = 101,
 } eSpaceSeq_Proxy_RenderSize;
 
 typedef struct MaskSpaceInfo {

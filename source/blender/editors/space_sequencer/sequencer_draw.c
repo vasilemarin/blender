@@ -1272,6 +1272,25 @@ void ED_sequencer_special_preview_clear(void)
   sequencer_special_update_set(NULL);
 }
 
+static void sequencer_render_data_downscale_set(SeqRenderData *context,
+                                                const SpaceSeq *sseq,
+                                                const View2D *v2d)
+{
+  if (sseq->render_size != SEQ_RENDER_SIZE_AUTOMATIC) {
+    return;
+  }
+
+  const Scene *scene = context->scene;
+  rcti rect_tot;
+  UI_view2d_view_to_region_rcti(v2d, &v2d->tot, &rect_tot);
+  const int viewport_image_width = BLI_rcti_size_x(&rect_tot);
+  const float viewport_downscale_factor = (float)scene->r.xsch / (float)viewport_image_width;
+  context->downscale_factor = IMB_downscale_index_to_downscale_factor(
+      IMB_downscale_factor_to_downscale_index(viewport_downscale_factor));
+  context->rectx = scene->r.xsch / context->downscale_factor;
+  context->recty = scene->r.ysch / context->downscale_factor;
+}
+
 /**
  * Rendering using opengl will change the current viewport/context.
  * This is why we need the \a region, to set back the render area.
@@ -1311,6 +1330,7 @@ ImBuf *sequencer_ibuf_get(struct Main *bmain,
   SEQ_render_new_render_data(
       bmain, depsgraph, scene, rectx, recty, sseq->render_size, false, &context);
   context.view_id = BKE_scene_multiview_view_id_get(&scene->r, viewname);
+  sequencer_render_data_downscale_set(&context, sseq, &region->v2d);
 
   /* Sequencer could start rendering, in this case we need to be sure it wouldn't be canceled
    * by Escape pressed somewhere in the past. */

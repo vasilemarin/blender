@@ -240,7 +240,8 @@ ImBuf *seq_proxy_fetch(const SeqRenderData *context, Sequence *seq, int timeline
     frameno = IMB_anim_index_get_frame_index(
         sanim ? sanim->anim : NULL, seq->strip->proxy->tc, frameno);
 
-    return IMB_anim_absolute(proxy->anim, frameno, IMB_TC_NONE, IMB_PROXY_NONE);
+    return IMB_anim_absolute(
+        proxy->anim, frameno, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
   }
 
   if (seq_proxy_get_fname(ed, seq, timeline_frame, psize, name, context->view_id) == 0) {

@@ -393,7 +393,8 @@ static void build_pict_list_ex(
     struct anim *anim = IMB_open_anim(first, IB_rect, 0, NULL);
     if (anim) {
       int pic;
-      struct ImBuf *ibuf = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE);
+      struct ImBuf *ibuf = IMB_anim_absolute(
+          anim, 0, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
       if (ibuf) {
         playanim_toscreen(ps, NULL, ibuf, fontid, fstep);
         IMB_freeImBuf(ibuf);
@@ -1247,7 +1248,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
     struct anim *anim;
     anim = IMB_open_anim(filepath, IB_rect, 0, NULL);
     if (anim) {
-      ibuf = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE);
+      ibuf = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
       IMB_close_anim(anim);
       anim = NULL;
     }
@@ -1399,7 +1400,8 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
         ibuf = ps.picture->ibuf;
       }
       else if (ps.picture->anim) {
-        ibuf = IMB_anim_absolute(ps.picture->anim, ps.picture->frame, IMB_TC_NONE, IMB_PROXY_NONE);
+        ibuf = IMB_anim_absolute(
+            ps.picture->anim, ps.picture->frame, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
       }
       else if (ps.picture->mem) {
         /* use correct colorspace here */

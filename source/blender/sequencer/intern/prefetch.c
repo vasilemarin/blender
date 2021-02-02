@@ -300,6 +300,7 @@ static void seq_prefetch_update_context(const SeqRenderData *context)
                              &pfjob->context_cpy);
   pfjob->context_cpy.is_prefetch_render = true;
   pfjob->context_cpy.task_id = SEQ_TASK_PREFETCH_RENDER;
+  pfjob->context_cpy.downscale_factor = context->downscale_factor;
 
   SEQ_render_new_render_data(pfjob->bmain,
                              pfjob->depsgraph,
@@ -310,6 +311,7 @@ static void seq_prefetch_update_context(const SeqRenderData *context)
                              false,
                              &pfjob->context);
   pfjob->context.is_prefetch_render = false;
+  pfjob->context.downscale_factor = context->downscale_factor;
 
   /* Same ID as prefetch context, because context will be swapped, but we still
    * want to assign this ID to cache entries created in this thread.
@@ -379,28 +381,28 @@ static bool seq_prefetch_do_skip_frame(PrefetchJob *pfjob, ListBase *seqbase)
     if (seq_arr[i]->type == SEQ_TYPE_SCENE && (seq_arr[i]->flag & SEQ_SCENE_STRIPS) == 0) {
       int cached_types = 0;
 
-      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_FINAL_OUT);
+      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_FINAL_OUT, NULL);
       if (ibuf != NULL) {
         cached_types |= SEQ_CACHE_STORE_FINAL_OUT;
         IMB_freeImBuf(ibuf);
         ibuf = NULL;
       }
 
-      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_COMPOSITE);
+      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_COMPOSITE, NULL);
       if (ibuf != NULL) {
         cached_types |= SEQ_CACHE_STORE_COMPOSITE;
         IMB_freeImBuf(ibuf);
         ibuf = NULL;
       }
 
-      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_PREPROCESSED);
+      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_PREPROCESSED, NULL);
       if (ibuf != NULL) {
         cached_types |= SEQ_CACHE_STORE_PREPROCESSED;
         IMB_freeImBuf(ibuf);
         ibuf = NULL;
       }
 
-      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_RAW);
+      ibuf = seq_cache_get(ctx, seq_arr[i], cfra, SEQ_CACHE_STORE_RAW, NULL);
       if (ibuf != NULL) {
         cached_types |= SEQ_CACHE_STORE_RAW;
         IMB_freeImBuf(ibuf);

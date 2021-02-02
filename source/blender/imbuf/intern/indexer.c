@@ -1099,7 +1099,8 @@ static void index_rebuild_fallback(FallbackIndexBuilderContext *context,
   struct anim *anim = context->anim;
 
   for (pos = 0; pos < cnt; pos++) {
-    struct ImBuf *ibuf = IMB_anim_absolute(anim, pos, IMB_TC_NONE, IMB_PROXY_NONE);
+    struct ImBuf *ibuf = IMB_anim_absolute(
+        anim, pos, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
     struct ImBuf *tmp_ibuf = IMB_dupImBuf(ibuf);
     float next_progress = (float)pos / (float)cnt;
 

@@ -73,6 +73,7 @@ struct ImBuf *seq_render_mask(const struct SeqRenderData *context,
                               float frame_index,
                               bool make_float);
 void seq_imbuf_assign_spaces(struct Scene *scene, struct ImBuf *ibuf);
+float seq_preview_scale_factor_from_context(const struct SeqRenderData *context);
 
 #ifdef __cplusplus
 }

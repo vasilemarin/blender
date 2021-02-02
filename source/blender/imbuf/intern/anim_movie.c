@@ -505,6 +505,101 @@ BLI_INLINE bool need_aligned_ffmpeg_buffer(struct anim *anim)
   return (anim->x & 31) != 0;
 }
 
+IMB_Downscale IMB_downscale_factor_to_downscale_index(const float downscale_factor)
+{
+  if (downscale_factor > 32.0f) {
+    return IMB_DOWNSCALE_32X;
+  }
+
+  if (downscale_factor <= 1.0f) {
+    return IMB_DOWNSCALE_NONE;
+  }
+
+  return round_fl_to_int(log2(downscale_factor));
+}
+
+int IMB_downscale_index_to_downscale_factor(const IMB_Downscale downscale_index)
+{
+  switch (downscale_index) {
+    case IMB_DOWNSCALE_2X:
+      return 2;
+    case IMB_DOWNSCALE_4X:
+      return 4;
+    case IMB_DOWNSCALE_8X:
+      return 8;
+    case IMB_DOWNSCALE_16X:
+      return 16;
+    case IMB_DOWNSCALE_32X:
+      return 32;
+    default:
+      return 1;
+  }
+}
+
+static int ffmpeg_sws_context_alloc(struct anim *anim, const IMB_Downscale downscale_index)
+{
+  const int scale_factor = IMB_downscale_index_to_downscale_factor(downscale_index);
+  anim->img_convert_ctx[downscale_index] = sws_getContext(anim->x,
+                                                          anim->y,
+                                                          anim->pCodecCtx->pix_fmt,
+                                                          anim->x / scale_factor,
+                                                          anim->y / scale_factor,
+                                                          AV_PIX_FMT_RGBA,
+                                                          SWS_FAST_BILINEAR | SWS_PRINT_INFO |
+                                                              SWS_FULL_CHR_H_INT,
+                                                          NULL,
+                                                          NULL,
+                                                          NULL);
+
+  if (!anim->img_convert_ctx[downscale_index]) {
+    fprintf(stderr, "Can't transform color space??? Bailing out...\n");
+    avcodec_close(anim->pCodecCtx);
+    avformat_close_input(&anim->pFormatCtx);
+    av_frame_free(&anim->pFrameRGB);
+    av_frame_free(&anim->pFrameDeinterlaced);
+    av_frame_free(&anim->pFrame);
+    anim->pCodecCtx = NULL;
+    return -1;
+  }
+
+#  ifdef FFMPEG_SWSCALE_COLOR_SPACE_SUPPORT
+
+  /* The following for color space determination */
+  int srcRange, dstRange, brightness, contrast, saturation;
+  int *table;
+  const int *inv_table;
+
+  /* Try do detect if input has 0-255 YCbCR range (JFIF Jpeg MotionJpeg) */
+  if (!sws_getColorspaceDetails(anim->img_convert_ctx[downscale_index],
+                                (int **)&inv_table,
+                                &srcRange,
+                                &table,
+                                &dstRange,
+                                &brightness,
+                                &contrast,
+                                &saturation)) {
+    srcRange = srcRange || anim->pCodecCtx->color_range == AVCOL_RANGE_JPEG;
+    inv_table = sws_getCoefficients(anim->pCodecCtx->colorspace);
+
+    if (sws_setColorspaceDetails(anim->img_convert_ctx[downscale_index],
+                                 (int *)inv_table,
+                                 srcRange,
+                                 table,
+                                 dstRange,
+                                 brightness,
+                                 contrast,
+                                 saturation)) {
+      fprintf(stderr, "Warning: Could not set libswscale colorspace details.\n");
+    }
+  }
+  else {
+    fprintf(stderr, "Warning: Could not set libswscale colorspace details.\n");
+  }
+#  endif
+
+  return 0;
+}
+
 static int startffmpeg(struct anim *anim)
 {
   int i, video_stream_index;
@@ -517,13 +612,6 @@ static int startffmpeg(struct anim *anim)
   int frs_num;
   double frs_den;
   int streamcount;
-
-#  ifdef FFMPEG_SWSCALE_COLOR_SPACE_SUPPORT
-  /* The following for color space determination */
-  int srcRange, dstRange, brightness, contrast, saturation;
-  int *table;
-  const int *inv_table;
-#  endif
 
   if (anim == NULL) {
     return (-1);
@@ -692,56 +780,12 @@ static int startffmpeg(struct anim *anim)
     anim->preseek = 0;
   }
 
-  anim->img_convert_ctx = sws_getContext(anim->x,
-                                         anim->y,
-                                         anim->pCodecCtx->pix_fmt,
-                                         anim->x,
-                                         anim->y,
-                                         AV_PIX_FMT_RGBA,
-                                         SWS_FAST_BILINEAR | SWS_PRINT_INFO | SWS_FULL_CHR_H_INT,
-                                         NULL,
-                                         NULL,
-                                         NULL);
-
-  if (!anim->img_convert_ctx) {
-    fprintf(stderr, "Can't transform color space??? Bailing out...\n");
-    avcodec_close(anim->pCodecCtx);
-    avformat_close_input(&anim->pFormatCtx);
-    av_frame_free(&anim->pFrameRGB);
-    av_frame_free(&anim->pFrameDeinterlaced);
-    av_frame_free(&anim->pFrame);
-    anim->pCodecCtx = NULL;
-    return -1;
-  }
-
-#  ifdef FFMPEG_SWSCALE_COLOR_SPACE_SUPPORT
-  /* Try do detect if input has 0-255 YCbCR range (JFIF Jpeg MotionJpeg) */
-  if (!sws_getColorspaceDetails(anim->img_convert_ctx,
-                                (int **)&inv_table,
-                                &srcRange,
-                                &table,
-                                &dstRange,
-                                &brightness,
-                                &contrast,
-                                &saturation)) {
-    srcRange = srcRange || anim->pCodecCtx->color_range == AVCOL_RANGE_JPEG;
-    inv_table = sws_getCoefficients(anim->pCodecCtx->colorspace);
-
-    if (sws_setColorspaceDetails(anim->img_convert_ctx,
-                                 (int *)inv_table,
-                                 srcRange,
-                                 table,
-                                 dstRange,
-                                 brightness,
-                                 contrast,
-                                 saturation)) {
-      fprintf(stderr, "Warning: Could not set libswscale colorspace details.\n");
+  for (IMB_Downscale index = 0; index < IMB_DOWNSCALE_MAX_SLOT; index++) {
+    int error = ffmpeg_sws_context_alloc(anim, index);
+    if (error != 0) {
+      return error;
     }
   }
-  else {
-    fprintf(stderr, "Warning: Could not set libswscale colorspace details.\n");
-  }
-#  endif
 
   return 0;
 }
@@ -752,7 +796,7 @@ static int startffmpeg(struct anim *anim)
  * Output is anim->last_frame
  */
 
-static void ffmpeg_postprocess(struct anim *anim)
+static void ffmpeg_postprocess(struct anim *anim, const IMB_Downscale downscale_index)
 {
   AVFrame *input = anim->pFrame;
   ImBuf *ibuf = anim->last_frame;
@@ -796,8 +840,8 @@ static void ffmpeg_postprocess(struct anim *anim)
     avpicture_fill((AVPicture *)anim->pFrameRGB,
                    (unsigned char *)ibuf->rect,
                    AV_PIX_FMT_RGBA,
-                   anim->x,
-                   anim->y);
+                   ibuf->x,
+                   ibuf->y);
   }
 
   if (ENDIAN_ORDER == B_ENDIAN) {
@@ -809,7 +853,7 @@ static void ffmpeg_postprocess(struct anim *anim)
     unsigned char *bottom;
     unsigned char *top;
 
-    sws_scale(anim->img_convert_ctx,
+    sws_scale(anim->img_convert_ctx[downscale_index],
               (const uint8_t *const *)input->data,
               input->linesize,
               0,
@@ -850,9 +894,9 @@ static void ffmpeg_postprocess(struct anim *anim)
     int *dstStride = anim->pFrameRGB->linesize;
     uint8_t **dst = anim->pFrameRGB->data;
     const int dstStride2[4] = {-dstStride[0], 0, 0, 0};
-    uint8_t *dst2[4] = {dst[0] + (anim->y - 1) * dstStride[0], 0, 0, 0};
+    uint8_t *dst2[4] = {dst[0] + (ibuf->y - 1) * dstStride[0], 0, 0, 0};
 
-    sws_scale(anim->img_convert_ctx,
+    sws_scale(anim->img_convert_ctx[downscale_index],
               (const uint8_t *const *)input->data,
               input->linesize,
               0,
@@ -864,9 +908,9 @@ static void ffmpeg_postprocess(struct anim *anim)
   if (need_aligned_ffmpeg_buffer(anim)) {
     uint8_t *src = anim->pFrameRGB->data[0];
     uint8_t *dst = (uint8_t *)ibuf->rect;
-    for (int y = 0; y < anim->y; y++) {
-      memcpy(dst, src, anim->x * 4);
-      dst += anim->x * 4;
+    for (int y = 0; y < ibuf->y; y++) {
+      memcpy(dst, src, ibuf->x * 4);
+      dst += ibuf->x * 4;
       src += anim->pFrameRGB->linesize[0];
     }
   }
@@ -1045,7 +1089,44 @@ static int ffmpeg_seek_by_byte(AVFormatContext *pFormatCtx)
   return false;
 }
 
-static ImBuf *ffmpeg_fetchibuf(struct anim *anim, int position, IMB_Timecode_Type tc)
+static ImBuf *ffmpeg_fill_ibuf(struct anim *anim, const IMB_Downscale downscale_index)
+{
+  const int scale_factor = IMB_downscale_index_to_downscale_factor(downscale_index);
+  const int width = anim->x / scale_factor;
+  const int height = anim->y / scale_factor;
+
+  /* Certain versions of FFmpeg have a bug in libswscale which ends up in crash
+   * when destination buffer is not properly aligned. For example, this happens
+   * in FFmpeg 4.3.1. It got fixed later on, but for compatibility reasons is
+   * still best to avoid crash.
+   *
+   * This is achieved by using own allocation call rather than relying on
+   * IMB_allocImBuf() to do so since the IMB_allocImBuf() is not guaranteed
+   * to perform aligned allocation.
+   *
+   * In theory this could give better performance, since SIMD operations on
+   * aligned data are usually faster.
+   *
+   * Note that even though sometimes vertical flip is required it does not
+   * affect on alignment of data passed to sws_scale because if the X dimension
+   * is not 32 byte aligned special intermediate buffer is allocated.
+   *
+   * The issue was reported to FFmpeg under ticket #8747 in the FFmpeg tracker
+   * and is fixed in the newer versions than 4.3.1. */
+  IMB_freeImBuf(anim->last_frame);
+  anim->last_frame = IMB_allocImBuf(width, height, 32, 0);
+  anim->last_frame->rect = MEM_mallocN_aligned((size_t)4 * width * height, 32, "ffmpeg ibuf");
+  anim->last_frame->mall |= IB_rect;
+  anim->last_frame->rect_colorspace = colormanage_colorspace_get_named(anim->colorspace);
+  ffmpeg_postprocess(anim, downscale_index);
+  IMB_refImBuf(anim->last_frame);
+  return anim->last_frame;
+}
+
+static ImBuf *ffmpeg_fetchibuf(struct anim *anim,
+                               int position,
+                               IMB_Timecode_Type tc,
+                               const IMB_Downscale downscale_index)
 {
   int64_t pts_to_search = 0;
   double frame_rate;
@@ -1096,6 +1177,10 @@ static ImBuf *ffmpeg_fetchibuf(struct anim *anim, int position, IMB_Timecode_Typ
          st_time);
 
   if (anim->last_frame && anim->last_pts <= pts_to_search && anim->next_pts > pts_to_search) {
+    if (anim->last_downscale_index != downscale_index) {
+      return ffmpeg_fill_ibuf(anim, downscale_index);
+    }
+
     av_log(anim->pFormatCtx,
            AV_LOG_DEBUG,
            "FETCH: frame repeat: last: %" PRId64 " next: %" PRId64 "\n",
@@ -1201,41 +1286,13 @@ static ImBuf *ffmpeg_fetchibuf(struct anim *anim, int position, IMB_Timecode_Typ
     av_log(anim->pFormatCtx, AV_LOG_DEBUG, "FETCH: no seek necessary, just continue...\n");
   }
 
-  IMB_freeImBuf(anim->last_frame);
-
-  /* Certain versions of FFmpeg have a bug in libswscale which ends up in crash
-   * when destination buffer is not properly aligned. For example, this happens
-   * in FFmpeg 4.3.1. It got fixed later on, but for compatibility reasons is
-   * still best to avoid crash.
-   *
-   * This is achieved by using own allocation call rather than relying on
-   * IMB_allocImBuf() to do so since the IMB_allocImBuf() is not guaranteed
-   * to perform aligned allocation.
-   *
-   * In theory this could give better performance, since SIMD operations on
-   * aligned data are usually faster.
-   *
-   * Note that even though sometimes vertical flip is required it does not
-   * affect on alignment of data passed to sws_scale because if the X dimension
-   * is not 32 byte aligned special intermediate buffer is allocated.
-   *
-   * The issue was reported to FFmpeg under ticket #8747 in the FFmpeg tracker
-   * and is fixed in the newer versions than 4.3.1. */
-  anim->last_frame = IMB_allocImBuf(anim->x, anim->y, 32, 0);
-  anim->last_frame->rect = MEM_mallocN_aligned((size_t)4 * anim->x * anim->y, 32, "ffmpeg ibuf");
-  anim->last_frame->mall |= IB_rect;
-
-  anim->last_frame->rect_colorspace = colormanage_colorspace_get_named(anim->colorspace);
-
-  ffmpeg_postprocess(anim);
+  ffmpeg_fill_ibuf(anim, downscale_index);
 
   anim->last_pts = anim->next_pts;
 
   ffmpeg_decode_video_frame(anim);
 
   anim->curposition = position;
-
-  IMB_refImBuf(anim->last_frame);
 
   return anim->last_frame;
 }
@@ -1268,7 +1325,12 @@ static void free_anim_ffmpeg(struct anim *anim)
     av_frame_free(&anim->pFrameRGB);
     av_frame_free(&anim->pFrameDeinterlaced);
 
-    sws_freeContext(anim->img_convert_ctx);
+    for (IMB_Downscale index = 0; index < IMB_DOWNSCALE_MAX_SLOT; index++) {
+      if (anim->img_convert_ctx[index] != NULL) {
+        sws_freeContext(anim->img_convert_ctx[index]);
+      }
+    }
+
     IMB_freeImBuf(anim->last_frame);
     if (anim->next_packet.stream_index != -1) {
       av_free_packet(&anim->next_packet);
@@ -1346,11 +1408,11 @@ struct ImBuf *IMB_anim_previewframe(struct anim *anim)
   struct ImBuf *ibuf = NULL;
   int position = 0;
 
-  ibuf = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE);
+  ibuf = IMB_anim_absolute(anim, 0, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
   if (ibuf) {
     IMB_freeImBuf(ibuf);
     position = anim->duration_in_frames / 2;
-    ibuf = IMB_anim_absolute(anim, position, IMB_TC_NONE, IMB_PROXY_NONE);
+    ibuf = IMB_anim_absolute(anim, position, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
   }
   return ibuf;
 }
@@ -1358,7 +1420,8 @@ struct ImBuf *IMB_anim_previewframe(struct anim *anim)
 struct ImBuf *IMB_anim_absolute(struct anim *anim,
                                 int position,
                                 IMB_Timecode_Type tc,
-                                IMB_Proxy_Size preview_size)
+                                IMB_Proxy_Size preview_size,
+                                const IMB_Downscale downscale_index)
 {
   struct ImBuf *ibuf = NULL;
   char head[256], tail[256];
@@ -1395,7 +1458,7 @@ struct ImBuf *IMB_anim_absolute(struct anim *anim,
     if (proxy) {
       position = IMB_anim_index_get_frame_index(anim, tc, position);
 
-      return IMB_anim_absolute(proxy, position, IMB_TC_NONE, IMB_PROXY_NONE);
+      return IMB_anim_absolute(proxy, position, IMB_TC_NONE, IMB_PROXY_NONE, downscale_index);
     }
   }
 
@@ -1426,9 +1489,10 @@ struct ImBuf *IMB_anim_absolute(struct anim *anim,
 #endif
 #ifdef WITH_FFMPEG
     case ANIM_FFMPEG:
-      ibuf = ffmpeg_fetchibuf(anim, position, tc);
+      ibuf = ffmpeg_fetchibuf(anim, position, tc, downscale_index);
       if (ibuf) {
         anim->curposition = position;
+        anim->last_downscale_index = downscale_index;
       }
       filter_y = 0; /* done internally */
       break;
@@ -1506,10 +1570,18 @@ int IMB_anim_get_preseek(struct anim *anim)
 
 int IMB_anim_get_image_width(struct anim *anim)
 {
+  /* Anim not initialized - initialize it. */
+  if (anim->curtype == 0) {
+    startffmpeg(anim);
+  }
   return anim->x;
 }
 
 int IMB_anim_get_image_height(struct anim *anim)
 {
+  /* Anim not initialized - initialize it. */
+  if (anim->curtype == 0) {
+    startffmpeg(anim);
+  }
   return anim->y;
 }

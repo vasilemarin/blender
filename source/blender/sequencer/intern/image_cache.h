@@ -40,12 +40,14 @@ struct Sequence;
 struct ImBuf *seq_cache_get(const struct SeqRenderData *context,
                             struct Sequence *seq,
                             float timeline_frame,
-                            int type);
+                            int type,
+                            IMB_Downscale *downscale_index);
 void seq_cache_put(const struct SeqRenderData *context,
                    struct Sequence *seq,
                    float timeline_frame,
                    int type,
-                   struct ImBuf *i);
+                   struct ImBuf *i,
+                   IMB_Downscale downscale_index);
 bool seq_cache_put_if_possible(const struct SeqRenderData *context,
                                struct Sequence *seq,
                                float timeline_frame,

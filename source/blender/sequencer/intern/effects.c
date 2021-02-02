@@ -3915,7 +3915,6 @@ static ImBuf *do_text_effect(const SeqRenderData *context,
   int font = blf_mono_font_render;
   int line_height;
   int y_ofs, x, y;
-  double proxy_size_comp;
 
   if (data->text_blf_id == SEQ_FONT_NOT_LOADED) {
     data->text_blf_id = -1;
@@ -3932,14 +3931,11 @@ static ImBuf *do_text_effect(const SeqRenderData *context,
   display_device = context->scene->display_settings.display_device;
   display = IMB_colormanagement_display_get_named(display_device);
 
-  /* Compensate text size for preview render size. */
-  proxy_size_comp = context->scene->r.size / 100.0;
-  if (context->preview_render_size != SEQ_RENDER_SIZE_SCENE) {
-    proxy_size_comp = SEQ_rendersize_to_scale_factor(context->preview_render_size);
-  }
+  /* Get scale factor if preview resolution doesn't match project resolution. */
+  const float preview_scale_factor = seq_preview_scale_factor_from_context(context);
 
   /* set before return */
-  BLF_size(font, proxy_size_comp * data->text_size, 72);
+  BLF_size(font, preview_scale_factor * data->text_size, 72);
 
   BLF_enable(font, BLF_WORD_WRAP);
 

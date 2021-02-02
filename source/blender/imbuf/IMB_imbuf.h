@@ -323,6 +323,18 @@ typedef enum IMB_Proxy_Size {
   IMB_PROXY_MAX_SLOT = 4,
 } IMB_Proxy_Size;
 
+/* Apply pre-defined scale on ImBuf after it was read from source but before it is returned to
+ * caller code. Effectively, can think of downscale as run-time proxy system. */
+typedef enum IMB_Downscale {
+  IMB_DOWNSCALE_NONE = 0,
+  IMB_DOWNSCALE_2X = 1,
+  IMB_DOWNSCALE_4X = 2,
+  IMB_DOWNSCALE_8X = 3,
+  IMB_DOWNSCALE_16X = 4,
+  IMB_DOWNSCALE_32X = 5,
+  IMB_DOWNSCALE_MAX_SLOT = 6,
+} IMB_Downscale;
+
 /* Defaults to BL_proxy within the directory of the animation. */
 void IMB_anim_set_index_dir(struct anim *anim, const char *dir);
 void IMB_anim_get_fname(struct anim *anim, char *file, int size);
@@ -384,6 +396,8 @@ void IMB_anim_set_preseek(struct anim *anim, int preseek);
 int IMB_anim_get_preseek(struct anim *anim);
 int IMB_anim_get_image_width(struct anim *anim);
 int IMB_anim_get_image_height(struct anim *anim);
+IMB_Downscale IMB_downscale_factor_to_downscale_index(const float downscale_factor);
+int IMB_downscale_index_to_downscale_factor(const IMB_Downscale downscale_index);
 
 /**
  *
@@ -393,7 +407,8 @@ int IMB_anim_get_image_height(struct anim *anim);
 struct ImBuf *IMB_anim_absolute(struct anim *anim,
                                 int position,
                                 IMB_Timecode_Type tc /* = 1 = IMB_TC_RECORD_RUN */,
-                                IMB_Proxy_Size preview_size /* = 0 = IMB_PROXY_NONE */);
+                                IMB_Proxy_Size preview_size /* = 0 = IMB_PROXY_NONE */,
+                                IMB_Downscale scale_factor);
 
 /**
  *

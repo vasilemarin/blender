@@ -129,10 +129,11 @@ struct anim {
   int pFrameComplete;
   AVFrame *pFrameRGB;
   AVFrame *pFrameDeinterlaced;
-  struct SwsContext *img_convert_ctx;
+  struct SwsContext *img_convert_ctx[IMB_DOWNSCALE_MAX_SLOT];
   int videoStream;
 
   struct ImBuf *last_frame;
+  IMB_Downscale last_downscale_index;
   int64_t last_pts;
   int64_t next_pts;
   AVPacket next_packet;

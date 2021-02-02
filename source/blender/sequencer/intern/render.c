@@ -267,6 +267,18 @@ void seq_render_state_init(SeqRenderState *state)
   state->scene_parents = NULL;
 }
 
+float seq_preview_scale_factor_from_context(const SeqRenderData *context)
+{
+  switch (context->preview_render_size) {
+    case SEQ_RENDER_SIZE_SCENE:
+      return (float)context->scene->r.size / 100;
+    case SEQ_RENDER_SIZE_AUTOMATIC:
+      return 1.0f / context->downscale_factor;
+    default:
+      return SEQ_rendersize_to_scale_factor(context->preview_render_size);
+  }
+}
+
 StripElem *SEQ_render_give_stripelem(Sequence *seq, int timeline_frame)
 {
   StripElem *se = seq->strip->stripdata;
@@ -426,12 +438,18 @@ int seq_get_shown_sequences(ListBase *seqbasep,
  * - Premultiply
  */
 
-static bool sequencer_use_transform(const Sequence *seq)
+static bool sequencer_use_transform(const SeqRenderData *context,
+                                    const Sequence *seq,
+                                    ImBuf *ibuf,
+                                    IMB_Downscale image_downscale_index)
 {
   const StripTransform *transform = seq->strip->transform;
+  const IMB_Downscale preview_downscale_index = IMB_downscale_factor_to_downscale_index(
+      context->downscale_factor);
 
   if (transform->xofs != 0 || transform->yofs != 0 || transform->scale_x != 1 ||
-      transform->scale_y != 1 || transform->rotation != 0) {
+      transform->scale_y != 1 || transform->rotation != 0 || context->rectx != ibuf->x ||
+      context->recty != ibuf->y || preview_downscale_index != image_downscale_index) {
     return true;
   }
 
@@ -450,7 +468,8 @@ static bool sequencer_use_crop(const Sequence *seq)
 
 static bool seq_input_have_to_preprocess(const SeqRenderData *context,
                                          Sequence *seq,
-                                         float UNUSED(timeline_frame))
+                                         ImBuf *ibuf,
+                                         IMB_Downscale image_downscale_index)
 {
   float mul;
 
@@ -459,7 +478,8 @@ static bool seq_input_have_to_preprocess(const SeqRenderData *context,
   }
 
   if ((seq->flag & (SEQ_FILTERY | SEQ_FLIPX | SEQ_FLIPY | SEQ_MAKE_FLOAT)) ||
-      sequencer_use_crop(seq) || sequencer_use_transform(seq)) {
+      sequencer_use_crop(seq) ||
+      sequencer_use_transform(context, seq, ibuf, image_downscale_index)) {
     return true;
   }
 
@@ -619,7 +639,8 @@ static ImBuf *input_preprocess(const SeqRenderData *context,
                                Sequence *seq,
                                float timeline_frame,
                                ImBuf *ibuf,
-                               const bool is_proxy_image)
+                               const bool is_proxy_image,
+                               IMB_Downscale downscale_index)
 {
   Scene *scene = context->scene;
   ImBuf *preprocessed_ibuf = NULL;
@@ -634,13 +655,7 @@ static ImBuf *input_preprocess(const SeqRenderData *context,
   }
 
   /* Get scale factor if preview resolution doesn't match project resolution. */
-  float preview_scale_factor;
-  if (context->preview_render_size == SEQ_RENDER_SIZE_SCENE) {
-    preview_scale_factor = (float)scene->r.size / 100;
-  }
-  else {
-    preview_scale_factor = SEQ_rendersize_to_scale_factor(context->preview_render_size);
-  }
+  float preview_scale_factor = seq_preview_scale_factor_from_context(context);
 
   if (sequencer_use_crop(seq)) {
     /* Change original image pointer to avoid another duplication in SEQ_USE_TRANSFORM. */
@@ -672,7 +687,7 @@ static ImBuf *input_preprocess(const SeqRenderData *context,
     IMB_rectfill_area_replace(preprocessed_ibuf, col, left, height - top, width - right, height);
   }
 
-  if (sequencer_use_transform(seq) || context->rectx != ibuf->x || context->recty != ibuf->y) {
+  if (sequencer_use_transform(context, seq, ibuf, downscale_index)) {
     const int x = context->rectx;
     const int y = context->recty;
     preprocessed_ibuf = IMB_allocImBuf(x, y, 32, ibuf->rect_float ? IB_rectfloat : IB_rect);
@@ -685,7 +700,8 @@ static ImBuf *input_preprocess(const SeqRenderData *context,
       init_data.image_scale_factor = 1.0f;
     }
     else {
-      init_data.image_scale_factor = preview_scale_factor;
+      init_data.image_scale_factor = preview_scale_factor *
+                                     IMB_downscale_index_to_downscale_factor(downscale_index);
     }
     init_data.preview_scale_factor = preview_scale_factor;
     init_data.for_render = context->for_render;
@@ -753,23 +769,27 @@ static ImBuf *seq_render_preprocess_ibuf(const SeqRenderData *context,
                                          ImBuf *ibuf,
                                          float timeline_frame,
                                          bool use_preprocess,
-                                         const bool is_proxy_image)
+                                         const bool is_proxy_image,
+                                         IMB_Downscale downscale_index)
 {
   if (context->is_proxy_render == false &&
-      (ibuf->x != context->rectx || ibuf->y != context->recty)) {
+      (ibuf->x != context->rectx || ibuf->y != context->recty ||
+       downscale_index != IMB_DOWNSCALE_NONE)) {
     use_preprocess = true;
   }
 
   /* Proxies and effect strips are not stored in cache. */
   if (!is_proxy_image && (seq->type & SEQ_TYPE_EFFECT) == 0) {
-    seq_cache_put(context, seq, timeline_frame, SEQ_CACHE_STORE_RAW, ibuf);
+    seq_cache_put(context, seq, timeline_frame, SEQ_CACHE_STORE_RAW, ibuf, downscale_index);
   }
 
   if (use_preprocess) {
-    ibuf = input_preprocess(context, seq, timeline_frame, ibuf, is_proxy_image);
+    ibuf = input_preprocess(context, seq, timeline_frame, ibuf, is_proxy_image, downscale_index);
   }
 
-  seq_cache_put(context, seq, timeline_frame, SEQ_CACHE_STORE_PREPROCESSED, ibuf);
+  seq_cache_put(
+      context, seq, timeline_frame, SEQ_CACHE_STORE_PREPROCESSED, ibuf, IMB_DOWNSCALE_NONE);
+
   return ibuf;
 }
 
@@ -1080,8 +1100,13 @@ static ImBuf *seq_render_image_strip(const SeqRenderData *context,
       localcontext.view_id = view_id;
 
       if (view_id != context->view_id) {
-        ibufs_arr[view_id] = seq_render_preprocess_ibuf(
-            &localcontext, seq, ibufs_arr[view_id], timeline_frame, true, false);
+        ibufs_arr[view_id] = seq_render_preprocess_ibuf(&localcontext,
+                                                        seq,
+                                                        ibufs_arr[view_id],
+                                                        timeline_frame,
+                                                        true,
+                                                        false,
+                                                        IMB_DOWNSCALE_NONE);
       }
     }
 
@@ -1128,7 +1153,21 @@ static ImBuf *seq_render_movie_strip_custom_file_proxy(const SeqRenderData *cont
   }
 
   int frameno = (int)seq_give_frame_index(seq, timeline_frame) + seq->anim_startofs;
-  return IMB_anim_absolute(proxy->anim, frameno, IMB_TC_NONE, IMB_PROXY_NONE);
+  return IMB_anim_absolute(proxy->anim, frameno, IMB_TC_NONE, IMB_PROXY_NONE, IMB_DOWNSCALE_NONE);
+}
+static IMB_Downscale get_downscale_index(const SeqRenderData *context, struct anim *anim)
+{
+  if (context->preview_render_size != SEQ_RENDER_SIZE_AUTOMATIC) {
+    return IMB_DOWNSCALE_NONE;
+  }
+
+  /* Downscale factor based on project settings. */
+  const float downscale_factor_width = (float)IMB_anim_get_image_width(anim) /
+                                       (float)context->rectx;
+  const float downscale_factor_height = (float)IMB_anim_get_image_height(anim) /
+                                        (float)context->recty;
+  const float downscale_factor = MAX2(downscale_factor_width, downscale_factor_height);
+  return IMB_downscale_factor_to_downscale_index(downscale_factor);
 }
 
 /**
@@ -1139,7 +1178,8 @@ static ImBuf *seq_render_movie_strip_view(const SeqRenderData *context,
                                           float frame_index,
                                           float timeline_frame,
                                           StripAnim *sanim,
-                                          bool *r_is_proxy_image)
+                                          bool *r_is_proxy_image,
+                                          IMB_Downscale *r_downscale_index)
 {
   ImBuf *ibuf = NULL;
   IMB_Proxy_Size psize = SEQ_rendersize_to_proxysize(context->preview_render_size);
@@ -1157,7 +1197,8 @@ static ImBuf *seq_render_movie_strip_view(const SeqRenderData *context,
       ibuf = IMB_anim_absolute(sanim->anim,
                                frame_index + seq->anim_startofs,
                                seq->strip->proxy ? seq->strip->proxy->tc : IMB_TC_RECORD_RUN,
-                               psize);
+                               psize,
+                               IMB_DOWNSCALE_NONE);
     }
 
     if (ibuf != NULL) {
@@ -1167,10 +1208,12 @@ static ImBuf *seq_render_movie_strip_view(const SeqRenderData *context,
 
   /* Fetching for requested proxy size failed, try fetching the original instead. */
   if (ibuf == NULL) {
+    *r_downscale_index = get_downscale_index(context, sanim->anim);
     ibuf = IMB_anim_absolute(sanim->anim,
                              frame_index + seq->anim_startofs,
                              seq->strip->proxy ? seq->strip->proxy->tc : IMB_TC_RECORD_RUN,
-                             IMB_PROXY_NONE);
+                             IMB_PROXY_NONE,
+                             *r_downscale_index);
   }
   if (ibuf == NULL) {
     return NULL;
@@ -1190,7 +1233,8 @@ static ImBuf *seq_render_movie_strip(const SeqRenderData *context,
                                      Sequence *seq,
                                      float frame_index,
                                      float timeline_frame,
-                                     bool *r_is_proxy_image)
+                                     bool *r_is_proxy_image,
+                                     IMB_Downscale *r_downscale_index)
 {
   /* Load all the videos. */
   seq_open_anim_file(context->scene, seq, false);
@@ -1211,7 +1255,7 @@ static ImBuf *seq_render_movie_strip(const SeqRenderData *context,
     for (ibuf_view_id = 0, sanim = seq->anims.first; sanim; sanim = sanim->next, ibuf_view_id++) {
       if (sanim->anim) {
         ibuf_arr[ibuf_view_id] = seq_render_movie_strip_view(
-            context, seq, frame_index, timeline_frame, sanim, r_is_proxy_image);
+            context, seq, frame_index, timeline_frame, sanim, r_is_proxy_image, r_downscale_index);
       }
     }
 
@@ -1230,8 +1274,13 @@ static ImBuf *seq_render_movie_strip(const SeqRenderData *context,
       localcontext.view_id = view_id;
 
       if (view_id != context->view_id) {
-        ibuf_arr[view_id] = seq_render_preprocess_ibuf(
-            &localcontext, seq, ibuf_arr[view_id], timeline_frame, true, false);
+        ibuf_arr[view_id] = seq_render_preprocess_ibuf(&localcontext,
+                                                       seq,
+                                                       ibuf_arr[view_id],
+                                                       timeline_frame,
+                                                       true,
+                                                       false,
+                                                       IMB_DOWNSCALE_NONE);
       }
     }
 
@@ -1249,7 +1298,7 @@ static ImBuf *seq_render_movie_strip(const SeqRenderData *context,
   }
   else {
     ibuf = seq_render_movie_strip_view(
-        context, seq, frame_index, timeline_frame, sanim, r_is_proxy_image);
+        context, seq, frame_index, timeline_frame, sanim, r_is_proxy_image, r_downscale_index);
   }
 
   if (ibuf == NULL) {
@@ -1637,7 +1686,12 @@ static ImBuf *seq_render_scene_strip(const SeqRenderData *context,
       }
 
       if (view_id != context->view_id) {
-        seq_cache_put(&localcontext, seq, timeline_frame, SEQ_CACHE_STORE_RAW, ibufs_arr[view_id]);
+        seq_cache_put(&localcontext,
+                      seq,
+                      timeline_frame,
+                      SEQ_CACHE_STORE_RAW,
+                      ibufs_arr[view_id],
+                      IMB_DOWNSCALE_NONE);
       }
 
       RE_ReleaseResultImage(re);
@@ -1712,7 +1766,8 @@ static ImBuf *do_render_strip_uncached(const SeqRenderData *context,
                                        SeqRenderState *state,
                                        Sequence *seq,
                                        float timeline_frame,
-                                       bool *r_is_proxy_image)
+                                       bool *r_is_proxy_image,
+                                       IMB_Downscale *r_downscale_index)
 {
   ImBuf *ibuf = NULL;
   float frame_index = seq_give_frame_index(seq, timeline_frame);
@@ -1768,7 +1823,8 @@ static ImBuf *do_render_strip_uncached(const SeqRenderData *context,
     }
 
     case SEQ_TYPE_MOVIE: {
-      ibuf = seq_render_movie_strip(context, seq, frame_index, timeline_frame, r_is_proxy_image);
+      ibuf = seq_render_movie_strip(
+          context, seq, frame_index, timeline_frame, r_is_proxy_image, r_downscale_index);
       break;
     }
 
@@ -1811,25 +1867,27 @@ ImBuf *seq_render_strip(const SeqRenderData *context,
   ImBuf *ibuf = NULL;
   bool use_preprocess = false;
   bool is_proxy_image = false;
+  IMB_Downscale downscale_index = IMB_DOWNSCALE_NONE;
 
-  ibuf = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_PREPROCESSED);
+  ibuf = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_PREPROCESSED, NULL);
   if (ibuf != NULL) {
     return ibuf;
   }
 
   /* Proxies are not stored in cache. */
   if (!SEQ_can_use_proxy(seq, SEQ_rendersize_to_proxysize(context->preview_render_size))) {
-    ibuf = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_RAW);
+    ibuf = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_RAW, &downscale_index);
   }
 
   if (ibuf == NULL) {
-    ibuf = do_render_strip_uncached(context, state, seq, timeline_frame, &is_proxy_image);
+    ibuf = do_render_strip_uncached(
+        context, state, seq, timeline_frame, &is_proxy_image, &downscale_index);
   }
 
   if (ibuf) {
-    use_preprocess = seq_input_have_to_preprocess(context, seq, timeline_frame);
+    use_preprocess = seq_input_have_to_preprocess(context, seq, ibuf, downscale_index);
     ibuf = seq_render_preprocess_ibuf(
-        context, seq, ibuf, timeline_frame, use_preprocess, is_proxy_image);
+        context, seq, ibuf, timeline_frame, use_preprocess, is_proxy_image, downscale_index);
   }
 
   if (ibuf == NULL) {
@@ -1926,7 +1984,7 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
     int early_out;
     Sequence *seq = seq_arr[i];
 
-    out = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_COMPOSITE);
+    out = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_COMPOSITE, NULL);
 
     if (out) {
       break;
@@ -1955,7 +2013,12 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
 
           out = seq_render_strip_stack_apply_effect(context, seq, timeline_frame, ibuf1, ibuf2);
 
-          seq_cache_put(context, seq_arr[i], timeline_frame, SEQ_CACHE_STORE_COMPOSITE, out);
+          seq_cache_put(context,
+                        seq_arr[i],
+                        timeline_frame,
+                        SEQ_CACHE_STORE_COMPOSITE,
+                        out,
+                        IMB_DOWNSCALE_NONE);
 
           IMB_freeImBuf(ibuf1);
           IMB_freeImBuf(ibuf2);
@@ -1981,7 +2044,8 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
       IMB_freeImBuf(ibuf2);
     }
 
-    seq_cache_put(context, seq_arr[i], timeline_frame, SEQ_CACHE_STORE_COMPOSITE, out);
+    seq_cache_put(
+        context, seq_arr[i], timeline_frame, SEQ_CACHE_STORE_COMPOSITE, out, IMB_DOWNSCALE_NONE);
   }
 
   return out;
@@ -2020,7 +2084,8 @@ ImBuf *SEQ_render_give_ibuf(const SeqRenderData *context, float timeline_frame, 
   count = seq_get_shown_sequences(seqbasep, timeline_frame, chanshown, seq_arr);
 
   if (count) {
-    out = seq_cache_get(context, seq_arr[count - 1], timeline_frame, SEQ_CACHE_STORE_FINAL_OUT);
+    out = seq_cache_get(
+        context, seq_arr[count - 1], timeline_frame, SEQ_CACHE_STORE_FINAL_OUT, NULL);
   }
 
   seq_cache_free_temp_cache(context->scene, context->task_id, timeline_frame);
@@ -2030,7 +2095,12 @@ ImBuf *SEQ_render_give_ibuf(const SeqRenderData *context, float timeline_frame, 
     out = seq_render_strip_stack(context, &state, seqbasep, timeline_frame, chanshown);
 
     if (context->is_prefetch_render) {
-      seq_cache_put(context, seq_arr[count - 1], timeline_frame, SEQ_CACHE_STORE_FINAL_OUT, out);
+      seq_cache_put(context,
+                    seq_arr[count - 1],
+                    timeline_frame,
+                    SEQ_CACHE_STORE_FINAL_OUT,
+                    out,
+                    IMB_DOWNSCALE_NONE);
     }
     else {
       seq_cache_put_if_possible(

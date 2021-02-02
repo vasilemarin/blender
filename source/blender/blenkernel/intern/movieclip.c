@@ -646,7 +646,7 @@ static ImBuf *movieclip_load_movie_file(MovieClip *clip,
   if (clip->anim) {
     int fra = framenr - clip->start_frame + clip->frame_offset;
 
-    ibuf = IMB_anim_absolute(clip->anim, fra, tc, proxy);
+    ibuf = IMB_anim_absolute(clip->anim, fra, tc, proxy, IMB_DOWNSCALE_NONE);
   }
 
   return ibuf;
