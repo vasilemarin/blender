@@ -1172,7 +1172,6 @@ static int node_add_error_message_button(bNodeTree *ntree,
                             0,
                             NULL);
   UI_but_func_tooltip_set(but, node_errros_tooltip_fn, warning_alloc);
-  UI_but_flag_enable(but, UI_BUT_REDALERT);
   UI_block_emboss_set(node->block, UI_EMBOSS);
 
   return icon_offset;
