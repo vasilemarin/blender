@@ -133,6 +133,10 @@ typedef struct BrushGpencilSettings {
   /** Randomness for Value. */
   float random_value;
 
+  /** Factor to extend stroke extremes using fill tool. */
+  float fill_extend_fac;
+  char _pad3[4];
+
   struct CurveMapping *curve_sensitivity;
   struct CurveMapping *curve_strength;
   struct CurveMapping *curve_jitter;
