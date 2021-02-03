@@ -946,9 +946,13 @@ typedef enum eNodeWarningType {
 typedef struct NodeWarning {
   eNodeWarningType type;
   char *message;
+  const Object *object;
+  const char *modifier_name;
 } NodeWarning;
 
 void BKE_nodetree_error_message_add(struct bNodeTree *ntree,
+                                    const struct Object *object,
+                                    const char *modifier_name,
                                     const struct bNode *node,
                                     const eNodeWarningType type,
                                     const char *message);

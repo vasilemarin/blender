@@ -116,6 +116,8 @@ static void nodetree_runtime_ensure(bNodeTree *ntree)
 }
 
 void BKE_nodetree_error_message_add(bNodeTree *ntree,
+                                    const Object *object,
+                                    const char *modifier_name,
                                     const bNode *node,
                                     const eNodeWarningType type,
                                     const char *message)
@@ -123,7 +125,7 @@ void BKE_nodetree_error_message_add(bNodeTree *ntree,
   nodetree_runtime_ensure(ntree);
   bNodeTreeRuntime *runtime = ntree->runtime;
 
-  NodeWarning warning = {type, BLI_strdup(message)};
+  NodeWarning warning = {type, BLI_strdup(message), object, modifier_name};
 
   switch (type) {
     case NODE_WARNING_ERROR:

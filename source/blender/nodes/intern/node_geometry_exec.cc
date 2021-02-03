@@ -14,6 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "DNA_modifier_types.h"
+
 #include "DEG_depsgraph_query.h"
 
 #include "NOD_geometry_exec.hh"
@@ -26,7 +28,8 @@ void GeoNodeExecParams::error_message_add(const eNodeWarningType type,
 {
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
   if (original_ntree != nullptr) {
-    BKE_nodetree_error_message_add(original_ntree, &node_, type, message.data());
+    BKE_nodetree_error_message_add(
+        original_ntree, self_object_, modifier_->name, &node_, type, message.data());
   }
 }
 

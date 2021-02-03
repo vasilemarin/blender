@@ -27,6 +27,7 @@
 #include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
@@ -42,6 +43,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
 
@@ -1141,15 +1143,27 @@ static char *node_errros_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
 
 #define NODE_HEADER_ICON_SIZE 0.8f * U.widget_unit
 
-static int node_add_error_message_button(bNodeTree *ntree,
-                                         bNode *node,
-                                         const rctf *rect,
-                                         int icon_offset)
+static int node_add_error_message_button(
+    const bContext *C, bNodeTree *ntree, bNode *node, const rctf *rect, int icon_offset)
 {
   const NodeWarning *message = BKE_nodetree_error_message_get(ntree, node);
   if (message == NULL) {
     return icon_offset;
   }
+
+  // /* The same node tree can be used for multiple objects, only display
+  //  * messages for the evaluations corresponding to the active object. */
+  // const Object *active_object = CTX_data_active_object(C);
+  // if (message->object != active_object) {
+  //   return icon_offset;
+  // }
+
+  // /* The same node tree can be used for multiple modifiers on the same object. Only display
+  //  * messages for the active modifier, which will also be displayed in the node tree. */
+  // ModifierData *active_modifier = BKE_object_active_modifier(message->object);
+  // if (!STREQ(message->modifier_name, active_modifier->name)) {
+  //   return icon_offset;
+  // }
 
   icon_offset -= NODE_HEADER_ICON_SIZE;
 
@@ -1298,7 +1312,7 @@ static void node_draw_basis(const bContext *C,
     UI_block_emboss_set(node->block, UI_EMBOSS);
   }
 
-  iconofs = node_add_error_message_button(ntree, node, rct, iconofs);
+  iconofs = node_add_error_message_button(C, ntree, node, rct, iconofs);
 
   /* title */
   if (node->flag & SELECT) {

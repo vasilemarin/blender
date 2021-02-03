@@ -222,6 +222,7 @@ class GeometryNodesEvaluator {
   const blender::nodes::DataTypeConversions &conversions_;
   const PersistentDataHandleMap &handle_map_;
   const Object *self_object_;
+  const ModifierData *modifier_;
   Depsgraph *depsgraph_;
 
  public:
@@ -231,6 +232,7 @@ class GeometryNodesEvaluator {
                          blender::nodes::MultiFunctionByNode &mf_by_node,
                          const PersistentDataHandleMap &handle_map,
                          const Object *self_object,
+                         const ModifierData *modifier,
                          Depsgraph *depsgraph)
       : btree_(btree),
         group_outputs_(std::move(group_outputs)),
@@ -238,6 +240,7 @@ class GeometryNodesEvaluator {
         conversions_(blender::nodes::get_implicit_type_conversions()),
         handle_map_(handle_map),
         self_object_(self_object),
+        modifier_(modifier),
         depsgraph_(depsgraph)
   {
     for (auto item : group_input_data.items()) {
@@ -315,8 +318,14 @@ class GeometryNodesEvaluator {
 
     /* Execute the node. */
     GValueMap<StringRef> node_outputs_map{allocator_};
-    GeoNodeExecParams params{
-        btree_, bnode, node_inputs_map, node_outputs_map, handle_map_, self_object_, depsgraph_};
+    GeoNodeExecParams params{btree_,
+                             bnode,
+                             node_inputs_map,
+                             node_outputs_map,
+                             handle_map_,
+                             self_object_,
+                             modifier_,
+                             depsgraph_};
     this->execute_node(node, params);
 
     /* Forward computed outputs to linked input sockets. */
@@ -936,8 +945,14 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   group_outputs.append(&socket_to_compute);
 
   bNodeTree *ntree = tree.btree();
-  GeometryNodesEvaluator evaluator{
-      *ntree, group_inputs, group_outputs, mf_by_node, handle_map, ctx->object, ctx->depsgraph};
+  GeometryNodesEvaluator evaluator{*ntree,
+                                   group_inputs,
+                                   group_outputs,
+                                   mf_by_node,
+                                   handle_map,
+                                   ctx->object,
+                                   (ModifierData *)nmd,
+                                   ctx->depsgraph};
   Vector<GMutablePointer> results = evaluator.execute();
   BLI_assert(results.size() == 1);
   GMutablePointer result = results[0];

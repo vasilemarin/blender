@@ -26,6 +26,7 @@
 #include "DNA_node_types.h"
 
 struct Depsgraph;
+struct ModifierData;
 
 namespace blender::nodes {
 
@@ -60,6 +61,7 @@ class GeoNodeExecParams {
   GValueMap<StringRef> &output_values_;
   const PersistentDataHandleMap &handle_map_;
   const Object *self_object_;
+  const ModifierData *modifier_;
   Depsgraph *depsgraph_;
 
  public:
@@ -69,6 +71,7 @@ class GeoNodeExecParams {
                     GValueMap<StringRef> &output_values,
                     const PersistentDataHandleMap &handle_map,
                     const Object *self_object,
+                    const ModifierData *modifier,
                     Depsgraph *depsgraph)
       : ntree_(ntree),
         node_(node),
@@ -76,6 +79,7 @@ class GeoNodeExecParams {
         output_values_(output_values),
         handle_map_(handle_map),
         self_object_(self_object),
+        modifier_(modifier),
         depsgraph_(depsgraph)
   {
   }
