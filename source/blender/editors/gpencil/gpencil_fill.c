@@ -133,6 +133,8 @@ typedef struct tGPDfill {
   bool on_back;
   /** Flag for render mode */
   bool is_render;
+  /** Flag to check something was done. */
+  bool done;
   /** mouse fill center position */
   int mouse[2];
   /** windows width */
@@ -1370,6 +1372,9 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
     return;
   }
 
+  /* Set as done. */
+  tgpf->done = true;
+
   /* Get frame or create a new one. */
   tgpf->gpf = BKE_gpencil_layer_frame_get(tgpf->gpl, tgpf->active_cfra, GP_GETFRAME_ADD_NEW);
 
@@ -1845,12 +1850,14 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf)
   float zoomx = (width > tgpf->region->winx) ? width / (float)tgpf->region->winx : 1.0f;
   float zoomy = (height > tgpf->region->winy) ? height / (float)tgpf->region->winy : 1.0f;
   if ((zoomx != 1.0f) || (zoomy != 1.0f)) {
-    tgpf->zoom = min_ff(ceil(max_ff(zoomx, zoomy) + 1.0f), 6.0f);
+    tgpf->zoom = min_ff(ceil(max_ff(zoomx, zoomy) + 1.0f), 5.0f);
   }
 }
 
 static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
 {
+  wmWindow *win = CTX_wm_window(tgpf->C);
+
   /* render screen to temp image */
   int totpoints = 1;
   if (gpencil_render_offscreen(tgpf)) {
@@ -1868,10 +1875,12 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
 
     /* Clean borders to avoid infinite loops. */
     gpencil_set_borders(tgpf, false);
+    WM_cursor_time(win, 50);
 
     while (totpoints > 0) {
       /* analyze outline */
       gpencil_get_outline_points(tgpf, (totpoints == 1) ? true : false);
+      WM_cursor_time(win, 60);
 
       /* create array of points from stack */
       totpoints = gpencil_points_from_stack(tgpf);
@@ -1894,6 +1903,7 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
       if (tgpf->stack) {
         BLI_stack_free(tgpf->stack);
       }
+      WM_cursor_time(win, 100);
 
       /* Free memory. */
       MEM_SAFE_FREE(tgpf->sbuffer);
@@ -1982,13 +1992,25 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
               tgpf->active_cfra = POINTER_AS_INT(BLI_ghashIterator_getKey(&gh_iter));
               int step = ((float)i / (float)total) * 100.0f;
               WM_cursor_time(win, step);
-              /* Render screen to temp image and do fill. */
-              gpencil_do_frame_fill(tgpf, is_inverted);
 
-              /* restore size */
-              tgpf->region->winx = (short)tgpf->bwinx;
-              tgpf->region->winy = (short)tgpf->bwiny;
-              tgpf->region->winrct = tgpf->brect;
+              /* Repeat loop until get something. */
+              tgpf->done = false;
+              int loop_limit = 0;
+              while ((!tgpf->done) && (loop_limit < 2)) {
+                WM_cursor_time(win, loop_limit + 1);
+                /* Render screen to temp image and do fill. */
+                gpencil_do_frame_fill(tgpf, is_inverted);
+
+                /* restore size */
+                tgpf->region->winx = (short)tgpf->bwinx;
+                tgpf->region->winy = (short)tgpf->bwiny;
+                tgpf->region->winrct = tgpf->brect;
+                if (!tgpf->done) {
+                  tgpf->zoom = 1.0f;
+                }
+                loop_limit++;
+              }
+
               i++;
             }
             WM_cursor_modal_restore(win);
