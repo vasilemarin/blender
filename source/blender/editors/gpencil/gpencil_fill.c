@@ -137,6 +137,8 @@ typedef struct tGPDfill {
   bool done;
   /** mouse fill center position */
   int mouse[2];
+  /** Mouse offset from center (-/+ 0.5). */
+  float mouse_offset[2];
   /** windows width */
   int sizex;
   /** window height */
@@ -473,8 +475,8 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
   tgpw.gpd = gpd;
   tgpw.offsx = 0;
   tgpw.offsy = 0;
-  tgpw.winx = tgpf->region->winx;
-  tgpw.winy = tgpf->region->winy;
+  tgpw.winx = tgpf->region->sizex;
+  tgpw.winy = tgpf->region->sizey;
   tgpw.dflag = 0;
   tgpw.disable_fill = 1;
   tgpw.dflag |= (GP_DRAWFILLS_ONLY3D | GP_DRAWFILLS_NOSTATUS);
@@ -486,6 +488,9 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
 
   const int gpl_active_index = BLI_findindex(&gpd->layers, gpl_active);
   BLI_assert(gpl_active_index >= 0);
+
+  /* Draw blue point where click with mouse. */
+  draw_mouse_position(tgpf);
 
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* do not draw layer if hidden */
@@ -571,9 +576,6 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
     }
   }
 
-  /* Draw blue point where click with mouse. */
-  draw_mouse_position(tgpf);
-
   GPU_blend(GPU_BLEND_NONE);
 }
 
@@ -588,8 +590,8 @@ static bool gpencil_render_offscreen(tGPDfill *tgpf)
   }
 
   /* set temporary new size */
-  tgpf->bwinx = tgpf->region->winx;
-  tgpf->bwiny = tgpf->region->winy;
+  tgpf->bwinx = tgpf->region->sizex;
+  tgpf->bwiny = tgpf->region->sizey;
   tgpf->brect = tgpf->region->winrct;
 
   /* resize region */
@@ -633,6 +635,17 @@ static bool gpencil_render_offscreen(tGPDfill *tgpf)
   viewplane.xmax *= tgpf->zoom;
   viewplane.ymin *= tgpf->zoom;
   viewplane.ymax *= tgpf->zoom;
+
+  /* Center view in the mouse click position. */
+  float width = viewplane.xmax - viewplane.xmin;
+  float height = viewplane.ymax - viewplane.ymin;
+  float offset_x = (width * tgpf->mouse_offset[0]);
+  float offset_y = (height * tgpf->mouse_offset[1]);
+
+  viewplane.xmin += offset_x;
+  viewplane.xmax += offset_x;
+  viewplane.ymin += offset_y;
+  viewplane.ymax += offset_y;
 
   if (is_ortho) {
     orthographic_m4(winmat,
@@ -1961,13 +1974,11 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
           if ((in_bounds) && (region->regiontype == RGN_TYPE_WINDOW)) {
             tgpf->mouse[0] = event->mval[0];
             tgpf->mouse[1] = event->mval[1];
+            tgpf->mouse_offset[0] = ((float)tgpf->mouse[0] / tgpf->region->sizex) - 0.5f;
+            tgpf->mouse_offset[1] = ((float)tgpf->mouse[1] / tgpf->region->sizey) - 0.5f;
             tgpf->is_render = true;
             /* Define Zoom level. */
             gpencil_zoom_level_set(tgpf);
-            /* Adjust resolution factor if zoom factor is high. */
-            if (tgpf->zoom > 3.0f) {
-              tgpf->fill_factor = min_ff(tgpf->fill_factor + 1.5f, 8.0f);
-            }
 
             /* Create Temp stroke. */
             tgpf->gps_mouse = BKE_gpencil_stroke_new(0, 1, 10.0f);
@@ -2024,6 +2035,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
                   }
                   else {
                     tgpf->zoom = 1.0f;
+                    tgpf->fill_factor = max_ff(GPENCIL_MIN_FILL_FAC,
+                                               min_ff(brush->gpencil_settings->fill_factor, 8.0f));
                   }
                 }
                 loop_limit++;
