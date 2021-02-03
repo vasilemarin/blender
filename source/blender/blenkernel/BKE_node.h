@@ -938,6 +938,11 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
                                  struct Scene *scene,
                                  const int layer_index);
 
+typedef struct NodeWarningContextNodesModifier {
+  const Object *object;
+  const char *modifier_name;
+} NodeWarningContextNodesModifier;
+
 typedef enum eNodeWarningType {
   NODE_WARNING_ERROR,
   NODE_WARNING_INFO,
@@ -946,8 +951,6 @@ typedef enum eNodeWarningType {
 typedef struct NodeWarning {
   eNodeWarningType type;
   char *message;
-  const Object *object;
-  const char *modifier_name;
 } NodeWarning;
 
 void BKE_nodetree_error_message_add(struct bNodeTree *ntree,
