@@ -2012,6 +2012,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             /* push undo data */
             gpencil_undo_push(tgpf->gpd);
 
+            /* Save extend value for next operation. */
+            brush_settings->fill_extend_fac = tgpf->fill_extend_fac;
+
             estate = OPERATOR_FINISHED;
           }
           else {
