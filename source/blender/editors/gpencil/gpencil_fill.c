@@ -1758,10 +1758,8 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
 
 /* Helper: Calc the maximum bounding box size of strokes to get the zoom level of the viewport.
  * For each stroke, the 2D projected bounding box is calculated and using this data, the total
- * object bounding box (all strokes) is calculated. To select an stroke, the stroke bounding box
- * is checked with the mouse position to verify if the stroke is used or not.
- */
-static void gpencil_zoom_level_set(tGPDfill *tgpf, const bool is_inverted)
+ * object bounding box (all strokes) is calculated. */
+static void gpencil_zoom_level_set(tGPDfill *tgpf)
 {
   Brush *brush = tgpf->brush;
   if (brush->gpencil_settings->flag & GP_BRUSH_FILL_FIT_DISABLE) {
@@ -1778,9 +1776,19 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf, const bool is_inverted)
   const int gpl_active_index = BLI_findindex(&gpd->layers, gpl_active);
   BLI_assert(gpl_active_index >= 0);
 
+  /* Init maximum boundbox size. */
+  rctf rect_max;
+  const float winx_half = tgpf->region->winx / 2.0f;
+  const float winy_half = tgpf->region->winy / 2.0f;
+  BLI_rctf_init(&rect_max,
+                0.0f - winx_half,
+                tgpf->region->winx + winx_half,
+                0.0f - winy_half,
+                tgpf->region->winy + winy_half);
+
   float objectbox_min[2], objectbox_max[2];
   INIT_MINMAX2(objectbox_min, objectbox_max);
-
+  rctf rect_bound;
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     if (gpl->flag & GP_LAYER_HIDE) {
       continue;
@@ -1817,14 +1825,6 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf, const bool is_inverted)
         continue;
       }
 
-      /* Check if the stroke collide with mouse. */
-      float mouse[2];
-      copy_v2fl_v2i(mouse, tgpf->mouse);
-      if ((!is_inverted) &&
-          (!ED_gpencil_stroke_check_collision(&tgpf->gsc, gps, mouse, 100.0f, diff_mat))) {
-        continue;
-      }
-
       float boundbox_min[2];
       float boundbox_max[2];
       ED_gpencil_projected_2d_bound_box(&tgpf->gsc, gps, diff_mat, boundbox_min, boundbox_max);
@@ -1832,32 +1832,26 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf, const bool is_inverted)
       minmax_v2v2_v2(objectbox_min, objectbox_max, boundbox_max);
     }
   }
+  /* Clamp max bound box. */
+  BLI_rctf_init(
+      &rect_bound, objectbox_min[0], objectbox_max[0], objectbox_min[1], objectbox_max[1]);
+  float r_xy[2];
+  BLI_rctf_clamp(&rect_bound, &rect_max, r_xy);
 
   /* Calculate total width used. */
-  float width = tgpf->region->winx;
-  if (objectbox_min[0] < 0.0f) {
-    width -= objectbox_min[0];
-  }
-  if (objectbox_max[0] > tgpf->region->winx) {
-    width += objectbox_max[0] - tgpf->region->winx;
-  }
-  /* Calculate total height used. */
-  float height = tgpf->region->winy;
-  if (objectbox_min[1] < 0.0f) {
-    height -= objectbox_min[1];
-  }
-  if (objectbox_max[1] > tgpf->region->winy) {
-    height += objectbox_max[1] - tgpf->region->winy;
-  }
+  float width = ceilf(rect_bound.xmax - rect_bound.xmin);
+  float height = ceilf(rect_bound.ymax - rect_bound.ymin);
 
-  width = ceilf(width);
-  height = ceilf(height);
+  printf("View: %d x %d\n", tgpf->region->winx, tgpf->region->winy);
+  printf("Max: %f x %f\n", rect_max.xmax - rect_max.xmin, rect_max.ymax - rect_max.ymin);
+  printf("Box: %f x %f\n", width, height);
 
   float zoomx = (width > tgpf->region->winx) ? width / (float)tgpf->region->winx : 1.0f;
   float zoomy = (height > tgpf->region->winy) ? height / (float)tgpf->region->winy : 1.0f;
   if ((zoomx != 1.0f) || (zoomy != 1.0f)) {
-    tgpf->zoom = min_ff(ceil(max_ff(zoomx, zoomy) + 0.5f), 6.0f);
+    tgpf->zoom = min_ff(ceil(max_ff(zoomx, zoomy) + 1.0f), 6.0f);
   }
+  printf("Zoom:%f\n", tgpf->zoom);
 }
 
 static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
@@ -1956,7 +1950,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             tgpf->mouse[1] = event->mval[1];
             tgpf->is_render = true;
             /* Define Zoom level. */
-            gpencil_zoom_level_set(tgpf, is_inverted);
+            gpencil_zoom_level_set(tgpf);
             /* Adjust resolution factor if zoom factor is high. */
             if (tgpf->zoom > 3.0f) {
               tgpf->fill_factor = min_ff(tgpf->fill_factor + 1.5f, 8.0f);
