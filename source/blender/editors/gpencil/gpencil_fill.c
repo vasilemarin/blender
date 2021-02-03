@@ -270,7 +270,7 @@ static void gpencil_create_extensions(tGPDfill *tgpf)
       /* Extend start. */
       bGPDspoint *pt0 = &gps->points[1];
       bGPDspoint *pt1 = &gps->points[0];
-      bGPDstroke *gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 20.0f);
+      bGPDstroke *gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, gps->thickness);
       gps_new->flag |= GP_STROKE_NOFILL | GP_STROKE_TAG;
       BLI_addtail(&gpf->strokes, gps_new);
 
@@ -287,7 +287,7 @@ static void gpencil_create_extensions(tGPDfill *tgpf)
       /* Extend end. */
       pt0 = &gps->points[gps->totpoints - 2];
       pt1 = &gps->points[gps->totpoints - 1];
-      gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, 20.0f);
+      gps_new = BKE_gpencil_stroke_new(gps->mat_nr, 2, gps->thickness);
       gps_new->flag |= GP_STROKE_NOFILL | GP_STROKE_TAG;
       BLI_addtail(&gpf->strokes, gps_new);
 
@@ -350,7 +350,7 @@ static void gpencil_draw_basic_stroke(tGPDfill *tgpf,
   immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
   /* draw stroke curve */
-  GPU_line_width((!is_extend) ? thickness : 5.0f);
+  GPU_line_width((!is_extend) ? thickness : thickness * 2.0f);
   immBeginAtMost(GPU_PRIM_LINE_STRIP, totpoints + cyclic_add);
   const bGPDspoint *pt = points;
 
