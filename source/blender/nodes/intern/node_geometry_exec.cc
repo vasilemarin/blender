@@ -22,7 +22,7 @@
 namespace blender::nodes {
 
 void GeoNodeExecParams::error_message_add(const eNodeWarningType type,
-                                          const std::string message) const
+                                          const std::string &message) const
 {
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
   if (original_ntree != nullptr) {
