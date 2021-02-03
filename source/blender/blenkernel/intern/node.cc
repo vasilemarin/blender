@@ -125,6 +125,17 @@ void BKE_nodetree_error_message_add(bNodeTree *ntree,
 
   NodeWarning warning = {type, BLI_strdup(message)};
 
+  switch (type) {
+    case NODE_WARNING_ERROR:
+      CLOG_ERROR(
+          &LOG, "Node Tree: \"%s\", Node: \"%s\", %s", ntree->id.name + 2, node->name, message);
+      break;
+    case NODE_WARNING_INFO:
+      CLOG_INFO(
+          &LOG, 2, "Node Tree: \"%s\", Node: \"%s\", %s", ntree->id.name + 2, node->name, message);
+      break;
+  }
+
   runtime->error_messages.add(node->name, warning);
 }
 

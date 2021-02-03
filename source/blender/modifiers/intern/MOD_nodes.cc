@@ -247,8 +247,8 @@ class GeometryNodesEvaluator {
 
   Vector<GMutablePointer> execute()
   {
-    ID *original_id = DEG_get_original_id(&(ID &)btree_);
-    BKE_nodetree_error_messages_clear((bNodeTree *)original_id);
+    bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)btree_);
+    BKE_nodetree_error_messages_clear(original_ntree);
 
     Vector<GMutablePointer> results;
     for (const DInputSocket *group_output : group_outputs_) {
