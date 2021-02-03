@@ -1987,21 +1987,22 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
   tGPDfill *tgpf = op->customdata;
   Brush *brush = tgpf->brush;
   BrushGpencilSettings *brush_settings = brush->gpencil_settings;
+  tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
+
   const bool is_brush_inv = brush_settings->fill_direction == BRUSH_DIR_IN;
   const bool is_inverted = (is_brush_inv && !event->ctrl) || (!is_brush_inv && event->ctrl);
   const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(tgpf->gpd);
   const bool do_extend = (tgpf->fill_extend_fac > 0.0f);
   const bool help_lines = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) ||
                            ((tgpf->flag & GP_BRUSH_FILL_SHOW_EXTENDLINES) && (do_extend)));
-
   int estate = (!help_lines) ? OPERATOR_PASS_THROUGH : OPERATOR_RUNNING_MODAL;
+
   switch (event->type) {
     case EVT_ESCKEY:
     case RIGHTMOUSE:
       estate = OPERATOR_CANCELLED;
       break;
     case LEFTMOUSE:
-      tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
       /* first time the event is not enabled to show help lines. */
       if ((tgpf->oldkey != -1) || (!help_lines)) {
         ARegion *region = BKE_area_find_region_xy(
