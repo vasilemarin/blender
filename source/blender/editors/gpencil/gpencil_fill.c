@@ -197,7 +197,11 @@ static void gpencil_draw_boundary_lines(const struct bContext *UNUSED(C), struct
 /* Delete any temporary stroke. */
 static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf, const bool all_frames)
 {
-  CTX_DATA_BEGIN (tgpf->C, bGPDlayer *, gpl, editable_gpencil_layers) {
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &tgpf->gpd->layers) {
+    if (gpl->flag & GP_LAYER_HIDE) {
+      continue;
+    }
+
     bGPDframe *init_gpf = (all_frames) ? gpl->frames.first :
                                          BKE_gpencil_layer_frame_get(
                                              gpl, tgpf->active_cfra, GP_GETFRAME_USE_PREV);
@@ -217,7 +221,6 @@ static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf, const bool all_
       }
     }
   }
-  CTX_DATA_END;
 }
 
 static void extrapolate_points_by_length(bGPDspoint *a,
