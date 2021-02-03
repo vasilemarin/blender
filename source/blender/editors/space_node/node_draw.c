@@ -1154,6 +1154,8 @@ static int node_add_error_message_button(bNodeTree *ntree,
   icon_offset -= NODE_HEADER_ICON_SIZE;
 
   UI_block_emboss_set(node->block, UI_EMBOSS_NONE);
+  /* The only reason to allocate this is that the ownership of
+   * #UI_but_func_tooltip_set's argument is transferred to the button. */
   NodeWarning *warning_alloc = MEM_mallocN(sizeof(NodeWarning), __func__);
   warning_alloc->type = message->type;
   warning_alloc->message = message->message;
