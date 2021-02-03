@@ -193,10 +193,15 @@ bool skip_layer_check(short fill_layer_mode, int gpl_active_index, int gpl_index
 static void gpencil_draw_boundary_lines(const struct bContext *UNUSED(C), struct tGPDfill *tgpf);
 
 /* Delete any temporary stroke. */
-static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf)
+static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf, const bool all_frames)
 {
   CTX_DATA_BEGIN (tgpf->C, bGPDlayer *, gpl, editable_gpencil_layers) {
-    bGPDframe *init_gpf = gpl->frames.first;
+    bGPDframe *init_gpf = (all_frames) ? gpl->frames.first :
+                                         BKE_gpencil_layer_frame_get(
+                                             gpl, tgpf->active_cfra, GP_GETFRAME_USE_PREV);
+    if (init_gpf == NULL) {
+      continue;
+    }
     for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
       LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
         /* free stroke */
@@ -204,6 +209,9 @@ static void gpencil_delete_temp_stroke_extension(tGPDfill *tgpf)
           BLI_remlink(&gpf->strokes, gps);
           BKE_gpencil_free_stroke(gps);
         }
+      }
+      if (!all_frames) {
+        break;
       }
     }
   }
@@ -306,7 +314,7 @@ static void gpencil_create_extensions(tGPDfill *tgpf)
 
 static void gpencil_update_extend(tGPDfill *tgpf)
 {
-  gpencil_delete_temp_stroke_extension(tgpf);
+  gpencil_delete_temp_stroke_extension(tgpf, false);
 
   if (tgpf->fill_extend_fac > 0.0f) {
     gpencil_create_extensions(tgpf);
@@ -1653,7 +1661,7 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
     MEM_SAFE_FREE(tgpf->depth_arr);
 
     /* Remove any temp stroke. */
-    gpencil_delete_temp_stroke_extension(tgpf);
+    gpencil_delete_temp_stroke_extension(tgpf, true);
 
     /* remove drawing handler */
     if (tgpf->draw_handle_3d) {
@@ -1930,6 +1938,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
   const bool is_brush_inv = brush_settings->fill_direction == BRUSH_DIR_IN;
   const bool is_inverted = (is_brush_inv && !event->ctrl) || (!is_brush_inv && event->ctrl);
   const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(tgpf->gpd);
+  const bool do_extend = (tgpf->fill_extend_fac > 0.0f);
 
   int estate = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) == 0) ? OPERATOR_PASS_THROUGH :
                                                                     OPERATOR_RUNNING_MODAL;
@@ -1940,7 +1949,6 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
       break;
     case LEFTMOUSE:
       tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
-      gpencil_update_extend(tgpf);
       /* first time the event is not enabled to show help lines. */
       if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) == 0)) {
         ARegion *region = BKE_area_find_region_xy(
@@ -1993,6 +2001,10 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
               int step = ((float)i / (float)total) * 100.0f;
               WM_cursor_time(win, step);
 
+              if (do_extend) {
+                gpencil_update_extend(tgpf);
+              }
+
               /* Repeat loop until get something. */
               tgpf->done = false;
               int loop_limit = 0;
@@ -2015,6 +2027,10 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
                   }
                 }
                 loop_limit++;
+              }
+
+              if (do_extend) {
+                gpencil_delete_temp_stroke_extension(tgpf, true);
               }
 
               i++;
@@ -2041,6 +2057,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
         else {
           estate = OPERATOR_CANCELLED;
         }
+      }
+      else if (do_extend) {
+        gpencil_update_extend(tgpf);
       }
       tgpf->oldkey = event->type;
       break;
