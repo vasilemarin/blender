@@ -330,7 +330,7 @@ static void gpencil_draw_basic_stroke(tGPDfill *tgpf,
   int totpoints = gps->totpoints;
   float fpt[3];
   float col[4];
-  const float extend_col[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+  const float extend_col[4] = {0.0f, 1.0f, 1.0f, 1.0f};
   const bool is_extend = (gps->flag & GP_STROKE_NOFILL) && (gps->flag & GP_STROKE_TAG);
   if ((is_extend) && (!tgpf->is_render)) {
     copy_v4_v4(col, extend_col);
