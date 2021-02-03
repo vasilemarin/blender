@@ -327,6 +327,31 @@ static void gpencil_update_extend(tGPDfill *tgpf)
   WM_event_add_notifier(tgpf->C, NC_GPENCIL | NA_EDITED, NULL);
 }
 
+static bool gpencil_stroke_is_drawable(tGPDfill *tgpf, bGPDstroke *gps)
+{
+  if (tgpf->is_render) {
+    return true;
+  }
+
+  const bool show_help = (tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) != 0;
+  const bool show_extend = (tgpf->flag & GP_BRUSH_FILL_SHOW_EXTENDLINES) != 0;
+  const bool is_extend = (gps->flag & GP_STROKE_NOFILL) && (gps->flag & GP_STROKE_TAG);
+
+  if ((!show_help) && (show_extend)) {
+    if (!is_extend) {
+      return false;
+    }
+  }
+
+  if ((show_help) && (!show_extend)) {
+    if (is_extend) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /* draw a given stroke using same thickness and color for all points */
 static void gpencil_draw_basic_stroke(tGPDfill *tgpf,
                                       bGPDstroke *gps,
@@ -347,6 +372,11 @@ static void gpencil_draw_basic_stroke(tGPDfill *tgpf,
   float col[4];
   const float extend_col[4] = {0.0f, 1.0f, 1.0f, 1.0f};
   const bool is_extend = (gps->flag & GP_STROKE_NOFILL) && (gps->flag & GP_STROKE_TAG);
+
+  if (!gpencil_stroke_is_drawable(tgpf, gps)) {
+    return;
+  }
+
   if ((is_extend) && (!tgpf->is_render)) {
     copy_v4_v4(col, extend_col);
   }
@@ -558,9 +588,9 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
       tgpw.onion = true;
       tgpw.custonion = true;
 
-      /* normal strokes */
+      /* Normal strokes. */
       if (ELEM(tgpf->fill_draw_mode, GP_FILL_DMODE_STROKE, GP_FILL_DMODE_BOTH)) {
-        if ((gps->flag & GP_STROKE_TAG) == 0) {
+        if (gpencil_stroke_is_drawable(tgpf, gps) && ((gps->flag & GP_STROKE_TAG) == 0)) {
           ED_gpencil_draw_fill(&tgpw);
         }
       }
@@ -1767,7 +1797,11 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
   tgpf = op->customdata;
 
   /* Enable custom drawing handlers to show help lines */
-  if (tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) {
+  const bool do_extend = (tgpf->fill_extend_fac > 0.0f);
+  const bool help_lines = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) ||
+                           ((tgpf->flag & GP_BRUSH_FILL_SHOW_EXTENDLINES) && (do_extend)));
+
+  if (help_lines) {
     tgpf->draw_handle_3d = ED_region_draw_cb_activate(
         tgpf->region->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
   }
@@ -1955,9 +1989,10 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
   const bool is_inverted = (is_brush_inv && !event->ctrl) || (!is_brush_inv && event->ctrl);
   const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(tgpf->gpd);
   const bool do_extend = (tgpf->fill_extend_fac > 0.0f);
+  const bool help_lines = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) ||
+                           ((tgpf->flag & GP_BRUSH_FILL_SHOW_EXTENDLINES) && (do_extend)));
 
-  int estate = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) == 0) ? OPERATOR_PASS_THROUGH :
-                                                                    OPERATOR_RUNNING_MODAL;
+  int estate = (!help_lines) ? OPERATOR_PASS_THROUGH : OPERATOR_RUNNING_MODAL;
   switch (event->type) {
     case EVT_ESCKEY:
     case RIGHTMOUSE:
@@ -1966,7 +2001,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case LEFTMOUSE:
       tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
       /* first time the event is not enabled to show help lines. */
-      if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) == 0)) {
+      if ((tgpf->oldkey != -1) || (!help_lines)) {
         ARegion *region = BKE_area_find_region_xy(
             CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
         if (region) {

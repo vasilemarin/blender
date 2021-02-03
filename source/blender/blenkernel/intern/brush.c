@@ -989,6 +989,8 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
       brush->gpencil_settings->draw_smoothlvl = 1;
       brush->gpencil_settings->draw_subdivide = 1;
 
+      brush->gpencil_settings->flag |= GP_BRUSH_FILL_SHOW_EXTENDLINES;
+
       brush->gpencil_settings->icon_id = GP_BRUSH_ICON_FILL;
       brush->gpencil_tool = GPAINT_TOOL_FILL;
       brush->gpencil_settings->vertex_mode = GPPAINT_MODE_FILL;
