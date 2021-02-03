@@ -2079,7 +2079,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEUPKEY:
     case WHEELUPMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac -= 0.01f;
+        tgpf->fill_extend_fac -= 0.001f;
         CLAMP_MIN(tgpf->fill_extend_fac, 0.0f);
         gpencil_update_extend(tgpf);
       }
@@ -2087,7 +2087,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEDOWNKEY:
     case WHEELDOWNMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac += 0.01f;
+        tgpf->fill_extend_fac += 0.001f;
         CLAMP_MAX(tgpf->fill_extend_fac, 100.0f);
         gpencil_update_extend(tgpf);
       }
