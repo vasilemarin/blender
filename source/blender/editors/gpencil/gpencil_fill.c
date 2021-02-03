@@ -1904,8 +1904,24 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf)
   BLI_rctf_clamp(&rect_bound, &rect_max, r_xy);
 
   /* Calculate total width used. */
-  float width = ceilf(rect_bound.xmax - rect_bound.xmin);
-  float height = ceilf(rect_bound.ymax - rect_bound.ymin);
+  float width = tgpf->region->winx;
+  if (rect_bound.xmin < 0.0f) {
+    width -= rect_bound.xmin;
+  }
+  if (rect_bound.xmax > tgpf->region->winx) {
+    width += rect_bound.xmax - tgpf->region->winx;
+  }
+  /* Calculate total height used. */
+  float height = tgpf->region->winy;
+  if (rect_bound.ymin < 0.0f) {
+    height -= rect_bound.ymin;
+  }
+  if (rect_bound.ymax > tgpf->region->winy) {
+    height += rect_bound.ymax - tgpf->region->winy;
+  }
+
+  width = ceilf(width);
+  height = ceilf(height);
 
   float zoomx = (width > tgpf->region->winx) ? width / (float)tgpf->region->winx : 1.0f;
   float zoomy = (height > tgpf->region->winy) ? height / (float)tgpf->region->winy : 1.0f;
