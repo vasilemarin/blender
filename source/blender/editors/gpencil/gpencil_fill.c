@@ -2006,7 +2006,13 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
                 tgpf->region->winy = (short)tgpf->bwiny;
                 tgpf->region->winrct = tgpf->brect;
                 if (!tgpf->done) {
-                  tgpf->zoom = 1.0f;
+                  /* If the zoom was not set before, avoid a loop. */
+                  if (tgpf->zoom == 1.0f) {
+                    loop_limit++;
+                  }
+                  else {
+                    tgpf->zoom = 1.0f;
+                  }
                 }
                 loop_limit++;
               }
