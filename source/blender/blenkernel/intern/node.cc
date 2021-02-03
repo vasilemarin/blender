@@ -144,6 +144,8 @@ void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
   bNodeTreeRuntime *runtime = ntree->runtime;
   if (runtime != nullptr) {
     runtime->error_messages.clear();
+    runtime->error_messages.foreach_item([](const std::string UNUSED(node_name),
+                                            NodeWarning warning) { MEM_freeN(warning.message); });
   }
 }
 
