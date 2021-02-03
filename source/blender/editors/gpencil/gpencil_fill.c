@@ -670,15 +670,17 @@ static bool gpencil_render_offscreen(tGPDfill *tgpf)
   viewplane.ymax *= tgpf->zoom;
 
   /* Center view in the mouse click position. */
-  float width = viewplane.xmax - viewplane.xmin;
-  float height = viewplane.ymax - viewplane.ymin;
-  float offset_x = (width * tgpf->mouse_offset[0]);
-  float offset_y = (height * tgpf->mouse_offset[1]);
+  if (tgpf->zoom > 1.0f) {
+    float width = viewplane.xmax - viewplane.xmin;
+    float height = viewplane.ymax - viewplane.ymin;
+    float offset_x = (width * tgpf->mouse_offset[0]);
+    float offset_y = (height * tgpf->mouse_offset[1]);
 
-  viewplane.xmin += offset_x;
-  viewplane.xmax += offset_x;
-  viewplane.ymin += offset_y;
-  viewplane.ymax += offset_y;
+    viewplane.xmin += offset_x;
+    viewplane.xmax += offset_x;
+    viewplane.ymin += offset_y;
+    viewplane.ymax += offset_y;
+  }
 
   if (is_ortho) {
     orthographic_m4(winmat,
