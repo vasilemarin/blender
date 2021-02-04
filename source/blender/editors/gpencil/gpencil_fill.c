@@ -1113,8 +1113,12 @@ static void gpencil_erase_processed_area(tGPDfill *tgpf)
  *   XXXX
  * -----------
  */
-static void dilate_shape(ImBuf *ibuf)
+static void dilate_shape(ImBuf *ibuf, int factor)
 {
+  if (factor == 0) {
+    return;
+  }
+
   BLI_Stack *stack = BLI_stack_new(sizeof(int), __func__);
   const float green[4] = {0.0f, 1.0f, 0.0f, 1.0f};
   const int maxpixel = (ibuf->x * ibuf->y) - 1;
@@ -1122,82 +1126,86 @@ static void dilate_shape(ImBuf *ibuf)
   for (int v = maxpixel; v != 0; v--) {
     float color[4];
     int index;
-    int tp = 0;
-    int bm = 0;
-    int lt = 0;
-    int rt = 0;
     get_pixel(ibuf, v, color);
     if (color[1] == 1.0f) {
-      /* pixel left */
-      if (v - 1 >= 0) {
-        index = v - 1;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
-          lt = index;
+      for (int i = 1; i < factor + 1; i++) {
+        int tp = 0;
+        int bm = 0;
+        int lt = 0;
+        int rt = 0;
+
+        /* pixel left */
+        if (v - i >= 0) {
+          index = v - i;
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+            lt = index;
+          }
         }
-      }
-      /* pixel right */
-      if (v + 1 <= maxpixel) {
-        index = v + 1;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
-          rt = index;
+        /* pixel right */
+        if (v + i <= maxpixel) {
+          index = v + i;
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+            rt = index;
+          }
         }
-      }
-      /* pixel top */
-      if (v + ibuf->x <= maxpixel) {
-        index = v + ibuf->x;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
-          tp = index;
+        /* pixel top */
+        if (v + (ibuf->x * i) <= maxpixel) {
+          index = v + (ibuf->x * i);
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+            tp = index;
+          }
         }
-      }
-      /* pixel bottom */
-      if (v - ibuf->x >= 0) {
-        index = v - ibuf->x;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
-          bm = index;
+        /* pixel bottom */
+        if (v - (ibuf->x * i) >= 0) {
+          index = v - (ibuf->x * i);
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+            bm = index;
+          }
         }
-      }
-      /* pixel top-left */
-      if (tp && lt) {
-        index = tp - 1;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
+        /* pixel top-left */
+        if (tp && lt) {
+          index = tp - i;
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+          }
         }
-      }
-      /* pixel top-right */
-      if (tp && rt) {
-        index = tp + 1;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
+        /* pixel top-right */
+        if (tp && rt) {
+          index = tp + i;
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+          }
         }
-      }
-      /* pixel bottom-left */
-      if (bm && lt) {
-        index = bm - 1;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
+        /* pixel bottom-left */
+        if (bm && lt) {
+          index = bm - i;
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+          }
         }
-      }
-      /* pixel bottom-right */
-      if (bm && rt) {
-        index = bm + 1;
-        get_pixel(ibuf, index, color);
-        if (color[0] == 1.0f) {
-          BLI_stack_push(stack, &index);
+        /* pixel bottom-right */
+        if (bm && rt) {
+          index = bm + i;
+          get_pixel(ibuf, index, color);
+          if (color[0] == 1.0f) {
+            BLI_stack_push(stack, &index);
+          }
         }
       }
     }
   }
+
   /* set dilated pixels */
   while (!BLI_stack_is_empty(stack)) {
     int v;
@@ -1246,7 +1254,8 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
 
   /* Dilate. */
   if (dilate) {
-    dilate_shape(ibuf);
+    int dilate_fac = (tgpf->fill_factor <= 1.0) ? 0 : (int)ceilf(tgpf->fill_factor);
+    dilate_shape(ibuf, (dilate_fac * dilate_fac) * 2);
   }
 
   /* find the initial point to start outline analysis */
@@ -1956,7 +1965,6 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
     while (totpoints > 0) {
       /* analyze outline */
       gpencil_get_outline_points(tgpf, (totpoints == 1) ? true : false);
-      WM_cursor_time(win, 60);
 
       /* create array of points from stack */
       totpoints = gpencil_points_from_stack(tgpf);
