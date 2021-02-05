@@ -3549,6 +3549,9 @@ void nodeSetSocketAvailability(bNodeSocket *sock, bool is_available)
 int nodeSocketLinkLimit(const bNodeSocket *sock)
 {
   bNodeSocketType *stype = sock->typeinfo;
+  if (sock->flag & SOCK_MULTI_INPUT) {
+    return 4095;
+  }
   if (stype != nullptr && stype->use_link_limits_of_type) {
     int limit = (sock->in_out == SOCK_IN) ? stype->input_link_limit : stype->output_link_limit;
     return limit;
@@ -3914,22 +3917,23 @@ static int node_get_deplist_recurs(bNodeTree *ntree, bNode *node, bNode ***nsort
   return level;
 }
 
-void ntreeGetDependencyList(struct bNodeTree *ntree, struct bNode ***deplist, int *totnodes)
+void ntreeGetDependencyList(struct bNodeTree *ntree, struct bNode ***r_deplist, int *r_deplist_len)
 {
-  *totnodes = 0;
+  *r_deplist_len = 0;
 
   /* first clear data */
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     node->done = false;
-    (*totnodes)++;
+    (*r_deplist_len)++;
   }
-  if (*totnodes == 0) {
-    *deplist = nullptr;
+  if (*r_deplist_len == 0) {
+    *r_deplist = nullptr;
     return;
   }
 
   bNode **nsort;
-  nsort = *deplist = (bNode **)MEM_callocN((*totnodes) * sizeof(bNode *), "sorted node array");
+  nsort = *r_deplist = (bNode **)MEM_callocN((*r_deplist_len) * sizeof(bNode *),
+                                             "sorted node array");
 
   /* recursive check */
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
@@ -4749,6 +4753,7 @@ static void registerGeometryNodes()
 
   register_node_type_geo_attribute_compare();
   register_node_type_geo_attribute_fill();
+  register_node_type_geo_attribute_proximity();
   register_node_type_geo_attribute_vector_math();
   register_node_type_geo_triangulate();
   register_node_type_geo_edge_split();
@@ -4770,6 +4775,9 @@ static void registerGeometryNodes()
   register_node_type_geo_align_rotation_to_vector();
   register_node_type_geo_sample_texture();
   register_node_type_geo_points_to_volume();
+  register_node_type_geo_collection_info();
+  register_node_type_geo_is_viewport();
+  register_node_type_geo_volume_to_mesh();
 }
 
 static void registerFunctionNodes()
@@ -4934,11 +4942,4 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer
       }
     }
   }
-}
-
-void BKE_nodetree_shading_params_eval(struct Depsgraph *depsgraph,
-                                      bNodeTree *ntree_dst,
-                                      const bNodeTree *ntree_src)
-{
-  DEG_debug_print_eval(depsgraph, __func__, ntree_src->id.name, ntree_dst);
 }
