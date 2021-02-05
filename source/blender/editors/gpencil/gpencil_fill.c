@@ -752,27 +752,15 @@ static bool gpencil_render_offscreen(tGPDfill *tgpf)
 static void get_pixel(const ImBuf *ibuf, const int idx, float r_col[4])
 {
   BLI_assert(ibuf->rect_float != NULL);
-
-  const float *frgba = &ibuf->rect_float[idx * 4];
-  copy_v4_v4(r_col, frgba);
+  memcpy(r_col, &ibuf->rect_float[idx * 4], sizeof(float[4]));
 }
 
 /* set pixel data (rgba) at index */
 static void set_pixel(ImBuf *ibuf, int idx, const float col[4])
 {
-  // BLI_assert(idx <= ibuf->x * ibuf->y);
-  if (ibuf->rect) {
-    uint *rrect = &ibuf->rect[idx];
-    uchar ccol[4];
-
-    rgba_float_to_uchar(ccol, col);
-    *rrect = *((uint *)ccol);
-  }
-
-  if (ibuf->rect_float) {
-    float *rrectf = &ibuf->rect_float[idx * 4];
-    copy_v4_v4(rrectf, col);
-  }
+  BLI_assert(ibuf->rect_float != NULL);
+  float *rrectf = &ibuf->rect_float[idx * 4];
+  copy_v4_v4(rrectf, col);
 }
 
 /* Helper: Check if one image row is empty. */
@@ -787,6 +775,9 @@ static bool is_row_filled(const ImBuf *ibuf, const int row_index)
  * this is used for strokes with small gaps between them to get a full fill
  * and do not get a full screen fill.
  *
+ * This function assumes that if the furthest pixel is occupied,
+ * the other pixels are occupied.
+ *
  * \param ibuf: Image pixel data.
  * \param maxpixel: Maximum index.
  * \param limit: Limit of pixels to analyze.
@@ -796,10 +787,10 @@ static bool is_row_filled(const ImBuf *ibuf, const int row_index)
 static bool is_leak_narrow(ImBuf *ibuf, const int maxpixel, int limit, int index, int type)
 {
   float rgba[4];
-  int i;
   int pt;
   bool t_a = false;
   bool t_b = false;
+  const int extreme = limit - 1;
 
   /* Horizontal leak (check vertical pixels)
    * X
@@ -810,36 +801,28 @@ static bool is_leak_narrow(ImBuf *ibuf, const int maxpixel, int limit, int index
    */
   if (type == LEAK_HORZ) {
     /* pixels on top */
-    for (i = 1; i <= limit; i++) {
-      pt = index + (ibuf->x * i);
-      if (pt <= maxpixel) {
-        get_pixel(ibuf, pt, rgba);
-        if (rgba[0] == 1.0f) {
-          t_a = true;
-          break;
-        }
-      }
-      else {
-        /* edge of image*/
+    pt = index + (ibuf->x * extreme);
+    if (pt <= maxpixel) {
+      get_pixel(ibuf, pt, rgba);
+      if (rgba[0] == 1.0f) {
         t_a = true;
-        break;
       }
     }
+    else {
+      /* edge of image*/
+      t_a = true;
+    }
     /* pixels on bottom */
-    for (i = 1; i <= limit; i++) {
-      pt = index - (ibuf->x * i);
-      if (pt >= 0) {
-        get_pixel(ibuf, pt, rgba);
-        if (rgba[0] == 1.0f) {
-          t_b = true;
-          break;
-        }
-      }
-      else {
-        /* edge of image*/
+    pt = index - (ibuf->x * extreme);
+    if (pt >= 0) {
+      get_pixel(ibuf, pt, rgba);
+      if (rgba[0] == 1.0f) {
         t_b = true;
-        break;
       }
+    }
+    else {
+      /* edge of image*/
+      t_b = true;
     }
   }
 
@@ -854,34 +837,26 @@ static bool is_leak_narrow(ImBuf *ibuf, const int maxpixel, int limit, int index
     int higpix = lowpix + ibuf->x - 1;
 
     /* pixels to right */
-    for (i = 0; i < limit; i++) {
-      pt = index - (limit - i);
-      if (pt >= lowpix) {
-        get_pixel(ibuf, pt, rgba);
-        if (rgba[0] == 1.0f) {
-          t_a = true;
-          break;
-        }
-      }
-      else {
-        t_a = true; /* edge of image*/
-        break;
+    pt = index - extreme;
+    if (pt >= lowpix) {
+      get_pixel(ibuf, pt, rgba);
+      if (rgba[0] == 1.0f) {
+        t_a = true;
       }
     }
+    else {
+      t_a = true; /* edge of image*/
+    }
     /* pixels to left */
-    for (i = 0; i < limit; i++) {
-      pt = index + (limit - i);
-      if (pt <= higpix) {
-        get_pixel(ibuf, pt, rgba);
-        if (rgba[0] == 1.0f) {
-          t_b = true;
-          break;
-        }
+    pt = index + extreme;
+    if (pt <= higpix) {
+      get_pixel(ibuf, pt, rgba);
+      if (rgba[0] == 1.0f) {
+        t_b = true;
       }
-      else {
-        t_b = true; /* edge of image */
-        break;
-      }
+    }
+    else {
+      t_b = true; /* edge of image */
     }
   }
   return (bool)(t_a && t_b);
@@ -1260,12 +1235,7 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
 
   /* Dilate. */
   if (dilate) {
-    int dilate_fac = (tgpf->fill_factor <= 1.0) ? 0 : (int)ceilf(tgpf->fill_factor);
-    for (int i = 0; i < dilate_fac; i++) {
-      if (!dilate_shape(ibuf)) {
-        break;
-      }
-    };
+    dilate_shape(ibuf);
   }
 
   for (int idx = imagesize - 1; idx != 0; idx--) {
