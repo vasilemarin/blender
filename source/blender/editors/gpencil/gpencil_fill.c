@@ -580,9 +580,9 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
       tgpw.gpf = gpf;
       tgpw.t_gpf = gpf;
 
-      /* reduce thickness to avoid gaps */
       tgpw.is_fill_stroke = (tgpf->fill_draw_mode == GP_FILL_DMODE_CONTROL) ? false : true;
-      tgpw.lthick = gpl->line_change;
+      /* Reduce thickness to avoid gaps. */
+      tgpw.lthick = gpl->line_change - (20 * tgpf->fill_factor);
       tgpw.opacity = 1.0;
       copy_v4_v4(tgpw.tintcolor, ink);
       tgpw.onion = true;
@@ -751,17 +751,10 @@ static bool gpencil_render_offscreen(tGPDfill *tgpf)
 /* return pixel data (rgba) at index */
 static void get_pixel(const ImBuf *ibuf, const int idx, float r_col[4])
 {
-  if (ibuf->rect_float) {
-    const float *frgba = &ibuf->rect_float[idx * 4];
-    copy_v4_v4(r_col, frgba);
-  }
-  else {
-    /* XXX: This case probably doesn't happen, as we only write to the float buffer,
-     * but we get compiler warnings about uninitialized vars otherwise
-     */
-    BLI_assert(!"gpencil_fill.c - get_pixel() non-float case is used!");
-    zero_v4(r_col);
-  }
+  BLI_assert(ibuf->rect_float != NULL);
+
+  const float *frgba = &ibuf->rect_float[idx * 4];
+  copy_v4_v4(r_col, frgba);
 }
 
 /* set pixel data (rgba) at index */
@@ -780,6 +773,13 @@ static void set_pixel(ImBuf *ibuf, int idx, const float col[4])
     float *rrectf = &ibuf->rect_float[idx * 4];
     copy_v4_v4(rrectf, col);
   }
+}
+
+/* Helper: Check if one image row is empty. */
+static bool is_row_filled(const ImBuf *ibuf, const int row_index)
+{
+  float *row = &ibuf->rect_float[ibuf->x * 4 * row_index];
+  return (row[0] == 0.0f && memcmp(row, row + 1, ((ibuf->x * 4) - 1) * sizeof(float)) != 0);
 }
 
 /**
@@ -1113,30 +1113,34 @@ static void gpencil_erase_processed_area(tGPDfill *tgpf)
  *   XXXX
  * -----------
  */
-static void dilate_shape(ImBuf *ibuf, int factor)
+static bool dilate_shape(ImBuf *ibuf)
 {
-  if (factor == 0) {
-    return;
-  }
+  bool done = false;
 
   BLI_Stack *stack = BLI_stack_new(sizeof(int), __func__);
   const float green[4] = {0.0f, 1.0f, 0.0f, 1.0f};
-  const int maxpixel = (ibuf->x * ibuf->y) - 1;
+  // const int maxpixel = (ibuf->x * ibuf->y) - 1;
   /* detect pixels and expand into red areas */
-  for (int v = maxpixel; v != 0; v--) {
-    float color[4];
-    int index;
-    get_pixel(ibuf, v, color);
-    if (color[1] == 1.0f) {
-      for (int i = 1; i < factor + 1; i++) {
+  for (int row = 0; row < ibuf->y; row++) {
+    if (!is_row_filled(ibuf, row)) {
+      continue;
+    }
+    int maxpixel = (ibuf->x * (row + 1)) - 1;
+    int minpixel = ibuf->x * row;
+
+    for (int v = maxpixel; v != minpixel; v--) {
+      float color[4];
+      int index;
+      get_pixel(ibuf, v, color);
+      if (color[1] == 1.0f) {
         int tp = 0;
         int bm = 0;
         int lt = 0;
         int rt = 0;
 
         /* pixel left */
-        if (v - i >= 0) {
-          index = v - i;
+        if (v - 1 >= 0) {
+          index = v - 1;
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1144,8 +1148,8 @@ static void dilate_shape(ImBuf *ibuf, int factor)
           }
         }
         /* pixel right */
-        if (v + i <= maxpixel) {
-          index = v + i;
+        if (v + 1 <= maxpixel) {
+          index = v + 1;
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1153,8 +1157,8 @@ static void dilate_shape(ImBuf *ibuf, int factor)
           }
         }
         /* pixel top */
-        if (v + (ibuf->x * i) <= maxpixel) {
-          index = v + (ibuf->x * i);
+        if (v + (ibuf->x * 1) <= maxpixel) {
+          index = v + (ibuf->x * 1);
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1162,8 +1166,8 @@ static void dilate_shape(ImBuf *ibuf, int factor)
           }
         }
         /* pixel bottom */
-        if (v - (ibuf->x * i) >= 0) {
-          index = v - (ibuf->x * i);
+        if (v - (ibuf->x * 1) >= 0) {
+          index = v - (ibuf->x * 1);
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1172,7 +1176,7 @@ static void dilate_shape(ImBuf *ibuf, int factor)
         }
         /* pixel top-left */
         if (tp && lt) {
-          index = tp - i;
+          index = tp - 1;
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1180,7 +1184,7 @@ static void dilate_shape(ImBuf *ibuf, int factor)
         }
         /* pixel top-right */
         if (tp && rt) {
-          index = tp + i;
+          index = tp + 1;
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1188,7 +1192,7 @@ static void dilate_shape(ImBuf *ibuf, int factor)
         }
         /* pixel bottom-left */
         if (bm && lt) {
-          index = bm - i;
+          index = bm - 1;
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1196,7 +1200,7 @@ static void dilate_shape(ImBuf *ibuf, int factor)
         }
         /* pixel bottom-right */
         if (bm && rt) {
-          index = bm + i;
+          index = bm + 1;
           get_pixel(ibuf, index, color);
           if (color[0] == 1.0f) {
             BLI_stack_push(stack, &index);
@@ -1205,14 +1209,16 @@ static void dilate_shape(ImBuf *ibuf, int factor)
       }
     }
   }
-
   /* set dilated pixels */
   while (!BLI_stack_is_empty(stack)) {
     int v;
     BLI_stack_pop(stack, &v);
     set_pixel(ibuf, v, green);
+    done = true;
   }
   BLI_stack_free(stack);
+
+  return done;
 }
 
 /* Get the outline points of a shape using Moore Neighborhood algorithm
@@ -1255,10 +1261,13 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
   /* Dilate. */
   if (dilate) {
     int dilate_fac = (tgpf->fill_factor <= 1.0) ? 0 : (int)ceilf(tgpf->fill_factor);
-    dilate_shape(ibuf, (dilate_fac * dilate_fac) * 2);
+    for (int i = 0; i < dilate_fac; i++) {
+      if (!dilate_shape(ibuf)) {
+        break;
+      }
+    };
   }
 
-  /* find the initial point to start outline analysis */
   for (int idx = imagesize - 1; idx != 0; idx--) {
     get_pixel(ibuf, idx, rgba);
     if (rgba[1] == 1.0f) {
@@ -1673,7 +1682,7 @@ static tGPDfill *gpencil_session_init_fill(bContext *C, wmOperator *UNUSED(op))
   tgpf->fill_draw_mode = brush->gpencil_settings->fill_draw_mode;
   tgpf->fill_extend_fac = brush->gpencil_settings->fill_extend_fac;
   tgpf->fill_factor = max_ff(GPENCIL_MIN_FILL_FAC,
-                             min_ff(brush->gpencil_settings->fill_factor, 8.0f));
+                             min_ff(brush->gpencil_settings->fill_factor, GPENCIL_MAX_FILL_FAC));
   tgpf->fill_leak = (int)ceil((float)brush->gpencil_settings->fill_leak * tgpf->fill_factor);
 
   int totcol = tgpf->ob->totcol;
@@ -2100,8 +2109,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
                   }
                   else {
                     tgpf->zoom = 1.0f;
-                    tgpf->fill_factor = max_ff(GPENCIL_MIN_FILL_FAC,
-                                               min_ff(brush->gpencil_settings->fill_factor, 8.0f));
+                    tgpf->fill_factor = max_ff(
+                        GPENCIL_MIN_FILL_FAC,
+                        min_ff(brush->gpencil_settings->fill_factor, GPENCIL_MAX_FILL_FAC));
                   }
                 }
                 loop_limit++;

@@ -1466,7 +1466,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   /* fill factor size */
   prop = RNA_def_property(srna, "fill_factor", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "fill_factor");
-  RNA_def_property_range(prop, GPENCIL_MIN_FILL_FAC, 8.0f);
+  RNA_def_property_range(prop, GPENCIL_MIN_FILL_FAC, GPENCIL_MAX_FILL_FAC);
   RNA_def_property_ui_text(
       prop,
       "Precision",

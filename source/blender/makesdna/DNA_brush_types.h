@@ -47,8 +47,6 @@ typedef struct BrushClone {
   char _pad[4];
 } BrushClone;
 
-#define GPENCIL_MIN_FILL_FAC 0.05f
-
 typedef struct BrushGpencilSettings {
   /** Amount of smoothing to apply to newly created strokes. */
   float draw_smoothfac;

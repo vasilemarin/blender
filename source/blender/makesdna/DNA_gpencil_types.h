@@ -45,6 +45,9 @@ struct MDeformVert;
 #define GP_DEFAULT_CURVE_ERROR 0.1f
 #define GP_DEFAULT_CURVE_EDIT_CORNER_ANGLE M_PI_2
 
+#define GPENCIL_MIN_FILL_FAC 0.05f
+#define GPENCIL_MAX_FILL_FAC 5.0f
+
 /* ***************************************** */
 /* GP Stroke Points */
 
