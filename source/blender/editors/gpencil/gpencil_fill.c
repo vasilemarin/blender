@@ -582,7 +582,7 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
 
       tgpw.is_fill_stroke = (tgpf->fill_draw_mode == GP_FILL_DMODE_CONTROL) ? false : true;
       /* Reduce thickness to avoid gaps. */
-      tgpw.lthick = gpl->line_change - (20 * tgpf->fill_factor);
+      tgpw.lthick = gpl->line_change;  //      -(200 * tgpf->fill_factor);
       tgpw.opacity = 1.0;
       copy_v4_v4(tgpw.tintcolor, ink);
       tgpw.onion = true;
