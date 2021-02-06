@@ -295,7 +295,7 @@ static void gpencil_create_extensions(tGPDfill *tgpf)
       pt = &gps_new->points[1];
       pt->strength = 1.0f;
       pt->pressure = 1.0f;
-      extrapolate_points_by_length(pt0, pt1, tgpf->fill_extend_fac, &pt->x);
+      extrapolate_points_by_length(pt0, pt1, tgpf->fill_extend_fac * 0.1f, &pt->x);
 
       /* Extend end. */
       pt0 = &gps->points[gps->totpoints - 2];
@@ -312,7 +312,7 @@ static void gpencil_create_extensions(tGPDfill *tgpf)
       pt = &gps_new->points[1];
       pt->strength = 1.0f;
       pt->pressure = 1.0f;
-      extrapolate_points_by_length(pt0, pt1, tgpf->fill_extend_fac, &pt->x);
+      extrapolate_points_by_length(pt0, pt1, tgpf->fill_extend_fac * 0.1f, &pt->x);
     }
   }
 }
@@ -508,8 +508,8 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
   tgpw.gpd = gpd;
   tgpw.offsx = 0;
   tgpw.offsy = 0;
-  tgpw.winx = tgpf->region->sizex;
-  tgpw.winy = tgpf->region->sizey;
+  tgpw.winx = tgpf->sizex;
+  tgpw.winy = tgpf->sizey;
   tgpw.dflag = 0;
   tgpw.disable_fill = 1;
   tgpw.dflag |= (GP_DRAWFILLS_ONLY3D | GP_DRAWFILLS_NOSTATUS);
@@ -582,7 +582,7 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
 
       tgpw.is_fill_stroke = (tgpf->fill_draw_mode == GP_FILL_DMODE_CONTROL) ? false : true;
       /* Reduce thickness to avoid gaps. */
-      tgpw.lthick = gpl->line_change;  //      -(200 * tgpf->fill_factor);
+      tgpw.lthick = gpl->line_change;
       tgpw.opacity = 1.0;
       copy_v4_v4(tgpw.tintcolor, ink);
       tgpw.onion = true;
@@ -1998,7 +1998,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
   const bool do_extend = (tgpf->fill_extend_fac > 0.0f);
   const bool help_lines = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) ||
                            ((tgpf->flag & GP_BRUSH_FILL_SHOW_EXTENDLINES) && (do_extend)));
-  int estate = (!help_lines) ? OPERATOR_PASS_THROUGH : OPERATOR_RUNNING_MODAL;
+  int estate = OPERATOR_RUNNING_MODAL;
 
   switch (event->type) {
     case EVT_ESCKEY:
@@ -2124,7 +2124,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEUPKEY:
     case WHEELUPMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac -= 0.001f;
+        tgpf->fill_extend_fac -= 0.01f;
         CLAMP_MIN(tgpf->fill_extend_fac, 0.0f);
         gpencil_update_extend(tgpf);
       }
@@ -2132,7 +2132,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEDOWNKEY:
     case WHEELDOWNMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac += 0.001f;
+        tgpf->fill_extend_fac += 0.01f;
         CLAMP_MAX(tgpf->fill_extend_fac, 100.0f);
         gpencil_update_extend(tgpf);
       }
@@ -2151,7 +2151,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
       gpencil_fill_exit(C, op);
       break;
 
-    case OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH:
+    default:
       break;
   }
 
