@@ -137,8 +137,6 @@ typedef struct tGPDfill {
   bool done;
   /** mouse fill center position */
   int mouse[2];
-  /** Mouse offset from center (-/+ 0.5). */
-  float mouse_offset[2];
   /** windows width */
   int sizex;
   /** window height */
@@ -664,23 +662,18 @@ static bool gpencil_render_offscreen(tGPDfill *tgpf)
                                      NULL);
 
   /* Rescale viewplane to fit all strokes. */
-  viewplane.xmin *= tgpf->zoom;
-  viewplane.xmax *= tgpf->zoom;
-  viewplane.ymin *= tgpf->zoom;
-  viewplane.ymax *= tgpf->zoom;
+  float width = viewplane.xmax - viewplane.xmin;
+  float height = viewplane.ymax - viewplane.ymin;
 
-  /* Center view in the mouse click position. */
-  if (tgpf->zoom > 1.0f) {
-    float width = viewplane.xmax - viewplane.xmin;
-    float height = viewplane.ymax - viewplane.ymin;
-    float offset_x = (width * tgpf->mouse_offset[0]);
-    float offset_y = (height * tgpf->mouse_offset[1]);
+  float width_new = width * tgpf->zoom;
+  float height_new = height * tgpf->zoom;
+  float scale_x = (width_new - width) / 2.0f;
+  float scale_y = (height_new - height) / 2.0f;
 
-    viewplane.xmin += offset_x;
-    viewplane.xmax += offset_x;
-    viewplane.ymin += offset_y;
-    viewplane.ymax += offset_y;
-  }
+  viewplane.xmin -= scale_x;
+  viewplane.xmax += scale_x;
+  viewplane.ymin -= scale_y;
+  viewplane.ymax += scale_y;
 
   if (is_ortho) {
     orthographic_m4(winmat,
@@ -2018,8 +2011,6 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
           if ((in_bounds) && (region->regiontype == RGN_TYPE_WINDOW)) {
             tgpf->mouse[0] = event->mval[0];
             tgpf->mouse[1] = event->mval[1];
-            tgpf->mouse_offset[0] = ((float)tgpf->mouse[0] / tgpf->region->sizex) - 0.5f;
-            tgpf->mouse_offset[1] = ((float)tgpf->mouse[1] / tgpf->region->sizey) - 0.5f;
             tgpf->is_render = true;
             /* Define Zoom level. */
             gpencil_zoom_level_set(tgpf);
@@ -2124,7 +2115,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEUPKEY:
     case WHEELUPMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac -= 0.01f;
+        tgpf->fill_extend_fac -= (event->shift) ? 0.01f : 0.1f;
         CLAMP_MIN(tgpf->fill_extend_fac, 0.0f);
         gpencil_update_extend(tgpf);
       }
@@ -2132,7 +2123,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEDOWNKEY:
     case WHEELDOWNMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac += 0.01f;
+        tgpf->fill_extend_fac += (event->shift) ? 0.01f : 0.1f;
         CLAMP_MAX(tgpf->fill_extend_fac, 100.0f);
         gpencil_update_extend(tgpf);
       }
