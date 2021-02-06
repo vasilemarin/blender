@@ -1964,6 +1964,11 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
       /* Free memory. */
       MEM_SAFE_FREE(tgpf->sbuffer);
       MEM_SAFE_FREE(tgpf->depth_arr);
+
+      /* Limit very small areas. */
+      if (totpoints < 3) {
+        totpoints = 0;
+      }
     }
 
     /* Delete temp image. */
