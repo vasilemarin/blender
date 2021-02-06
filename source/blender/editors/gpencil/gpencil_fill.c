@@ -648,7 +648,7 @@ static bool gpencil_render_offscreen(tGPDfill *tgpf)
 
   GPU_offscreen_bind(offscreen, true);
   uint flag = IB_rectfloat;
-  ImBuf *ibuf = IMB_allocImBuf(tgpf->sizex, tgpf->sizey, 1, flag);
+  ImBuf *ibuf = IMB_allocImBuf(tgpf->sizex, tgpf->sizey, 32, flag);
 
   rctf viewplane;
   float clip_start, clip_end;
