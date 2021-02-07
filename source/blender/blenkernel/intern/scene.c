@@ -168,7 +168,7 @@ static void scene_init_data(ID *id)
                      CURVE_PRESET_BELL,
                      CURVEMAP_SLOPE_POSITIVE);
   /* Grease pencil interpolate. */
-  scene->toolsettings->gp_interpolate.step = 1;
+  // scene->toolsettings->gp_interpolate.step = 1;
 
   scene->unit.system = USER_UNIT_METRIC;
   scene->unit.scale_length = 1.0f;
