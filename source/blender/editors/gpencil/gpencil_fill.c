@@ -1933,7 +1933,8 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
     /* Clean borders to avoid infinite loops. */
     gpencil_set_borders(tgpf, false);
     WM_cursor_time(win, 50);
-
+    int totpoints_prv = 0;
+    int loop_limit = 0;
     while (totpoints > 0) {
       /* analyze outline */
       gpencil_get_outline_points(tgpf, (totpoints == 1) ? true : false);
@@ -1967,8 +1968,16 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
 
       /* Limit very small areas. */
       if (totpoints < 3) {
-        totpoints = 0;
+        break;
       }
+      /* Limit infinite loops is some corner cases. */
+      if (totpoints_prv == totpoints) {
+        loop_limit++;
+        if (loop_limit > 3) {
+          break;
+        }
+      }
+      totpoints_prv = totpoints;
     }
 
     /* Delete temp image. */
