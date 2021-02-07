@@ -1046,21 +1046,37 @@ static void gpencil_erase_processed_area(tGPDfill *tgpf)
   float rgba[4];
 
   for (int idy = 0; idy < ibuf->y; idy++) {
-    bool clear = false;
+    int init = -1;
+    int end = -1;
     for (int idx = 0; idx < ibuf->x; idx++) {
       int image_idx = ibuf->x * idy + idx;
       get_pixel(ibuf, image_idx, rgba);
       /* Blue. */
       if (rgba[2] == 1.0f) {
-        clear = true;
+        if (init < 0) {
+          init = image_idx;
+        }
+        else {
+          end = image_idx;
+        }
       }
       /* Red. */
       else if (rgba[0] == 1.0f) {
-        clear = false;
+        if (init > -1) {
+          for (int i = init; i <= max_ii(init, end); i++) {
+            set_pixel(ibuf, i, clear_col);
+          }
+          init = -1;
+          end = -1;
+        }
       }
-      if (clear) {
-        set_pixel(ibuf, image_idx, clear_col);
+    }
+    /* Check last segment. */
+    if (init > -1) {
+      for (int i = init; i <= max_ii(init, end); i++) {
+        set_pixel(ibuf, i, clear_col);
       }
+      set_pixel(ibuf, init, clear_col);
     }
   }
 
@@ -1286,7 +1302,6 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
     /* current pixel is equal to starting pixel */
     if (boundary_co[0] == start_co[0] && boundary_co[1] == start_co[1]) {
       BLI_stack_pop(tgpf->stack, &v);
-      // boundary_found = true;
       break;
     }
   }
