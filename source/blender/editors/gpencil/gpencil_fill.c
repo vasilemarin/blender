@@ -1218,11 +1218,12 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
   int v[2];
   int boundary_co[2];
   int start_co[2];
+  int first_co[2] = {-1, -1};
   int backtracked_co[2];
   int current_check_co[2];
   int prev_check_co[2];
   int backtracked_offset[1][2] = {{0, 0}};
-  // bool boundary_found = false;
+  bool first_pixel = false;
   bool start_found = false;
   const int NEIGHBOR_COUNT = 8;
 
@@ -1299,10 +1300,16 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
       cur_back_offset++;
       loop++;
     }
-    /* current pixel is equal to starting pixel */
-    if (boundary_co[0] == start_co[0] && boundary_co[1] == start_co[1]) {
+    /* Current pixel is equal to starting or firt pixel. */
+    if ((boundary_co[0] == start_co[0] && boundary_co[1] == start_co[1]) ||
+        (boundary_co[0] == first_co[0] && boundary_co[1] == first_co[1])) {
       BLI_stack_pop(tgpf->stack, &v);
       break;
+    }
+
+    if (!first_pixel) {
+      first_pixel = true;
+      copy_v2_v2_int(first_co, boundary_co);
     }
   }
 
