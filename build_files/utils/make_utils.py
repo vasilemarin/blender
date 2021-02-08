@@ -36,6 +36,8 @@ def check_output(cmd, exit_on_error=True):
     return output.strip()
 
 def git_branch(git_command):
+    return "blender-v2.83-release"
+
     # Get current branch name.
     try:
         branch = subprocess.check_output([git_command, "rev-parse", "--abbrev-ref", "HEAD"])
