@@ -998,18 +998,24 @@ static void gpencil_invert_image(tGPDfill *tgpf)
   ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
 
   const int maxpixel = (ibuf->x * ibuf->y) - 1;
+  const int center = ibuf->x / 2;
 
   for (int v = maxpixel; v != 0; v--) {
     float color[4];
     get_pixel(ibuf, v, color);
-    /* Green. */
+    /* Green->Red. */
     if (color[1] == 1.0f) {
       set_pixel(ibuf, v, fill_col[0]);
     }
+    /* Red->Green */
     else if (color[0] == 1.0f) {
       set_pixel(ibuf, v, fill_col[1]);
+      /* Add thickness of 2 pixels to avoid too thin lines. */
+      int offset = (v % ibuf->x < center) ? 1 : -1;
+      set_pixel(ibuf, v + offset, fill_col[1]);
     }
     else {
+      /* Set to Transparent. */
       set_pixel(ibuf, v, fill_col[2]);
     }
   }
