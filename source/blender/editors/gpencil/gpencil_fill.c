@@ -1929,7 +1929,7 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf)
   float zoomx = (width > tgpf->region->winx) ? width / (float)tgpf->region->winx : 1.0f;
   float zoomy = (height > tgpf->region->winy) ? height / (float)tgpf->region->winy : 1.0f;
   if ((zoomx != 1.0f) || (zoomy != 1.0f)) {
-    tgpf->zoom = min_ff(ceil(max_ff(zoomx, zoomy) + 1.0f), 5.0f);
+    tgpf->zoom = min_ff(max_ff(zoomx, zoomy) * 1.5f, 5.0f);
   }
 }
 
