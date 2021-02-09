@@ -5026,6 +5026,7 @@ static int gpencil_cutter_lasso_select(bContext *C,
               changed = true;
               pt->flag |= GP_SPOINT_SELECT;
               gps->flag |= GP_STROKE_SELECT;
+              BKE_gpencil_stroke_select_index_set(gpd, gps, false);
               float r_hita[3], r_hitb[3];
               if (gps->totpoints > 1) {
                 ED_gpencil_select_stroke_segment(
