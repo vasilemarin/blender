@@ -460,8 +460,12 @@ class TOPBAR_MT_file_gpencil_export(Menu):
     bl_owner_use_filter = False
 
     def draw(self, context):
-        self.layout.operator("wm.gpencil_export_svg", text="Scalable Vector Graphics (.svg)")
-        self.layout.operator("wm.gpencil_export_pdf", text="Portable Document Format (.pdf)")
+        # Pugixml lib dependency
+        if bpy.app.build_options.pugixml:
+            self.layout.operator("wm.gpencil_export_svg", text="Scalable Vector Graphics (.svg)")
+        # Haru lib dependency
+        if bpy.app.build_options.haru:
+            self.layout.operator("wm.gpencil_export_pdf", text="Portable Document Format (.pdf)")
 
 
 class TOPBAR_MT_file_export(Menu):
