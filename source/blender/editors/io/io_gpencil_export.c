@@ -59,36 +59,6 @@
 
 #include "gpencil_io.h"
 
-static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *op)
-{
-
-  char filepath[FILE_MAX];
-  RNA_string_get(op->ptr, "filepath", filepath);
-
-  if (!BLI_path_extension_check(filepath, ".svg")) {
-    BLI_path_extension_ensure(filepath, FILE_MAX, ".svg");
-    RNA_string_set(op->ptr, "filepath", filepath);
-    return true;
-  }
-
-  return false;
-}
-
-static bool wm_gpencil_export_pdf_common_check(bContext *UNUSED(C), wmOperator *op)
-{
-
-  char filepath[FILE_MAX];
-  RNA_string_get(op->ptr, "filepath", filepath);
-
-  if (!BLI_path_extension_check(filepath, ".pdf")) {
-    BLI_path_extension_ensure(filepath, FILE_MAX, ".pdf");
-    RNA_string_set(op->ptr, "filepath", filepath);
-    return true;
-  }
-
-  return false;
-}
-
 static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfptr)
 {
   uiLayout *box, *row, *col, *sub;
@@ -105,6 +75,23 @@ static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfp
   uiItemR(sub, imfptr, "use_normalized_thickness", 0, NULL, ICON_NONE);
 
   uiItemR(sub, imfptr, "use_clip_camera", 0, NULL, ICON_NONE);
+}
+
+/* <-------- SVG single frame export. --------> */
+#ifdef WITH_PUGIXML
+static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *op)
+{
+
+  char filepath[FILE_MAX];
+  RNA_string_get(op->ptr, "filepath", filepath);
+
+  if (!BLI_path_extension_check(filepath, ".svg")) {
+    BLI_path_extension_ensure(filepath, FILE_MAX, ".svg");
+    RNA_string_set(op->ptr, "filepath", filepath);
+    return true;
+  }
+
+  return false;
 }
 
 static void gpencil_export_common_props_svg(wmOperatorType *ot)
@@ -150,7 +137,6 @@ static void gpencil_export_common_props_svg(wmOperatorType *ot)
       100.0f);
 }
 
-/* <-------- SVG single frame export. --------> */
 static int wm_gpencil_export_svg_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   UNUSED_VARS(event);
@@ -309,8 +295,25 @@ void WM_OT_gpencil_export_svg(wmOperatorType *ot)
 
   gpencil_export_common_props_svg(ot);
 }
+#endif
 
 /* <-------- PDF single frame export. --------> */
+#ifdef WITH_HARU
+static bool wm_gpencil_export_pdf_common_check(bContext *UNUSED(C), wmOperator *op)
+{
+
+  char filepath[FILE_MAX];
+  RNA_string_get(op->ptr, "filepath", filepath);
+
+  if (!BLI_path_extension_check(filepath, ".pdf")) {
+    BLI_path_extension_ensure(filepath, FILE_MAX, ".pdf");
+    RNA_string_set(op->ptr, "filepath", filepath);
+    return true;
+  }
+
+  return false;
+}
+
 static int wm_gpencil_export_pdf_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   UNUSED_VARS(event);
@@ -523,3 +526,4 @@ void WM_OT_gpencil_export_pdf(wmOperatorType *ot)
                           "Frames",
                           "Frames included in the export");
 }
+#endif
