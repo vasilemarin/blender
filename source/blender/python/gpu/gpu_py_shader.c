@@ -26,14 +26,17 @@
 #include "BLI_utildefines.h"
 
 #include "GPU_shader.h"
+#include "GPU_texture.h"
 
 #include "../generic/py_capi_utils.h"
 #include "../generic/python_utildefines.h"
 #include "../mathutils/mathutils.h"
 
 #include "gpu_py_api.h"
-#include "gpu_py_shader.h" /* own include */
+#include "gpu_py_texture.h"
 #include "gpu_py_vertex_format.h"
+
+#include "gpu_py_shader.h" /* own include */
 
 /* -------------------------------------------------------------------- */
 /** \name Enum Conversion.
@@ -458,6 +461,31 @@ static PyObject *py_shader_uniform_int(BPyGPUShader *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(py_shader_uniform_texture_doc,
+             ".. method:: uniform_texture(name, texture)\n"
+             "\n"
+             "   Specify the value of a texture uniform variable for the current GPUShader.\n"
+             "\n"
+             "   :param name: name of the uniform variable whose texture is to be specified.\n"
+             "   :type name: str\n"
+             "   :param texture: Texture to attach.\n"
+             "   :type texture: :class:`gpu.types.GPUTexture`\n");
+static PyObject *py_shader_uniform_texture(BPyGPUShader *self, PyObject *args)
+{
+  const char *name;
+  BPyGPUTexture *py_texture;
+  if (!PyArg_ParseTuple(
+          args, "sO!:GPUShader.uniform_texture", &name, &BPyGPUTexture_Type, &py_texture)) {
+    return NULL;
+  }
+
+  int slot = GPU_shader_get_texture_binding(self->shader, name);
+  GPU_texture_bind(py_texture->tex, slot);
+  GPU_shader_uniform_1i(self->shader, name, slot);
+
+  Py_RETURN_NONE;
+}
+
 PyDoc_STRVAR(
     py_shader_attr_from_name_doc,
     ".. method:: attr_from_name(name)\n"
@@ -526,6 +554,10 @@ static struct PyMethodDef py_shader_methods[] = {
      METH_VARARGS,
      py_shader_uniform_float_doc},
     {"uniform_int", (PyCFunction)py_shader_uniform_int, METH_VARARGS, py_shader_uniform_int_doc},
+    {"uniform_texture",
+     (PyCFunction)py_shader_uniform_texture,
+     METH_VARARGS,
+     py_shader_uniform_texture_doc},
     {"attr_from_name",
      (PyCFunction)py_shader_attr_from_name,
      METH_O,

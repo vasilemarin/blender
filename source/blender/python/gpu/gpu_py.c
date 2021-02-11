@@ -16,18 +16,30 @@
 
 /** \file
  * \ingroup bpygpu
+ *
+ * - Use ``bpygpu_`` for local API.
+ * - Use ``BPyGPU`` for public API.
  */
 
-#pragma once
+#include <Python.h>
 
-#include "gpu_py_buffer.h"
+#include "GPU_texture.h"
 
-#include "gpu_py_batch.h"
-#include "gpu_py_element.h"
-#include "gpu_py_offscreen.h"
-#include "gpu_py_shader.h"
-#include "gpu_py_texture.h"
-#include "gpu_py_vertex_buffer.h"
-#include "gpu_py_vertex_format.h"
+#include "../generic/py_capi_utils.h"
 
-PyObject *bpygpu_types_init(void);
+#include "gpu_py.h" /* own include */
+
+/* -------------------------------------------------------------------- */
+/** \name GPU Module
+ * \{ */
+
+struct PyC_StringEnumItems bpygpu_dataformat_items[] = {
+    {GPU_DATA_FLOAT, "FLOAT"},
+    {GPU_DATA_INT, "INT"},
+    {GPU_DATA_UNSIGNED_INT, "UNSIGNED_INT"},
+    {GPU_DATA_UNSIGNED_BYTE, "UNSIGNED_BYTE"},
+    {GPU_DATA_UNSIGNED_INT_24_8, "UNSIGNED_INT_24_8"},
+    {GPU_DATA_10_11_11_REV, "10_11_11_REV"},
+    {0, NULL},
+};
+/** \} */
