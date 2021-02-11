@@ -78,6 +78,91 @@ static int py_offscreen_valid_check(BPyGPUOffScreen *py_ofs)
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Stack (Context Manager)
+ *
+ * Safer alternative to ensure balanced push/pop calls.
+ *
+ * \{ */
+
+typedef struct {
+  PyObject_HEAD /* required python macro */
+      BPyGPUOffScreen *py_offs;
+  int level;
+} BPyGPU_OffScreenStackContext;
+
+static void BPyGPUOffScreenStackContext__tp_dealloc(BPyGPU_OffScreenStackContext *self)
+{
+  Py_DECREF(self->py_offs);
+  Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *py_offscreen_stack_context_enter(BPyGPU_OffScreenStackContext *self)
+{
+  BPY_GPU_OFFSCREEN_CHECK_OBJ(self->py_offs);
+
+  /* sanity - should never happen */
+  if (self->level != -1) {
+    PyErr_SetString(PyExc_RuntimeError, "Already in use");
+    return NULL;
+  }
+
+  GPU_offscreen_bind(self->py_offs->ofs, true);
+  self->level = GPU_framebuffer_stack_level_get();
+
+  Py_RETURN_NONE;
+}
+
+static PyObject *py_offscreen_stack_context_exit(BPyGPU_OffScreenStackContext *self,
+                                                 PyObject *UNUSED(args))
+{
+  BPY_GPU_OFFSCREEN_CHECK_OBJ(self->py_offs);
+
+  /* sanity - should never happen */
+  if (self->level == -1) {
+    fprintf(stderr, "Not yet in use\n");
+    return NULL;
+  }
+
+  const int level = GPU_framebuffer_stack_level_get();
+  if (level != self->level) {
+    fprintf(stderr, "Level of bind mismatch, expected %d, got %d\n", self->level, level);
+  }
+
+  GPU_offscreen_unbind(self->py_offs->ofs, true);
+  Py_RETURN_NONE;
+}
+
+static PyMethodDef py_offscreen_stack_context_methods[] = {
+    {"__enter__", (PyCFunction)py_offscreen_stack_context_enter, METH_NOARGS},
+    {"__exit__", (PyCFunction)py_offscreen_stack_context_exit, METH_VARARGS},
+    {NULL},
+};
+
+static PyTypeObject BPyGPU_offscreen_stack_context_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "GPUFrameBufferStackContext",
+    .tp_basicsize = sizeof(BPyGPU_OffScreenStackContext),
+    .tp_dealloc = (destructor)BPyGPUOffScreenStackContext__tp_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_methods = py_offscreen_stack_context_methods,
+};
+
+PyDoc_STRVAR(py_offscreen_bind_doc,
+             ".. function:: bind()\n"
+             "\n"
+             "   Context manager to ensure balanced bind calls, even in the case of an error.\n");
+static PyObject *py_offscreen_bind(BPyGPUOffScreen *self)
+{
+  BPyGPU_OffScreenStackContext *ret = PyObject_New(BPyGPU_OffScreenStackContext,
+                                                   &BPyGPU_offscreen_stack_context_Type);
+  ret->py_offs = self;
+  ret->level = -1;
+  Py_INCREF(self);
+  return (PyObject *)ret;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name GPUOffscreen Type
  * \{ */
 
@@ -133,61 +218,6 @@ static PyObject *py_offscreen_color_texture_get(BPyGPUOffScreen *self, void *UNU
   BPY_GPU_OFFSCREEN_CHECK_OBJ(self);
   GPUTexture *texture = GPU_offscreen_color_texture(self->ofs);
   return PyLong_FromLong(GPU_texture_opengl_bindcode(texture));
-}
-
-PyDoc_STRVAR(
-    py_offscreen_bind_doc,
-    ".. method:: bind(save=True)\n"
-    "\n"
-    "   Bind the offscreen object.\n"
-    "   To make sure that the offscreen gets unbind whether an exception occurs or not,\n"
-    "   pack it into a `with` statement.\n"
-    "\n"
-    "   :arg save: Save the current OpenGL state, so that it can be restored when unbinding.\n"
-    "   :type save: `bool`\n");
-static PyObject *py_offscreen_bind(BPyGPUOffScreen *self, PyObject *args, PyObject *kwds)
-{
-  BPY_GPU_OFFSCREEN_CHECK_OBJ(self);
-  bool save = true;
-
-  static const char *_keywords[] = {"save", NULL};
-  static _PyArg_Parser _parser = {"|O&:bind", _keywords, 0};
-  if (!_PyArg_ParseTupleAndKeywordsFast(args, kwds, &_parser, PyC_ParseBool, &save)) {
-    return NULL;
-  }
-
-  GPU_offscreen_bind(self->ofs, save);
-  GPU_apply_state();
-
-  self->is_saved = save;
-  Py_INCREF(self);
-
-  return (PyObject *)self;
-}
-
-PyDoc_STRVAR(py_offscreen_unbind_doc,
-             ".. method:: unbind(restore=True)\n"
-             "\n"
-             "   Unbind the offscreen object.\n"
-             "\n"
-             "   :arg restore: Restore the OpenGL state, can only be used when the state has been "
-             "saved before.\n"
-             "   :type restore: `bool`\n");
-static PyObject *py_offscreen_unbind(BPyGPUOffScreen *self, PyObject *args, PyObject *kwds)
-{
-  bool restore = true;
-
-  BPY_GPU_OFFSCREEN_CHECK_OBJ(self);
-
-  static const char *_keywords[] = {"restore", NULL};
-  static _PyArg_Parser _parser = {"|O&:unbind", _keywords, 0};
-  if (!_PyArg_ParseTupleAndKeywordsFast(args, kwds, &_parser, PyC_ParseBool, &restore)) {
-    return NULL;
-  }
-
-  GPU_offscreen_unbind(self->ofs, restore);
-  GPU_apply_state();
-  Py_RETURN_NONE;
 }
 
 PyDoc_STRVAR(
@@ -295,17 +325,6 @@ static PyObject *py_offscreen_free(BPyGPUOffScreen *self)
   Py_RETURN_NONE;
 }
 
-static PyObject *py_offscreen_bind_context_enter(BPyGPUOffScreen *UNUSED(self))
-{
-  Py_RETURN_NONE;
-}
-
-static PyObject *py_offscreen_bind_context_exit(BPyGPUOffScreen *self, PyObject *UNUSED(args))
-{
-  GPU_offscreen_unbind(self->ofs, self->is_saved);
-  Py_RETURN_NONE;
-}
-
 static void BPyGPUOffScreen__tp_dealloc(BPyGPUOffScreen *self)
 {
   if (self->ofs) {
@@ -327,17 +346,11 @@ static PyGetSetDef py_offscreen_getseters[] = {
 
 static struct PyMethodDef py_offscreen_methods[] = {
     {"bind", (PyCFunction)py_offscreen_bind, METH_VARARGS | METH_KEYWORDS, py_offscreen_bind_doc},
-    {"unbind",
-     (PyCFunction)py_offscreen_unbind,
-     METH_VARARGS | METH_KEYWORDS,
-     py_offscreen_unbind_doc},
     {"draw_view3d",
      (PyCFunction)py_offscreen_draw_view3d,
      METH_VARARGS | METH_KEYWORDS,
      py_offscreen_draw_view3d_doc},
     {"free", (PyCFunction)py_offscreen_free, METH_NOARGS, py_offscreen_free_doc},
-    {"__enter__", (PyCFunction)py_offscreen_bind_context_enter, METH_NOARGS},
-    {"__exit__", (PyCFunction)py_offscreen_bind_context_exit, METH_VARARGS},
     {NULL, NULL, 0, NULL},
 };
 
