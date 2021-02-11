@@ -223,9 +223,9 @@ static PyObject *py_framebuffer_new(PyTypeObject *UNUSED(self), PyObject *args, 
                {.layer = -1}};
 
   static const char *_keywords[] = {
-      "depth",   "layer_depth", "mip_depth", "tex_1",   "layer_1", "mip_1",   "tex_2", "layer_2",
-      "mip_2",   "tex_3",       "layer_3",   "mip_3",   "tex_4",   "layer_4", "mip_4", "tex_5",
-      "layer_5", "mip_5",       "tex_6",     "layer_6", "mip_6",   NULL};
+      "depth",   "layer_depth", "mip_depth", "color_1", "layer_1", "mip_1",   "color_2", "layer_2",
+      "mip_2",   "color_3",     "layer_3",   "mip_3",   "color_4", "layer_4", "mip_4",   "color_5",
+      "layer_5", "mip_5",       "color_6",   "layer_6", "mip_6",   NULL};
   static _PyArg_Parser _parser = {
       "|$O&iiO&iiO&iiO&iiO&iiO&iiO&ii:GPUFrameBuffer.__new__", _keywords, 0};
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
@@ -449,12 +449,12 @@ PyDoc_STRVAR(
     py_framebuffer_doc,
     ".. class:: GPUFrameBuffer("
     "depth=None, depth_layer=0, depth_mip=-1, "
-    "tex_1=None, layer_1=0, mip_1=-1, "
-    "tex_2=None, layer_2=0, mip_2=-1, "
-    "tex_3=None, layer_3=0, mip_3=-1, "
-    "tex_4=None, layer_4=0, mip_4=-1, "
-    "tex_5=None, layer_5=0, mip_5=-1, "
-    "tex_6=None, layer_6=0, mip_6=-1)\n"
+    "color_1=None, layer_1=0, mip_1=-1, "
+    "color_2=None, layer_2=0, mip_2=-1, "
+    "color_3=None, layer_3=0, mip_3=-1, "
+    "color_4=None, layer_4=0, mip_4=-1, "
+    "color_5=None, layer_5=0, mip_5=-1, "
+    "color_6=None, layer_6=0, mip_6=-1)\n"
     "\n"
     "   This object gives access to framebuffer functionallities.\n"
     "\n"
