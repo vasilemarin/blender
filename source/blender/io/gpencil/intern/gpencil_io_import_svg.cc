@@ -93,11 +93,13 @@ bool GpencilImporterSVG::read(void)
   char prv_id[70] = {"*"};
   int prefix = 0;
   for (NSVGshape *shape = svg_data->shapes; shape; shape = shape->next) {
-    char *layer_id = BLI_sprintfN("%03d_%s", prefix, shape->id_parent);
+    char *layer_id = (shape->id_parent[0] == '\0') ? BLI_sprintfN("Layer_%03d", prefix) :
+                                                     BLI_sprintfN("%s", shape->id_parent);
     if (!STREQ(prv_id, layer_id)) {
       prefix++;
       MEM_freeN(layer_id);
-      layer_id = BLI_sprintfN("%03d_%s", prefix, shape->id_parent);
+      layer_id = (shape->id_parent[0] == '\0') ? BLI_sprintfN("Layer_%03d", prefix) :
+                                                 BLI_sprintfN("%s", shape->id_parent);
       strcpy(prv_id, layer_id);
     }
 
