@@ -27,6 +27,7 @@
 
 #include "GPU_shader.h"
 #include "GPU_texture.h"
+#include "GPU_uniform_buffer.h"
 
 #include "../generic/py_capi_utils.h"
 #include "../generic/python_utildefines.h"
@@ -34,6 +35,7 @@
 
 #include "gpu_py_api.h"
 #include "gpu_py_texture.h"
+#include "gpu_py_uniformbuffer.h"
 #include "gpu_py_vertex_format.h"
 
 #include "gpu_py_shader.h" /* own include */
@@ -487,6 +489,32 @@ static PyObject *py_shader_uniform_texture(BPyGPUShader *self, PyObject *args)
 }
 
 PyDoc_STRVAR(
+    py_shader_uniform_buffer_doc,
+    ".. method:: uniform_buffer(name, ubo)\n"
+    "\n"
+    "   Specify the value of an uniform buffer object variable for the current GPUShader.\n"
+    "\n"
+    "   :param name: name of the uniform variable whose UBO is to be specified.\n"
+    "   :type name: str\n"
+    "   :param ubo: Uniform Buffer to attach.\n"
+    "   :type texture: :class:`gpu.types.GPUUniformBuf`\n");
+static PyObject *py_shader_uniform_buffer(BPyGPUShader *self, PyObject *args)
+{
+  const char *name;
+  BPyGPUUniformBuf *py_ubo;
+  if (!PyArg_ParseTuple(
+          args, "sO!:GPUShader.uniform_buffer", &name, &BPyGPUUniformBuf_Type, &py_ubo)) {
+    return NULL;
+  }
+
+  int slot = GPU_shader_get_uniform_block(self->shader, name);
+  GPU_uniformbuf_bind(py_ubo->ubo, slot);
+  GPU_shader_uniform_1i(self->shader, name, slot);
+
+  Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(
     py_shader_attr_from_name_doc,
     ".. method:: attr_from_name(name)\n"
     "\n"
@@ -558,6 +586,10 @@ static struct PyMethodDef py_shader_methods[] = {
      (PyCFunction)py_shader_uniform_texture,
      METH_VARARGS,
      py_shader_uniform_texture_doc},
+    {"uniform_buffer",
+     (PyCFunction)py_shader_uniform_buffer,
+     METH_VARARGS,
+     py_shader_uniform_buffer_doc},
     {"attr_from_name",
      (PyCFunction)py_shader_attr_from_name,
      METH_O,

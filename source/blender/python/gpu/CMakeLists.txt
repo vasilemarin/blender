@@ -46,6 +46,7 @@ set(SRC
   gpu_py_state.c
   gpu_py_texture.c
   gpu_py_types.c
+  gpu_py_uniformbuffer.c
   gpu_py_vertex_buffer.c
   gpu_py_vertex_format.c
 
@@ -62,6 +63,7 @@ set(SRC
   gpu_py_state.h
   gpu_py_texture.h
   gpu_py_types.h
+  gpu_py_uniformbuffer.h
   gpu_py_vertex_buffer.h
   gpu_py_vertex_format.h
 )
