@@ -38,6 +38,7 @@ set(SRC
   gpu_py_batch.c
   gpu_py_buffer.c
   gpu_py_element.c
+  gpu_py_framebuffer.c
   gpu_py_matrix.c
   gpu_py_offscreen.c
   gpu_py_select.c
@@ -53,6 +54,7 @@ set(SRC
   gpu_py_batch.h
   gpu_py_buffer.h
   gpu_py_element.h
+  gpu_py_framebuffer.h
   gpu_py_matrix.h
   gpu_py_offscreen.h
   gpu_py_select.h
