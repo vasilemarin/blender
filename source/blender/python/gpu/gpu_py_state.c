@@ -179,22 +179,22 @@ static PyObject *py_state_depth_mask_get(PyObject *UNUSED(self))
 }
 
 PyDoc_STRVAR(py_state_viewport_set_doc,
-             ".. function:: viewport_set(x, y, width, height)\n"
+             ".. function:: viewport_set(x, y, xsize, ysize)\n"
              "\n"
              "   Specifies the viewport of the active framebuffer.\n"
-             "   Note: The viewport of state is not saved upon framebuffer rebind.\n"
+             "   Note: The viewport state is not saved upon framebuffer rebind.\n"
              "\n"
              "   :param x, y: lower left corner of the viewport_set rectangle, in pixels.\n"
              "   :param width, height: width and height of the viewport_set.\n"
-             "   :type x, y, width, height: `int`\n");
+             "   :type x, y, xsize, ysize: `int`\n");
 static PyObject *py_state_viewport_set(PyObject *UNUSED(self), PyObject *args)
 {
-  int x, y, width, height;
-  if (!PyArg_ParseTuple(args, "iiii:viewport_set", &x, &y, &width, &height)) {
+  int x, y, xsize, ysize;
+  if (!PyArg_ParseTuple(args, "iiii:viewport_set", &x, &y, &xsize, &ysize)) {
     return NULL;
   }
 
-  GPU_viewport(x, y, width, height);
+  GPU_viewport(x, y, xsize, ysize);
   Py_RETURN_NONE;
 }
 
