@@ -292,49 +292,6 @@ static PyObject *py_framebuffer_new(PyTypeObject *UNUSED(self), PyObject *args, 
   return BPyGPUFrameBuffer_CreatePyObject(fb_python);
 }
 
-static PyObject *py_framebuffer_viewport_get(BPyGPUFrameBuffer *self, void *UNUSED(type))
-{
-  PY_FRAMEBUFFER_CHECK_OBJ(self);
-  int viewport[4];
-  GPU_framebuffer_viewport_get(self->fb, viewport);
-
-  PyObject *ret = PyTuple_New(4);
-  PyTuple_SET_ITEMS(ret,
-                    PyLong_FromLong(viewport[0]),
-                    PyLong_FromLong(viewport[1]),
-                    PyLong_FromLong(viewport[2]),
-                    PyLong_FromLong(viewport[3]));
-  return ret;
-}
-
-static int py_framebuffer_viewport_set(BPyGPUFrameBuffer *self,
-                                       PyObject *py_values,
-                                       void *UNUSED(type))
-{
-  int viewport[4];
-
-  if (!PySequence_Check(py_values)) {
-    return -1;
-  }
-
-  if (PySequence_Size(py_values) != 4) {
-    PyErr_SetString(PyExc_AttributeError, "An array of length 4 is required");
-    return -1;
-  }
-
-  for (int i = 0; i < 4; i++) {
-    PyObject *ob = PySequence_GetItem(py_values, i);
-    viewport[i] = PyLong_AsLong(ob);
-    Py_DECREF(ob);
-    if (PyErr_Occurred()) {
-      return -1;
-    }
-  }
-
-  GPU_framebuffer_viewport_set(self->fb, UNPACK4(viewport));
-  return 0;
-}
-
 PyDoc_STRVAR(py_framebuffer_is_bound_doc,
              ".. method:: is_bound()\n"
              "\n"
@@ -420,6 +377,45 @@ static PyObject *py_framebuffer_clear(BPyGPUFrameBuffer *self, PyObject *args, P
   Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(py_framebuffer_viewport_set_doc,
+             ".. function:: viewport_set(x, y, xsize, ysize)\n"
+             "\n"
+             "   Set the viewport for this framebuffer object.\n"
+             "   Note: The viewport state is not saved upon framebuffer rebind.\n"
+             "\n"
+             "   :param x, y: lower left corner of the viewport_set rectangle, in pixels.\n"
+             "   :param xsize, ysize: width and height of the viewport_set.\n"
+             "   :type x, y, xsize, ysize: `int`\n");
+static int py_framebuffer_viewport_set(BPyGPUFrameBuffer *self, PyObject *args, void *UNUSED(type))
+{
+  int x, y, xsize, ysize;
+  if (!PyArg_ParseTuple(args, "iiii:viewport_set", &x, &y, &xsize, &ysize)) {
+    return NULL;
+  }
+
+  GPU_framebuffer_viewport_set(self->fb, x, y, xsize, ysize);
+  Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(py_framebuffer_viewport_get_doc,
+             ".. function:: viewport_get()\n"
+             "\n"
+             "   Returns position and dimension to current viewport.\n");
+static PyObject *py_framebuffer_viewport_get(BPyGPUFrameBuffer *self, void *UNUSED(type))
+{
+  PY_FRAMEBUFFER_CHECK_OBJ(self);
+  int viewport[4];
+  GPU_framebuffer_viewport_get(self->fb, viewport);
+
+  PyObject *ret = PyTuple_New(4);
+  PyTuple_SET_ITEMS(ret,
+                    PyLong_FromLong(viewport[0]),
+                    PyLong_FromLong(viewport[1]),
+                    PyLong_FromLong(viewport[2]),
+                    PyLong_FromLong(viewport[3]));
+  return ret;
+}
+
 static void BPyGPUFrameBuffer__tp_dealloc(BPyGPUFrameBuffer *self)
 {
   py_framebuffer_free_if_possible(self->fb);
@@ -427,11 +423,6 @@ static void BPyGPUFrameBuffer__tp_dealloc(BPyGPUFrameBuffer *self)
 }
 
 static PyGetSetDef py_framebuffer_getseters[] = {
-    {"viewport",
-     (getter)py_framebuffer_viewport_get,
-     (setter)py_framebuffer_viewport_set,
-     NULL,
-     NULL},
     {"is_bound", (getter)py_framebuffer_is_bound, (setter)NULL, py_framebuffer_is_bound_doc, NULL},
     {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
@@ -443,6 +434,14 @@ static struct PyMethodDef py_framebuffer_methods[] = {
      (PyCFunction)py_framebuffer_clear,
      METH_VARARGS | METH_KEYWORDS,
      py_framebuffer_clear_doc},
+    {"viewport_set",
+     (PyCFunction)py_framebuffer_viewport_set,
+     METH_NOARGS,
+     py_framebuffer_viewport_set_doc},
+    {"viewport_get",
+     (PyCFunction)py_framebuffer_viewport_get,
+     METH_VARARGS,
+     py_framebuffer_viewport_get_doc},
     {NULL, NULL, 0, NULL},
 };
 
