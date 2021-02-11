@@ -39,7 +39,6 @@ class GpencilExporterPDF : public GpencilExporter {
 
  public:
   GpencilExporterPDF(const char *filename, const struct GpencilIOParams *iparams);
-  ~GpencilExporterPDF(void);
   bool new_document(void);
   bool add_newpage(void);
   bool add_body(void);

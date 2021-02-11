@@ -38,7 +38,6 @@ class GpencilImporterSVG : public GpencilImporter {
 
  public:
   GpencilImporterSVG(const char *filename, const struct GpencilIOParams *iparams);
-  ~GpencilImporterSVG(void);
 
   bool read(void);
 

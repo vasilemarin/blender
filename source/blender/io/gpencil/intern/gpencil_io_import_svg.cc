@@ -57,12 +57,6 @@ GpencilImporterSVG::GpencilImporterSVG(const char *filename, const struct Gpenci
   filename_set(filename);
 }
 
-/* Destructor. */
-GpencilImporterSVG::~GpencilImporterSVG(void)
-{
-  /* Nothing to do yet. */
-}
-
 bool GpencilImporterSVG::read(void)
 {
   bool result = true;

@@ -81,12 +81,6 @@ GpencilExporterPDF::GpencilExporterPDF(const char *filename, const struct Gpenci
   gstate_ = nullptr;
 }
 
-/* Destructor. */
-GpencilExporterPDF::~GpencilExporterPDF(void)
-{
-  /* Nothing to do yet. */
-}
-
 bool GpencilExporterPDF::new_document(void)
 {
   return create_document();

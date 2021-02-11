@@ -39,7 +39,6 @@ class GpencilExporterSVG : public GpencilExporter {
 
  public:
   GpencilExporterSVG(const char *filename, const struct GpencilIOParams *iparams);
-  ~GpencilExporterSVG(void);
   bool add_newpage(void);
   bool add_body(void);
   bool write(void);
