@@ -44,13 +44,23 @@
 #include "DEG_depsgraph_query.h"
 
 #include "../gpencil_io.h"
-#include "gpencil_io_export_pdf.h"
-#include "gpencil_io_export_svg.h"
+
+#ifdef WITH_HARU
+#  include "gpencil_io_export_pdf.h"
+#endif
+
+#ifdef WITH_PUGIXML
+#  include "gpencil_io_export_svg.h"
+#endif
+
 #include "gpencil_io_import_svg.h"
 
+#ifdef WITH_HARU
 using blender::io::gpencil::GpencilExporterPDF;
+#endif
+#ifdef WITH_PUGIXML
 using blender::io::gpencil::GpencilExporterSVG;
-
+#endif
 using blender::io::gpencil::GpencilImporterSVG;
 
 /* Check if frame is included. */
@@ -92,6 +102,7 @@ static bool gpencil_io_import_frame(void *in_importer, const GpencilIOParams *ip
 }
 
 /* Export frame in PDF. */
+#ifdef WITH_HARU
 static bool gpencil_io_export_pdf(Depsgraph *depsgraph,
                                   Scene *scene,
                                   Object *ob,
@@ -132,8 +143,10 @@ static bool gpencil_io_export_pdf(Depsgraph *depsgraph,
 
   return result;
 }
+#endif
 
 /* Export current frame in SVG. */
+#ifdef WITH_PUGIXML
 static bool gpencil_io_export_frame_svg(GpencilExporterSVG *exporter,
                                         const GpencilIOParams *iparams,
                                         const bool newpage,
@@ -153,6 +166,7 @@ static bool gpencil_io_export_frame_svg(GpencilExporterSVG *exporter,
   }
   return result;
 }
+#endif
 
 /* Main import entry point function. */
 bool gpencil_io_import(const char *filename, GpencilIOParams *iparams)
@@ -173,9 +187,12 @@ bool gpencil_io_export(const char *filename, GpencilIOParams *iparams)
   Scene *scene_ = CTX_data_scene(iparams->C);
   Object *ob = CTX_data_active_object(iparams->C);
 
+  UNUSED_VARS(depsgraph_, scene_, ob);
+
   bool done = false;
 
   switch (iparams->mode) {
+#ifdef WITH_PUGIXML
     case GP_EXPORT_TO_SVG: {
       /* Prepare document. */
       GpencilExporterSVG exporter = GpencilExporterSVG(filename, iparams);
@@ -183,11 +200,14 @@ bool gpencil_io_export(const char *filename, GpencilIOParams *iparams)
       done |= gpencil_io_export_frame_svg(&exporter, iparams, true, true, true);
       break;
     }
+#endif
+#ifdef WITH_HARU
     case GP_EXPORT_TO_PDF: {
       GpencilExporterPDF exporter = GpencilExporterPDF(filename, iparams);
       done |= gpencil_io_export_pdf(depsgraph_, scene_, ob, &exporter, iparams);
       break;
     }
+#endif
     /* Add new export formats here. */
     default:
       break;
