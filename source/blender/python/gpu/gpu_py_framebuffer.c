@@ -202,11 +202,44 @@ static PyObject *py_framebuffer_bind(BPyGPUFrameBuffer *self)
 /** \name GPUFramebuffer Type
  * \{ */
 
+static bool py_framebuffer_parse_arg(PyObject *o, GPUTexture **r_tex, int *r_layer, int *r_mip)
+{
+  if (!o || o == Py_None) {
+    return true;
+  }
+
+  if (BPyGPUTexture_Check(o)) {
+    if (!bpygpu_ParseTexture(o, r_tex)) {
+      return false;
+    }
+  }
+  else {
+    static const char *_keywords[] = {"texture", "layer", "mip", NULL};
+    static _PyArg_Parser _parser = {"|$O&ii:attachment", _keywords, 0};
+    PyObject *tuple = PyTuple_New(0);
+    int ret = _PyArg_ParseTupleAndKeywordsFast(
+        tuple, o, &_parser, bpygpu_ParseTexture, r_tex, r_layer, r_mip);
+    Py_DECREF(tuple);
+    if (!ret) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static PyObject *py_framebuffer_new(PyTypeObject *UNUSED(self), PyObject *args, PyObject *kwds)
 {
   BPYGPU_IS_INIT_OR_ERROR_OBJ;
   if (!GPU_context_active_get()) {
     PyErr_SetString(PyExc_RuntimeError, "No active GPU context found");
+    return NULL;
+  }
+
+  PyObject *depth_attachment = NULL;
+  PyObject *color_attachements = NULL;
+
+  if (!PyArg_ParseTuple(
+          args, "OO:GPUFrameBuffer.__new__", &depth_attachment, &color_attachements)) {
     return NULL;
   }
 
@@ -222,49 +255,30 @@ static PyObject *py_framebuffer_new(PyTypeObject *UNUSED(self), PyObject *args, 
                {.layer = -1},
                {.layer = -1}};
 
-  static const char *_keywords[] = {
-      "depth",   "layer_depth", "mip_depth", "color_1", "layer_1", "mip_1",   "color_2", "layer_2",
-      "mip_2",   "color_3",     "layer_3",   "mip_3",   "color_4", "layer_4", "mip_4",   "color_5",
-      "layer_5", "mip_5",       "color_6",   "layer_6", "mip_6",   NULL};
-  static _PyArg_Parser _parser = {
-      "|$O&iiO&iiO&iiO&iiO&iiO&iiO&ii:GPUFrameBuffer.__new__", _keywords, 0};
-  if (!_PyArg_ParseTupleAndKeywordsFast(args,
-                                        kwds,
-                                        &_parser,
-                                        bpygpu_ParseTexture,
-                                        &slot[0].tex,
-                                        &slot[0].layer,
-                                        &slot[0].mip,
-                                        bpygpu_ParseTexture,
-                                        &slot[1].tex,
-                                        &slot[1].layer,
-                                        &slot[1].mip,
-                                        bpygpu_ParseTexture,
-                                        &slot[2].tex,
-                                        &slot[2].layer,
-                                        &slot[2].mip,
-                                        bpygpu_ParseTexture,
-                                        &slot[3].tex,
-                                        &slot[3].layer,
-                                        &slot[3].mip,
-                                        bpygpu_ParseTexture,
-                                        &slot[4].tex,
-                                        &slot[4].layer,
-                                        &slot[4].mip,
-                                        bpygpu_ParseTexture,
-                                        &slot[5].tex,
-                                        &slot[5].layer,
-                                        &slot[5].mip,
-                                        bpygpu_ParseTexture,
-                                        &slot[6].tex,
-                                        &slot[6].layer,
-                                        &slot[6].mip)) {
+  if (!py_framebuffer_parse_arg(depth_attachment, &slot[6].tex, &slot[6].layer, &slot[6].mip)) {
+    return NULL;
+  }
+  else if (slot[6].tex && !GPU_texture_depth(slot[6].tex)) {
+    PyErr_SetString(PyExc_ValueError, "Depth texture with incompatible format");
     return NULL;
   }
 
-  if (slot[0].tex && !GPU_texture_depth(slot[0].tex)) {
-    PyErr_SetString(PyExc_ValueError, "Depth texture with incompatible format");
-    return NULL;
+  if (color_attachements && color_attachements != Py_None) {
+    if (PySequence_Check(color_attachements)) {
+      int len = PySequence_Size(color_attachements);
+      for (int i = 0; i < len; i++) {
+        PyObject *o = PySequence_GetItem(color_attachements, i);
+        if (!py_framebuffer_parse_arg(o, &slot[i].tex, &slot[i].layer, &slot[i].mip)) {
+          return NULL;
+        }
+      }
+    }
+    else {
+      if (!py_framebuffer_parse_arg(
+              color_attachements, &slot[0].tex, &slot[0].layer, &slot[0].mip)) {
+        return NULL;
+      }
+    }
   }
 
   for (int i = 0; i < ARRAY_SIZE(slot); i++) {
@@ -279,14 +293,14 @@ static PyObject *py_framebuffer_new(PyTypeObject *UNUSED(self), PyObject *args, 
       &fb_python,
       {
           /* Depth texture. */
-          GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[0].tex, slot[0].layer, slot[0].mip),
+          GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[6].tex, slot[6].layer, slot[6].mip),
           /* Color textures. */
+          GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[0].tex, slot[0].layer, slot[0].mip),
           GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[1].tex, slot[1].layer, slot[1].mip),
           GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[2].tex, slot[2].layer, slot[2].mip),
           GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[3].tex, slot[3].layer, slot[3].mip),
           GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[4].tex, slot[4].layer, slot[4].mip),
           GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[5].tex, slot[5].layer, slot[5].mip),
-          GPU_ATTACHMENT_TEXTURE_LAYER_MIP(slot[6].tex, slot[6].layer, slot[6].mip),
       });
 
   return BPyGPUFrameBuffer_CreatePyObject(fb_python);
@@ -447,28 +461,20 @@ static struct PyMethodDef py_framebuffer_methods[] = {
     {NULL, NULL, 0, NULL},
 };
 
-PyDoc_STRVAR(
-    py_framebuffer_doc,
-    ".. class:: GPUFrameBuffer("
-    "depth=None, depth_layer=0, depth_mip=-1, "
-    "color_1=None, layer_1=0, mip_1=-1, "
-    "color_2=None, layer_2=0, mip_2=-1, "
-    "color_3=None, layer_3=0, mip_3=-1, "
-    "color_4=None, layer_4=0, mip_4=-1, "
-    "color_5=None, layer_5=0, mip_5=-1, "
-    "color_6=None, layer_6=0, mip_6=-1)\n"
-    "\n"
-    "   This object gives access to framebuffer functionallities.\n"
-    "\n"
-    "   :arg depth: Depth texture to attach.\n"
-    "   :type depth: :class:`gpu.types.GPUTexture`\n"
-    "   :arg tex_[1-6]: Color texture to attach.\n"
-    "   :type tex_[1-6]: :class:`gpu.types.GPUTexture`\n"
-    "   :arg layer_[1-6]: When specified, attach a single layer of a 3D or array texture.\n"
-    "                     For cube map textures, layer is translated into a cube map face.\n"
-    "   :type layer_[1-6]: `int`\n"
-    "   :arg mip_[1-6]: Mipmap level of the texture image to be attached.\n"
-    "   :type mip_[1-6]: `int`\n");
+PyDoc_STRVAR(py_framebuffer_doc,
+             ".. class:: GPUFrameBuffer(depth_attachment, color_attachments)\n"
+             "\n"
+             "   This object gives access to framebuffer functionallities.\n"
+             "   When a 'layer' is specified in a argument, a single layer of a 3D or array "
+             "texture is attached to the frame-buffer.\n"
+             "   For cube map textures, layer is translated into a cube map face.\n"
+             "\n"
+             "   :arg depth_attachment: GPUTexture to attach or a `dict` containing keywords: "
+             "'texture', 'layer' and 'mip'.\n"
+             "   :type depth_attachment: :class:`gpu.types.GPUTexture`, `dict` or `Nonetype`\n"
+             "   :arg color_attachments: Tuple where each item can be a GPUTexture or a `dict` "
+             "containing keywords: 'texture', 'layer' and 'mip'.\n"
+             "   :type color_attachments: `tuple` or `Nonetype`\n");
 PyTypeObject BPyGPUFrameBuffer_Type = {
     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "GPUFrameBuffer",
     .tp_basicsize = sizeof(BPyGPUFrameBuffer),
