@@ -164,8 +164,8 @@ static PyObject *py_texture_new(PyTypeObject *UNUSED(self), PyObject *args, PyOb
   }
 
   int len = 1;
-  if (PyTuple_Check(py_size)) {
-    len = PyTuple_Size(py_size);
+  if (PySequence_Check(py_size)) {
+    len = PySequence_Size(py_size);
     if (PyC_AsArray(size, py_size, len, &PyLong_Type, false, "GPUTexture.__new__") == -1) {
       return NULL;
     }
