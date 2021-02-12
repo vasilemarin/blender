@@ -62,7 +62,7 @@ struct bAnimContext;
 struct wmKeyConfig;
 struct wmOperator;
 
-enum eUndoStepDir;
+enum eUndoStepDir : int;
 
 #define GPENCIL_MINIMUM_JOIN_DIST 20.0f
 
