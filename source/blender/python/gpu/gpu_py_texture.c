@@ -116,18 +116,24 @@ static PyObject *py_texture_new(PyTypeObject *UNUSED(self), PyObject *args, PyOb
   BPYGPU_IS_INIT_OR_ERROR_OBJ;
 
   GPUTexture *tex = NULL;
-  int width, height;
+  int width;
+  int height = 0, depth = 0;
+  struct PyC_StringEnum pygpu_textureformat = {pygpu_textureformat_items, GPU_RGBA8};
+  int is_layered = false, is_cubemap = false;
   PyBuffer *pybuffer_obj = NULL;
-  struct PyC_StringEnum pygpu_textureformat = {pygpu_textureformat_items};
   char err_out[256] = "unknown error. See console";
 
-  static const char *_keywords[] = {"width", "height", "format", "init_data", NULL};
-  static _PyArg_Parser _parser = {"iiiO&|$O!:GPUTexture.__new__", _keywords, 0};
+  static const char *_keywords[] = {
+      "width", "height", "depth", "is_layered", "is_cubemap", "format", "data", NULL};
+  static _PyArg_Parser _parser = {"i|ii$ppO&O!:GPUTexture.__new__", _keywords, 0};
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kwds,
                                         &_parser,
                                         &width,
                                         &height,
+                                        &depth,
+                                        &is_layered,
+                                        &is_cubemap,
                                         PyC_ParseStringEnum,
                                         &pygpu_textureformat,
                                         &BPyGPU_BufferType,
@@ -142,19 +148,67 @@ static PyObject *py_texture_new(PyTypeObject *UNUSED(self), PyObject *args, PyOb
                       "GPUTexture.__new__: Only Buffer of format `FLOAT` is currently supported");
       return NULL;
     }
-    if (bpygpu_Buffer_size(pybuffer_obj) < (width * height * sizeof(float))) {
+
+    size_t texture_space = (max_ii(width, 1) * max_ii(height, 1) * sizeof(float));
+    if (bpygpu_Buffer_size(pybuffer_obj) < texture_space) {
       PyErr_SetString(PyExc_ValueError, "GPUTexture.__new__: Buffer size smaller than requested");
       return NULL;
     }
     data = pybuffer_obj->buf.asvoid;
   }
 
-  if (GPU_context_active_get()) {
-    tex = GPU_texture_create_2d(
-        "python_texture", width, height, 1, pygpu_textureformat.value_found, data);
+  if (is_cubemap && (depth % 6) != 0) {
+    strncpy(err_out, "cubemaps should have depth multiple of 6", 256);
+  }
+  else if (is_cubemap && height != 0) {
+    strncpy(err_out, "cubemaps reuse the 'width' value as 'height', no need to set a value", 256);
+  }
+  else if (is_cubemap && is_layered && depth == 0) {
+    strncpy(err_out, "layered cubemaps require depth", 256);
+  }
+  else if (!is_cubemap && is_layered && height == 0) {
+    strncpy(err_out, "layered textures require height", 256);
+  }
+  else if (height == 0 && depth != 0) {
+    strncpy(err_out, "except for cubemaps, textures with depth require height", 256);
+  }
+  else if (!GPU_context_active_get()) {
+    strncpy(err_out, "No active GPU context found", 256);
   }
   else {
-    strncpy(err_out, "No active GPU context found", 256);
+    const char *name = "python_texture";
+    if (is_cubemap) {
+      if (is_layered) {
+        tex = GPU_texture_create_cube_array(
+            name, width, depth, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+      }
+      else {
+        tex = GPU_texture_create_cube(
+            name, width, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+      }
+    }
+    else if (is_layered) {
+      if (depth) {
+        tex = GPU_texture_create_2d_array(
+            name, width, height, depth, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+      }
+      else {
+        tex = GPU_texture_create_1d_array(
+            name, width, height, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+      }
+    }
+    else if (depth) {
+      tex = GPU_texture_create_3d(
+          name, width, height, depth, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+    }
+    else if (height) {
+      tex = GPU_texture_create_2d(
+          name, width, height, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+    }
+    else {
+      tex = GPU_texture_create_1d(
+          name, width, height, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+    }
   }
 
   if (tex == NULL) {
@@ -300,15 +354,22 @@ static struct PyMethodDef py_texture_methods[] = {
 };
 
 PyDoc_STRVAR(py_texture_doc,
-             ".. class:: GPUTexture(width, height, data_type, init_data=None)\n"
+             ".. class:: GPUTexture(width, height, depth, is_layered=False, is_cubemap=False, "
+             "format='RGBA8', data=None)\n"
              "\n"
-             "   This object gives access to off screen buffers.\n"
+             "   This object gives access to off GPU textures.\n"
              "\n"
-             "   :arg width: Horizontal dimension of the buffer.\n"
+             "   :arg width: Horizontal dimension of the texture.\n"
              "   :type width: `int`\n"
-             "   :arg height: Vertical dimension of the buffer.\n"
+             "   :arg height: Vertical dimension of the texture.\n"
              "   :type height: `int`\n"
-             "   :arg data_type: One of these primitive types: {\n"
+             "   :arg depth: Depth dimension of the texture.\n"
+             "   :type depth: `int`\n"
+             "   :arg is_layered: Indicates the creation of an array texture.\n"
+             "   :type is_layered: `bool`\n"
+             "   :arg is_cubemap: Indicates the creation of a cubemap texture.\n"
+             "   :type is_cubemap: `int`\n"
+             "   :arg format: One of these primitive types: {\n"
              "      `RGBA8UI`,\n"
              "      `RGBA8I`,\n"
              "      `RGBA8`,\n"
@@ -353,9 +414,9 @@ PyDoc_STRVAR(py_texture_doc,
              "      `DEPTH_COMPONENT32F`,\n"
              "      `DEPTH_COMPONENT24`,\n"
              "      `DEPTH_COMPONENT16`,\n"
-             "   :type data_type: `str`\n"
-             "   :arg init_data: Buffer object to fill the texture.\n"
-             "   :type init_data: `Buffer`\n");
+             "   :type format: `str`\n"
+             "   :arg data: Buffer object to fill the texture.\n"
+             "   :type data: `Buffer`\n");
 PyTypeObject BPyGPUTexture_Type = {
     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "GPUTexture",
     .tp_basicsize = sizeof(BPyGPUTexture),
