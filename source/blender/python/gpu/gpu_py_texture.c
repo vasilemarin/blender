@@ -157,10 +157,7 @@ static PyObject *py_texture_new(PyTypeObject *UNUSED(self), PyObject *args, PyOb
     data = pybuffer_obj->buf.asvoid;
   }
 
-  if (is_cubemap && (depth % 6) != 0) {
-    strncpy(err_out, "cubemaps should have depth multiple of 6", 256);
-  }
-  else if (is_cubemap && height != 0) {
+  if (is_cubemap && height != 0) {
     strncpy(err_out, "cubemaps reuse the 'width' value as 'height', no need to set a value", 256);
   }
   else if (is_cubemap && is_layered && depth == 0) {
