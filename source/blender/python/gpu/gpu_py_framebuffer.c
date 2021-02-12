@@ -120,15 +120,15 @@ typedef struct {
   PyObject_HEAD /* required python macro */
       BPyGPUFrameBuffer *py_fb;
   int level;
-} BPyGPU_FrameBufferStackContext;
+} PyFrameBufferStackContext;
 
-static void BPyGPUFrameBufferStackContext__tp_dealloc(BPyGPU_FrameBufferStackContext *self)
+static void py_framebuffer_stack_context__tp_dealloc(PyFrameBufferStackContext *self)
 {
   Py_DECREF(self->py_fb);
-  Py_TYPE(self)->tp_free((PyObject *)self);
+  PyObject_DEL(self);
 }
 
-static PyObject *py_framebuffer_stack_context_enter(BPyGPU_FrameBufferStackContext *self)
+static PyObject *py_framebuffer_stack_context_enter(PyFrameBufferStackContext *self)
 {
   PY_FRAMEBUFFER_CHECK_OBJ(self->py_fb);
 
@@ -146,7 +146,7 @@ static PyObject *py_framebuffer_stack_context_enter(BPyGPU_FrameBufferStackConte
   Py_RETURN_NONE;
 }
 
-static PyObject *py_framebuffer_stack_context_exit(BPyGPU_FrameBufferStackContext *self,
+static PyObject *py_framebuffer_stack_context_exit(PyFrameBufferStackContext *self,
                                                    PyObject *UNUSED(args))
 {
   PY_FRAMEBUFFER_CHECK_OBJ(self->py_fb);
@@ -174,10 +174,10 @@ static PyMethodDef py_framebuffer_stack_context_methods[] = {
     {NULL},
 };
 
-static PyTypeObject BPyGPU_framebuffer_stack_context_Type = {
+static PyTypeObject py_framebuffer_stack_context_Type = {
     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "GPUFrameBufferStackContext",
-    .tp_basicsize = sizeof(BPyGPU_FrameBufferStackContext),
-    .tp_dealloc = (destructor)BPyGPUFrameBufferStackContext__tp_dealloc,
+    .tp_basicsize = sizeof(PyFrameBufferStackContext),
+    .tp_dealloc = (destructor)py_framebuffer_stack_context__tp_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_methods = py_framebuffer_stack_context_methods,
 };
@@ -188,8 +188,8 @@ PyDoc_STRVAR(py_framebuffer_bind_doc,
              "   Context manager to ensure balanced bind calls, even in the case of an error.\n");
 static PyObject *py_framebuffer_bind(BPyGPUFrameBuffer *self)
 {
-  BPyGPU_FrameBufferStackContext *ret = PyObject_New(BPyGPU_FrameBufferStackContext,
-                                                     &BPyGPU_framebuffer_stack_context_Type);
+  PyFrameBufferStackContext *ret = PyObject_New(PyFrameBufferStackContext,
+                                                &py_framebuffer_stack_context_Type);
   ret->py_fb = self;
   ret->level = -1;
   Py_INCREF(self);

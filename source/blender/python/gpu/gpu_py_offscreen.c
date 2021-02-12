@@ -88,15 +88,15 @@ typedef struct {
   PyObject_HEAD /* required python macro */
       BPyGPUOffScreen *py_offs;
   int level;
-} BPyGPU_OffScreenStackContext;
+} PyOffScreenStackContext;
 
-static void BPyGPUOffScreenStackContext__tp_dealloc(BPyGPU_OffScreenStackContext *self)
+static void py_offscreen_stack_context__tp_dealloc(PyOffScreenStackContext *self)
 {
   Py_DECREF(self->py_offs);
-  Py_TYPE(self)->tp_free((PyObject *)self);
+  PyObject_DEL(self);
 }
 
-static PyObject *py_offscreen_stack_context_enter(BPyGPU_OffScreenStackContext *self)
+static PyObject *py_offscreen_stack_context_enter(PyOffScreenStackContext *self)
 {
   BPY_GPU_OFFSCREEN_CHECK_OBJ(self->py_offs);
 
@@ -112,7 +112,7 @@ static PyObject *py_offscreen_stack_context_enter(BPyGPU_OffScreenStackContext *
   Py_RETURN_NONE;
 }
 
-static PyObject *py_offscreen_stack_context_exit(BPyGPU_OffScreenStackContext *self,
+static PyObject *py_offscreen_stack_context_exit(PyOffScreenStackContext *self,
                                                  PyObject *UNUSED(args))
 {
   BPY_GPU_OFFSCREEN_CHECK_OBJ(self->py_offs);
@@ -138,10 +138,10 @@ static PyMethodDef py_offscreen_stack_context_methods[] = {
     {NULL},
 };
 
-static PyTypeObject BPyGPU_offscreen_stack_context_Type = {
+static PyTypeObject py_offscreen_stack_context_Type = {
     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "GPUFrameBufferStackContext",
-    .tp_basicsize = sizeof(BPyGPU_OffScreenStackContext),
-    .tp_dealloc = (destructor)BPyGPUOffScreenStackContext__tp_dealloc,
+    .tp_basicsize = sizeof(PyOffScreenStackContext),
+    .tp_dealloc = (destructor)py_offscreen_stack_context__tp_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_methods = py_offscreen_stack_context_methods,
 };
@@ -152,8 +152,8 @@ PyDoc_STRVAR(py_offscreen_bind_doc,
              "   Context manager to ensure balanced bind calls, even in the case of an error.\n");
 static PyObject *py_offscreen_bind(BPyGPUOffScreen *self)
 {
-  BPyGPU_OffScreenStackContext *ret = PyObject_New(BPyGPU_OffScreenStackContext,
-                                                   &BPyGPU_offscreen_stack_context_Type);
+  PyOffScreenStackContext *ret = PyObject_New(PyOffScreenStackContext,
+                                              &py_offscreen_stack_context_Type);
   ret->py_offs = self;
   ret->level = -1;
   Py_INCREF(self);
@@ -175,7 +175,7 @@ static PyObject *py_offscreen_new(PyTypeObject *UNUSED(self), PyObject *args, Py
   char err_out[256];
 
   static const char *_keywords[] = {"width", "height", NULL};
-  static _PyArg_Parser _parser = {"ii|i:GPUOffScreen.__new__", _keywords, 0};
+  static _PyArg_Parser _parser = {"ii:GPUOffScreen.__new__", _keywords, 0};
   if (!_PyArg_ParseTupleAndKeywordsFast(args, kwds, &_parser, &width, &height)) {
     return NULL;
   }
