@@ -268,7 +268,9 @@ static PyObject *py_framebuffer_new(PyTypeObject *UNUSED(self), PyObject *args, 
       int len = PySequence_Size(color_attachements);
       for (int i = 0; i < len; i++) {
         PyObject *o = PySequence_GetItem(color_attachements, i);
-        if (!py_framebuffer_parse_arg(o, &slot[i].tex, &slot[i].layer, &slot[i].mip)) {
+        bool ok = py_framebuffer_parse_arg(o, &slot[i].tex, &slot[i].layer, &slot[i].mip);
+        Py_DECREF(o);
+        if (!ok) {
           return NULL;
         }
       }

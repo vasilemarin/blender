@@ -275,8 +275,7 @@ static PyObject *py_buffer_tp_new(PyTypeObject *UNUSED(type), PyObject *args, Py
   if (PyLong_Check(length_ob)) {
     ndimensions = 1;
     if (((dimensions[0] = PyLong_AsLong(length_ob)) < 1)) {
-      PyErr_SetString(PyExc_AttributeError,
-                      "dimensions must be between 1 and " STRINGIFY(MAX_DIMENSIONS));
+      PyErr_SetString(PyExc_AttributeError, "dimension must be greater than or equal to 1");
       return NULL;
     }
   }
@@ -293,9 +292,13 @@ static PyObject *py_buffer_tp_new(PyTypeObject *UNUSED(type), PyObject *args, Py
     }
     for (i = 0; i < ndimensions; i++) {
       PyObject *ob = PySequence_GetItem(length_ob, i);
-
       if (!PyLong_Check(ob)) {
-        dimensions[i] = 1;
+        PyErr_Format(PyExc_TypeError,
+                     "invalid dimension %i, expected an int, not a %.200s",
+                     i,
+                     Py_TYPE(ob)->tp_name);
+        Py_DECREF(ob);
+        return NULL;
       }
       else {
         dimensions[i] = PyLong_AsLong(ob);
@@ -303,8 +306,7 @@ static PyObject *py_buffer_tp_new(PyTypeObject *UNUSED(type), PyObject *args, Py
       Py_DECREF(ob);
 
       if (dimensions[i] < 1) {
-        PyErr_SetString(PyExc_AttributeError,
-                        "dimensions must be between 1 and " STRINGIFY(MAX_DIMENSIONS));
+        PyErr_SetString(PyExc_AttributeError, "dimension must be greater than or equal to 1");
         return NULL;
       }
     }
