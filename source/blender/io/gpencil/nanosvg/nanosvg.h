@@ -334,11 +334,11 @@ static void nsvg__parseElement(char *s,
     (*endelCb)(ud, name);
 }
 
-int nsvg__parseXML(char *input,
-                   void (*startelCb)(void *ud, const char *el, const char **attr),
-                   void (*endelCb)(void *ud, const char *el),
-                   void (*contentCb)(void *ud, const char *s),
-                   void *ud)
+static int nsvg__parseXML(char *input,
+                          void (*startelCb)(void *ud, const char *el, const char **attr),
+                          void (*endelCb)(void *ud, const char *el),
+                          void (*contentCb)(void *ud, const char *s),
+                          void *ud)
 {
   char *s = input;
   char *mark = s;
