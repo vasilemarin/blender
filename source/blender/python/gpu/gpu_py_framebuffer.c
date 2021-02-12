@@ -386,7 +386,9 @@ PyDoc_STRVAR(py_framebuffer_viewport_set_doc,
              "   :param x, y: lower left corner of the viewport_set rectangle, in pixels.\n"
              "   :param xsize, ysize: width and height of the viewport_set.\n"
              "   :type x, y, xsize, ysize: `int`\n");
-static int py_framebuffer_viewport_set(BPyGPUFrameBuffer *self, PyObject *args, void *UNUSED(type))
+static PyObject *py_framebuffer_viewport_set(BPyGPUFrameBuffer *self,
+                                             PyObject *args,
+                                             void *UNUSED(type))
 {
   int x, y, xsize, ysize;
   if (!PyArg_ParseTuple(args, "iiii:viewport_set", &x, &y, &xsize, &ysize)) {

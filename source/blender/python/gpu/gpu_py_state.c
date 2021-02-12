@@ -202,7 +202,7 @@ PyDoc_STRVAR(py_state_viewport_get_doc,
              ".. function:: viewport_get()\n"
              "\n"
              "   Viewport of the active framebuffer.\n");
-static PyObject *py_state_viewport_get(PyObject *UNUSED(self), PyObject *args)
+static PyObject *py_state_viewport_get(PyObject *UNUSED(self), PyObject *UNUSED(args))
 {
   int viewport[4];
   GPU_viewport_size_get_i(viewport);

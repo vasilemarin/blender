@@ -180,21 +180,20 @@ static PyObject *py_texture_new(PyTypeObject *UNUSED(self), PyObject *args, PyOb
     if (is_cubemap) {
       if (is_layered) {
         tex = GPU_texture_create_cube_array(
-            name, width, depth, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+            name, width, depth, 1, pygpu_textureformat.value_found, data);
       }
       else {
-        tex = GPU_texture_create_cube(
-            name, width, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+        tex = GPU_texture_create_cube(name, width, 1, pygpu_textureformat.value_found, data);
       }
     }
     else if (is_layered) {
       if (depth) {
         tex = GPU_texture_create_2d_array(
-            name, width, height, depth, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+            name, width, height, depth, 1, pygpu_textureformat.value_found, data);
       }
       else {
         tex = GPU_texture_create_1d_array(
-            name, width, height, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+            name, width, height, 1, pygpu_textureformat.value_found, data);
       }
     }
     else if (depth) {
@@ -202,12 +201,10 @@ static PyObject *py_texture_new(PyTypeObject *UNUSED(self), PyObject *args, PyOb
           name, width, height, depth, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
     }
     else if (height) {
-      tex = GPU_texture_create_2d(
-          name, width, height, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+      tex = GPU_texture_create_2d(name, width, height, 1, pygpu_textureformat.value_found, data);
     }
     else {
-      tex = GPU_texture_create_1d(
-          name, width, height, 1, pygpu_textureformat.value_found, GPU_DATA_FLOAT, data);
+      tex = GPU_texture_create_1d(name, width, 1, pygpu_textureformat.value_found, data);
     }
   }
 
