@@ -45,7 +45,12 @@ static int py_uniformbuffer_valid_check(BPyGPUUniformBuf *bpygpu_ub)
 {
   if (UNLIKELY(bpygpu_ub->ubo == NULL)) {
     PyErr_SetString(PyExc_ReferenceError,
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
                     "GPU uniform buffer was freed, no further access is valid");
+#else
+
+                    "GPU uniform buffer: internal error");
+#endif
     return -1;
   }
   return 0;
@@ -111,6 +116,7 @@ static PyObject *py_uniformbuffer_update(BPyGPUUniformBuf *self, PyObject *obj)
   Py_RETURN_NONE;
 }
 
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
 PyDoc_STRVAR(py_uniformbuffer_free_doc,
              ".. method::free()\n"
              "\n"
@@ -124,6 +130,7 @@ static PyObject *py_uniformbuffer_free(BPyGPUUniformBuf *self)
   self->ubo = NULL;
   Py_RETURN_NONE;
 }
+#endif
 
 static void BPyGPUUniformBuf__tp_dealloc(BPyGPUUniformBuf *self)
 {
@@ -139,7 +146,9 @@ static PyGetSetDef py_uniformbuffer_getseters[] = {
 
 static struct PyMethodDef py_uniformbuffer_methods[] = {
     {"update", (PyCFunction)py_uniformbuffer_update, METH_O, py_uniformbuffer_update_doc},
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
     {"free", (PyCFunction)py_uniformbuffer_free, METH_NOARGS, py_uniformbuffer_free_doc},
+#endif
     {NULL, NULL, 0, NULL},
 };
 

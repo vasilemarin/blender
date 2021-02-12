@@ -46,7 +46,13 @@
 static int py_framebuffer_valid_check(BPyGPUFrameBuffer *bpygpu_fb)
 {
   if (UNLIKELY(bpygpu_fb->fb == NULL)) {
-    PyErr_SetString(PyExc_ReferenceError, "GPU framebuffer was freed, no further access is valid");
+    PyErr_SetString(PyExc_ReferenceError,
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
+                    "GPU framebuffer was freed, no further access is valid"
+#else
+                    "GPU framebuffer: internal error"
+#endif
+    );
     return -1;
   }
   return 0;
@@ -319,19 +325,6 @@ static PyObject *py_framebuffer_is_bound(BPyGPUFrameBuffer *self, void *UNUSED(t
   return PyBool_FromLong(GPU_framebuffer_bound(self->fb));
 }
 
-PyDoc_STRVAR(py_framebuffer_free_doc,
-             ".. method:: free()\n"
-             "\n"
-             "   Free the framebuffer object.\n"
-             "   The framebuffer will no longer be accessible.\n");
-static PyObject *py_framebuffer_free(BPyGPUFrameBuffer *self)
-{
-  PY_FRAMEBUFFER_CHECK_OBJ(self);
-  py_framebuffer_free_if_possible(self->fb);
-  self->fb = NULL;
-  Py_RETURN_NONE;
-}
-
 PyDoc_STRVAR(py_framebuffer_clear_doc,
              ".. method:: clear(color=(0.0, 0.0, 0.0, 1.0), depth=None, stencil=None,)\n"
              "\n"
@@ -434,6 +427,21 @@ static PyObject *py_framebuffer_viewport_get(BPyGPUFrameBuffer *self, void *UNUS
   return ret;
 }
 
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
+PyDoc_STRVAR(py_framebuffer_free_doc,
+             ".. method:: free()\n"
+             "\n"
+             "   Free the framebuffer object.\n"
+             "   The framebuffer will no longer be accessible.\n");
+static PyObject *py_framebuffer_free(BPyGPUFrameBuffer *self)
+{
+  PY_FRAMEBUFFER_CHECK_OBJ(self);
+  py_framebuffer_free_if_possible(self->fb);
+  self->fb = NULL;
+  Py_RETURN_NONE;
+}
+#endif
+
 static void BPyGPUFrameBuffer__tp_dealloc(BPyGPUFrameBuffer *self)
 {
   py_framebuffer_free_if_possible(self->fb);
@@ -447,7 +455,6 @@ static PyGetSetDef py_framebuffer_getseters[] = {
 
 static struct PyMethodDef py_framebuffer_methods[] = {
     {"bind", (PyCFunction)py_framebuffer_bind, METH_NOARGS, py_framebuffer_bind_doc},
-    {"free", (PyCFunction)py_framebuffer_free, METH_NOARGS, py_framebuffer_free_doc},
     {"clear",
      (PyCFunction)py_framebuffer_clear,
      METH_VARARGS | METH_KEYWORDS,
@@ -460,6 +467,9 @@ static struct PyMethodDef py_framebuffer_methods[] = {
      (PyCFunction)py_framebuffer_viewport_get,
      METH_VARARGS,
      py_framebuffer_viewport_get_doc},
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
+    {"free", (PyCFunction)py_framebuffer_free, METH_NOARGS, py_framebuffer_free_doc},
+#endif
     {NULL, NULL, 0, NULL},
 };
 

@@ -91,7 +91,14 @@ static const struct PyC_StringEnumItems pygpu_textureformat_items[] = {
 static int py_texture_valid_check(BPyGPUTexture *bpygpu_tex)
 {
   if (UNLIKELY(bpygpu_tex->tex == NULL)) {
-    PyErr_SetString(PyExc_ReferenceError, "GPU texture was freed, no further access is valid");
+    PyErr_SetString(PyExc_ReferenceError,
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
+                    "GPU texture was freed, no further access is valid"
+#else
+                    "GPU texture: internal error"
+#endif
+    );
+
     return -1;
   }
   return 0;
@@ -275,20 +282,6 @@ static PyObject *py_texture_height_get(BPyGPUTexture *self, void *UNUSED(type))
   return PyLong_FromLong(GPU_texture_height(self->tex));
 }
 
-PyDoc_STRVAR(py_texture_free_doc,
-             ".. method:: free()\n"
-             "\n"
-             "   Free the texture object.\n"
-             "   The texture object will no longer be accessible.\n");
-static PyObject *py_texture_free(BPyGPUTexture *self)
-{
-  PY_TEXTURE_CHECK_OBJ(self);
-
-  GPU_texture_free(self->tex);
-  self->tex = NULL;
-  Py_RETURN_NONE;
-}
-
 PyDoc_STRVAR(py_texture_clear_doc,
              ".. method:: clear(format='FLOAT', value=(0.0, 0.0, 0.0, 1.0))\n"
              "\n"
@@ -374,6 +367,22 @@ static PyObject *py_texture_read(BPyGPUTexture *self, PyObject *args)
       buf);
 }
 
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
+PyDoc_STRVAR(py_texture_free_doc,
+             ".. method:: free()\n"
+             "\n"
+             "   Free the texture object.\n"
+             "   The texture object will no longer be accessible.\n");
+static PyObject *py_texture_free(BPyGPUTexture *self)
+{
+  PY_TEXTURE_CHECK_OBJ(self);
+
+  GPU_texture_free(self->tex);
+  self->tex = NULL;
+  Py_RETURN_NONE;
+}
+#endif
+
 static void BPyGPUTexture__tp_dealloc(BPyGPUTexture *self)
 {
   if (self->tex) {
@@ -389,9 +398,11 @@ static PyGetSetDef py_texture_getseters[] = {
 };
 
 static struct PyMethodDef py_texture_methods[] = {
-    {"free", (PyCFunction)py_texture_free, METH_NOARGS, py_texture_free_doc},
     {"clear", (PyCFunction)py_texture_clear, METH_VARARGS, py_texture_clear_doc},
     {"read", (PyCFunction)py_texture_read, METH_VARARGS, py_texture_read_doc},
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
+    {"free", (PyCFunction)py_texture_free, METH_NOARGS, py_texture_free_doc},
+#endif
     {NULL, NULL, 0, NULL},
 };
 

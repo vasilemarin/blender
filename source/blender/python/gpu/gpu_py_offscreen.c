@@ -54,6 +54,9 @@
 #include "gpu_py_api.h"
 #include "gpu_py_offscreen.h" /* own include */
 
+/* Define the free method to avoid breakage. */
+#define BPYGPU_USE_GPUOBJ_FREE_METHOD
+
 /* -------------------------------------------------------------------- */
 /** \name GPUOffScreen Common Utilities
  * \{ */
@@ -61,7 +64,13 @@
 static int py_offscreen_valid_check(BPyGPUOffScreen *py_ofs)
 {
   if (UNLIKELY(py_ofs->ofs == NULL)) {
-    PyErr_SetString(PyExc_ReferenceError, "GPU offscreen was freed, no further access is valid");
+    PyErr_SetString(PyExc_ReferenceError,
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
+                    "GPU offscreen was freed, no further access is valid"
+#else
+                    "GPU offscreen: internal error"
+#endif
+    );
     return -1;
   }
   return 0;
@@ -311,6 +320,7 @@ static PyObject *py_offscreen_draw_view3d(BPyGPUOffScreen *self, PyObject *args,
   Py_RETURN_NONE;
 }
 
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
 PyDoc_STRVAR(py_offscreen_free_doc,
              ".. method:: free()\n"
              "\n"
@@ -324,6 +334,7 @@ static PyObject *py_offscreen_free(BPyGPUOffScreen *self)
   self->ofs = NULL;
   Py_RETURN_NONE;
 }
+#endif
 
 static void BPyGPUOffScreen__tp_dealloc(BPyGPUOffScreen *self)
 {
@@ -350,7 +361,9 @@ static struct PyMethodDef py_offscreen_methods[] = {
      (PyCFunction)py_offscreen_draw_view3d,
      METH_VARARGS | METH_KEYWORDS,
      py_offscreen_draw_view3d_doc},
+#ifdef BPYGPU_USE_GPUOBJ_FREE_METHOD
     {"free", (PyCFunction)py_offscreen_free, METH_NOARGS, py_offscreen_free_doc},
+#endif
     {NULL, NULL, 0, NULL},
 };
 
