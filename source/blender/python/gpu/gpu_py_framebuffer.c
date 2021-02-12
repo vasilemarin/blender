@@ -430,7 +430,7 @@ static PyGetSetDef py_framebuffer_getseters[] = {
 };
 
 static struct PyMethodDef py_framebuffer_methods[] = {
-    {"bind", (PyCFunction)py_framebuffer_bind, METH_NOARGS},
+    {"bind", (PyCFunction)py_framebuffer_bind, METH_NOARGS, py_framebuffer_bind_doc},
     {"free", (PyCFunction)py_framebuffer_free, METH_NOARGS, py_framebuffer_free_doc},
     {"clear",
      (PyCFunction)py_framebuffer_clear,
