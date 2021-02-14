@@ -670,9 +670,9 @@ macro(TEST_SSE_SUPPORT
     SUPPORT_SSE_BUILD)
 
     if(SUPPORT_SSE_BUILD)
-      message(STATUS "SSE Support: detected.")
+      message(STATUS "SSE Instructions: detected.")
     else()
-      message(STATUS "SSE Support: missing.")
+      message(STATUS "SSE Instructions: not supported.")
     endif()
   endif()
 
@@ -684,13 +684,27 @@ macro(TEST_SSE_SUPPORT
     SUPPORT_SSE2_BUILD)
 
     if(SUPPORT_SSE2_BUILD)
-      message(STATUS "SSE2 Support: detected.")
+      message(STATUS "SSE2 Instructions: detected.")
     else()
-      message(STATUS "SSE2 Support: missing.")
+      message(STATUS "SSE2 Instructions: not supported.")
     endif()
   endif()
 
   unset(CMAKE_REQUIRED_FLAGS)
+endmacro()
+
+macro(TEST_NEON_SUPPORT)
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles(
+	"#include <arm_neon.h>
+   int main() {return vaddvq_s32(vdupq_n_s32(1));}"
+  SUPPORT_NEON_BUILD)
+
+  if(SUPPORT_NEON_BUILD)
+    message(STATUS "Neon Instructions: detected.")
+  else()
+    message(STATUS "Neon Instructions: not supported.")
+  endif()
 endmacro()
 
 # Only print message if running CMake first time
