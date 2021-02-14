@@ -962,11 +962,17 @@ if(WITH_CPU_SIMD)
   set(COMPILER_SSE_FLAG)
   set(COMPILER_SSE2_FLAG)
 
-  TEST_NEON_SUPPORT()
-  if(SUPPORT_NEON_BUILD)
-    blender_include_dirs_sys("${SSE2NEON_INCLUDE_DIRS}")
-    add_definitions(-DWITH_SSE2NEON)
-  else()
+  # Neon
+  if(SSE2NEON_FOUND)
+    TEST_NEON_SUPPORT()
+    if(SUPPORT_NEON_BUILD)
+      blender_include_dirs_sys("${SSE2NEON_INCLUDE_DIRS}")
+      add_definitions(-DWITH_SSE2NEON)
+    endif()
+  endif()
+
+  # SSE
+  if(NOT SUPPORT_NEON_BUILD)
     TEST_SSE_SUPPORT(COMPILER_SSE_FLAG COMPILER_SSE2_FLAG)
     if(SUPPORT_SSE_BUILD)
       string(PREPEND PLATFORM_CFLAGS "${COMPILER_SSE_FLAG} ")
