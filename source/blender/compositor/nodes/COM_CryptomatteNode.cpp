@@ -40,28 +40,10 @@ CryptomatteNode::CryptomatteNode(bNode *editorNode) : Node(editorNode)
   /* pass */
 }
 
-blender::StringRef CryptomatteNode::getCryptomatteLayerPrefix(const bNode &node) const
-{
-  NodeCryptomatte *cryptoMatteSettings = (NodeCryptomatte *)node.storage;
-
-  switch (cryptoMatteSettings->type) {
-    case CMP_CRYPTOMATTE_TYPE_OBJECT:
-      return CRYPTOMATTE_LAYER_PREFIX_OBJECT;
-
-    case CMP_CRYPTOMATTE_TYPE_MATERIAL:
-      return CRYPTOMATTE_LAYER_PREFIX_MATERIAL;
-
-    case CMP_CRYPTOMATTE_TYPE_ASSET:
-      return CRYPTOMATTE_LAYER_PREFIX_ASSET;
-  }
-  BLI_assert(false && "Invalid Cryptomatte layer.");
-  return "";
-}
-
 void CryptomatteNode::buildInputOperationsFromRenderSource(
     const CompositorContext &context,
     const bNode &node,
-    blender::Vector<NodeOperation *> &r_input_operations) const
+    blender::Vector<NodeOperation *> &r_input_operations)
 {
   Scene *scene = (Scene *)node.id;
   BLI_assert(GS(scene->id.name) == ID_SCE);
@@ -77,7 +59,7 @@ void CryptomatteNode::buildInputOperationsFromRenderSource(
   if (view_layer) {
     RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
     if (render_layer) {
-      std::string prefix = getCryptomatteLayerPrefix(node);
+      std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
       LISTBASE_FOREACH (RenderPass *, rpass, &render_layer->passes) {
         if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
           RenderLayersProg *op = new RenderLayersProg(rpass->name, COM_DT_COLOR, rpass->channels);
@@ -96,7 +78,7 @@ void CryptomatteNode::buildInputOperationsFromRenderSource(
 void CryptomatteNode::buildInputOperationsFromImageSource(
     const CompositorContext &context,
     const bNode &node,
-    blender::Vector<NodeOperation *> &r_input_operations) const
+    blender::Vector<NodeOperation *> &r_input_operations)
 {
   NodeCryptomatte *cryptoMatteSettings = (NodeCryptomatte *)node.storage;
   Image *image = (Image *)node.id;
@@ -128,7 +110,7 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
     RenderLayer *render_layer = (RenderLayer *)BLI_findlink(&image->rr->layers, iuser->layer);
     if (render_layer) {
       int render_pass_index = 0;
-      std::string prefix = getCryptomatteLayerPrefix(node);
+      std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
       for (RenderPass *rpass = (RenderPass *)render_layer->passes.first; rpass;
            rpass = rpass->next, render_pass_index++) {
         if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
@@ -146,7 +128,7 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
 }
 
 blender::Vector<NodeOperation *> CryptomatteNode::createInputOperations(
-    const CompositorContext &context, const bNode &node) const
+    const CompositorContext &context, const bNode &node)
 {
   blender::Vector<NodeOperation *> input_operations;
   switch (node.custom1) {

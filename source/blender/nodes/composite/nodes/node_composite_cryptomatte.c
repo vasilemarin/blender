@@ -111,6 +111,29 @@ void ntreeCompositCryptomatteSyncFromRemove(Main *UNUSED(bmain),
   }
 }
 
+const char *CRYPTOMATTE_LAYER_PREFIX_OBJECT = "CryptoObject";
+const char *CRYPTOMATTE_LAYER_PREFIX_MATERIAL = "CryptoMaterial";
+const char *CRYPTOMATTE_LAYER_PREFIX_ASSET = "CryptoAsset";
+const char *CRYPTOMATTE_LAYER_PREFIX_UNKNOWN = "";
+
+const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node)
+{
+  NodeCryptomatte *cryptoMatteSettings = (NodeCryptomatte *)node->storage;
+
+  switch (cryptoMatteSettings->type) {
+    case CMP_CRYPTOMATTE_TYPE_OBJECT:
+      return CRYPTOMATTE_LAYER_PREFIX_OBJECT;
+
+    case CMP_CRYPTOMATTE_TYPE_MATERIAL:
+      return CRYPTOMATTE_LAYER_PREFIX_MATERIAL;
+
+    case CMP_CRYPTOMATTE_TYPE_ASSET:
+      return CRYPTOMATTE_LAYER_PREFIX_ASSET;
+  }
+  BLI_assert(false && "Invalid Cryptomatte layer.");
+  return CRYPTOMATTE_LAYER_PREFIX_UNKNOWN;
+}
+
 static void node_init_cryptomatte(bNodeTree *UNUSED(ntree), bNode *node)
 {
   NodeCryptomatte *user = MEM_callocN(sizeof(NodeCryptomatte), "cryptomatte user");

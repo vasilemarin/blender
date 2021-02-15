@@ -210,22 +210,6 @@ static bool eyedropper_cryptomatte_sample_fl(
     return false;
   }
 
-  const char *prefix = "";
-  switch (crypto->type) {
-    case CMP_CRYPTOMATTE_TYPE_OBJECT:
-      prefix = "CryptoObject";
-      break;
-    case CMP_CRYPTOMATTE_TYPE_MATERIAL:
-      prefix = "CryptoMaterial";
-      break;
-    case CMP_CRYPTOMATTE_TYPE_ASSET:
-      prefix = "CryptoAsset";
-      break;
-    default:
-      BLI_assert(false);
-      break;
-  }
-
   bool success = false;
   if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
     Scene *scene = (Scene *)node->id;
@@ -239,6 +223,7 @@ static bool eyedropper_cryptomatte_sample_fl(
         ViewLayer *view_layer = (ViewLayer *)BLI_findlink(&scene->view_layers, layerId);
         if (view_layer) {
           RenderLayer *rl = RE_GetRenderLayer(rr, view_layer->name);
+          const char *prefix = ntreeCompositCryptomatteLayerPrefix(node);
           success = eyedropper_cryptomatte_sample_renderlayer_fl(rl, prefix, fpos, r_col);
         }
       }
@@ -254,6 +239,7 @@ static bool eyedropper_cryptomatte_sample_fl(
       ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
       if (image->rr) {
         RenderLayer *rl = (RenderLayer *)BLI_findlink(&image->rr->layers, iuser->layer);
+        const char *prefix = ntreeCompositCryptomatteLayerPrefix(node);
         success = eyedropper_cryptomatte_sample_renderlayer_fl(rl, prefix, fpos, r_col);
       }
       BKE_image_release_ibuf(image, ibuf, NULL);

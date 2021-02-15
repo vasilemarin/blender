@@ -32,15 +32,15 @@ class CryptomatteNode : public Node {
   void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
 
  private:
-  blender::StringRef getCryptomatteLayerPrefix(const bNode &node) const;
-  blender::Vector<NodeOperation *> createInputOperations(const CompositorContext &context,
-                                                         const bNode &node) const;
-  void buildInputOperationsFromRenderSource(
+  static blender::StringRef getCryptomatteLayerPrefix(const bNode &node);
+  static blender::Vector<NodeOperation *> createInputOperations(const CompositorContext &context,
+                                                                const bNode &node);
+  static void buildInputOperationsFromRenderSource(
       const CompositorContext &context,
       const bNode &node,
-      blender::Vector<NodeOperation *> &r_input_operations) const;
-  void buildInputOperationsFromImageSource(
+      blender::Vector<NodeOperation *> &r_input_operations);
+  static void buildInputOperationsFromImageSource(
       const CompositorContext &context,
       const bNode &node,
-      blender::Vector<NodeOperation *> &r_input_operations) const;
+      blender::Vector<NodeOperation *> &r_input_operations);
 };

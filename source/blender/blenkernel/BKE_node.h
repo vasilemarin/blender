@@ -1285,6 +1285,7 @@ void ntreeCompositColorBalanceSyncFromCDL(bNodeTree *ntree, bNode *node);
 
 void ntreeCompositCryptomatteSyncFromAdd(struct Main *bmain, bNodeTree *ntree, bNode *node);
 void ntreeCompositCryptomatteSyncFromRemove(struct Main *bmain, bNodeTree *ntree, bNode *node);
+const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node);
 
 /** \} */
 

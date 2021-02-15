@@ -2696,7 +2696,7 @@ static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *C, Pointe
 
   col = uiLayoutColumn(layout, true);
   uiItemR(col, ptr, "type", 0, NULL, ICON_NONE);
-  uiItemL(col, IFACE_("Matte Objects:"), ICON_NONE);
+  uiItemL(col, IFACE_("Matte ID:"), ICON_NONE);
 
   uiLayout *row = uiLayoutRow(col, true);
   uiItemR(row, ptr, "matte_id", DEFAULT_FLAGS, "", ICON_NONE);
