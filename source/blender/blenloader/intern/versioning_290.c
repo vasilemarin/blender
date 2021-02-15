@@ -611,19 +611,6 @@ void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
    */
   {
     /* Keep this block, even when empty. */
-
-    /* Convert `NodeCryptomatte->storage->matte_id` to `NodeCryptomatte->storage->entries` */
-    if (!DNA_struct_find(fd->filesdna, "CryptomatteEntry")) {
-      LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-        if (scene->nodetree) {
-          LISTBASE_FOREACH (bNode *, node, &scene->nodetree->nodes) {
-            if (node->type == CMP_NODE_CRYPTOMATTE) {
-              compositor_convert_cryptomatte_node(bmain, node);
-            }
-          }
-        }
-      }
-    }
   }
 }
 
@@ -1763,6 +1750,19 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
         scene->eevee.bokeh_neighbor_max = 10.0f;
         scene->eevee.bokeh_denoise_fac = 0.75f;
         scene->eevee.bokeh_overblur = 5.0f;
+      }
+    }
+
+    /* Convert `NodeCryptomatte->storage->matte_id` to `NodeCryptomatte->storage->entries` */
+    if (!DNA_struct_find(fd->filesdna, "CryptomatteEntry")) {
+      LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+        if (scene->nodetree) {
+          LISTBASE_FOREACH (bNode *, node, &scene->nodetree->nodes) {
+            if (node->type == CMP_NODE_CRYPTOMATTE) {
+              compositor_convert_cryptomatte_node(bmain, node);
+            }
+          }
+        }
       }
     }
 
