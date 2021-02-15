@@ -1353,7 +1353,8 @@ void EEVEE_cryptomatte_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data
 void EEVEE_cryptomatte_update_passes(struct RenderEngine *engine,
                                      struct Scene *scene,
                                      struct ViewLayer *view_layer);
-void EEVEE_cryptomatte_render_result(struct RenderLayer *rl,
+void EEVEE_cryptomatte_render_result(struct RenderResult *render_result,
+                                     struct RenderLayer *rl,
                                      const char *viewname,
                                      const rcti *rect,
                                      EEVEE_Data *vedata,
@@ -1500,6 +1501,7 @@ void EEVEE_render_draw(EEVEE_Data *vedata,
                        const struct rcti *rect);
 void EEVEE_render_read_result(EEVEE_Data *vedata,
                               struct RenderEngine *engine,
+                              struct RenderResult *render_result,
                               struct RenderLayer *rl,
                               const rcti *rect);
 void EEVEE_render_update_passes(struct RenderEngine *engine,

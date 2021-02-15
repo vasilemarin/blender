@@ -1754,12 +1754,13 @@ bool DRW_render_check_grease_pencil(Depsgraph *depsgraph)
 }
 
 static void DRW_render_gpencil_to_image(RenderEngine *engine,
+                                        struct RenderResult *render_result,
                                         struct RenderLayer *render_layer,
                                         const rcti *rect)
 {
   if (draw_engine_gpencil_type.render_to_image) {
     ViewportEngineData *gpdata = drw_viewport_engine_data_ensure(&draw_engine_gpencil_type);
-    draw_engine_gpencil_type.render_to_image(gpdata, engine, render_layer, rect);
+    draw_engine_gpencil_type.render_to_image(gpdata, engine, render_result, render_layer, rect);
   }
 }
 
@@ -1813,7 +1814,7 @@ void DRW_render_gpencil(struct RenderEngine *engine, struct Depsgraph *depsgraph
     RE_SetActiveRenderView(render, render_view->name);
     DRW_view_reset();
     DST.buffer_finish_called = false;
-    DRW_render_gpencil_to_image(engine, render_layer, &render_rect);
+    DRW_render_gpencil_to_image(engine, render_result, render_layer, &render_rect);
   }
 
   /* Force cache to reset. */
@@ -1910,7 +1911,8 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
        render_view = render_view->next) {
     RE_SetActiveRenderView(render, render_view->name);
     DRW_view_reset();
-    engine_type->draw_engine->render_to_image(data, engine, render_layer, &render_rect);
+    engine_type->draw_engine->render_to_image(
+        data, engine, render_result, render_layer, &render_rect);
     DST.buffer_finish_called = false;
   }
 

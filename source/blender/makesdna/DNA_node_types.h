@@ -1065,13 +1065,19 @@ typedef struct CryptomatteEntry {
 } CryptomatteEntry;
 
 typedef struct NodeCryptomatte {
-  float add[3];
-  float remove[3];
-  char *matte_id DNA_DEPRECATED;
+  /* iuser needs to be first element due to RNA limitations.
+   * When we define the ImageData properties, we can't define them from
+   * storage->iuser, so storage needs to be casted to ImageUser directly. */
+  ImageUser iuser;
+
   /* Contains `CryptomatteEntry`. */
   ListBase entries;
-  int num_inputs;
+  int type;
+
+  float add[3];
+  float remove[3];
   char _pad[4];
+  char *matte_id DNA_DEPRECATED;
 } NodeCryptomatte;
 
 typedef struct NodeDenoise {

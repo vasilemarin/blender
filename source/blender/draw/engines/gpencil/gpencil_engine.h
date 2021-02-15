@@ -441,6 +441,7 @@ void GPENCIL_render_init(struct GPENCIL_Data *ved,
                          const rcti *rect);
 void GPENCIL_render_to_image(void *vedata,
                              struct RenderEngine *engine,
+                             struct RenderResult *render_result,
                              struct RenderLayer *render_layer,
                              const rcti *rect);
 

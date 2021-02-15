@@ -31,10 +31,13 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
 
 #include "BKE_context.h"
+#include "BKE_image.h"
 #include "BKE_main.h"
+#include "BKE_node.h"
 #include "BKE_screen.h"
 
 #include "RNA_access.h"
@@ -42,6 +45,7 @@
 #include "UI_interface.h"
 
 #include "IMB_colormanagement.h"
+#include "IMB_imbuf_types.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -53,6 +57,8 @@
 #include "ED_clip.h"
 #include "ED_image.h"
 #include "ED_node.h"
+
+#include "RE_pipeline.h"
 
 #include "interface_eyedropper_intern.h"
 
@@ -71,13 +77,12 @@ typedef struct Eyedropper {
   float accum_col[3];
   int accum_tot;
 
-  bool use_accum;
+  bNode *crypto_node;
 } Eyedropper;
 
 static bool eyedropper_init(bContext *C, wmOperator *op)
 {
   Eyedropper *eye = MEM_callocN(sizeof(Eyedropper), __func__);
-  eye->use_accum = RNA_boolean_get(op->ptr, "use_accumulate");
 
   uiBut *but = UI_context_active_but_prop_get(C, &eye->ptr, &eye->prop, &eye->index);
   const enum PropertySubType prop_subtype = eye->prop ? RNA_property_subtype(eye->prop) : 0;
@@ -96,6 +101,13 @@ static bool eyedropper_init(bContext *C, wmOperator *op)
 
   float col[4];
   RNA_property_float_get_array(&eye->ptr, eye->prop, col);
+  if (eye->ptr.type == &RNA_CompositorNodeCryptomatte) {
+    eye->crypto_node = (bNode *)eye->ptr.data;
+  }
+  else {
+    eye->crypto_node = NULL;
+  }
+
   if (prop_subtype != PROP_COLOR) {
     Scene *scene = CTX_data_scene(C);
     const char *display_device;
@@ -124,6 +136,129 @@ static void eyedropper_exit(bContext *C, wmOperator *op)
 }
 
 /* *** eyedropper_color_ helper functions *** */
+
+static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *rl,
+                                                         const char *prefix,
+                                                         float fpos[2],
+                                                         float r_col[3])
+{
+  if (rl) {
+    LISTBASE_FOREACH (RenderPass *, rpass, &rl->passes) {
+      if (STRPREFIX(rpass->name, prefix)) {
+        BLI_assert(rpass->channels == 4);
+        int x = (int)(fpos[0] * rpass->rectx);
+        int y = (int)(fpos[1] * rpass->recty);
+        int offset = 4 * (y * rpass->rectx + x);
+        zero_v3(r_col);
+        r_col[0] = rpass->rect[offset];
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+static bool eyedropper_cryptomatte_sample_fl(
+    bContext *C, Eyedropper *eye, int mx, int my, float r_col[3])
+{
+  bNode *node = eye->crypto_node;
+  NodeCryptomatte *crypto = node ? ((NodeCryptomatte *)node->storage) : NULL;
+
+  if (!crypto) {
+    return false;
+  }
+
+  bScreen *screen = CTX_wm_screen(C);
+  ScrArea *sa = BKE_screen_find_area_xy(screen, SPACE_TYPE_ANY, mx, my);
+  if (!sa || !ELEM(sa->spacetype, SPACE_IMAGE, SPACE_NODE, SPACE_CLIP)) {
+    return false;
+  }
+
+  ARegion *ar = BKE_area_find_region_xy(sa, RGN_TYPE_WINDOW, mx, my);
+  if (!ar) {
+    return false;
+  }
+
+  int mval[2] = {mx - ar->winrct.xmin, my - ar->winrct.ymin};
+  float fpos[2] = {-1.0f, -1.0};
+  switch (sa->spacetype) {
+    case SPACE_IMAGE: {
+      SpaceImage *sima = sa->spacedata.first;
+      ED_space_image_get_position(sima, ar, mval, fpos);
+      break;
+    }
+    case SPACE_NODE: {
+      Main *bmain = CTX_data_main(C);
+      SpaceNode *snode = sa->spacedata.first;
+      ED_space_node_get_position(bmain, snode, ar, mval, fpos);
+      break;
+    }
+    case SPACE_CLIP: {
+      SpaceClip *sc = sa->spacedata.first;
+      ED_space_clip_get_position(sc, ar, mval, fpos);
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+
+  if (fpos[0] < 0.0f || fpos[1] < 0.0f || fpos[0] >= 1.0f || fpos[1] >= 1.0f) {
+    return false;
+  }
+
+  const char *prefix = "";
+  switch (crypto->type) {
+    case CMP_CRYPTOMATTE_TYPE_OBJECT:
+      prefix = "CryptoObject";
+      break;
+    case CMP_CRYPTOMATTE_TYPE_MATERIAL:
+      prefix = "CryptoMaterial";
+      break;
+    case CMP_CRYPTOMATTE_TYPE_ASSET:
+      prefix = "CryptoAsset";
+      break;
+    default:
+      BLI_assert(false);
+      break;
+  }
+
+  bool success = false;
+  if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
+    Scene *scene = (Scene *)node->id;
+    BLI_assert(GS(scene->id.name) == ID_SCE);
+    Render *re = (scene) ? RE_GetSceneRender(scene) : NULL;
+
+    if (re) {
+      const short layerId = node->custom2;
+      RenderResult *rr = RE_AcquireResultRead(re);
+      if (rr) {
+        ViewLayer *view_layer = (ViewLayer *)BLI_findlink(&scene->view_layers, layerId);
+        if (view_layer) {
+          RenderLayer *rl = RE_GetRenderLayer(rr, view_layer->name);
+          success = eyedropper_cryptomatte_sample_renderlayer_fl(rl, prefix, fpos, r_col);
+        }
+      }
+      RE_ReleaseResult(re);
+    }
+  }
+  else if (node->custom1 == CMP_CRYPTOMATTE_SRC_IMAGE) {
+    Image *image = (Image *)node->id;
+    BLI_assert(GS(image->id.name) == ID_IM);
+    ImageUser *iuser = &crypto->iuser;
+
+    if (image && image->type == IMA_TYPE_MULTILAYER) {
+      ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
+      if (image->rr) {
+        RenderLayer *rl = (RenderLayer *)BLI_findlink(&image->rr->layers, iuser->layer);
+        success = eyedropper_cryptomatte_sample_renderlayer_fl(rl, prefix, fpos, r_col);
+      }
+      BKE_image_release_ibuf(image, ibuf, NULL);
+    }
+  }
+
+  return success;
+}
 
 /**
  * \brief get the color from the screen.
@@ -230,9 +365,11 @@ static void eyedropper_color_sample(bContext *C, Eyedropper *eye, int mx, int my
 {
   /* Accumulate color. */
   float col[3];
-  eyedropper_color_sample_fl(C, mx, my, col);
+  if (!eyedropper_cryptomatte_sample_fl(C, eye, mx, my, col)) {
+    eyedropper_color_sample_fl(C, mx, my, col);
+  }
 
-  if (eye->use_accum) {
+  if (!eye->crypto_node) {
     add_v3_v3(eye->accum_col, col);
     eye->accum_tot++;
   }
@@ -360,11 +497,4 @@ void UI_OT_eyedropper_color(wmOperatorType *ot)
 
   /* flags */
   ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING | OPTYPE_INTERNAL;
-
-  /* properties */
-  PropertyRNA *prop;
-
-  /* Needed for color picking with crypto-matte. */
-  prop = RNA_def_boolean(ot->srna, "use_accumulate", true, "Accumulate", "");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }

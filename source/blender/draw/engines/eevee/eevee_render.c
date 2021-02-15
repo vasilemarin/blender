@@ -501,14 +501,15 @@ static void eevee_render_result_aovs(RenderLayer *rl,
 
 #undef EEVEE_RENDER_RESULT_MATERIAL_PASS
 
-static void eevee_render_result_cryptomatte(RenderLayer *rl,
+static void eevee_render_result_cryptomatte(RenderResult *render_result,
+                                            RenderLayer *rl,
                                             const char *viewname,
                                             const rcti *rect,
                                             EEVEE_Data *vedata,
                                             EEVEE_ViewLayerData *sldata)
 {
   if ((vedata->stl->g_data->render_passes & EEVEE_RENDER_PASS_CRYPTOMATTE) != 0) {
-    EEVEE_cryptomatte_render_result(rl, viewname, rect, vedata, sldata);
+    EEVEE_cryptomatte_render_result(render_result, rl, viewname, rect, vedata, sldata);
   }
 }
 
@@ -670,6 +671,7 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
 
 void EEVEE_render_read_result(EEVEE_Data *vedata,
                               RenderEngine *engine,
+                              struct RenderResult *render_result,
                               RenderLayer *rl,
                               const rcti *rect)
 {
@@ -689,7 +691,7 @@ void EEVEE_render_read_result(EEVEE_Data *vedata,
   eevee_render_result_bloom(rl, viewname, rect, vedata, sldata);
   eevee_render_result_volume_light(rl, viewname, rect, vedata, sldata);
   eevee_render_result_aovs(rl, viewname, rect, vedata, sldata);
-  eevee_render_result_cryptomatte(rl, viewname, rect, vedata, sldata);
+  eevee_render_result_cryptomatte(render_result, rl, viewname, rect, vedata, sldata);
 }
 
 void EEVEE_render_update_passes(RenderEngine *engine, Scene *scene, ViewLayer *view_layer)

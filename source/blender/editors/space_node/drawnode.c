@@ -2665,25 +2665,43 @@ static void node_composit_buts_sunbeams(uiLayout *layout, bContext *UNUSED(C), P
   uiItemR(layout, ptr, "ray_length", DEFAULT_FLAGS | UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 }
 
-static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *C, PointerRNA *ptr)
 {
-  uiLayout *col = uiLayoutColumn(layout, true);
+  bNode *node = ptr->data;
 
+  uiLayout *col = uiLayoutColumn(layout, true);
+  uiItemR(col, ptr, "source", 0, NULL, ICON_NONE);
+
+  col = uiLayoutColumn(layout, true);
+  if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
+    uiTemplateID(col, C, ptr, "scene", NULL, NULL, NULL, UI_TEMPLATE_ID_FILTER_ALL, false, NULL);
+    if (node->id) {
+      uiItemR(col, ptr, "view_layer", 0, "", ICON_NONE);
+    }
+  }
+  else {
+    uiTemplateID(
+        col, C, ptr, "image", NULL, "IMAGE_OT_open", NULL, UI_TEMPLATE_ID_FILTER_ALL, false, NULL);
+
+    NodeCryptomatte *crypto = (NodeCryptomatte *)node->storage;
+    PointerRNA imaptr = RNA_pointer_get(ptr, "image");
+    PointerRNA iuserptr;
+    RNA_pointer_create((ID *)ptr->owner_id, &RNA_ImageUser, &crypto->iuser, &iuserptr);
+    uiLayoutSetContextPointer(layout, "image_user", &iuserptr);
+
+    node_buts_image_user(col, C, ptr, &imaptr, &iuserptr, true);
+
+    node_buts_image_views(col, C, ptr, &imaptr);
+  }
+
+  col = uiLayoutColumn(layout, true);
+  uiItemR(col, ptr, "type", 0, NULL, ICON_NONE);
   uiItemL(col, IFACE_("Matte Objects:"), ICON_NONE);
 
   uiLayout *row = uiLayoutRow(col, true);
-  uiTemplateCryptoPicker(row, ptr, "add");
-  uiTemplateCryptoPicker(row, ptr, "remove");
-
-  uiItemR(col, ptr, "matte_id", DEFAULT_FLAGS, "", ICON_NONE);
-}
-
-static void node_composit_buts_cryptomatte_ex(uiLayout *layout,
-                                              bContext *UNUSED(C),
-                                              PointerRNA *UNUSED(ptr))
-{
-  uiItemO(layout, IFACE_("Add Crypto Layer"), ICON_ADD, "NODE_OT_cryptomatte_layer_add");
-  uiItemO(layout, IFACE_("Remove Crypto Layer"), ICON_REMOVE, "NODE_OT_cryptomatte_layer_remove");
+  uiItemR(row, ptr, "matte_id", DEFAULT_FLAGS, "", ICON_NONE);
+  uiTemplateCryptoPicker(row, ptr, "add", ICON_ADD);
+  uiTemplateCryptoPicker(row, ptr, "remove", ICON_REMOVE);
 }
 
 static void node_composit_buts_brightcontrast(uiLayout *layout,
@@ -2938,7 +2956,6 @@ static void node_composit_set_butfunc(bNodeType *ntype)
       break;
     case CMP_NODE_CRYPTOMATTE:
       ntype->draw_buttons = node_composit_buts_cryptomatte;
-      ntype->draw_buttons_ex = node_composit_buts_cryptomatte_ex;
       break;
     case CMP_NODE_BRIGHTCONTRAST:
       ntype->draw_buttons = node_composit_buts_brightcontrast;

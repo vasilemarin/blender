@@ -162,7 +162,11 @@ static void workbench_render_result_z(struct RenderLayer *rl,
   }
 }
 
-void workbench_render(void *ved, RenderEngine *engine, RenderLayer *render_layer, const rcti *rect)
+void workbench_render(void *ved,
+                      RenderEngine *engine,
+                      RenderResult *UNUSED(render_result),
+                      RenderLayer *render_layer,
+                      const rcti *rect)
 {
   WORKBENCH_Data *data = ved;
   DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();

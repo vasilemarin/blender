@@ -212,7 +212,7 @@ static ID *cryptomatte_find_id(const ListBase *ids, const float encoded_hash)
 }
 
 /* Find an ID in the given main that matches the given encoded float. */
-static struct ID *BKE_cryptomatte_find_id(const Main *bmain, const float encoded_hash)
+struct ID *BKE_cryptomatte_find_id(const Main *bmain, const float encoded_hash)
 {
   ID *result;
   result = cryptomatte_find_id(&bmain->objects, encoded_hash);

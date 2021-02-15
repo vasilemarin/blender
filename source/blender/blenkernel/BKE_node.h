@@ -1237,6 +1237,15 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 #define CMP_TRACKPOS_RELATIVE_FRAME 2
 #define CMP_TRACKPOS_ABSOLUTE_FRAME 3
 
+/* cryptomatte source */
+#define CMP_CRYPTOMATTE_SRC_RENDER 0
+#define CMP_CRYPTOMATTE_SRC_IMAGE 1
+
+/* cryptomatte type */
+#define CMP_CRYPTOMATTE_TYPE_OBJECT 0
+#define CMP_CRYPTOMATTE_TYPE_MATERIAL 1
+#define CMP_CRYPTOMATTE_TYPE_ASSET 2
+
 /* API */
 void ntreeCompositExecTree(struct Scene *scene,
                            struct bNodeTree *ntree,
@@ -1279,10 +1288,8 @@ void ntreeCompositOutputFileUniqueLayer(struct ListBase *list,
 void ntreeCompositColorBalanceSyncFromLGG(bNodeTree *ntree, bNode *node);
 void ntreeCompositColorBalanceSyncFromCDL(bNodeTree *ntree, bNode *node);
 
-void ntreeCompositCryptomatteSyncFromAdd(bNodeTree *ntree, bNode *node);
-void ntreeCompositCryptomatteSyncFromRemove(bNodeTree *ntree, bNode *node);
-struct bNodeSocket *ntreeCompositCryptomatteAddSocket(struct bNodeTree *ntree, struct bNode *node);
-int ntreeCompositCryptomatteRemoveSocket(struct bNodeTree *ntree, struct bNode *node);
+void ntreeCompositCryptomatteSyncFromAdd(struct Main *bmain, bNodeTree *ntree, bNode *node);
+void ntreeCompositCryptomatteSyncFromRemove(struct Main *bmain, bNodeTree *ntree, bNode *node);
 
 /** \} */
 

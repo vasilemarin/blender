@@ -858,7 +858,8 @@ void ntreeBlendReadExpand(BlendExpander *expander, bNodeTree *ntree)
   }
 
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    if (node->id && node->type != CMP_NODE_R_LAYERS) {
+    if (node->id && !(node->type == CMP_NODE_R_LAYERS) &&
+        !(node->type == CMP_NODE_CRYPTOMATTE && node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER)) {
       BLO_expand(expander, node->id);
     }
 
@@ -4936,12 +4937,23 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer
 {
   BLI_assert(layer_index != -1);
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    /* Check whether this node references layers. */
+    short *node_index = NULL;
     if (node->type == CMP_NODE_R_LAYERS && (Scene *)node->id == scene) {
-      if (node->custom1 == layer_index) {
-        node->custom1 = 0;
+      node_index = &node->custom1;
+    }
+    else if (node->type == CMP_NODE_CRYPTOMATTE && node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER &&
+             (Scene *)node->id == scene) {
+      node_index = &node->custom2;
+    }
+
+    /* If it does, ensure that it remains valid. */
+    if (node_index) {
+      if (*node_index == layer_index) {
+        *node_index = 0;
       }
-      else if (node->custom1 > layer_index) {
-        node->custom1--;
+      else if (*node_index > layer_index) {
+        *node_index -= 1;
       }
     }
   }

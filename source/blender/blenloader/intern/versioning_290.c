@@ -325,6 +325,18 @@ static void seq_convert_transform_crop_lb_2(const Scene *scene,
   }
 }
 
+static void compositor_convert_cryptomatte_node(Main *bmain, bNode *node)
+{
+  NodeCryptomatte *storage = (NodeCryptomatte *)node->storage;
+
+  char *matte_id = storage->matte_id;
+  if (matte_id == NULL || strlen(storage->matte_id) == 0) {
+    return;
+  }
+  BKE_cryptomatte_matte_id_to_entries(bmain, storage, storage->matte_id);
+  MEM_SAFE_FREE(storage->matte_id);
+}
+
 void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
 {
   if (!MAIN_VERSION_ATLEAST(bmain, 290, 1)) {
@@ -599,6 +611,19 @@ void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
    */
   {
     /* Keep this block, even when empty. */
+
+    /* Convert `NodeCryptomatte->storage->matte_id` to `NodeCryptomatte->storage->entries` */
+    if (!DNA_struct_find(fd->filesdna, "CryptomatteEntry")) {
+      LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+        if (scene->nodetree) {
+          LISTBASE_FOREACH (bNode *, node, &scene->nodetree->nodes) {
+            if (node->type == CMP_NODE_CRYPTOMATTE) {
+              compositor_convert_cryptomatte_node(bmain, node);
+            }
+          }
+        }
+      }
+    }
   }
 }
 

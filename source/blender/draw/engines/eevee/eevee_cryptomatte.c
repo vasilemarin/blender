@@ -613,7 +613,8 @@ static void eevee_cryptomatte_extract_render_passes(
   }
 }
 
-void EEVEE_cryptomatte_render_result(RenderLayer *rl,
+void EEVEE_cryptomatte_render_result(RenderResult *render_result,
+                                     RenderLayer *rl,
                                      const char *viewname,
                                      const rcti *rect,
                                      EEVEE_Data *vedata,
@@ -656,6 +657,11 @@ void EEVEE_cryptomatte_render_result(RenderLayer *rl,
                                             rect_offset_x,
                                             rect_offset_y,
                                             viewport_width);
+    BKE_cryptomatte_store_metadata(g_data->cryptomatte_session,
+                                   render_result,
+                                   view_layer,
+                                   VIEW_LAYER_CRYPTOMATTE_OBJECT,
+                                   "CryptoObject");
     layer_index++;
   }
   if ((cryptomatte_layers & VIEW_LAYER_CRYPTOMATTE_MATERIAL) != 0) {
@@ -673,6 +679,11 @@ void EEVEE_cryptomatte_render_result(RenderLayer *rl,
                                             rect_offset_x,
                                             rect_offset_y,
                                             viewport_width);
+    BKE_cryptomatte_store_metadata(g_data->cryptomatte_session,
+                                   render_result,
+                                   view_layer,
+                                   VIEW_LAYER_CRYPTOMATTE_MATERIAL,
+                                   "CryptoMaterial");
     layer_index++;
   }
   if ((cryptomatte_layers & VIEW_LAYER_CRYPTOMATTE_ASSET) != 0) {
@@ -690,6 +701,11 @@ void EEVEE_cryptomatte_render_result(RenderLayer *rl,
                                             rect_offset_x,
                                             rect_offset_y,
                                             viewport_width);
+    BKE_cryptomatte_store_metadata(g_data->cryptomatte_session,
+                                   render_result,
+                                   view_layer,
+                                   VIEW_LAYER_CRYPTOMATTE_ASSET,
+                                   "CryptoAsset");
     layer_index++;
   }
 }

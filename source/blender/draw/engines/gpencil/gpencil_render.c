@@ -242,6 +242,7 @@ static void GPENCIL_render_result_combined(struct RenderLayer *rl,
 
 void GPENCIL_render_to_image(void *ved,
                              RenderEngine *engine,
+                             struct RenderResult *UNUSED(render_result),
                              struct RenderLayer *render_layer,
                              const rcti *rect)
 {
