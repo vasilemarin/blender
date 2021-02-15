@@ -139,22 +139,25 @@ static void eyedropper_exit(bContext *C, wmOperator *op)
 
 static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *rl,
                                                          const char *prefix,
-                                                         float fpos[2],
+                                                         const float fpos[2],
                                                          float r_col[3])
 {
-  if (rl) {
-    LISTBASE_FOREACH (RenderPass *, rpass, &rl->passes) {
-      if (STRPREFIX(rpass->name, prefix)) {
-        BLI_assert(rpass->channels == 4);
-        int x = (int)(fpos[0] * rpass->rectx);
-        int y = (int)(fpos[1] * rpass->recty);
-        int offset = 4 * (y * rpass->rectx + x);
-        zero_v3(r_col);
-        r_col[0] = rpass->rect[offset];
-        return true;
-      }
+  if (!rl) {
+    return false;
+  }
+
+  LISTBASE_FOREACH (RenderPass *, render_pass, &rl->passes) {
+    if (STRPREFIX(render_pass->name, prefix)) {
+      BLI_assert(render_pass->channels == 4);
+      const int x = (int)(fpos[0] * render_pass->rectx);
+      const int y = (int)(fpos[1] * render_pass->recty);
+      const int offset = 4 * (y * render_pass->rectx + x);
+      zero_v3(r_col);
+      r_col[0] = render_pass->rect[offset];
+      return true;
     }
   }
+
   return false;
 }
 
