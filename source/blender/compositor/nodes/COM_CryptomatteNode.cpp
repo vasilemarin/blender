@@ -111,8 +111,8 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
       int view = 0;
       if (BLI_listbase_count_at_most(&image->rr->views, 2) > 1) {
         if (iuser->view == 0) {
-          /* heuristic to match image name with scene names, check if the view name exists in the
-           * image */
+          /* Heuristic to match image name with scene names, check if the view name exists in the
+           * image. */
           view = BLI_findstringindex(
               &image->rr->views, context.getViewName(), offsetof(RenderView, name));
           if (view == -1)
