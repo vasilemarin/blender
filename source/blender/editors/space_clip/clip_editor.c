@@ -269,7 +269,6 @@ ImBuf *ED_space_clip_get_stable_buffer(SpaceClip *sc, float loc[2], float *scale
   return NULL;
 }
 
-/* Returns mouse position in backdrop image space. */
 bool ED_space_clip_get_position(struct SpaceClip *sc,
                                 struct ARegion *ar,
                                 int mval[2],
