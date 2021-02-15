@@ -31,10 +31,6 @@
 #include <iterator>
 #include <string>
 
-constexpr blender::StringRef CRYPTOMATTE_LAYER_PREFIX_OBJECT("CryptoObject");
-constexpr blender::StringRef CRYPTOMATTE_LAYER_PREFIX_MATERIAL("CryptoMaterial");
-constexpr blender::StringRef CRYPTOMATTE_LAYER_PREFIX_ASSET("CryptoAsset");
-
 CryptomatteNode::CryptomatteNode(bNode *editorNode) : Node(editorNode)
 {
   /* pass */
