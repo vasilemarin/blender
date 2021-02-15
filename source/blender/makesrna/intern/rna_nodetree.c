@@ -3777,6 +3777,12 @@ static void rna_NodeCryptomatte_image_set(PointerRNA *ptr,
   }
 }
 
+static bool rna_NodeCryptomatte_image_poll(PointerRNA *UNUSED(ptr), PointerRNA value)
+{
+  Image *image = (Image *)value.owner_id;
+  return image->type == IMA_TYPE_MULTILAYER;
+}
+
 static void rna_NodeCryptomatte_matte_get(PointerRNA *ptr, char *value)
 {
   bNode *node = (bNode *)ptr->data;
@@ -8448,8 +8454,11 @@ static void def_cmp_cryptomatte(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 
   prop = RNA_def_property(srna, "image", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_funcs(
-      prop, "rna_NodeCryptomatte_image_get", "rna_NodeCryptomatte_image_set", NULL, NULL);
+  RNA_def_property_pointer_funcs(prop,
+                                 "rna_NodeCryptomatte_image_get",
+                                 "rna_NodeCryptomatte_image_set",
+                                 NULL,
+                                 "rna_NodeCryptomatte_image_poll");
   RNA_def_property_struct_type(prop, "Image");
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Image", "");
