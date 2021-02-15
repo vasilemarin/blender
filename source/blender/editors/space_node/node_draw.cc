@@ -77,8 +77,11 @@
 #endif
 
 /* XXX interface.h */
+
+extern "C" {
 extern void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int select);
+}
 
 float ED_node_grid_size(void)
 {
@@ -105,13 +108,13 @@ static bNodeTree *node_tree_from_ID(ID *id)
     return ntreeFromID(id);
   }
 
-  return NULL;
+  return nullptr;
 }
 
 void ED_node_tag_update_id(ID *id)
 {
   bNodeTree *ntree = node_tree_from_ID(id);
-  if (id == NULL || ntree == NULL) {
+  if (id == nullptr || ntree == nullptr) {
     return;
   }
 
@@ -158,7 +161,7 @@ void ED_node_tag_update_nodetree(Main *bmain, bNodeTree *ntree, bNode *node)
   }
 
   bool do_tag_update = true;
-  if (node != NULL) {
+  if (node != nullptr) {
     if (!node_connected_to_output(bmain, ntree, node)) {
       do_tag_update = false;
     }
@@ -198,10 +201,10 @@ static bool compare_nodes(const bNode *a, const bNode *b)
     }
     /* any selected ancestor moves the node forward */
     if (parent->flag & NODE_ACTIVE) {
-      a_active = 1;
+      a_active = true;
     }
     if (parent->flag & NODE_SELECT) {
-      a_select = 1;
+      a_select = true;
     }
   }
   for (bNode *parent = b->parent; parent; parent = parent->parent) {
@@ -211,10 +214,10 @@ static bool compare_nodes(const bNode *a, const bNode *b)
     }
     /* any selected ancestor moves the node forward */
     if (parent->flag & NODE_ACTIVE) {
-      b_active = 1;
+      b_active = true;
     }
     if (parent->flag & NODE_SELECT) {
-      b_select = 1;
+      b_select = true;
     }
   }
 
@@ -247,7 +250,7 @@ void ED_node_sort(bNodeTree *ntree)
 
   int k = 1;
   while (k < totnodes) {
-    bNode *first_a = ntree->nodes.first;
+    bNode *first_a = (bNode *)ntree->nodes.first;
     bNode *first_b = first_a;
 
     do {
@@ -256,7 +259,7 @@ void ED_node_sort(bNodeTree *ntree)
         first_b = first_b->next;
       }
       /* all batches merged? */
-      if (first_b == NULL) {
+      if (first_b == nullptr) {
         break;
       }
 
@@ -283,7 +286,7 @@ void ED_node_sort(bNodeTree *ntree)
       first_b = node_b;
       for (; b < k; b++) {
         /* all nodes sorted? */
-        if (first_b == NULL) {
+        if (first_b == nullptr) {
           break;
         }
         first_b = first_b->next;
@@ -401,7 +404,7 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));
 
     UI_block_align_end(node->block);
-    UI_block_layout_resolve(node->block, NULL, &buty);
+    UI_block_layout_resolve(node->block, nullptr, &buty);
 
     /* ensure minimum socket height in case layout is empty */
     buty = min_ii(buty, dy - NODE_DY);
@@ -490,7 +493,7 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     node->typeinfo->draw_buttons(layout, (bContext *)C, &nodeptr);
 
     UI_block_align_end(node->block);
-    UI_block_layout_resolve(node->block, NULL, &buty);
+    UI_block_layout_resolve(node->block, nullptr, &buty);
 
     dy = buty - NODE_DYS / 2;
   }
@@ -538,7 +541,7 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));
 
     UI_block_align_end(node->block);
-    UI_block_layout_resolve(node->block, NULL, &buty);
+    UI_block_layout_resolve(node->block, nullptr, &buty);
 
     /* ensure minimum socket height in case layout is empty */
     buty = min_ii(buty, dy - NODE_DY);
@@ -783,7 +786,7 @@ static void node_socket_draw_multi_input(const float color[4],
 
   UI_draw_roundbox_corner_set(UI_CNR_ALL);
   UI_draw_roundbox_4fv_ex(
-      &rect, color, NULL, 1.0f, color_outline, outline_width, width - outline_width * 0.5f);
+      &rect, color, nullptr, 1.0f, color_outline, outline_width, width - outline_width * 0.5f);
 }
 
 static void node_socket_outline_color_get(bool selected, float r_outline_color[4])
@@ -809,7 +812,7 @@ void node_socket_color_get(
 
   sock->typeinfo->draw_color(C, &ptr, node_ptr, r_color);
 
-  bNode *node = node_ptr->data;
+  bNode *node = (bNode *)node_ptr->data;
   if (node->flag & NODE_MUTED) {
     r_color[3] *= 0.25f;
   }
@@ -959,7 +962,7 @@ static void node_draw_preview(bNodePreview *preview, rctf *prv)
                    preview->rect,
                    scale,
                    scale,
-                   NULL);
+                   nullptr);
 
   GPU_blend(GPU_BLEND_NONE);
 
@@ -979,7 +982,7 @@ static void node_toggle_button_cb(struct bContext *C, void *node_argv, void *op_
   /* select & activate only the button's node */
   node_select_single(C, node);
 
-  WM_operator_name_call(C, opname, WM_OP_INVOKE_DEFAULT, NULL);
+  WM_operator_name_call(C, opname, WM_OP_INVOKE_DEFAULT, nullptr);
 }
 
 void node_draw_shadow(const SpaceNode *snode, const bNode *node, float radius, float alpha)
@@ -1024,7 +1027,7 @@ void node_draw_sockets(const View2D *v2d,
 
   /* set handle size */
   float scale;
-  UI_view2d_scale_get(v2d, &scale, NULL);
+  UI_view2d_scale_get(v2d, &scale, nullptr);
   scale *= 2.25f * NODE_SOCKSIZE;
 
   if (!select_all) {
@@ -1261,9 +1264,9 @@ static void node_draw_basis(const bContext *C,
   const float iconbutw = NODE_HEADER_ICON_SIZE;
 
   /* skip if out of view */
-  if (BLI_rctf_isect(&node->totr, &v2d->cur, NULL) == false) {
+  if (BLI_rctf_isect(&node->totr, &v2d->cur, nullptr) == false) {
     UI_block_end(C, node->block);
-    node->block = NULL;
+    node->block = nullptr;
     return;
   }
 
@@ -1287,16 +1290,16 @@ static void node_draw_basis(const bContext *C,
 
   rctf *rct = &node->totr;
   UI_draw_roundbox_corner_set(UI_CNR_TOP_LEFT | UI_CNR_TOP_RIGHT);
-  UI_draw_roundbox_aa(
-      &(const rctf){
-          .xmin = rct->xmin,
-          .xmax = rct->xmax,
-          .ymin = rct->ymax - NODE_DY,
-          .ymax = rct->ymax,
-      },
-      true,
-      BASIS_RAD,
-      color);
+
+  {
+    const rctf backdrop_rect = {
+        rct->xmin,
+        rct->xmax,
+        rct->ymax - NODE_DY,
+        rct->ymax,
+    };
+    UI_draw_roundbox_aa(&backdrop_rect, true, BASIS_RAD, color);
+  }
 
   /* show/hide icons */
   float iconofs = rct->xmax - 0.35f * U.widget_unit;
@@ -1313,7 +1316,7 @@ static void node_draw_basis(const bContext *C,
                               rct->ymax - NODE_DY,
                               iconbutw,
                               UI_UNIT_Y,
-                              NULL,
+                              nullptr,
                               0,
                               0,
                               0,
@@ -1340,7 +1343,7 @@ static void node_draw_basis(const bContext *C,
                               rct->ymax - NODE_DY,
                               iconbutw,
                               UI_UNIT_Y,
-                              NULL,
+                              nullptr,
                               0,
                               0,
                               0,
@@ -1360,7 +1363,7 @@ static void node_draw_basis(const bContext *C,
                  rct->ymax - NODE_DY,
                  iconbutw,
                  UI_UNIT_Y,
-                 NULL,
+                 nullptr,
                  0,
                  0,
                  0,
@@ -1392,7 +1395,7 @@ static void node_draw_basis(const bContext *C,
                           rct->ymax - NODE_DY / 2.2f - but_size / 2,
                           but_size,
                           but_size,
-                          NULL,
+                          nullptr,
                           0,
                           0,
                           0,
@@ -1417,7 +1420,7 @@ static void node_draw_basis(const bContext *C,
                         (int)(rct->ymax - NODE_DY),
                         (short)(iconofs - rct->xmin - (18.0f * U.dpi_fac)),
                         (short)NODE_DY,
-                        NULL,
+                        nullptr,
                         0,
                         0,
                         0,
@@ -1447,17 +1450,16 @@ static void node_draw_basis(const bContext *C,
     color[3] = 0.5f;
   }
 
-  UI_draw_roundbox_corner_set(UI_CNR_BOTTOM_LEFT | UI_CNR_BOTTOM_RIGHT);
-  UI_draw_roundbox_aa(
-      &(const rctf){
-          .xmin = rct->xmin,
-          .xmax = rct->xmax,
-          .ymin = rct->ymin,
-          .ymax = rct->ymax - NODE_DY,
-      },
-      true,
-      BASIS_RAD,
-      color);
+  {
+    UI_draw_roundbox_corner_set(UI_CNR_BOTTOM_LEFT | UI_CNR_BOTTOM_RIGHT);
+    const rctf rect = {
+        rct->xmin,
+        rct->xmax,
+        rct->ymin,
+        rct->ymax - NODE_DY,
+    };
+    UI_draw_roundbox_aa(&rect, true, BASIS_RAD, color);
+  }
 
   /* outline active and selected emphasis */
   if (node->flag & SELECT) {
@@ -1465,16 +1467,7 @@ static void node_draw_basis(const bContext *C,
         (node->flag & NODE_ACTIVE) ? TH_ACTIVE : TH_SELECT, 0, -40, color);
 
     UI_draw_roundbox_corner_set(UI_CNR_ALL);
-    UI_draw_roundbox_aa(
-        &(const rctf){
-            .xmin = rct->xmin,
-            .xmax = rct->xmax,
-            .ymin = rct->ymin,
-            .ymax = rct->ymax,
-        },
-        false,
-        BASIS_RAD,
-        color);
+    UI_draw_roundbox_aa(rct, false, BASIS_RAD, color);
   }
 
   /* disable lines */
@@ -1485,9 +1478,9 @@ static void node_draw_basis(const bContext *C,
   node_draw_sockets(v2d, C, ntree, node, true, false);
 
   /* preview */
-  bNodeInstanceHash *previews = CTX_data_pointer_get(C, "node_previews").data;
+  bNodeInstanceHash *previews = (bNodeInstanceHash *)CTX_data_pointer_get(C, "node_previews").data;
   if (node->flag & NODE_PREVIEW && previews) {
-    bNodePreview *preview = BKE_node_instance_hash_lookup(previews, key);
+    bNodePreview *preview = (bNodePreview *)BKE_node_instance_hash_lookup(previews, key);
     if (preview && (preview->xsize && preview->ysize)) {
       if (preview->rect && !BLI_rctf_is_empty(&node->prvr)) {
         node_draw_preview(preview, &node->prvr);
@@ -1497,7 +1490,7 @@ static void node_draw_basis(const bContext *C,
 
   UI_block_end(C, node->block);
   UI_block_draw(C, node->block);
-  node->block = NULL;
+  node->block = nullptr;
 }
 
 static void node_draw_hidden(const bContext *C,
@@ -1512,7 +1505,7 @@ static void node_draw_hidden(const bContext *C,
   float hiddenrad = BLI_rctf_size_y(rct) / 2.0f;
 
   float scale;
-  UI_view2d_scale_get(v2d, &scale, NULL);
+  UI_view2d_scale_get(v2d, &scale, nullptr);
 
   /* shadow */
   node_draw_shadow(snode, node, hiddenrad, 1.0f);
@@ -1544,17 +1537,13 @@ static void node_draw_hidden(const bContext *C,
     GPU_blend(GPU_BLEND_ALPHA);
     GPU_line_smooth(true);
 
-    UI_draw_roundbox_3fv_alpha(
-        &(const rctf){
-            .xmin = rct->xmin + 1,
-            .xmax = rct->xmax - 1,
-            .ymin = rct->ymin + 1,
-            .ymax = rct->ymax - 1,
-        },
-        false,
-        hiddenrad,
-        node->color,
-        1.0f);
+    const rctf rect = {
+        rct->xmin + 1,
+        rct->xmax - 1,
+        rct->ymin + 1,
+        rct->ymax - 1,
+    };
+    UI_draw_roundbox_3fv_alpha(&rect, false, hiddenrad, node->color, 1.0f);
 
     GPU_line_smooth(false);
     GPU_blend(GPU_BLEND_NONE);
@@ -1581,7 +1570,7 @@ static void node_draw_hidden(const bContext *C,
                           centy - but_size / 2,
                           but_size,
                           but_size,
-                          NULL,
+                          nullptr,
                           0,
                           0,
                           0,
@@ -1615,7 +1604,7 @@ static void node_draw_hidden(const bContext *C,
                         round_fl_to_int(centy - NODE_DY * 0.5f),
                         (short)(BLI_rctf_size_x(rct) - ((18.0f + 12.0f) * U.dpi_fac)),
                         (short)NODE_DY,
-                        NULL,
+                        nullptr,
                         0,
                         0,
                         0,
@@ -1657,7 +1646,7 @@ static void node_draw_hidden(const bContext *C,
 
   UI_block_end(C, node->block);
   UI_block_draw(C, node->block);
-  node->block = NULL;
+  node->block = nullptr;
 }
 
 int node_get_resize_cursor(int directions)
@@ -1687,7 +1676,7 @@ void node_set_cursor(wmWindow *win, SpaceNode *snode, float cursor[2])
     }
     else {
       /* check nodes front to back */
-      for (node = ntree->nodes.last; node; node = node->prev) {
+      LISTBASE_FOREACH_BACKWARD (bNode *, node, &ntree->nodes) {
         if (BLI_rctf_isect_pt(&node->totr, cursor[0], cursor[1])) {
           break; /* first hit on node stops */
         }
@@ -1810,7 +1799,8 @@ static void sort_multi_input_socket_links(bNodeTree *ntree, SpaceNode *snode)
       if (socket->flag & SOCK_MULTI_INPUT) {
         /* The total is calculated in #node_update_nodetree, which runs before this draw step. */
         const int total_inputs = socket->total_inputs;
-        bNodeLink **input_links = MEM_malloc_arrayN(total_inputs, sizeof(bNodeLink *), __func__);
+        bNodeLink **input_links = (bNodeLink **)MEM_malloc_arrayN(
+            total_inputs, sizeof(bNodeLink *), __func__);
 
         int index = 0;
         LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
@@ -1846,7 +1836,7 @@ void node_draw_nodetree(const bContext *C,
                         bNodeTree *ntree,
                         bNodeInstanceKey parent_key)
 {
-  if (ntree == NULL) {
+  if (ntree == nullptr) {
     return; /* groups... */
   }
 
@@ -1997,7 +1987,7 @@ void node_draw_space(const bContext *C, ARegion *region)
   if (snode->treepath.last) {
     static const int max_depth = 2;
 
-    bNodeTreePath *path = snode->treepath.last;
+    bNodeTreePath *path = (bNodeTreePath *)snode->treepath.last;
 
     /* update tree path name (drawn in the bottom left) */
     ID *name_id = (path->nodetree && path->nodetree != snode->nodetree) ? &path->nodetree->id :
@@ -2108,5 +2098,5 @@ void node_draw_space(const bContext *C, ARegion *region)
   draw_tree_path(snode);
 
   /* scrollers */
-  UI_view2d_scrollers_draw(v2d, NULL);
+  UI_view2d_scrollers_draw(v2d, nullptr);
 }
