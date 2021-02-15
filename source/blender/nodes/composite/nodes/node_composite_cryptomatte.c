@@ -92,9 +92,7 @@ void ntreeCompositCryptomatteSyncFromAdd(Main *bmain, bNodeTree *UNUSED(ntree), 
   NodeCryptomatte *n = node->storage;
   if (n->add[0] != 0.0f) {
     cryptomatte_add(bmain, n, n->add[0]);
-    n->add[0] = 0.0f;
-    n->add[1] = 0.0f;
-    n->add[2] = 0.0f;
+    zero_v3(n->add);
   }
 }
 
@@ -105,9 +103,7 @@ void ntreeCompositCryptomatteSyncFromRemove(Main *UNUSED(bmain),
   NodeCryptomatte *n = node->storage;
   if (n->remove[0] != 0.0f) {
     cryptomatte_remove(n, n->remove[0]);
-    n->remove[0] = 0.0f;
-    n->remove[1] = 0.0f;
-    n->remove[2] = 0.0f;
+    zero_v3(n->remove);
   }
 }
 
