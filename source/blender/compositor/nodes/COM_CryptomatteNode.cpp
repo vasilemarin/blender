@@ -57,10 +57,8 @@ void CryptomatteNode::convertToOperations(NodeConverter &converter,
     case CMP_CRYPTOMATTE_TYPE_ASSET:
       prefix = "CryptoAsset";
       break;
-    default:
-      BLI_assert(false);
-      break;
   }
+  BLI_assert(prefix[0] != '\0');
 
   vector<NodeOperation *> input_operations;
   if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {

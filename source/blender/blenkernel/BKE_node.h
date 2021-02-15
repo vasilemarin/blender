@@ -1237,14 +1237,9 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 #define CMP_TRACKPOS_RELATIVE_FRAME 2
 #define CMP_TRACKPOS_ABSOLUTE_FRAME 3
 
-/* cryptomatte source */
+/* Cryptomatte source. */
 #define CMP_CRYPTOMATTE_SRC_RENDER 0
 #define CMP_CRYPTOMATTE_SRC_IMAGE 1
-
-/* cryptomatte type */
-#define CMP_CRYPTOMATTE_TYPE_OBJECT 0
-#define CMP_CRYPTOMATTE_TYPE_MATERIAL 1
-#define CMP_CRYPTOMATTE_TYPE_ASSET 2
 
 /* API */
 void ntreeCompositExecTree(struct Scene *scene,
