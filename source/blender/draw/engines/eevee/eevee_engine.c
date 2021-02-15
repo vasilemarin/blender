@@ -440,7 +440,6 @@ static void eevee_render_reset_passes(EEVEE_Data *vedata)
 
 static void eevee_render_to_image(void *vedata,
                                   RenderEngine *engine,
-                                  struct RenderResult *render_result,
                                   struct RenderLayer *render_layer,
                                   const rcti *rect)
 {
@@ -579,7 +578,7 @@ static void eevee_render_to_image(void *vedata,
     return;
   }
 
-  EEVEE_render_read_result(vedata, engine, render_result, render_layer, rect);
+  EEVEE_render_read_result(vedata, engine, render_layer, rect);
 
   /* Restore original viewport size. */
   DRW_render_viewport_size_set((int[2]){g_data->size_orig[0], g_data->size_orig[1]});

@@ -129,7 +129,6 @@ typedef struct DrawEngineType {
 
   void (*render_to_image)(void *vedata,
                           struct RenderEngine *engine,
-                          struct RenderResult *render_result,
                           struct RenderLayer *layer,
                           const struct rcti *rect);
   void (*store_metadata)(void *vedata, struct RenderResult *render_result);

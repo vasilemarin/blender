@@ -541,7 +541,6 @@ void workbench_draw_finish(void *ved);
 /* workbench_render.c */
 void workbench_render(void *ved,
                       struct RenderEngine *engine,
-                      struct RenderResult *render_result,
                       struct RenderLayer *render_layer,
                       const struct rcti *rect);
 void workbench_render_update_passes(struct RenderEngine *engine,
