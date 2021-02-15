@@ -65,33 +65,32 @@ void CryptomatteNode::buildInputOperationsFromRenderSource(
 {
   Scene *scene = (Scene *)node.id;
   BLI_assert(GS(scene->id.name) == ID_SCE);
-  Render *render = (scene) ? RE_GetSceneRender(scene) : NULL;
+  Render *render = (scene) ? RE_GetSceneRender(scene) : nullptr;
+  RenderResult *render_result = render ? RE_AcquireResultRead(render) : nullptr;
 
-  if (render) {
-    const short cryptomatte_layer_id = node.custom2;
-    RenderResult *rr = RE_AcquireResultRead(render);
-    if (rr) {
-      ViewLayer *view_layer = (ViewLayer *)BLI_findlink(&scene->view_layers, cryptomatte_layer_id);
-      if (view_layer) {
-        RenderLayer *render_layer = RE_GetRenderLayer(rr, view_layer->name);
-        if (render_layer) {
-          std::string prefix = getCryptomatteLayerPrefix(node);
-          LISTBASE_FOREACH (RenderPass *, rpass, &render_layer->passes) {
-            if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
-              RenderLayersProg *op = new RenderLayersProg(
-                  rpass->name, COM_DT_COLOR, rpass->channels);
-              op->setScene(scene);
-              op->setLayerId(cryptomatte_layer_id);
-              op->setRenderData(context.getRenderData());
-              op->setViewName(context.getViewName());
-              r_input_operations.append(op);
-            }
-          }
+  if (!render_result) {
+    return;
+  }
+
+  const short cryptomatte_layer_id = node.custom2;
+  ViewLayer *view_layer = (ViewLayer *)BLI_findlink(&scene->view_layers, cryptomatte_layer_id);
+  if (view_layer) {
+    RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
+    if (render_layer) {
+      std::string prefix = getCryptomatteLayerPrefix(node);
+      LISTBASE_FOREACH (RenderPass *, rpass, &render_layer->passes) {
+        if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
+          RenderLayersProg *op = new RenderLayersProg(rpass->name, COM_DT_COLOR, rpass->channels);
+          op->setScene(scene);
+          op->setLayerId(cryptomatte_layer_id);
+          op->setRenderData(context.getRenderData());
+          op->setViewName(context.getViewName());
+          r_input_operations.append(op);
         }
       }
     }
-    RE_ReleaseResult(render);
   }
+  RE_ReleaseResult(render);
 }
 
 void CryptomatteNode::buildInputOperationsFromImageSource(
@@ -102,46 +101,48 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
   NodeCryptomatte *cryptoMatteSettings = (NodeCryptomatte *)node.storage;
   Image *image = (Image *)node.id;
   BLI_assert(!image || GS(image->id.name) == ID_IM);
+  if (!image || image->type != IMA_TYPE_MULTILAYER) {
+    return;
+  }
+
   ImageUser *iuser = &cryptoMatteSettings->iuser;
   BKE_image_user_frame_calc(image, iuser, context.getFramenumber());
+  ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
 
-  if (image && image->type == IMA_TYPE_MULTILAYER) {
-    ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
-    if (image->rr) {
-      int view = 0;
-      if (BLI_listbase_count_at_most(&image->rr->views, 2) > 1) {
-        if (iuser->view == 0) {
-          /* Heuristic to match image name with scene names, check if the view name exists in the
-           * image. */
-          view = BLI_findstringindex(
-              &image->rr->views, context.getViewName(), offsetof(RenderView, name));
-          if (view == -1)
-            view = 0;
-        }
-        else {
-          view = iuser->view - 1;
-        }
+  if (image->rr) {
+    int view = 0;
+    if (BLI_listbase_count_at_most(&image->rr->views, 2) > 1) {
+      if (iuser->view == 0) {
+        /* Heuristic to match image name with scene names, check if the view name exists in the
+         * image. */
+        view = BLI_findstringindex(
+            &image->rr->views, context.getViewName(), offsetof(RenderView, name));
+        if (view == -1)
+          view = 0;
       }
+      else {
+        view = iuser->view - 1;
+      }
+    }
 
-      RenderLayer *render_layer = (RenderLayer *)BLI_findlink(&image->rr->layers, iuser->layer);
-      if (render_layer) {
-        int render_pass_index = 0;
-        std::string prefix = getCryptomatteLayerPrefix(node);
-        for (RenderPass *rpass = (RenderPass *)render_layer->passes.first; rpass;
-             rpass = rpass->next, render_pass_index++) {
-          if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
-            MultilayerColorOperation *op = new MultilayerColorOperation(render_pass_index, view);
-            op->setImage(image);
-            op->setRenderLayer(render_layer);
-            op->setImageUser(iuser);
-            op->setFramenumber(context.getFramenumber());
-            r_input_operations.append(op);
-          }
+    RenderLayer *render_layer = (RenderLayer *)BLI_findlink(&image->rr->layers, iuser->layer);
+    if (render_layer) {
+      int render_pass_index = 0;
+      std::string prefix = getCryptomatteLayerPrefix(node);
+      for (RenderPass *rpass = (RenderPass *)render_layer->passes.first; rpass;
+           rpass = rpass->next, render_pass_index++) {
+        if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
+          MultilayerColorOperation *op = new MultilayerColorOperation(render_pass_index, view);
+          op->setImage(image);
+          op->setRenderLayer(render_layer);
+          op->setImageUser(iuser);
+          op->setFramenumber(context.getFramenumber());
+          r_input_operations.append(op);
         }
       }
     }
-    BKE_image_release_ibuf(image, ibuf, NULL);
   }
+  BKE_image_release_ibuf(image, ibuf, NULL);
 }
 
 blender::Vector<NodeOperation *> CryptomatteNode::createInputOperations(
