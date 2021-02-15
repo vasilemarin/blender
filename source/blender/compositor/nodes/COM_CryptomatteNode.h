@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "BLI_string_ref.hh"
+#include "BLI_vector.hh"
 #include "COM_Node.h"
 
 /**
@@ -28,4 +30,17 @@ class CryptomatteNode : public Node {
  public:
   CryptomatteNode(bNode *editorNode);
   void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
+
+ private:
+  blender::StringRef getCryptomatteLayerPrefix(const bNode &node) const;
+  blender::Vector<NodeOperation *> createInputOperations(const CompositorContext &context,
+                                                         const bNode &node) const;
+  void buildInputOperationsFromRenderSource(
+      const CompositorContext &context,
+      const bNode &node,
+      blender::Vector<NodeOperation *> &r_input_operations) const;
+  void buildInputOperationsFromImageSource(
+      const CompositorContext &context,
+      const bNode &node,
+      blender::Vector<NodeOperation *> &r_input_operations) const;
 };
