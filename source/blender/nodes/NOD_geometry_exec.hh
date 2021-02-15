@@ -112,6 +112,25 @@ class GeoNodeExecParams {
   }
 
   /**
+   * Get input as vector for multi input socket with the given identifier.
+   *
+   * This method can only be called once for each identifier.
+   */
+  template<typename T> Vector<T> extract_multi_input(StringRef identifier)
+  {
+    Vector<T> values;
+    values.append(input_values_.extract<T>(identifier));
+    int i = 1;
+    std::string sub_identifier = identifier + "[1]";
+    while (input_values_.contains(sub_identifier)) {
+      values.append(input_values_.extract<T>(sub_identifier));
+      i++;
+      sub_identifier = identifier + "[" + std::to_string(i) + "]";
+    }
+    return values;
+  }
+
+  /**
    * Get the input value for the input socket with the given identifier.
    *
    * This makes a copy of the value, which is fine for most types but should be avoided for
@@ -219,6 +238,10 @@ class GeoNodeExecParams {
   CustomDataType get_input_attribute_data_type(const StringRef name,
                                                const GeometryComponent &component,
                                                const CustomDataType default_type) const;
+
+  AttributeDomain get_highest_priority_input_domain(Span<std::string> names,
+                                                    const GeometryComponent &component,
+                                                    const AttributeDomain default_domain) const;
 
  private:
   /* Utilities for detecting common errors at when using this class. */

@@ -651,6 +651,7 @@ static void direct_link_node_socket(BlendDataReader *reader, bNodeSocket *sock)
   sock->typeinfo = nullptr;
   BLO_read_data_address(reader, &sock->storage);
   BLO_read_data_address(reader, &sock->default_value);
+  sock->total_inputs = 0; /* Clear runtime data set before drawing. */
   sock->cache = nullptr;
 }
 
@@ -3628,6 +3629,9 @@ void nodeSetSocketAvailability(bNodeSocket *sock, bool is_available)
 int nodeSocketLinkLimit(const bNodeSocket *sock)
 {
   bNodeSocketType *stype = sock->typeinfo;
+  if (sock->flag & SOCK_MULTI_INPUT) {
+    return 4095;
+  }
   if (stype != nullptr && stype->use_link_limits_of_type) {
     int limit = (sock->in_out == SOCK_IN) ? stype->input_link_limit : stype->output_link_limit;
     return limit;
@@ -3993,22 +3997,23 @@ static int node_get_deplist_recurs(bNodeTree *ntree, bNode *node, bNode ***nsort
   return level;
 }
 
-void ntreeGetDependencyList(struct bNodeTree *ntree, struct bNode ***deplist, int *totnodes)
+void ntreeGetDependencyList(struct bNodeTree *ntree, struct bNode ***r_deplist, int *r_deplist_len)
 {
-  *totnodes = 0;
+  *r_deplist_len = 0;
 
   /* first clear data */
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     node->done = false;
-    (*totnodes)++;
+    (*r_deplist_len)++;
   }
-  if (*totnodes == 0) {
-    *deplist = nullptr;
+  if (*r_deplist_len == 0) {
+    *r_deplist = nullptr;
     return;
   }
 
   bNode **nsort;
-  nsort = *deplist = (bNode **)MEM_callocN((*totnodes) * sizeof(bNode *), "sorted node array");
+  nsort = *r_deplist = (bNode **)MEM_callocN((*r_deplist_len) * sizeof(bNode *),
+                                             "sorted node array");
 
   /* recursive check */
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
@@ -4826,41 +4831,47 @@ static void registerGeometryNodes()
 {
   register_node_type_geo_group();
 
+  register_node_type_geo_align_rotation_to_vector();
+  register_node_type_geo_attribute_color_ramp();
+  register_node_type_geo_attribute_combine_xyz();
   register_node_type_geo_attribute_compare();
   register_node_type_geo_attribute_fill();
+  register_node_type_geo_attribute_math();
+  register_node_type_geo_attribute_mix();
+  register_node_type_geo_attribute_proximity();
+  register_node_type_geo_attribute_randomize();
+  register_node_type_geo_attribute_separate_xyz();
   register_node_type_geo_attribute_vector_math();
-  register_node_type_geo_triangulate();
-  register_node_type_geo_edge_split();
-  register_node_type_geo_transform();
-  register_node_type_geo_subdivision_surface();
   register_node_type_geo_boolean();
+  register_node_type_geo_collection_info();
+  register_node_type_geo_edge_split();
+  register_node_type_geo_is_viewport();
+  register_node_type_geo_join_geometry();
+  register_node_type_geo_object_info();
   register_node_type_geo_point_distribute();
   register_node_type_geo_point_instance();
-  register_node_type_geo_point_separate();
-  register_node_type_geo_point_scale();
-  register_node_type_geo_point_translate();
-  register_node_type_geo_object_info();
-  register_node_type_geo_attribute_randomize();
-  register_node_type_geo_attribute_math();
-  register_node_type_geo_join_geometry();
-  register_node_type_geo_attribute_mix();
-  register_node_type_geo_attribute_color_ramp();
   register_node_type_geo_point_rotate();
-  register_node_type_geo_align_rotation_to_vector();
-  register_node_type_geo_sample_texture();
+  register_node_type_geo_point_scale();
+  register_node_type_geo_point_separate();
+  register_node_type_geo_point_translate();
   register_node_type_geo_points_to_volume();
+  register_node_type_geo_sample_texture();
+  register_node_type_geo_subdivision_surface();
+  register_node_type_geo_transform();
+  register_node_type_geo_triangulate();
+  register_node_type_geo_volume_to_mesh();
 }
 
 static void registerFunctionNodes()
 {
   register_node_type_fn_boolean_math();
-  register_node_type_fn_float_compare();
-  register_node_type_fn_switch();
-  register_node_type_fn_group_instance_id();
   register_node_type_fn_combine_strings();
+  register_node_type_fn_float_compare();
+  register_node_type_fn_group_instance_id();
+  register_node_type_fn_input_vector();
   register_node_type_fn_object_transforms();
   register_node_type_fn_random_float();
-  register_node_type_fn_input_vector();
+  register_node_type_fn_switch();
 }
 
 void BKE_node_system_init(void)
@@ -5013,11 +5024,4 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer
       }
     }
   }
-}
-
-void BKE_nodetree_shading_params_eval(struct Depsgraph *depsgraph,
-                                      bNodeTree *ntree_dst,
-                                      const bNodeTree *ntree_src)
-{
-  DEG_debug_print_eval(depsgraph, __func__, ntree_src->id.name, ntree_dst);
 }

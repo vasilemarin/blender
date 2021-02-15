@@ -430,7 +430,7 @@ static bool acf_generic_dataexpand_setting_valid(bAnimContext *ac,
     case ACHANNEL_SETTING_MUTE:
       return ((ac) && (ac->spacetype == SPACE_NLA));
 
-    /* select is ok for most "ds*" channels (e.g. dsmat) */
+    /* Select is ok for most `ds*` channels (e.g. `dsmat`) */
     case ACHANNEL_SETTING_SELECT:
       return true;
 
@@ -4161,7 +4161,7 @@ static void ANIM_init_channel_typeinfo_data(void)
 /* Get type info from given channel type */
 const bAnimChannelType *ANIM_channel_get_typeinfo(bAnimListElem *ale)
 {
-  /* santiy checks */
+  /* Sanity checks. */
   if (ale == NULL) {
     return NULL;
   }

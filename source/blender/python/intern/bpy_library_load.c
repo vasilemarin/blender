@@ -94,13 +94,9 @@ static PyTypeObject bpy_lib_Type = {
     0,                                        /* tp_itemsize */
     /* methods */
     (destructor)bpy_lib_dealloc, /* tp_dealloc */
-#if PY_VERSION_HEX >= 0x03080000
-    0, /* tp_vectorcall_offset */
-#else
-    (printfunc)NULL, /* printfunc tp_print */
-#endif
-    NULL, /* getattrfunc tp_getattr; */
-    NULL, /* setattrfunc tp_setattr; */
+    0,                           /* tp_vectorcall_offset */
+    NULL,                        /* getattrfunc tp_getattr; */
+    NULL,                        /* setattrfunc tp_setattr; */
     NULL,
     /* tp_compare */ /* DEPRECATED in python 3.0! */
     NULL,            /* tp_repr */
@@ -173,7 +169,7 @@ static PyTypeObject bpy_lib_Type = {
 
 PyDoc_STRVAR(
     bpy_lib_load_doc,
-    ".. method:: load(filepath, link=False, assets_only=False, relative=False)\n"
+    ".. method:: load(filepath, link=False, relative=False, assets_only=False)\n"
     "\n"
     "   Returns a context manager which exposes 2 library objects on entering.\n"
     "   Each object has attributes matching bpy.data which are lists of strings to be linked.\n"
@@ -182,10 +178,10 @@ PyDoc_STRVAR(
     "   :type filepath: string\n"
     "   :arg link: When False reference to the original file is lost.\n"
     "   :type link: bool\n"
-    "   :arg assets_only: If True, only list data-blocks marked as assets.\n"
-    "   :type assets_only: bool\n"
     "   :arg relative: When True the path is stored relative to the open blend file.\n"
-    "   :type relative: bool\n");
+    "   :type relative: bool\n"
+    "   :arg assets_only: If True, only list data-blocks marked as assets.\n"
+    "   :type assets_only: bool\n");
 static PyObject *bpy_lib_load(PyObject *UNUSED(self), PyObject *args, PyObject *kw)
 {
   Main *bmain = CTX_data_main(BPY_context_get());
@@ -365,7 +361,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
           for (i = 0; i < size; i++) {
             PyObject *item_src = PyList_GET_ITEM(ls, i);
             PyObject *item_dst; /* must be set below */
-            const char *item_idname = _PyUnicode_AsString(item_src);
+            const char *item_idname = PyUnicode_AsUTF8(item_src);
 
             // printf("  %s\n", item_idname);
 

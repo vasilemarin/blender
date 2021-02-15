@@ -718,7 +718,7 @@ static eOLDrawState tree_element_active_bone(bContext *C,
   return OL_DRAWSEL_NONE;
 }
 
-/* ebones only draw in editmode armature */
+/** Edit-bones only draw in edit-mode armature. */
 static void tree_element_active_ebone__sel(bContext *C, bArmature *arm, EditBone *ebone, short sel)
 {
   if (sel) {
@@ -927,25 +927,6 @@ static eOLDrawState tree_element_active_sequence_dup(Scene *scene,
   return OL_DRAWSEL_NONE;
 }
 
-static eOLDrawState tree_element_active_keymap_item(bContext *UNUSED(C),
-                                                    Scene *UNUSED(scene),
-                                                    ViewLayer *UNUSED(sl),
-                                                    TreeElement *te,
-                                                    TreeStoreElem *UNUSED(tselem),
-                                                    const eOLSetState set)
-{
-  wmKeyMapItem *kmi = te->directdata;
-
-  if (set == OL_SETSEL_NONE) {
-    if (kmi->flag & KMI_INACTIVE) {
-      return OL_DRAWSEL_NONE;
-    }
-    return OL_DRAWSEL_NORMAL;
-  }
-  kmi->flag ^= KMI_INACTIVE;
-  return OL_DRAWSEL_NONE;
-}
-
 static eOLDrawState tree_element_active_master_collection(bContext *C,
                                                           TreeElement *UNUSED(te),
                                                           const eOLSetState set)
@@ -1071,8 +1052,6 @@ eOLDrawState tree_element_type_active(bContext *C,
       return tree_element_active_sequence(C, tvc->scene, te, tselem, set);
     case TSE_SEQUENCE_DUP:
       return tree_element_active_sequence_dup(tvc->scene, te, tselem, set);
-    case TSE_KEYMAP_ITEM:
-      return tree_element_active_keymap_item(C, tvc->scene, tvc->view_layer, te, tselem, set);
     case TSE_GP_LAYER:
       return tree_element_active_gplayer(C, tvc->scene, te, tselem, set);
       break;
