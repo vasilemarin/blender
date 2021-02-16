@@ -91,7 +91,7 @@ void BKE_nodetree_error_message_add(bNodeTree &ntree,
   node_error_message_log(ntree, node, message, type);
 
   Map<NodeUIStorageContextModifier, NodeUIStorage> &context_to_storage_map =
-      node_tree_ui_storage.node_map.lookup_or_add_default(&node);
+      node_tree_ui_storage.node_map.lookup_or_add_default(node.name);
 
   NodeUIStorage &node_ui_storage = context_to_storage_map.lookup_or_add_default(context);
 

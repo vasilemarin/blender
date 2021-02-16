@@ -18,6 +18,11 @@
 
 #include "BLI_hash.hh"
 #include "BLI_map.hh"
+#include "BLI_session_uuid.h"
+
+#include "DNA_ID.h"
+#include "DNA_modifier_types.h"
+#include "DNA_session_uuid_types.h"
 
 struct bNode;
 struct bNodeTree;
@@ -25,19 +30,27 @@ struct Object;
 struct ModifierData;
 
 struct NodeUIStorageContextModifier {
-  const struct Object *object;
-  const struct ModifierData *modifier;
+  std::string object_name;
+  SessionUUID modifier_session_uuid;
+
+  NodeUIStorageContextModifier(const Object &object, const ModifierData &modifier)
+  {
+    object_name = reinterpret_cast<const ID &>(object).name;
+    modifier_session_uuid = modifier.session_uuid;
+  }
 
   uint64_t hash() const
   {
-    const uint64_t hash1 = blender::DefaultHash<const Object *>{}(object);
-    const uint64_t hash2 = blender::DefaultHash<const ModifierData *>{}(modifier);
+
+    const uint64_t hash1 = blender::DefaultHash<std::string>{}(object_name);
+    const uint64_t hash2 = BLI_session_uuid_hash_uint64(&modifier_session_uuid);
     return hash1 ^ (hash2 * 33);
   }
 
   bool operator==(const NodeUIStorageContextModifier &other) const
   {
-    return other.object == object && other.modifier == modifier;
+    return other.object_name == object_name &&
+           BLI_session_uuid_is_equal(&other.modifier_session_uuid, &modifier_session_uuid);
   }
 };
 
@@ -57,8 +70,7 @@ struct NodeUIStorage {
 };
 
 struct NodeTreeUIStorage {
-  blender::Map<const struct bNode *, blender::Map<NodeUIStorageContextModifier, NodeUIStorage>>
-      node_map;
+  blender::Map<std::string, blender::Map<NodeUIStorageContextModifier, NodeUIStorage>> node_map;
 
   NodeTreeUIStorage() = default;
 };

@@ -32,7 +32,8 @@ void GeoNodeExecParams::error_message_add(const NodeWarningType type,
 {
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
   if (original_ntree != nullptr) {
-    const NodeUIStorageContextModifier context = {self_object_, modifier_};
+    const NodeUIStorageContextModifier context = NodeUIStorageContextModifier(*self_object_,
+                                                                              *modifier_);
     BKE_nodetree_error_message_add(*original_ntree, context, node_, type, message);
   }
 }

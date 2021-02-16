@@ -1234,7 +1234,7 @@ static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
     return nullptr;
   }
   const Map<NodeUIStorageContextModifier, NodeUIStorage> *node_ui_storage =
-      node_tree_ui_storage->node_map.lookup_ptr(&node);
+      node_tree_ui_storage->node_map.lookup_ptr(node.name);
   if (node_ui_storage == nullptr) {
     return nullptr;
   }
@@ -1244,7 +1244,8 @@ static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
   if (active_object == nullptr || active_modifier == nullptr) {
     return nullptr;
   }
-  const NodeUIStorageContextModifier context = {active_object, active_modifier};
+  const NodeUIStorageContextModifier context = NodeUIStorageContextModifier(*active_object,
+                                                                            *active_modifier);
 
   return node_ui_storage->lookup_ptr(context);
 }
@@ -1264,7 +1265,7 @@ static void node_add_error_message_button(
   for (const NodeWarning &warning : node_ui_storage->warnings) {
     total_str_len += warning.message.size();
   }
-  char *tooltip_alloc = (char *)MEM_mallocN(sizeof(char), __func__);
+  char *tooltip_alloc = (char *)MEM_mallocN(sizeof(char) * total_str_len, __func__);
   int tooltip_offest = 0;
   for (const NodeWarning &warning : node_ui_storage->warnings) {
     BLI_strncpy(tooltip_alloc + tooltip_offest, warning.message.c_str(), warning.message.size());
