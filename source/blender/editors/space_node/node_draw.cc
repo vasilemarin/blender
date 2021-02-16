@@ -1260,7 +1260,7 @@ static void node_add_error_message_button(
     return;
   }
 
-  /* TODO: The UI API forces us to allocate memory for each error message we pass.
+  /* The UI API forces us to allocate memory for each error message we pass.
    * The ownership of #UI_but_func_tooltip_set's argument is transferred to the button.
    * We shouldn't need to do this though, investigate improving this. */
   int total_str_len = node_ui_storage->warnings.size(); /* Leave room for new line characters. */
