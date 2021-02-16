@@ -23,7 +23,7 @@
  *
  * There are 2 methods to achieve this effect.
  * - The first uses projection matrix offsetting and sample accumulation to give reference quality
- *   depth of field. But this needs many samples to hide the undersampling.
+ *   depth of field. But this needs many samples to hide the under-sampling.
  * - The second one is a post-processing based one. It follows the implementation described in
  *   the presentation "Life of a Bokeh - Siggraph 2018" from Guillaume Abadie. There are some
  *   difference with our actual implementation that prioritize quality.
@@ -56,12 +56,10 @@ static float coc_radius_from_camera_depth(bool is_ortho, EEVEE_EffectsInfo *fx, 
   if (multiplier == 0.0f || bias == 0.0f) {
     return 0.0f;
   }
-  else if (is_ortho) {
+  if (is_ortho) {
     return (camera_depth + multiplier / bias) * multiplier;
   }
-  else {
-    return multiplier / camera_depth - bias;
-  }
+  return multiplier / camera_depth - bias;
 }
 
 static float polygon_sides_length(float sides_count)
@@ -141,7 +139,7 @@ bool EEVEE_depth_of_field_jitter_get(EEVEE_EffectsInfo *fx,
   r_jitter[1] = (float)ring_sample / ring_sample_count;
 
   {
-    /* Bokeh shape parametrisation */
+    /* Bokeh shape parameterization. */
     float r = r_jitter[0];
     float T = r_jitter[1] * 2.0f * M_PI;
 
@@ -164,11 +162,11 @@ bool EEVEE_depth_of_field_jitter_get(EEVEE_EffectsInfo *fx,
   return true;
 }
 
-int EEVEE_depth_of_field_sample_count_get(EEVEE_EffectsInfo *fx,
+int EEVEE_depth_of_field_sample_count_get(EEVEE_EffectsInfo *effects,
                                           int sample_count,
                                           int *r_ring_count)
 {
-  if (fx->dof_jitter_radius == 0.0f) {
+  if (effects->dof_jitter_radius == 0.0f) {
     if (r_ring_count != NULL) {
       *r_ring_count = 0;
     }
@@ -390,7 +388,7 @@ static void dof_bokeh_pass_init(EEVEE_FramebufferList *fbl,
 }
 
 /**
- * Ouputs halfResColorBuffer and halfResCocBuffer.
+ * Outputs halfResColorBuffer and halfResCocBuffer.
  **/
 static void dof_setup_pass_init(EEVEE_FramebufferList *fbl,
                                 EEVEE_PassList *psl,
@@ -424,7 +422,7 @@ static void dof_setup_pass_init(EEVEE_FramebufferList *fbl,
 }
 
 /**
- * Ouputs min & max coc in each 8x8 half res pixel tiles (so 1/16th of fullres).
+ * Outputs min & max COC in each 8x8 half res pixel tiles (so 1/16th of full resolution).
  **/
 static void dof_flatten_tiles_pass_init(EEVEE_FramebufferList *fbl,
                                         EEVEE_PassList *psl,
@@ -455,7 +453,7 @@ static void dof_flatten_tiles_pass_init(EEVEE_FramebufferList *fbl,
 }
 
 /**
- * Dilates the min & max cocs to cover maximum coc values.
+ * Dilates the min & max COCS to cover maximum COC values.
  * Output format/dimensions should be the same as coc_flatten_pass as they are swapped for
  * doing multiple dilation passes.
  **/
@@ -538,7 +536,7 @@ static void dof_dilate_tiles_pass_draw(EEVEE_FramebufferList *fbl,
 }
 
 /**
- * Create mipmaped color & coc textures for gather passes.
+ * Create mipmaped color & COC textures for gather passes.
  **/
 static void dof_reduce_pass_init(EEVEE_FramebufferList *fbl,
                                  EEVEE_PassList *psl,
