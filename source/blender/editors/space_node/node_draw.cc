@@ -1294,12 +1294,12 @@ static void node_add_error_message_button(
                             rect.ymax - NODE_DY,
                             NODE_HEADER_ICON_SIZE,
                             UI_UNIT_Y,
-                            NULL,
+                            nullptr,
                             0,
                             0,
                             0,
                             0,
-                            NULL);
+                            nullptr);
   UI_but_func_tooltip_set(but, node_errrors_tooltip_fn, tooltip_alloc);
   UI_block_emboss_set(node.block, UI_EMBOSS);
 }
@@ -1343,13 +1343,13 @@ static void node_draw_basis(const bContext *C,
   UI_draw_roundbox_corner_set(UI_CNR_TOP_LEFT | UI_CNR_TOP_RIGHT);
 
   {
-    const rctf backdrop_rect = {
+    const rctf rect = {
         rct->xmin,
         rct->xmax,
         rct->ymax - NODE_DY,
         rct->ymax,
     };
-    UI_draw_roundbox_aa(&backdrop_rect, true, BASIS_RAD, color);
+    UI_draw_roundbox_aa(&rect, true, BASIS_RAD, color);
   }
 
   /* show/hide icons */
