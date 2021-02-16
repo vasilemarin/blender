@@ -31,20 +31,20 @@ using blender::Map;
 using blender::StringRef;
 using blender::Vector;
 
-void BKE_nodetree_ui_storage_ensure(bNodeTree &ntree)
+void BKE_nodetree_ui_storage_add(bNodeTree &ntree)
 {
-  if (ntree.runtime == nullptr) {
-    ntree.runtime = new NodeTreeUIStorage();
+  if (ntree.ui_storage == nullptr) {
+    ntree.ui_storage = new NodeTreeUIStorage();
   }
 }
 
-void BKE_nodetree_ui_storage_clear(bNodeTree &ntree)
+void BKE_nodetree_ui_storage_free(bNodeTree &ntree)
 {
-  NodeTreeUIStorage *ui_storage = ntree.runtime;
+  NodeTreeUIStorage *ui_storage = ntree.ui_storage;
   if (ui_storage != nullptr) {
     ui_storage->node_map.clear();
     delete ui_storage;
-    ntree.runtime = nullptr;
+    ntree.ui_storage = nullptr;
   }
 }
 
@@ -87,13 +87,13 @@ void BKE_nodetree_error_message_add(bNodeTree &ntree,
                                     const NodeWarningType type,
                                     std::string message)
 {
-  BLI_assert(ntree.runtime != nullptr);
-  NodeTreeUIStorage &node_tree_ui_storage = *ntree.runtime;
+  BLI_assert(ntree.ui_storage != nullptr);
+  NodeTreeUIStorage &node_tree_ui_storage = *ntree.ui_storage;
 
   node_error_message_log(ntree, node, message, type);
 
   Map<NodeUIStorageContextModifier, NodeUIStorage> &context_to_storage_map =
-      node_tree_ui_storage.node_map.lookup_or_add_default(node.name);
+      node_tree_ui_storage.node_map.lookup_or_add_default_as(StringRef(node.name));
 
   NodeUIStorage &node_ui_storage = context_to_storage_map.lookup_or_add_default(context);
 

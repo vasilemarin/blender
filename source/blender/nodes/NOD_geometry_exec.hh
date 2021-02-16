@@ -218,7 +218,7 @@ class GeoNodeExecParams {
                                        const GeometryComponent &component,
                                        const AttributeDomain domain,
                                        const CustomDataType type,
-                                       const void *default_value = nullptr) const;
+                                       const void *default_value) const;
 
   template<typename T>
   bke::TypedReadAttribute<T> get_input_attribute(const StringRef name,

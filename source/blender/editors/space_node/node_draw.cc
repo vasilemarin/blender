@@ -37,6 +37,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_map.hh"
 #include "BLI_math.h"
+#include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
 #include "BLT_translation.h"
@@ -80,6 +81,7 @@
 #endif
 
 using blender::Map;
+using blender::StringRef;
 using blender::Vector;
 
 extern "C" {
@@ -1229,12 +1231,12 @@ static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
                                                              const bNodeTree &ntree,
                                                              const bNode &node)
 {
-  const NodeTreeUIStorage *node_tree_ui_storage = ntree.runtime;
+  const NodeTreeUIStorage *node_tree_ui_storage = ntree.ui_storage;
   if (node_tree_ui_storage == nullptr) {
     return nullptr;
   }
   const Map<NodeUIStorageContextModifier, NodeUIStorage> *node_ui_storage =
-      node_tree_ui_storage->node_map.lookup_ptr(node.name);
+      node_tree_ui_storage->node_map.lookup_ptr_as(StringRef(node.name));
   if (node_ui_storage == nullptr) {
     return nullptr;
   }

@@ -1008,8 +1008,8 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
 
   bNodeTree *ntree = tree.btree();
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id((ID *)ntree);
-  BKE_nodetree_ui_storage_clear(*original_ntree);
-  BKE_nodetree_ui_storage_ensure(*original_ntree);
+  BKE_nodetree_ui_storage_free(*original_ntree);
+  BKE_nodetree_ui_storage_add(*original_ntree);
 
   GeometryNodesEvaluator evaluator{*ntree,
                                    group_inputs,

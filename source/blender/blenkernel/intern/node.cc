@@ -220,7 +220,7 @@ static void ntree_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, c
 
   /* Don't copy error messages in the runtime struct.
    * They should be filled during execution anyway. */
-  ntree_dst->runtime = nullptr;
+  ntree_dst->ui_storage = nullptr;
 }
 
 static void ntree_free_data(ID *id)
@@ -275,7 +275,7 @@ static void ntree_free_data(ID *id)
     BKE_libblock_free_data(&ntree->id, true);
   }
 
-  BKE_nodetree_ui_storage_clear(*ntree);
+  BKE_nodetree_ui_storage_free(*ntree);
 }
 
 static void library_foreach_node_socket(LibraryForeachIDData *data, bNodeSocket *sock)
@@ -565,7 +565,7 @@ static void ntree_blend_write(BlendWriter *writer, ID *id, const void *id_addres
     ntree->interface_type = nullptr;
     ntree->progress = nullptr;
     ntree->execdata = nullptr;
-    ntree->runtime = nullptr;
+    ntree->ui_storage = nullptr;
 
     BLO_write_id_struct(writer, bNodeTree, id_address, &ntree->id);
 
@@ -597,7 +597,7 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
 
   ntree->progress = nullptr;
   ntree->execdata = nullptr;
-  ntree->runtime = nullptr;
+  ntree->ui_storage = nullptr;
 
   BLO_read_data_address(reader, &ntree->adt);
   BKE_animdata_blend_read_data(reader, ntree->adt);

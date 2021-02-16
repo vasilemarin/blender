@@ -40,7 +40,7 @@
 
 #include "BKE_global.h"
 
-#  include "BLI_threads.h"
+#include "BLI_threads.h"
 
 #ifdef WITH_AVI
 #  include "AVI_avi.h"

@@ -29,11 +29,15 @@ struct bNodeTree;
 struct Object;
 struct ModifierData;
 
+/**
+ * Contains the context necessary to determine when to display settings for a certain node tree
+ * that may be used for multiple modifiers and objects.
+ *
+ * \note This does not yet handle the context of nested node trees.
+ */
 struct NodeUIStorageContextModifier {
   std::string object_name;
   SessionUUID modifier_session_uuid;
-  /* TODO: The same node tree can be used multiple times in a parent node tree,
-   * so the tree path should be added to the context here. */
 
   NodeUIStorageContextModifier(const Object &object, const ModifierData &modifier)
   {
@@ -45,7 +49,7 @@ struct NodeUIStorageContextModifier {
   {
     const uint64_t hash1 = blender::DefaultHash<std::string>{}(object_name);
     const uint64_t hash2 = BLI_session_uuid_hash_uint64(&modifier_session_uuid);
-    return hash1 ^ (hash2 * 33); /* Copied from DefaultHash pair hash function. */
+    return hash1 ^ (hash2 * 33); /* Copied from DefaultHash for std::pair. */
   }
 
   bool operator==(const NodeUIStorageContextModifier &other) const
@@ -74,12 +78,12 @@ struct NodeTreeUIStorage {
   blender::Map<std::string, blender::Map<NodeUIStorageContextModifier, NodeUIStorage>> node_map;
 };
 
-void BKE_nodetree_ui_storage_clear(struct bNodeTree &ntree);
+void BKE_nodetree_ui_storage_free(bNodeTree &ntree);
 
-void BKE_nodetree_ui_storage_ensure(bNodeTree &ntree);
+void BKE_nodetree_ui_storage_add(bNodeTree &ntree);
 
-void BKE_nodetree_error_message_add(struct bNodeTree &ntree,
+void BKE_nodetree_error_message_add(bNodeTree &ntree,
                                     const NodeUIStorageContextModifier &context,
-                                    const struct bNode &node,
+                                    const bNode &node,
                                     const NodeWarningType type,
                                     std::string message);
