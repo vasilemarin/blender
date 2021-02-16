@@ -69,6 +69,7 @@
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_ui_storage.hh"
 
 #include "BLI_ghash.h"
 #include "BLI_threads.h"
@@ -98,75 +99,6 @@ bNodeType NodeTypeUndefined;
 bNodeSocketType NodeSocketTypeUndefined;
 
 static CLG_LogRef LOG = {"bke.node"};
-
-/* -------------------------------------------------------------------- */
-/** \name Runtime (Error Messages)
- * \{ */
-
-class bNodeTreeRuntime {
- public:
-  blender::Map<const std::string, NodeWarning> error_messages;
-};
-
-static void nodetree_runtime_ensure(bNodeTree *ntree)
-{
-  if (ntree->runtime == nullptr) {
-    ntree->runtime = new bNodeTreeRuntime();
-  }
-}
-
-void BKE_nodetree_error_message_add(bNodeTree *ntree,
-                                    const Object *object,
-                                    const char *modifier_name,
-                                    const bNode *node,
-                                    const eNodeWarningType type,
-                                    const char *message)
-{
-  nodetree_runtime_ensure(ntree);
-  bNodeTreeRuntime *runtime = ntree->runtime;
-
-  NodeWarning warning = {type, BLI_strdup(message), object, modifier_name};
-
-  switch (type) {
-    case NODE_WARNING_ERROR:
-      CLOG_ERROR(
-          &LOG, "Node Tree: \"%s\", Node: \"%s\", %s", ntree->id.name + 2, node->name, message);
-      break;
-    case NODE_WARNING_INFO:
-      CLOG_INFO(
-          &LOG, 2, "Node Tree: \"%s\", Node: \"%s\", %s", ntree->id.name + 2, node->name, message);
-      break;
-  }
-
-  runtime->error_messages.add(node->name, warning);
-}
-
-void BKE_nodetree_error_messages_clear(bNodeTree *ntree)
-{
-  bNodeTreeRuntime *runtime = ntree->runtime;
-  if (runtime != nullptr) {
-    runtime->error_messages.clear();
-    runtime->error_messages.foreach_item([](const std::string UNUSED(node_name),
-                                            NodeWarning warning) { MEM_freeN(warning.message); });
-  }
-}
-
-const NodeWarning *BKE_nodetree_error_message_get(const bNodeTree *ntree, const bNode *node)
-{
-  bNodeTreeRuntime *runtime = ntree->runtime;
-  if (runtime == nullptr) {
-    return nullptr;
-  }
-
-  const std::string node_name = std::string(node->name);
-  if (runtime->error_messages.contains(node_name)) {
-    return &runtime->error_messages.lookup(node_name);
-  }
-
-  return nullptr;
-}
-
-/** \} */
 
 static void ntree_set_typeinfo(bNodeTree *ntree, bNodeTreeType *typeinfo);
 static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src, const int flag);
@@ -343,8 +275,7 @@ static void ntree_free_data(ID *id)
     BKE_libblock_free_data(&ntree->id, true);
   }
 
-  delete ntree->runtime;
-  ntree->runtime = nullptr;
+  BKE_nodetree_ui_storage_clear(*ntree);
 }
 
 static void library_foreach_node_socket(LibraryForeachIDData *data, bNodeSocket *sock)
@@ -634,7 +565,7 @@ static void ntree_blend_write(BlendWriter *writer, ID *id, const void *id_addres
     ntree->interface_type = nullptr;
     ntree->progress = nullptr;
     ntree->execdata = nullptr;
-    ntree->runtime = nullptr;
+    // ntree->runtime = nullptr;
 
     BLO_write_id_struct(writer, bNodeTree, id_address, &ntree->id);
 
@@ -666,7 +597,7 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
 
   ntree->progress = nullptr;
   ntree->execdata = nullptr;
-  ntree->runtime = nullptr;
+  // ntree->runtime = nullptr;
 
   BLO_read_data_address(reader, &ntree->adt);
   BKE_animdata_blend_read_data(reader, ntree->adt);

@@ -35,7 +35,9 @@
 #include "DNA_world_types.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_map.hh"
 #include "BLI_math.h"
+#include "BLI_vector.hh"
 
 #include "BLT_translation.h"
 
@@ -43,6 +45,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_ui_storage.hh"
 #include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
@@ -76,9 +79,11 @@
 #  include "COM_compositor.h"
 #endif
 
-/* XXX interface.h */
+using blender::Map;
+using blender::Vector;
 
 extern "C" {
+/* XXX interface.h */
 extern void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int select);
 }
@@ -1181,12 +1186,14 @@ void node_draw_sockets(const View2D *v2d,
   }
 }
 
-static int node_error_type_to_icon(const eNodeWarningType type)
+static int node_error_type_to_icon(const NodeWarningType type)
 {
   switch (type) {
-    case NODE_WARNING_ERROR:
+    case NodeWarningType::Error:
       return ICON_ERROR;
-    case NODE_WARNING_INFO:
+    case NodeWarningType::Warning:
+      return ICON_ERROR;
+    case NodeWarningType::Info:
       return ICON_INFO;
   }
 
@@ -1194,51 +1201,96 @@ static int node_error_type_to_icon(const eNodeWarningType type)
   return ICON_ERROR;
 }
 
-static char *node_errros_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
+static uint8_t node_error_type_priority(const NodeWarningType type)
 {
-  NodeWarning *message = (NodeWarning *)argN;
+  switch (type) {
+    case NodeWarningType::Error:
+      return 3;
+    case NodeWarningType::Warning:
+      return 2;
+    case NodeWarningType::Info:
+      return 1;
+  }
 
-  return BLI_strdup(message->message);
+  BLI_assert(false);
+  return 0;
+}
+
+static char *node_errrors_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
+{
+  char *message = static_cast<char *>(argN);
+
+  return BLI_strdup(message);
 }
 
 #define NODE_HEADER_ICON_SIZE 0.8f * U.widget_unit
 
-static int node_add_error_message_button(
-    const bContext *C, bNodeTree *ntree, bNode *node, const rctf *rect, int icon_offset)
+static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
+                                                             const bNodeTree &ntree,
+                                                             const bNode &node)
 {
-  const NodeWarning *message = BKE_nodetree_error_message_get(ntree, node);
-  if (message == NULL) {
-    return icon_offset;
+  const NodeTreeUIStorage *node_tree_ui_storage = ntree.runtime;
+  if (node_tree_ui_storage == nullptr) {
+    return nullptr;
+  }
+  const Map<NodeUIStorageContextModifier, NodeUIStorage> *node_ui_storage =
+      node_tree_ui_storage->node_map.lookup_ptr(&node);
+  if (node_ui_storage == nullptr) {
+    return nullptr;
   }
 
-  // /* The same node tree can be used for multiple objects, only display
-  //  * messages for the evaluations corresponding to the active object. */
-  // const Object *active_object = CTX_data_active_object(C);
-  // if (message->object != active_object) {
-  //   return icon_offset;
-  // }
+  const Object *active_object = CTX_data_active_object(C);
+  const ModifierData *active_modifier = BKE_object_active_modifier(active_object);
+  if (active_object == nullptr || active_modifier == nullptr) {
+    return nullptr;
+  }
+  const NodeUIStorageContextModifier context = {active_object, active_modifier};
 
-  // /* The same node tree can be used for multiple modifiers on the same object. Only display
-  //  * messages for the active modifier, which will also be displayed in the node tree. */
-  // ModifierData *active_modifier = BKE_object_active_modifier(message->object);
-  // if (!STREQ(message->modifier_name, active_modifier->name)) {
-  //   return icon_offset;
-  // }
+  return node_ui_storage->lookup_ptr(context);
+}
+
+static void node_add_error_message_button(
+    const bContext *C, bNodeTree &ntree, bNode &node, const rctf &rect, float &icon_offset)
+{
+  const NodeUIStorage *node_ui_storage = node_ui_storage_get_from_context(C, ntree, node);
+  if (node_ui_storage == nullptr) {
+    return;
+  }
+
+  /* TODO: The UI API forces us to allocate memory for each error message we pass.
+   * The ownership of #UI_but_func_tooltip_set's argument is transferred to the button.
+   * We shouldn't need to do this though, investigate improving this. */
+  int total_str_len = node_ui_storage->warnings.size(); /* Leave room for new line characters. */
+  for (const NodeWarning &warning : node_ui_storage->warnings) {
+    total_str_len += warning.message.size();
+  }
+  char *tooltip_alloc = (char *)MEM_mallocN(sizeof(char), __func__);
+  int tooltip_offest = 0;
+  for (const NodeWarning &warning : node_ui_storage->warnings) {
+    BLI_strncpy(tooltip_alloc + tooltip_offest, warning.message.c_str(), warning.message.size());
+    tooltip_offest += warning.message.size();
+    BLI_strncpy(tooltip_alloc + tooltip_offest, "\n", 1);
+    tooltip_offest++;
+  }
+
+  uint8_t highest_priority = 0;
+  NodeWarningType highest_priority_type = NodeWarningType::Info;
+  for (const NodeWarning &warning : node_ui_storage->warnings) {
+    const uint8_t priority = node_error_type_priority(warning.type);
+    if (priority > highest_priority) {
+      highest_priority = priority;
+      highest_priority_type = warning.type;
+    }
+  }
 
   icon_offset -= NODE_HEADER_ICON_SIZE;
-
-  UI_block_emboss_set(node->block, UI_EMBOSS_NONE);
-  /* The only reason to allocate this is that the ownership of
-   * #UI_but_func_tooltip_set's argument is transferred to the button. */
-  NodeWarning *warning_alloc = MEM_mallocN(sizeof(NodeWarning), __func__);
-  warning_alloc->type = message->type;
-  warning_alloc->message = message->message;
-  uiBut *but = uiDefIconBut(node->block,
+  UI_block_emboss_set(node.block, UI_EMBOSS_NONE);
+  uiBut *but = uiDefIconBut(node.block,
                             UI_BTYPE_BUT,
                             0,
-                            node_error_type_to_icon(message->type),
+                            node_error_type_to_icon(highest_priority_type),
                             icon_offset,
-                            rect->ymax - NODE_DY,
+                            rect.ymax - NODE_DY,
                             NODE_HEADER_ICON_SIZE,
                             UI_UNIT_Y,
                             NULL,
@@ -1247,10 +1299,8 @@ static int node_add_error_message_button(
                             0,
                             0,
                             NULL);
-  UI_but_func_tooltip_set(but, node_errros_tooltip_fn, warning_alloc);
-  UI_block_emboss_set(node->block, UI_EMBOSS);
-
-  return icon_offset;
+  UI_but_func_tooltip_set(but, node_errrors_tooltip_fn, tooltip_alloc);
+  UI_block_emboss_set(node.block, UI_EMBOSS);
 }
 
 static void node_draw_basis(const bContext *C,
@@ -1372,7 +1422,7 @@ static void node_draw_basis(const bContext *C,
     UI_block_emboss_set(node->block, UI_EMBOSS);
   }
 
-  iconofs = node_add_error_message_button(C, ntree, node, rct, iconofs);
+  node_add_error_message_button(C, *ntree, *node, *rct, iconofs);
 
   /* title */
   if (node->flag & SELECT) {

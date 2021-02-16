@@ -426,7 +426,7 @@ static void geo_node_point_distribute_exec(GeoNodeExecParams params)
       static_cast<GeometryNodePointDistributeMethod>(params.node().custom1);
 
   if (!geometry_set.has_mesh()) {
-    params.error_message_add(NODE_WARNING_ERROR, "Geometry must contain a mesh");
+    params.error_message_add(NodeWarningType::Error, "Geometry must contain a mesh");
     params.set_output("Geometry", std::move(geometry_set_out));
     return;
   }
@@ -443,7 +443,7 @@ static void geo_node_point_distribute_exec(GeoNodeExecParams params)
   const Mesh *mesh_in = mesh_component.get_for_read();
 
   if (mesh_in->mpoly == nullptr) {
-    params.error_message_add(NODE_WARNING_ERROR, "Mesh has no faces");
+    params.error_message_add(NodeWarningType::Error, "Mesh has no faces");
     params.set_output("Geometry", std::move(geometry_set_out));
     return;
   }

@@ -848,7 +848,7 @@ bool BKE_node_is_connected_to_output(struct bNodeTree *ntree, struct bNode *node
 /* ************** COMMON NODES *************** */
 
 #define NODE_UNDEFINED -2 /* node type is not registered */
-#define NODE_CUSTOM -1    /* for dynamically registered custom types */
+#define NODE_CUSTOM -1 /* for dynamically registered custom types */
 #define NODE_GROUP 2
 // #define NODE_FORLOOP 3       /* deprecated */
 // #define NODE_WHILELOOP   4   /* deprecated */
@@ -939,33 +939,6 @@ bool BKE_node_tree_iter_step(struct NodeTreeIterStore *ntreeiter,
 void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
                                  struct Scene *scene,
                                  const int layer_index);
-
-typedef struct NodeWarningContextNodesModifier {
-  const Object *object;
-  const char *modifier_name;
-} NodeWarningContextNodesModifier;
-
-typedef enum eNodeWarningType {
-  NODE_WARNING_ERROR,
-  NODE_WARNING_INFO,
-} eNodeWarningType;
-
-typedef struct NodeWarning {
-  eNodeWarningType type;
-  char *message;
-} NodeWarning;
-
-void BKE_nodetree_error_message_add(struct bNodeTree *ntree,
-                                    const struct Object *object,
-                                    const char *modifier_name,
-                                    const struct bNode *node,
-                                    const eNodeWarningType type,
-                                    const char *message);
-
-void BKE_nodetree_error_messages_clear(struct bNodeTree *ntree);
-
-const NodeWarning *BKE_nodetree_error_message_get(const struct bNodeTree *ntree,
-                                                  const bNode *node);
 
 /* -------------------------------------------------------------------- */
 /** \name Shader Nodes

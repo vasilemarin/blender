@@ -50,6 +50,7 @@
 #include "BKE_lib_query.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_node_ui_storage.hh"
 #include "BKE_pointcloud.h"
 #include "BKE_screen.h"
 #include "BKE_simulation.h"
@@ -274,7 +275,8 @@ class GeometryNodesEvaluator {
   Vector<GMutablePointer> execute()
   {
     bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)btree_);
-    BKE_nodetree_error_messages_clear(original_ntree);
+    BKE_nodetree_ui_storage_clear(*original_ntree);
+    BKE_nodetree_ui_storage_ensure(*original_ntree);
 
     Vector<GMutablePointer> results;
     for (const DInputSocket *group_output : group_outputs_) {

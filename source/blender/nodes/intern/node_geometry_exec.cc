@@ -16,6 +16,8 @@
 
 #include "DNA_modifier_types.h"
 
+#include "BKE_node_ui_storage.hh"
+
 #include "DEG_depsgraph_query.h"
 
 #include "NOD_geometry_exec.hh"
@@ -25,13 +27,13 @@
 
 namespace blender::nodes {
 
-void GeoNodeExecParams::error_message_add(const eNodeWarningType type,
+void GeoNodeExecParams::error_message_add(const NodeWarningType type,
                                           const std::string &message) const
 {
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
   if (original_ntree != nullptr) {
-    BKE_nodetree_error_message_add(
-        original_ntree, self_object_, modifier_->name, &node_, type, message.data());
+    const NodeUIStorageContextModifier context = {self_object_, modifier_};
+    BKE_nodetree_error_message_add(*original_ntree, context, node_, type, message);
   }
 }
 
@@ -70,7 +72,7 @@ ReadAttributePtr GeoNodeExecParams::get_input_attribute(const StringRef name,
     ReadAttributePtr attribute = component.attribute_get_for_read(
         name, domain, type, default_value);
     if (!attribute) {
-      this->error_message_add(NODE_WARNING_ERROR,
+      this->error_message_add(NodeWarningType::Error,
                               std::string("No attribute with name '") + name + "'.");
     }
     return attribute;
