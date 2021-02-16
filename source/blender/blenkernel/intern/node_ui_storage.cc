@@ -79,11 +79,13 @@ static void node_error_message_log(bNodeTree &ntree,
   }
 }
 
+/* USE THE AS METHODS */
+
 void BKE_nodetree_error_message_add(bNodeTree &ntree,
                                     const NodeUIStorageContextModifier &context,
                                     const bNode &node,
                                     const NodeWarningType type,
-                                    const std::string &message)
+                                    std::string message)
 {
   BLI_assert(ntree.runtime != nullptr);
   NodeTreeUIStorage &node_tree_ui_storage = *ntree.runtime;
@@ -95,5 +97,5 @@ void BKE_nodetree_error_message_add(bNodeTree &ntree,
 
   NodeUIStorage &node_ui_storage = context_to_storage_map.lookup_or_add_default(context);
 
-  node_ui_storage.warnings.append({type, message});
+  node_ui_storage.warnings.append({type, std::move(message)});
 }

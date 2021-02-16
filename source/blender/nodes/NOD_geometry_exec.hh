@@ -205,17 +205,14 @@ class GeoNodeExecParams {
   }
 
   /**
-   * Add an error message displayed at the bottom of the node when displaying the node tree,
+   * Add an error message displayed at the top of the node when displaying the node tree,
    * and potentially elsewhere in Blender.
    */
-  void error_message_add(const NodeWarningType type, const std::string &message) const;
+  void error_message_add(const NodeWarningType type, std::string message) const;
 
   /**
    * Creates a read-only attribute based on node inputs. The method automatically detects which
    * input socket with the given name is available.
-   *
-   * \note Can return null if no attribute with the provided name exists,
-   * in which case an error message is added for the UI.
    */
   ReadAttributePtr get_input_attribute(const StringRef name,
                                        const GeometryComponent &component,

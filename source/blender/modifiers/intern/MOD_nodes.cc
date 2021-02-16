@@ -274,10 +274,6 @@ class GeometryNodesEvaluator {
 
   Vector<GMutablePointer> execute()
   {
-    bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)btree_);
-    BKE_nodetree_ui_storage_clear(*original_ntree);
-    BKE_nodetree_ui_storage_ensure(*original_ntree);
-
     Vector<GMutablePointer> results;
     for (const DInputSocket *group_output : group_outputs_) {
       Vector<GMutablePointer> result = this->get_input_values(*group_output);
@@ -1011,6 +1007,10 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   group_outputs.append(&socket_to_compute);
 
   bNodeTree *ntree = tree.btree();
+  bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id((ID *)ntree);
+  BKE_nodetree_ui_storage_clear(*original_ntree);
+  BKE_nodetree_ui_storage_ensure(*original_ntree);
+
   GeometryNodesEvaluator evaluator{*ntree,
                                    group_inputs,
                                    group_outputs,
@@ -1019,6 +1019,7 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
                                    ctx->object,
                                    (ModifierData *)nmd,
                                    ctx->depsgraph};
+
   Vector<GMutablePointer> results = evaluator.execute();
   BLI_assert(results.size() == 1);
   GMutablePointer result = results[0];

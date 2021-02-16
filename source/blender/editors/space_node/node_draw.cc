@@ -1727,7 +1727,7 @@ void node_set_cursor(wmWindow *win, SpaceNode *snode, float cursor[2])
     }
     else {
       /* check nodes front to back */
-      LISTBASE_FOREACH_BACKWARD (bNode *, node, &ntree->nodes) {
+      for (node = (bNode *)ntree->nodes.last; node; node = node->prev) {
         if (BLI_rctf_isect_pt(&node->totr, cursor[0], cursor[1])) {
           break; /* first hit on node stops */
         }

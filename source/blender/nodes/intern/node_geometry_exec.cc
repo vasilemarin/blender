@@ -27,14 +27,13 @@
 
 namespace blender::nodes {
 
-void GeoNodeExecParams::error_message_add(const NodeWarningType type,
-                                          const std::string &message) const
+void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::string message) const
 {
   bNodeTree *original_ntree = (bNodeTree *)DEG_get_original_id(&(ID &)ntree_);
   if (original_ntree != nullptr) {
     const NodeUIStorageContextModifier context = NodeUIStorageContextModifier(*self_object_,
                                                                               *modifier_);
-    BKE_nodetree_error_message_add(*original_ntree, context, node_, type, message);
+    BKE_nodetree_error_message_add(*original_ntree, context, node_, type, std::move(message));
   }
 }
 
@@ -66,17 +65,17 @@ ReadAttributePtr GeoNodeExecParams::get_input_attribute(const StringRef name,
 
   if (found_socket->type == SOCK_STRING) {
     const std::string name = this->get_input<std::string>(found_socket->identifier);
-    if (name.empty()) {
-      return nullptr;
+    /* Try getting the attribute without the default value, if that doesn't work, use the default
+     * value and output an error message. */
+    ReadAttributePtr attribute = component.attribute_try_get_for_read(name, domain, type);
+    if (attribute) {
+      return attribute;
     }
-
-    ReadAttributePtr attribute = component.attribute_get_for_read(
-        name, domain, type, default_value);
-    if (!attribute) {
+    if (default_value == nullptr) {
       this->error_message_add(NodeWarningType::Error,
                               std::string("No attribute with name '") + name + "'.");
     }
-    return attribute;
+    return component.attribute_get_constant_for_read(domain, type, default_value);
   }
   if (found_socket->type == SOCK_FLOAT) {
     const float value = this->get_input<float>(found_socket->identifier);
