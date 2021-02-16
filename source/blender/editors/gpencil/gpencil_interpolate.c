@@ -93,7 +93,7 @@ static bool gpencil_view3d_poll(bContext *C)
 }
 
 /* Return the stroke related to the selection index, returning the stroke with
- * the smallest selection index greater that reference index. */
+ * the smallest selection index greater than reference index. */
 static bGPDstroke *gpencil_stroke_get_related(GHash *used_strokes,
                                               bGPDframe *gpf,
                                               const int reference_index)
@@ -104,6 +104,7 @@ static bGPDstroke *gpencil_stroke_get_related(GHash *used_strokes,
     if (gps->select_index > reference_index) {
       if (!BLI_ghash_haskey(used_strokes, gps)) {
         if (gps->select_index < lower_index) {
+          lower_index = gps->select_index;
           gps_found = gps;
         }
       }
@@ -136,14 +137,15 @@ static void gpencil_stroke_pair_table(bContext *C,
   LISTBASE_FOREACH (bGPDstroke *, gps_from, &tgpil->prevFrame->strokes) {
     bGPDstroke *gps_to = NULL;
     /* only selected */
-    if ((only_selected) && ((gps_from->flag & GP_STROKE_SELECT) == 0)) {
+    if ((GPENCIL_EDIT_MODE(gpd)) && (only_selected) &&
+        ((gps_from->flag & GP_STROKE_SELECT) == 0)) {
       continue;
     }
     /* skip strokes that are invalid for current view */
     if (ED_gpencil_stroke_can_use(C, gps_from) == false) {
       continue;
     }
-    /* check if the color is editable */
+    /* Check if the material is editable. */
     if (ED_gpencil_stroke_material_editable(tgpi->ob, tgpil->gpl, gps_from) == false) {
       continue;
     }
@@ -157,10 +159,12 @@ static void gpencil_stroke_pair_table(bContext *C,
       int fFrame = BLI_findindex(&tgpil->prevFrame->strokes, gps_from);
       gps_to = BLI_findlink(&tgpil->nextFrame->strokes, fFrame);
     }
-    /* Insert the pair entry in the hash table. */
-    if (gps_to != NULL) {
-      BLI_ghash_insert(tgpil->pair_strokes, gps_from, gps_to);
+
+    if (ELEM(NULL, gps_from, gps_to)) {
+      continue;
     }
+    /* Insert the pair entry in the hash table. */
+    BLI_ghash_insert(tgpil->pair_strokes, gps_from, gps_to);
   }
 }
 
