@@ -69,6 +69,78 @@
 
 #include "gpencil_intern.h"
 
+/* Temporary interpolate operation data */
+typedef struct tGPDinterpolate_layer {
+  struct tGPDinterpolate_layer *next, *prev;
+
+  /** layer */
+  struct bGPDlayer *gpl;
+  /** frame before current frame (interpolate-from) */
+  struct bGPDframe *prevFrame;
+  /** frame after current frame (interpolate-to) */
+  struct bGPDframe *nextFrame;
+  /** interpolated frame */
+  struct bGPDframe *interFrame;
+  /** interpolate factor */
+  float factor;
+
+  /* Hash tablets to create temp relationship between strokes. */
+  struct GHash *used_strokes;
+  struct GHash *pair_strokes;
+
+} tGPDinterpolate_layer;
+
+typedef struct tGPDinterpolate {
+  /** Current depsgraph from context */
+  struct Depsgraph *depsgraph;
+  /** current scene from context */
+  struct Scene *scene;
+  /** area where painting originated */
+  struct ScrArea *area;
+  /** region where painting originated */
+  struct ARegion *region;
+  /** current object */
+  struct Object *ob;
+  /** current GP datablock */
+  struct bGPdata *gpd;
+  /** current material */
+  struct Material *mat;
+  /* Space Conversion Data */
+  struct GP_SpaceConversion gsc;
+
+  /** current frame number */
+  int cframe;
+  /** (tGPDinterpolate_layer) layers to be interpolated */
+  ListBase ilayers;
+  /** value for determining the displacement influence */
+  float shift;
+  /** initial interpolation factor for active layer */
+  float init_factor;
+  /** shift low limit (-100%) */
+  float low_limit;
+  /** shift upper limit (200%) */
+  float high_limit;
+  /** flag from toolsettings */
+  int flag;
+  /** Flip mode. */
+  enum eGP_InterpolateFlipMode flipmode;
+  /** smooth factor */
+  float smooth_factor;
+  /** smooth iterations */
+  int smooth_steps;
+
+  NumInput num; /* numeric input */
+} tGPDinterpolate;
+
+typedef enum eGP_InterpolateFlipMode {
+  /* No flip. */
+  GP_INTERPOLATE_NOFLIP = 0,
+  /* Flip always. */
+  GP_INTERPOLATE_FLIP = 1,
+  /* Flip if needed. */
+  GP_INTERPOLATE_FLIPAUTO = 2,
+} eGP_InterpolateFlipMode;
+
 /* ************************************************ */
 /* Core/Shared Utilities */
 
@@ -90,6 +162,46 @@ static bool gpencil_view3d_poll(bContext *C)
   }
 
   return true;
+}
+
+/* Return if the stroke must be flipped or not. The logic of the calculation
+ * is to check if the lines from extremes crossed. All is done in 2D. */
+static bool gpencil_stroke_need_flip(Depsgraph *depsgraph,
+                                     Object *ob,
+                                     bGPDlayer *gpl,
+                                     GP_SpaceConversion *gsc,
+                                     bGPDstroke *gps_from,
+                                     bGPDstroke *gps_to)
+{
+  float diff_mat[4][4];
+  /* calculate parent matrix */
+  BKE_gpencil_layer_transform_matrix_get(depsgraph, ob, gpl, diff_mat);
+  bGPDspoint *pt, pt_dummy_ps;
+  float v1a[2], v1b[2], v2a[2], v2b[2];
+
+  /* Line from start of strokes. */
+  pt = &gps_from->points[0];
+  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v1a[0], &v1a[1]);
+
+  pt = &gps_to->points[0];
+  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v1b[0], &v1b[1]);
+
+  /* Line from end of strokes. */
+  pt = &gps_from->points[gps_from->totpoints - 1];
+  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v2a[0], &v2a[1]);
+
+  pt = &gps_to->points[gps_to->totpoints - 1];
+  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v2b[0], &v2b[1]);
+
+  if (isect_seg_seg_v2(v1a, v1b, v2a, v2b) == ISECT_LINE_LINE_CROSS) {
+    return true;
+  }
+
+  return false;
 }
 
 /* Return the stroke related to the selection index, returning the stroke with
@@ -388,8 +500,15 @@ static void gpencil_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
         BKE_gpencil_stroke_uniform_subdivide(gpd, gps_from, gps_to->totpoints, true);
       }
 
-      if (tgpi->flag & GP_TOOLFLAG_INTERPOLATE_FLIP) {
+      /* Flip stroke. */
+      if (tgpi->flipmode == GP_INTERPOLATE_FLIP) {
         BKE_gpencil_stroke_flip(gps_to);
+      }
+      else if (tgpi->flipmode == GP_INTERPOLATE_FLIPAUTO) {
+        if (gpencil_stroke_need_flip(
+                tgpi->depsgraph, tgpi->ob, gpl, &tgpi->gsc, gps_from, gps_to)) {
+          BKE_gpencil_stroke_flip(gps_to);
+        }
       }
 
       /* Create new stroke. */
@@ -528,6 +647,8 @@ static bool gpencil_interpolate_set_init_values(bContext *C, wmOperator *op, tGP
   tgpi->area = CTX_wm_area(C);
   tgpi->region = CTX_wm_region(C);
   tgpi->ob = CTX_data_active_object(C);
+  /* Setup space conversions. */
+  gpencil_point_conversion_init(C, &tgpi->gsc);
 
   /* set current frame number */
   tgpi->cframe = tgpi->scene->r.cfra;
@@ -542,7 +663,8 @@ static bool gpencil_interpolate_set_init_values(bContext *C, wmOperator *op, tGP
       tgpi->flag,
       ((GPENCIL_EDIT_MODE(tgpi->gpd)) && (RNA_boolean_get(op->ptr, "interpolate_selected_only"))),
       GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED);
-  SET_FLAG_FROM_TEST(tgpi->flag, RNA_boolean_get(op->ptr, "flip"), GP_TOOLFLAG_INTERPOLATE_FLIP);
+
+  tgpi->flipmode = RNA_enum_get(op->ptr, "flip");
 
   tgpi->smooth_factor = RNA_float_get(op->ptr, "smooth_factor");
   tgpi->smooth_steps = RNA_int_get(op->ptr, "smooth_steps");
@@ -767,6 +889,13 @@ static void gpencil_interpolate_cancel(bContext *C, wmOperator *op)
 
 void GPENCIL_OT_interpolate(wmOperatorType *ot)
 {
+  static const EnumPropertyItem flip_modes[] = {
+      {GP_INTERPOLATE_NOFLIP, "NOFLIP", 0, "No Flip", ""},
+      {GP_INTERPOLATE_FLIP, "FLIP", 0, "Flip", ""},
+      {GP_INTERPOLATE_FLIPAUTO, "AUTO", 0, "Automatic", ""},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   PropertyRNA *prop;
 
   /* identifiers */
@@ -814,11 +943,12 @@ void GPENCIL_OT_interpolate(wmOperatorType *ot)
                   "Only Selected",
                   "Interpolate only selected strokes");
 
-  RNA_def_boolean(ot->srna,
-                  "flip",
-                  0,
-                  "Flip Strokes",
-                  "Invert destination stroke to match start and end with source stroke");
+  RNA_def_enum(ot->srna,
+               "flip",
+               flip_modes,
+               GP_INTERPOLATE_FLIPAUTO,
+               "Flip Mode",
+               "Invert destination stroke to match start and end with source stroke");
 
   RNA_def_int(ot->srna,
               "smooth_steps",
@@ -1054,11 +1184,16 @@ static float gpencil_interpolate_seq_easing_calc(wmOperator *op,
 
 static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
 {
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   ToolSettings *ts = CTX_data_tool_settings(C);
   Object *ob = CTX_data_active_object(C);
   bGPdata *gpd = ob->data;
   bGPDlayer *active_gpl = CTX_data_active_gpencil_layer(C);
+  /* Setup space conversions. */
+  GP_SpaceConversion gsc;
+  gpencil_point_conversion_init(C, &gsc);
+
   int cfra = CFRA;
 
   GP_Interpolate_Settings *ipo_settings = &ts->gp_interpolate;
@@ -1068,7 +1203,8 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
   const bool only_selected = ((GPENCIL_EDIT_MODE(gpd)) &&
                               (RNA_boolean_get(op->ptr, "interpolate_selected_only") != 0));
 
-  const bool flip = RNA_boolean_get(op->ptr, "flip");
+  eGP_InterpolateFlipMode flipmode = RNA_enum_get(op->ptr, "flip");
+
   const float smooth_factor = RNA_float_get(op->ptr, "smooth_factor");
   const int smooth_steps = RNA_int_get(op->ptr, "smooth_steps");
 
@@ -1157,8 +1293,15 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
       if (gps_to->totpoints > gps_from->totpoints) {
         BKE_gpencil_stroke_uniform_subdivide(gpd, gps_from, gps_to->totpoints, true);
       }
-      if (flip) {
+
+      /* Flip stroke. */
+      if (flipmode == GP_INTERPOLATE_FLIP) {
         BKE_gpencil_stroke_flip(gps_to);
+      }
+      else if (flipmode == GP_INTERPOLATE_FLIPAUTO) {
+        if (gpencil_stroke_need_flip(depsgraph, ob, gpl, &gsc, gps_from, gps_to)) {
+          BKE_gpencil_stroke_flip(gps_to);
+        }
       }
 
       /* Insert the pair entry in the hash table. */
@@ -1369,6 +1512,13 @@ void GPENCIL_OT_interpolate_sequence(wmOperatorType *ot)
       {0, NULL, 0, NULL, NULL},
   };
 
+  static const EnumPropertyItem flip_modes[] = {
+      {GP_INTERPOLATE_NOFLIP, "NOFLIP", 0, "No Flip", ""},
+      {GP_INTERPOLATE_FLIP, "FLIP", 0, "Flip", ""},
+      {GP_INTERPOLATE_FLIPAUTO, "AUTO", 0, "Automatic", ""},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   /* identifiers */
   ot->name = "Interpolate Sequence";
   ot->idname = "GPENCIL_OT_interpolate_sequence";
@@ -1402,11 +1552,12 @@ void GPENCIL_OT_interpolate_sequence(wmOperatorType *ot)
                   "Only Selected",
                   "Interpolate only selected strokes");
 
-  RNA_def_boolean(ot->srna,
-                  "flip",
-                  0,
-                  "Flip Strokes",
-                  "Invert destination stroke to match start and end with source stroke");
+  RNA_def_enum(ot->srna,
+               "flip",
+               flip_modes,
+               GP_INTERPOLATE_FLIPAUTO,
+               "Flip Mode",
+               "Invert destination stroke to match start and end with source stroke");
 
   RNA_def_int(ot->srna,
               "smooth_steps",

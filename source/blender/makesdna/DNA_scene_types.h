@@ -1142,8 +1142,6 @@ typedef enum eGP_Interpolate_SettingsFlag {
   GP_TOOLFLAG_INTERPOLATE_ALL_LAYERS = (1 << 0),
   /* apply interpolation to only selected */
   GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED = (1 << 1),
-  /* flip strokes */
-  GP_TOOLFLAG_INTERPOLATE_FLIP = (1 << 2),
 } eGP_Interpolate_SettingsFlag;
 
 /** #GP_Interpolate_Settings.type */
