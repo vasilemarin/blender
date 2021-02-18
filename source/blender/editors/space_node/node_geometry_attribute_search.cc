@@ -14,11 +14,12 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "BLI_index_range.hh"
 #include "BLI_listbase.h"
 #include "BLI_map.hh"
+#include "BLI_set.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_string_search.h"
-#include "BLI_vector.hh"
 
 #include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
@@ -29,9 +30,12 @@
 #include "BKE_object.h"
 
 #include "UI_interface.h"
+#include "UI_resources.h"
 
+using blender::IndexRange;
+using blender::Map;
+using blender::Set;
 using blender::StringRef;
-using blender::Vector;
 
 static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
                                                              const bNodeTree &ntree,
@@ -58,28 +62,30 @@ static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
 }
 
 struct AttributeSearchData {
-  Vector<std::string> attributes;
+  Set<std::string> attributes;
+  bNodeSocket &socket;
 };
 
-static void menu_search_update_fn(const bContext *UNUSED(C),
-                                  void *arg,
-                                  const char *str,
-                                  uiSearchItems *items)
+static void attribute_search_update_fn(const bContext *UNUSED(C),
+                                       void *arg,
+                                       const char *str,
+                                       uiSearchItems *items)
 {
-  struct MenuSearch_Data *data = arg;
+  const NodeUIStorage &storage = *static_cast<const NodeUIStorage *>(arg);
+  Set<std::string> attribute_name_hints = {"HELLO!", "DOES", "THIS", "WORK???"};
 
   StringSearch *search = BLI_string_search_new();
 
-  LISTBASE_FOREACH (struct MenuSearch_Item *, item, &data->items) {
-    BLI_string_search_add(search, item->drawwstr_full, item);
+  for (const std::string attribute_name : attribute_name_hints) {
+    BLI_string_search_add(search, attribute_name.c_str(), (void *)&attribute_name);
   }
 
-  struct MenuSearch_Item **filtered_items;
+  std::string **filtered_items;
   const int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_items);
 
-  for (int i = 0; i < filtered_amount; i++) {
-    struct MenuSearch_Item *item = filtered_items[i];
-    if (!UI_search_item_add(items, item->drawwstr_full, item, item->icon, item->state, 0)) {
+  for (const int i : IndexRange(filtered_amount)) {
+    std::string *item = filtered_items[i];
+    if (!UI_search_item_add(items, item->c_str(), item, ICON_NONE, 0, 0)) {
       break;
     }
   }
@@ -88,9 +94,25 @@ static void menu_search_update_fn(const bContext *UNUSED(C),
   BLI_string_search_free(search);
 }
 
-void button_add_attribute_search(const bContext *C,
-                                 uiBut *but,
-                                 const bNodeTree &ntree,
-                                 const bNode &node)
+static void attribute_search_exec_fn(struct bContext *C, void *arg1, void *arg2)
 {
+  AttributeSearchData *data = static_cast<AttributeSearchData *>(arg1);
+  const std::string *attribute_name = static_cast<std::string *>(arg2);
+
+  bNodeSocketValueString *string_value = static_cast<bNodeSocketValueString *>(
+      data->socket.default_value);
+
+  BLI_strncpy(string_value->value, attribute_name->c_str(), 1024);
+}
+
+void button_add_attribute_search(uiBut *but, const NodeUIStorage &ui_storage, bNodeSocket *socket)
+{
+  AttributeSearchData data = {ui_storage.attribute_name_hints, *socket};
+  UI_but_func_search_set(but,
+                         nullptr,
+                         attribute_search_update_fn,
+                         (void *)&data,
+                         nullptr,
+                         attribute_search_exec_fn,
+                         nullptr);
 }

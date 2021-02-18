@@ -9749,6 +9749,8 @@ static void rna_def_node_socket_string(BlenderRNA *brna,
   RNA_def_property_ui_text(prop, "Default Value", "Input value used for unconnected socket");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeSocketInterface_update");
 
+  // prop = RNA_def_property(srna, "attributes", PROP_COLLECTION, PROP_NONE);
+
   RNA_def_struct_sdna_from(srna, "bNodeSocket", NULL);
 }
 
