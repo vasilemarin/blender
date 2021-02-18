@@ -38,6 +38,7 @@ struct bContext;
 struct bNode;
 struct bNodeLink;
 struct bNodeSocket;
+struct uiBut;
 struct wmGizmoGroupType;
 struct wmKeyConfig;
 struct wmWindow;
@@ -326,6 +327,11 @@ enum eNodeSpace_ButEvents {
   B_NODE_LOADIMAGE,
   B_NODE_SETIMAGE,
 };
+
+void button_add_attribute_search(const struct bContext *C,
+                                 struct bNode *node,
+                                 struct bNodeSocket *socket,
+                                 struct uiBut *but);
 
 #ifdef __cplusplus
 }

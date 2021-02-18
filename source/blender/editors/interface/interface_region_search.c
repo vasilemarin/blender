@@ -719,7 +719,7 @@ static void ui_searchbox_region_free_cb(ARegion *region)
   region->regiondata = NULL;
 }
 
-ARegion *UI_searchbox_create_generic(bContext *C, ARegion *butregion, uiButSearch *search_but)
+ARegion *ui_searchbox_create_generic(bContext *C, ARegion *butregion, uiButSearch *search_but)
 {
   wmWindow *win = CTX_wm_window(C);
   const uiStyle *style = UI_style_get();

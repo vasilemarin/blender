@@ -19,6 +19,7 @@
 #include "BLI_hash.hh"
 #include "BLI_map.hh"
 #include "BLI_session_uuid.h"
+#include "BLI_set.hh"
 
 #include "DNA_ID.h"
 #include "DNA_modifier_types.h"

@@ -3387,7 +3387,15 @@ static void std_node_socket_draw(
     case SOCK_STRING: {
       uiLayout *row = uiLayoutSplit(layout, 0.5f, false);
       uiItemL(row, text, 0);
-      uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
+
+      uiBlock *block = uiLayoutGetBlock(row);
+
+      static char search[256] = "";
+      uiBut *but = uiDefSearchBut(
+          block, search, 0, ICON_NONE, sizeof(search), 10, 10, 200, UI_UNIT_Y, 0, 0, "");
+      button_add_attribute_search(C, node, sock, but);
+
+      // uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
       break;
     }
     case SOCK_OBJECT: {

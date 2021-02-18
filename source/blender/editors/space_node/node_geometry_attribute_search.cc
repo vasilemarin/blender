@@ -24,6 +24,7 @@
 #include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
+#include "DNA_space_types.h"
 
 #include "BKE_context.h"
 #include "BKE_node_ui_storage.hh"
@@ -31,6 +32,8 @@
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+
+#include "node_intern.h"
 
 using blender::IndexRange;
 using blender::Map;
@@ -62,21 +65,28 @@ static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
 }
 
 struct AttributeSearchData {
-  Set<std::string> attributes;
+  const bNodeTree &node_tree;
+  const bNode &node;
   bNodeSocket &socket;
 };
 
-static void attribute_search_update_fn(const bContext *UNUSED(C),
+static void attribute_search_update_fn(const bContext *C,
                                        void *arg,
                                        const char *str,
                                        uiSearchItems *items)
 {
-  const NodeUIStorage &storage = *static_cast<const NodeUIStorage *>(arg);
-  Set<std::string> attribute_name_hints = {"HELLO!", "DOES", "THIS", "WORK???"};
+  AttributeSearchData *data = static_cast<AttributeSearchData *>(arg);
+  const NodeUIStorage *ui_storage = node_ui_storage_get_from_context(
+      C, data->node_tree, data->node);
+  if (ui_storage == nullptr) {
+    // return;
+  }
+
+  // const Set<std::string> &attribute_name_hints = ui_storage->attribute_name_hints;
+  const Set<std::string> attribute_name_hints = {"HELLO!", "DOES", "THIS", "WORK???"};
 
   StringSearch *search = BLI_string_search_new();
-
-  for (const std::string attribute_name : attribute_name_hints) {
+  for (const std::string &attribute_name : attribute_name_hints) {
     BLI_string_search_add(search, attribute_name.c_str(), (void *)&attribute_name);
   }
 
@@ -94,7 +104,7 @@ static void attribute_search_update_fn(const bContext *UNUSED(C),
   BLI_string_search_free(search);
 }
 
-static void attribute_search_exec_fn(struct bContext *C, void *arg1, void *arg2)
+static void attribute_search_exec_fn(struct bContext *UNUSED(C), void *arg1, void *arg2)
 {
   AttributeSearchData *data = static_cast<AttributeSearchData *>(arg1);
   const std::string *attribute_name = static_cast<std::string *>(arg2);
@@ -105,14 +115,29 @@ static void attribute_search_exec_fn(struct bContext *C, void *arg1, void *arg2)
   BLI_strncpy(string_value->value, attribute_name->c_str(), 1024);
 }
 
-void button_add_attribute_search(uiBut *but, const NodeUIStorage &ui_storage, bNodeSocket *socket)
+static void attribute_search_free_fn(void *arg)
 {
-  AttributeSearchData data = {ui_storage.attribute_name_hints, *socket};
+  AttributeSearchData *data = static_cast<AttributeSearchData *>(arg);
+  delete data;
+}
+
+void button_add_attribute_search(const bContext *C, bNode *node, bNodeSocket *socket, uiBut *but)
+{
+  /* TODO: This could just get a node tree argument. */
+  SpaceNode *space_node = CTX_wm_space_node(C);
+  if (space_node == nullptr) {
+    return;
+  }
+  if (space_node->edittree == nullptr) {
+    return;
+  }
+
+  AttributeSearchData *data = new AttributeSearchData{*space_node->edittree, *node, *socket};
   UI_but_func_search_set(but,
                          nullptr,
                          attribute_search_update_fn,
-                         (void *)&data,
-                         nullptr,
+                         static_cast<void *>(data),
+                         attribute_search_free_fn,
                          attribute_search_exec_fn,
                          nullptr);
 }
