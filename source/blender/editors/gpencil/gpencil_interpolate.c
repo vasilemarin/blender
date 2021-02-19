@@ -123,7 +123,7 @@ typedef struct tGPDinterpolate {
   /** flag from toolsettings */
   int flag;
   /** Flip mode. */
-  enum eGP_InterpolateFlipMode flipmode;
+  int flipmode;
   /** smooth factor */
   float smooth_factor;
   /** smooth iterations */
@@ -396,7 +396,7 @@ static void gpencil_interpolate_update_strokes(bContext *C, tGPDinterpolate *tgp
 }
 
 /* Helper: Get previous keyframe. */
-bGPDframe *gpencil_get_previous_keyframe(bGPDlayer *gpl, int cfra)
+static bGPDframe *gpencil_get_previous_keyframe(bGPDlayer *gpl, int cfra)
 {
   if (gpl->actframe != NULL && gpl->actframe->framenum < cfra &&
       gpl->actframe->key_type == BEZT_KEYTYPE_KEYFRAME) {
@@ -417,7 +417,7 @@ bGPDframe *gpencil_get_previous_keyframe(bGPDlayer *gpl, int cfra)
 }
 
 /* Helper: Get next keyframe. */
-bGPDframe *gpencil_get_next_keyframe(bGPDlayer *gpl, int cfra)
+static bGPDframe *gpencil_get_next_keyframe(bGPDlayer *gpl, int cfra)
 {
   LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
     if (gpf->key_type != BEZT_KEYTYPE_KEYFRAME) {
@@ -977,9 +977,7 @@ void GPENCIL_OT_interpolate(wmOperatorType *ot)
 /* ****************** Interpolate Sequence *********************** */
 
 /* Helper: Perform easing equation calculations for GP interpolation operator */
-static float gpencil_interpolate_seq_easing_calc(wmOperator *op,
-                                                 GP_Interpolate_Settings *ipo_settings,
-                                                 float time)
+static float gpencil_interpolate_seq_easing_calc(wmOperator *op, float time)
 {
   const float begin = 0.0f;
   const float change = 1.0f;
@@ -1327,7 +1325,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
       }
       else if (type >= GP_IPO_BACK) {
         /* easing equation... */
-        factor = gpencil_interpolate_seq_easing_calc(op, ipo_settings, factor);
+        factor = gpencil_interpolate_seq_easing_calc(op, factor);
       }
 
       /* Apply the factor to all pair of strokes. */
