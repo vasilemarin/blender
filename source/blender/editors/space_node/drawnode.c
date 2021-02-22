@@ -22,6 +22,8 @@
  * \brief lower level node drawing for nodes (boarders, headers etc), also node layout.
  */
 
+#include "MEM_guardedalloc.h"
+
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_system.h"
@@ -3390,12 +3392,21 @@ static void std_node_socket_draw(
 
       uiBlock *block = uiLayoutGetBlock(row);
 
-      static char search[256] = "";
+      // uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
+
+      bNodeSocketValueString *socket_value = (bNodeSocketValueString *)sock->default_value;
+
+      char *buffer = MEM_mallocN(256, __func__);
+
+      strcpy(buffer, socket_value->value);
+
+      // static char search[256] = "WORK";
+      // uiBut *but = uiDefButS(
+      //     block, UI_BTYPE_SEARCH_MENU, 0, "test", 0, 0, 0, 0, NULL, 0.0f, 0.0f, 0.0f, 0.0f, "");
       uiBut *but = uiDefSearchBut(
-          block, search, 0, ICON_NONE, sizeof(search), 10, 10, 200, UI_UNIT_Y, 0, 0, "");
+          block, buffer, 0, ICON_NONE, 256, 10, 10, 200, UI_UNIT_Y, 0, 0, "");
       button_add_attribute_search(C, node, sock, but);
 
-      // uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
       break;
     }
     case SOCK_OBJECT: {
