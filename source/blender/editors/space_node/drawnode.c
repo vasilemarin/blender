@@ -3392,21 +3392,30 @@ static void std_node_socket_draw(
 
       uiBlock *block = uiLayoutGetBlock(row);
 
-      // uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
+      // bNodeSocketValueString *socket_value = (bNodeSocketValueString *)sock->default_value;
+      // char *buffer = MEM_mallocN(256, __func__);
+      // strcpy(buffer, socket_value->value);
+      //   uiBut *but = uiDefSearchBut(
+      // block, buffer, 0, ICON_NONE, 256, 10, 10, 200, UI_UNIT_Y, 0, 0, "");
 
-      bNodeSocketValueString *socket_value = (bNodeSocketValueString *)sock->default_value;
-
-      char *buffer = MEM_mallocN(256, __func__);
-
-      strcpy(buffer, socket_value->value);
-
-      // static char search[256] = "WORK";
-      // uiBut *but = uiDefButS(
-      //     block, UI_BTYPE_SEARCH_MENU, 0, "test", 0, 0, 0, 0, NULL, 0.0f, 0.0f, 0.0f, 0.0f, "");
-      uiBut *but = uiDefSearchBut(
-          block, buffer, 0, ICON_NONE, 256, 10, 10, 200, UI_UNIT_Y, 0, 0, "");
+      uiBut *but = uiDefIconTextButR(block,
+                                     UI_BTYPE_SEARCH_MENU,
+                                     0,
+                                     ICON_NONE,
+                                     NULL,
+                                     0,
+                                     0,
+                                     200,
+                                     UI_UNIT_Y,
+                                     ptr,
+                                     "default_value",
+                                     0,
+                                     0.0f,
+                                     0.0f,
+                                     0.0f,
+                                     0.0f,
+                                     "");
       button_add_attribute_search(C, node, sock, but);
-
       break;
     }
     case SOCK_OBJECT: {
