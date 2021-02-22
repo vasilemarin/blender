@@ -3402,7 +3402,7 @@ static void std_node_socket_draw(
                                      UI_BTYPE_SEARCH_MENU,
                                      0,
                                      ICON_NONE,
-                                     NULL,
+                                     "",
                                      0,
                                      0,
                                      200,

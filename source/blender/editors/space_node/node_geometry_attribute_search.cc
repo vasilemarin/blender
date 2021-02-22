@@ -68,6 +68,7 @@ struct AttributeSearchData {
   const bNodeTree &node_tree;
   const bNode &node;
   bNodeSocket &socket;
+  std::string current_value;
 };
 
 static void attribute_search_update_fn(const bContext *C,
@@ -100,6 +101,9 @@ static void attribute_search_update_fn(const bContext *C,
     }
   }
 
+  /* Always add the current value. */
+  UI_search_item_add(items, data->current_value.c_str(), &data->current_value, ICON_NONE, 0, 0);
+
   MEM_freeN(filtered_items);
   BLI_string_search_free(search);
 }
@@ -123,6 +127,14 @@ static void attribute_search_free_fn(void *arg)
 
 void button_add_attribute_search(const bContext *C, bNode *node, bNodeSocket *socket, uiBut *but)
 {
+  BLI_assert(socket->type == SOCK_STRING);
+
+  /* Always adding the button default value is valid because this search menu
+   * shouldn't display when the socket is connected with an input link anyway. */
+  const bNodeSocketValueString *socket_value = static_cast<bNodeSocketValueString *>(
+      socket->default_value);
+  const char *current_value = socket_value->value;
+
   /* TODO: This could just get a node tree argument. */
   SpaceNode *space_node = CTX_wm_space_node(C);
   if (space_node == nullptr) {
@@ -132,7 +144,9 @@ void button_add_attribute_search(const bContext *C, bNode *node, bNodeSocket *so
     return;
   }
 
-  AttributeSearchData *data = new AttributeSearchData{*space_node->edittree, *node, *socket};
+  AttributeSearchData *data = new AttributeSearchData{
+      *space_node->edittree, *node, *socket, current_value};
+
   UI_but_func_search_set(but,
                          nullptr,
                          attribute_search_update_fn,
