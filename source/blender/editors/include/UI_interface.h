@@ -496,7 +496,6 @@ typedef void (*uiButHandleHoldFunc)(struct bContext *C, struct ARegion *butregio
 typedef int (*uiButCompleteFunc)(struct bContext *C, char *str, void *arg);
 
 /* Search types. */
-
 typedef struct ARegion *(*uiButSearchCreateFn)(struct bContext *C,
                                                struct ARegion *butregion,
                                                struct uiButSearch *search_but);
