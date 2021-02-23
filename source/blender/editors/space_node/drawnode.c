@@ -3406,7 +3406,7 @@ static void std_node_socket_draw(
                                      0.0f,
                                      0.0f,
                                      "");
-      button_add_attribute_search(C, node, sock, block, but);
+      node_socket_button_add_attribute_search(C, node, sock, block, but);
       break;
     }
     case SOCK_OBJECT: {

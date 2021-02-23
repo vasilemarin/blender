@@ -94,12 +94,11 @@ static void attribute_search_free_fn(void *arg)
   delete data;
 }
 
-void button_add_attribute_search(
+void node_socket_button_add_attribute_search(
     const bContext *C, bNode *node, bNodeSocket *socket, uiBlock *block, uiBut *but)
 {
   BLI_assert(socket->type == SOCK_STRING);
 
-  /* TODO: This could just get a node tree argument. */
   SpaceNode *space_node = CTX_wm_space_node(C);
   if (space_node == nullptr) {
     return;

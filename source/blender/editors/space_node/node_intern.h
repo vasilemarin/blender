@@ -329,11 +329,11 @@ enum eNodeSpace_ButEvents {
   B_NODE_SETIMAGE,
 };
 
-void button_add_attribute_search(const struct bContext *C,
-                                 struct bNode *node,
-                                 struct bNodeSocket *socket,
-                                 struct uiBlock *block,
-                                 struct uiBut *but);
+void node_socket_button_add_attribute_search(const struct bContext *C,
+                                             struct bNode *node,
+                                             struct bNodeSocket *socket,
+                                             struct uiBlock *block,
+                                             struct uiBut *but);
 
 #ifdef __cplusplus
 }
