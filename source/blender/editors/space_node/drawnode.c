@@ -3389,29 +3389,6 @@ static void std_node_socket_draw(
       uiItemL(row, text, 0);
 
       uiBlock *block = uiLayoutGetBlock(row);
-
-      // bNodeSocketValueString *socket_value = (bNodeSocketValueString *)sock->default_value;
-      // char *buffer = MEM_mallocN(256, __func__);
-      // strcpy(buffer, socket_value->value);
-      //   uiBut *but = uiDefSearchBut(
-      // block, buffer, 0, ICON_NONE, 256, 10, 10, 200, UI_UNIT_Y, 0, 0, "");
-
-      // uiBut *but = uiDefButR(block,
-      //                        UI_BTYPE_SEARCH_MENU,
-      //                        0,
-      //                        "",
-      //                        0,
-      //                        0,
-      //                        UI_UNIT_X * 10,
-      //                        UI_UNIT_Y,
-      //                        ptr,
-      //                        "default_value",
-      //                        0,
-      //                        0.0f,
-      //                        0.0f,
-      //                        0.0f,
-      //                        0.0f,
-      //                        "");
       uiBut *but = uiDefIconTextButR(block,
                                      UI_BTYPE_SEARCH_MENU,
                                      0,

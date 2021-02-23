@@ -8115,10 +8115,6 @@ static void button_activate_init(bContext *C,
   /* activate button */
   but->flag |= UI_ACTIVE;
 
-  if (but->type == UI_BTYPE_SEARCH_MENU) {
-    printf("ACTIVATING SEARCH MENU BUTTON\n");
-  }
-
   but->active = data;
 
   /* we disable auto_open in the block after a threshold, because we still
@@ -8299,9 +8295,6 @@ static void button_activate_exit(
   /* clean up button */
   if (but->active) {
     MEM_freeN(but->active);
-    if (but->type == UI_BTYPE_SEARCH_MENU) {
-      printf("DEACTIVATING SEARCH MENU BUTTON\n");
-    }
     but->active = NULL;
   }
 
@@ -10724,10 +10717,6 @@ static int ui_region_handler(bContext *C, const wmEvent *event, void *UNUSED(use
 
   if (region == NULL || BLI_listbase_is_empty(&region->uiblocks)) {
     return retval;
-  }
-
-  if (event->type == LEFTMOUSE) {
-    printf("sdf");
   }
 
   /* either handle events for already activated button or try to activate */
