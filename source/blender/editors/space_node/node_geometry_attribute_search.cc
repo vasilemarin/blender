@@ -68,7 +68,6 @@ struct AttributeSearchData {
   const bNodeTree &node_tree;
   const bNode &node;
   bNodeSocket &socket;
-  std::string current_value;
 
   /* Needed for proper interaction with the search button. Otherwise the interface code can't keep
    * track of which button is active by comparing pointers to this struct, because it is newly
@@ -107,9 +106,6 @@ static void attribute_search_update_fn(const bContext *C,
     }
   }
 
-  /* Always add the current value. */
-  UI_search_item_add(items, data->current_value.c_str(), &data->current_value, ICON_NONE, 0, 0);
-
   MEM_freeN(filtered_items);
   BLI_string_search_free(search);
 }
@@ -146,13 +142,14 @@ void button_add_attribute_search(
       *space_node->edittree,
       *node,
       *socket,
-      current_value,
       but,
       UI_butstore_create(block),
       block,
   };
 
   UI_butstore_register(data->button_store, &data->search_button);
+
+  UI_but_func_search_set_all_strings_valid(but, true);
 
   UI_but_func_search_set(but,
                          nullptr,

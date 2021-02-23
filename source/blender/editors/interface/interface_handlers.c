@@ -3407,9 +3407,13 @@ static void ui_textedit_end(bContext *C, uiBut *but, uiHandleButtonData *data)
     }
 
     if (data->searchbox) {
+      uiButSearch *but_search = (uiButSearch *)but;
+      BLI_assert(but->type == UI_BTYPE_SEARCH_MENU);
+
       if (data->cancel == false) {
         if ((ui_searchbox_apply(but, data->searchbox) == false) &&
-            (ui_searchbox_find_index(data->searchbox, but->editstr) == -1)) {
+            (ui_searchbox_find_index(data->searchbox, but->editstr) == -1) &&
+            !but_search->all_strings_valid) {
           data->cancel = true;
 
           /* ensure menu (popup) too is closed! */

@@ -316,6 +316,12 @@ typedef struct uiButSearch {
 
   struct PointerRNA rnasearchpoin;
   struct PropertyRNA *rnasearchprop;
+
+  /**
+   * The search box only provides suggestions, it does not force
+   * the string to match one of the search items when applying.
+   */
+  bool all_strings_valid;
 } uiButSearch;
 
 /** Derived struct for #UI_BTYPE_DECORATOR */

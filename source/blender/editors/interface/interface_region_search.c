@@ -1052,13 +1052,15 @@ void ui_but_search_refresh(uiButSearch *search_but)
 
   ui_searchbox_update_fn(but->block->evil_C, search_but, but->drawstr, items);
 
-  /* Only red-alert when we are sure of it, this can miss cases when >10 matches. */
-  if (items->totitem == 0) {
-    UI_but_flag_enable(but, UI_BUT_REDALERT);
-  }
-  else if (items->more == 0) {
-    if (UI_search_items_find_index(items, but->drawstr) == -1) {
+  if (!search_but->all_strings_valid) {
+    /* Only red-alert when we are sure of it, this can miss cases when >10 matches. */
+    if (items->totitem == 0) {
       UI_but_flag_enable(but, UI_BUT_REDALERT);
+    }
+    else if (items->more == 0) {
+      if (UI_search_items_find_index(items, but->drawstr) == -1) {
+        UI_but_flag_enable(but, UI_BUT_REDALERT);
+      }
     }
   }
 
