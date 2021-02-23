@@ -42,6 +42,7 @@ struct uiBut;
 struct wmGizmoGroupType;
 struct wmKeyConfig;
 struct wmWindow;
+struct uiBlock;
 
 #ifdef __cplusplus
 extern "C" {
@@ -331,6 +332,7 @@ enum eNodeSpace_ButEvents {
 void button_add_attribute_search(const struct bContext *C,
                                  struct bNode *node,
                                  struct bNodeSocket *socket,
+                                 struct uiBlock *block,
                                  struct uiBut *but);
 
 #ifdef __cplusplus

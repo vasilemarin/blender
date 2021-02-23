@@ -69,6 +69,13 @@ struct AttributeSearchData {
   const bNode &node;
   bNodeSocket &socket;
   std::string current_value;
+
+  /* Needed for proper interaction with the search button. Otherwise the interface code can't keep
+   * track of which button is active by comparing pointers to this struct, because it is newly
+   * allocated for every redraw. */
+  uiBut *search_button;
+  uiButStore *button_store;
+  uiBlock *button_store_block;
 };
 
 static void attribute_search_update_fn(const bContext *C,
@@ -122,10 +129,13 @@ static void attribute_search_exec_fn(struct bContext *UNUSED(C), void *arg1, voi
 static void attribute_search_free_fn(void *arg)
 {
   AttributeSearchData *data = static_cast<AttributeSearchData *>(arg);
+
+  UI_butstore_free(data->button_store_block, data->button_store);
   delete data;
 }
 
-void button_add_attribute_search(const bContext *C, bNode *node, bNodeSocket *socket, uiBut *but)
+void button_add_attribute_search(
+    const bContext *C, bNode *node, bNodeSocket *socket, uiBlock *block, uiBut *but)
 {
   BLI_assert(socket->type == SOCK_STRING);
 
@@ -145,7 +155,16 @@ void button_add_attribute_search(const bContext *C, bNode *node, bNodeSocket *so
   }
 
   AttributeSearchData *data = new AttributeSearchData{
-      *space_node->edittree, *node, *socket, current_value};
+      *space_node->edittree,
+      *node,
+      *socket,
+      current_value,
+      but,
+      UI_butstore_create(block),
+      block,
+  };
+
+  UI_butstore_register(data->button_store, &data->search_button);
 
   UI_but_func_search_set(but,
                          nullptr,

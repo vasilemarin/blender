@@ -819,6 +819,7 @@ static void ui_but_update_old_active_from_new(uiBut *oldbut, uiBut *but)
   SWAP(ListBase, but->extra_op_icons, oldbut->extra_op_icons);
 
   if (oldbut->type == UI_BTYPE_SEARCH_MENU) {
+    printf("MOVING OLD SEARCHBUT TO NEW SEARCHBUT\n");
     uiButSearch *search_oldbut = (uiButSearch *)oldbut, *search_but = (uiButSearch *)but;
 
     SWAP(uiButSearchArgFreeFn, search_oldbut->arg_free_fn, search_but->arg_free_fn);
@@ -873,6 +874,10 @@ static bool ui_but_update_from_old_block(const bContext *C,
 {
   uiBlock *oldblock = block->oldblock;
   uiBut *but = *but_p;
+
+  if (but->type == UI_BTYPE_SEARCH_MENU) {
+    printf("UPDATING SEARCH MENU BUTTON FROM OLD BLOCK\n");
+  }
 
 #if 0
   /* Simple method - search every time. Keep this for easy testing of the "fast path." */

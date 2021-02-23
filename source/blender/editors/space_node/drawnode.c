@@ -22,8 +22,6 @@
  * \brief lower level node drawing for nodes (boarders, headers etc), also node layout.
  */
 
-#include "MEM_guardedalloc.h"
-
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_system.h"
@@ -3398,6 +3396,22 @@ static void std_node_socket_draw(
       //   uiBut *but = uiDefSearchBut(
       // block, buffer, 0, ICON_NONE, 256, 10, 10, 200, UI_UNIT_Y, 0, 0, "");
 
+      // uiBut *but = uiDefButR(block,
+      //                        UI_BTYPE_SEARCH_MENU,
+      //                        0,
+      //                        "",
+      //                        0,
+      //                        0,
+      //                        UI_UNIT_X * 10,
+      //                        UI_UNIT_Y,
+      //                        ptr,
+      //                        "default_value",
+      //                        0,
+      //                        0.0f,
+      //                        0.0f,
+      //                        0.0f,
+      //                        0.0f,
+      //                        "");
       uiBut *but = uiDefIconTextButR(block,
                                      UI_BTYPE_SEARCH_MENU,
                                      0,
@@ -3415,7 +3429,7 @@ static void std_node_socket_draw(
                                      0.0f,
                                      0.0f,
                                      "");
-      button_add_attribute_search(C, node, sock, but);
+      button_add_attribute_search(C, node, sock, block, but);
       break;
     }
     case SOCK_OBJECT: {
