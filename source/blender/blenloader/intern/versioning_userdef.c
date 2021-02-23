@@ -857,6 +857,8 @@ void blo_do_versions_userdef(UserDef *userdef)
     if (userdef->gizmo_size_navigate_v3d == 0) {
       userdef->gizmo_size_navigate_v3d = 80;
     }
+
+    userdef->sequencer_proxy_setup = USER_SEQ_PROXY_SETUP_AUTOMATIC;
   }
 
   LISTBASE_FOREACH (bTheme *, btheme, &userdef->themes) {

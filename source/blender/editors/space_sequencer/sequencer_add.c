@@ -29,6 +29,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
@@ -36,13 +37,17 @@
 
 #include "DNA_mask_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_space_types.h"
 
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_mask.h"
 #include "BKE_movieclip.h"
 #include "BKE_report.h"
+
+#include "IMB_imbuf.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -52,6 +57,7 @@
 
 #include "SEQ_add.h"
 #include "SEQ_effects.h"
+#include "SEQ_proxy.h"
 #include "SEQ_relations.h"
 #include "SEQ_render.h"
 #include "SEQ_select.h"
@@ -577,6 +583,57 @@ void SEQUENCER_OT_mask_strip_add(struct wmOperatorType *ot)
   ot->prop = prop;
 }
 
+/* Strips are added in context of timeline which has different preview size than actual preview. We
+ * must search for preview area. In most cases there will be only one preview area, but there can
+ * be more with different preview sizes. */
+static IMB_Proxy_Size seq_get_proxy_size_flags(bContext *C)
+{
+  bScreen *screen = CTX_wm_screen(C);
+  IMB_Proxy_Size proxy_sizes = 0;
+  LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+    LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
+      switch (sl->spacetype) {
+        case SPACE_SEQ: {
+          SpaceSeq *sseq = (SpaceSeq *)sl;
+          if (!ELEM(sseq->view, SEQ_VIEW_PREVIEW, SEQ_VIEW_SEQUENCE_PREVIEW)) {
+            continue;
+          }
+          proxy_sizes |= SEQ_rendersize_to_proxysize(sseq->render_size);
+        }
+      }
+    }
+  }
+  return proxy_sizes;
+}
+
+static void seq_build_proxy(bContext *C, Sequence *seq)
+{
+  if (!ELEM(U.sequencer_proxy_setup,
+            USER_SEQ_PROXY_SETUP_ONLY_STRIP_ADD,
+            USER_SEQ_PROXY_SETUP_AUTOMATIC)) {
+    return;
+  }
+
+  /* Enable and set proxy size. */
+  SEQ_proxy_set(seq, true);
+  seq->strip->proxy->build_size_flags = seq_get_proxy_size_flags(C);
+  seq->strip->proxy->build_flags |= SEQ_PROXY_SKIP_EXISTING;
+
+  /* Build proxy. */
+  GSet *file_list = BLI_gset_new(BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, "file list");
+  wmJob *wm_job = ED_seq_proxy_wm_job_get(C);
+  ProxyJob *pj = ED_seq_proxy_job_get(C, wm_job);
+  SEQ_proxy_rebuild_context(pj->main, pj->depsgraph, pj->scene, seq, file_list, &pj->queue);
+  BLI_gset_free(file_list, MEM_freeN);
+
+  if (!WM_jobs_is_running(wm_job)) {
+    G.is_break = false;
+    WM_jobs_start(CTX_wm_manager(C), wm_job);
+  }
+
+  ED_area_tag_redraw(CTX_wm_area(C));
+}
+
 static int sequencer_add_generic_strip_exec(bContext *C, wmOperator *op, SeqLoadFn seq_load_fn)
 {
   Scene *scene = CTX_data_scene(C);
@@ -612,6 +669,7 @@ static int sequencer_add_generic_strip_exec(bContext *C, wmOperator *op, SeqLoad
           sequencer_add_apply_overlap(C, op, seq_load.seq_sound);
         }
         sequencer_add_apply_overlap(C, op, seq);
+        seq_build_proxy(C, seq);
       }
     }
     RNA_END;
@@ -625,6 +683,7 @@ static int sequencer_add_generic_strip_exec(bContext *C, wmOperator *op, SeqLoad
         sequencer_add_apply_overlap(C, op, seq_load.seq_sound);
       }
       sequencer_add_apply_overlap(C, op, seq);
+      seq_build_proxy(C, seq);
     }
   }
 
