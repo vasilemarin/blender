@@ -87,11 +87,10 @@ static void attribute_search_update_fn(const bContext *C,
   const NodeUIStorage *ui_storage = node_ui_storage_get_from_context(
       C, data->node_tree, data->node);
   if (ui_storage == nullptr) {
-    // return;
+    return;
   }
 
-  // const Set<std::string> &attribute_name_hints = ui_storage->attribute_name_hints;
-  const Set<std::string> attribute_name_hints = {"HELLO!", "DOES", "THIS", "WORK???"};
+  const Set<std::string> &attribute_name_hints = ui_storage->attribute_name_hints;
 
   StringSearch *search = BLI_string_search_new();
   for (const std::string &attribute_name : attribute_name_hints) {
