@@ -81,9 +81,7 @@
 #  include "COM_compositor.h"
 #endif
 
-using blender::Map;
 using blender::Span;
-using blender::StringRef;
 using blender::Vector;
 
 extern "C" {
