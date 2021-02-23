@@ -37,6 +37,7 @@ struct Collection;
 struct ID;
 struct Image;
 struct ListBase;
+struct NodeTreeUIStorage;
 struct bGPdata;
 struct bNodeInstanceHash;
 struct bNodeLink;
@@ -501,6 +502,8 @@ typedef struct bNodeTree {
   int (*test_break)(void *);
   void (*update_draw)(void *);
   void *tbh, *prh, *sdh, *udh;
+
+  struct NodeTreeUIStorage *ui_storage;
 } bNodeTree;
 
 /* ntree->type, index */
@@ -1150,6 +1153,10 @@ typedef struct NodeInputVector {
   float vector[3];
 } NodeInputVector;
 
+typedef struct NodeInputString {
+  char *string;
+} NodeInputString;
+
 typedef struct NodeGeometryRotatePoints {
   /* GeometryNodeRotatePointsType */
   uint8_t type;
@@ -1209,7 +1216,7 @@ typedef struct NodeGeometryCollectionInfo {
 } NodeGeometryCollectionInfo;
 
 typedef struct NodeGeometryAttributeProximity {
-  /* GeometryNodeAttributeProximityTargetGeometryElement. */
+  /* GeometryNodeAttributeProximityTargetType. */
   uint8_t target_geometry_element;
 } NodeGeometryAttributeProximity;
 
@@ -1619,11 +1626,11 @@ typedef enum NodeShaderOutputTarget {
 
 /* Geometry Nodes */
 
-typedef enum GeometryNodeAttributeProximityTargetGeometryElement {
+typedef enum GeometryNodeAttributeProximityTargetType {
   GEO_NODE_ATTRIBUTE_PROXIMITY_TARGET_GEOMETRY_ELEMENT_POINTS = 0,
   GEO_NODE_ATTRIBUTE_PROXIMITY_TARGET_GEOMETRY_ELEMENT_EDGES = 1,
   GEO_NODE_ATTRIBUTE_PROXIMITY_TARGET_GEOMETRY_ELEMENT_FACES = 2,
-} GeometryNodeAttributeProximityTargetGeometryElement;
+} GeometryNodeAttributeProximityTargetType;
 
 /* Boolean Node */
 typedef enum GeometryNodeBooleanOperation {
@@ -1663,10 +1670,10 @@ typedef enum GeometryNodeAttributeInputMode {
   GEO_NODE_ATTRIBUTE_INPUT_INTEGER = 5,
 } GeometryNodeAttributeInputMode;
 
-typedef enum GeometryNodePointDistributeMethod {
+typedef enum GeometryNodePointDistributeMode {
   GEO_NODE_POINT_DISTRIBUTE_RANDOM = 0,
   GEO_NODE_POINT_DISTRIBUTE_POISSON = 1,
-} GeometryNodePointDistributeMethod;
+} GeometryNodePointDistributeMode;
 
 typedef enum GeometryNodeRotatePointsType {
   GEO_NODE_POINT_ROTATE_TYPE_EULER = 0,

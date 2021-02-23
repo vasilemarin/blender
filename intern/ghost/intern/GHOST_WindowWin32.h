@@ -534,6 +534,8 @@ class GHOST_WindowWin32 : public GHOST_Window {
   /** Device context handle. */
   HDC m_hDC;
 
+  bool m_isDialog;
+
   /** Flag for if window has captured the mouse. */
   bool m_hasMouseCaptured;
   /**
@@ -570,7 +572,7 @@ class GHOST_WindowWin32 : public GHOST_Window {
     GHOST_WIN32_WTEnable enable;
     GHOST_WIN32_WTOverlap overlap;
 
-    /** Stores the Tablet context if detected Tablet features using WinTab.dll */
+    /** Stores the Tablet context if detected Tablet features using `WinTab.dll` */
     HCTX tablet;
     LONG maxPressure;
     LONG maxAzimuth, maxAltitude;
