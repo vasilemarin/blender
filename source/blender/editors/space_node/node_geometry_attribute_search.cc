@@ -115,17 +115,6 @@ static void attribute_search_update_fn(const bContext *C,
   BLI_string_search_free(search);
 }
 
-static void attribute_search_exec_fn(struct bContext *UNUSED(C), void *arg1, void *arg2)
-{
-  AttributeSearchData *data = static_cast<AttributeSearchData *>(arg1);
-  const std::string *attribute_name = static_cast<std::string *>(arg2);
-
-  bNodeSocketValueString *string_value = static_cast<bNodeSocketValueString *>(
-      data->socket.default_value);
-
-  BLI_strncpy(string_value->value, attribute_name->c_str(), 1024);
-}
-
 static void attribute_search_free_fn(void *arg)
 {
   AttributeSearchData *data = static_cast<AttributeSearchData *>(arg);
@@ -171,6 +160,6 @@ void button_add_attribute_search(
                          attribute_search_update_fn,
                          static_cast<void *>(data),
                          attribute_search_free_fn,
-                         attribute_search_exec_fn,
+                         nullptr,
                          nullptr);
 }
