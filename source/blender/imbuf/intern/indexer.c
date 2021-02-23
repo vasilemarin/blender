@@ -451,18 +451,86 @@ typedef struct IndexBuildContext {
 
 #ifdef WITH_FFMPEG
 
-struct proxy_output_ctx {
-  AVFormatContext *of;
-  AVStream *st;
-  AVCodecContext *c;
+struct input_ctx {
+  AVFormatContext *format_context;
+  AVCodecContext *codec_context;
   AVCodec *codec;
-  struct SwsContext *sws_ctx;
-  AVFrame *frame;
+  AVStream *stream;
+  int video_stream;
+};
+
+struct proxy_output_ctx {
+  AVFormatContext *output_format;
+  AVStream *stream;
+  AVCodec *codec;
+  AVCodecContext *codec_context;
   int cfra;
   int proxy_size;
-  int orig_height;
   struct anim *anim;
 };
+
+struct transcode_output_ctx {
+  AVCodecContext *codec_context;
+  struct SwsContext *sws_ctx;
+  int orig_height;
+} transcode_output_ctx;
+
+struct proxy_transcode_ctx {
+  AVCodecContext *input_codec_context;
+  struct transcode_output_ctx *output_context[IMB_PROXY_MAX_SLOT];
+};
+
+typedef struct FFmpegIndexBuilderContext {
+  /* Common data for building process. */
+  int anim_type;
+  struct anim *anim;
+  int quality;
+  int num_proxy_sizes;
+  int num_indexers;
+  int num_transcode_threads;
+  IMB_Timecode_Type tcs_in_use;
+  IMB_Proxy_Size proxy_sizes_in_use;
+
+  /* Builder contexts. */
+  struct input_ctx *input_ctx;
+  struct proxy_output_ctx *proxy_ctx[IMB_PROXY_MAX_SLOT];
+  struct proxy_transcode_ctx **transcode_context_array;
+  anim_index_builder *indexer[IMB_TC_MAX_SLOT];
+
+  /* Common data for transcoding. */
+  GHash *source_packets;
+  GHash *transcoded_packets;
+
+  /* Job coordination. */
+  ThreadMutex packet_access_mutex;
+  ThreadCondition reader_suspend_cond;
+  ThreadMutex reader_suspend_mutex;
+  ThreadCondition **transcode_suspend_cond;
+  ThreadMutex **transcode_suspend_mutex;
+  ThreadCondition writer_suspend_cond;
+  ThreadMutex writer_suspend_mutex;
+  ThreadCondition builder_suspend_cond;
+  ThreadMutex builder_suspend_mutex;
+  bool all_packets_read;
+  int transcode_jobs_done;
+  int last_gop_chunk_written;
+  bool all_packets_written;
+  short *stop;
+  short *do_update;
+  float *progress;
+
+  /* TC index building */
+  uint64_t seek_pos;
+  uint64_t last_seek_pos;
+  uint64_t seek_pos_dts;
+  uint64_t seek_pos_pts;
+  uint64_t last_seek_pos_dts;
+  uint64_t start_pts;
+  double frame_rate;
+  double pts_time_base;
+  int frameno, frameno_gapless;
+  int start_pts_set;
+} FFmpegIndexBuilderContext;
 
 // work around stupid swscaler 16 bytes alignment bug...
 
@@ -471,174 +539,113 @@ static int round_up(int x, int mod)
   return x + ((mod - (x % mod)) % mod);
 }
 
-static struct proxy_output_ctx *alloc_proxy_output_ffmpeg(
-    struct anim *anim, AVStream *st, int proxy_size, int width, int height, int quality)
+static struct SwsContext *alloc_proxy_output_sws_context(AVCodecContext *input_codec_ctx,
+                                                         AVCodecContext *proxy_codec_ctx)
 {
-  struct proxy_output_ctx *rv = MEM_callocN(sizeof(struct proxy_output_ctx), "alloc_proxy_output");
+  struct SwsContext *sws_ctx = sws_getContext(input_codec_ctx->width,
+                                              av_get_cropped_height_from_codec(input_codec_ctx),
+                                              input_codec_ctx->pix_fmt,
+                                              proxy_codec_ctx->width,
+                                              proxy_codec_ctx->height,
+                                              proxy_codec_ctx->pix_fmt,
+                                              SWS_FAST_BILINEAR | SWS_PRINT_INFO,
+                                              NULL,
+                                              NULL,
+                                              NULL);
+  return sws_ctx;
+}
 
+static AVFormatContext *alloc_proxy_output_output_format_context(struct anim *anim, int proxy_size)
+{
   char fname[FILE_MAX];
-  int ffmpeg_quality;
 
-  rv->proxy_size = proxy_size;
-  rv->anim = anim;
-
-  get_proxy_filename(rv->anim, rv->proxy_size, fname, true);
+  get_proxy_filename(anim, proxy_size, fname, true);
   BLI_make_existing_file(fname);
 
-  rv->of = avformat_alloc_context();
-  rv->of->oformat = av_guess_format("avi", NULL, NULL);
+  AVFormatContext *format_context = avformat_alloc_context();
+  format_context->oformat = av_guess_format("avi", NULL, NULL);
 
-  BLI_strncpy(rv->of->filename, fname, sizeof(rv->of->filename));
+  BLI_strncpy(format_context->filename, fname, sizeof(format_context->filename));
 
-  fprintf(stderr, "Starting work on proxy: %s\n", rv->of->filename);
-
-  rv->st = avformat_new_stream(rv->of, NULL);
-  rv->st->id = 0;
-
-  rv->c = rv->st->codec;
-  rv->c->thread_count = BLI_system_thread_count();
-  rv->c->thread_type = FF_THREAD_SLICE;
-  rv->c->codec_type = AVMEDIA_TYPE_VIDEO;
-  rv->c->codec_id = AV_CODEC_ID_MJPEG;
-  rv->c->width = width;
-  rv->c->height = height;
-
-  rv->of->oformat->video_codec = rv->c->codec_id;
-  rv->codec = avcodec_find_encoder(rv->c->codec_id);
-
-  if (!rv->codec) {
-    fprintf(stderr,
-            "No ffmpeg MJPEG encoder available? "
-            "Proxy not built!\n");
-    av_free(rv->of);
-    return NULL;
-  }
-
-  if (rv->codec->pix_fmts) {
-    rv->c->pix_fmt = rv->codec->pix_fmts[0];
-  }
-  else {
-    rv->c->pix_fmt = AV_PIX_FMT_YUVJ420P;
-  }
-
-  rv->c->sample_aspect_ratio = rv->st->sample_aspect_ratio = st->codec->sample_aspect_ratio;
-
-  rv->c->time_base.den = 25;
-  rv->c->time_base.num = 1;
-  rv->st->time_base = rv->c->time_base;
-
-  /* there's no  way to set JPEG quality in the same way as in AVI JPEG and image sequence,
-   * but this seems to be giving expected quality result */
-  ffmpeg_quality = (int)(1.0f + 30.0f * (1.0f - (float)quality / 100.0f) + 0.5f);
-  av_opt_set_int(rv->c, "qmin", ffmpeg_quality, 0);
-  av_opt_set_int(rv->c, "qmax", ffmpeg_quality, 0);
-
-  if (rv->of->flags & AVFMT_GLOBALHEADER) {
-    rv->c->flags |= CODEC_FLAG_GLOBAL_HEADER;
-  }
-
-  if (avio_open(&rv->of->pb, fname, AVIO_FLAG_WRITE) < 0) {
+  /* Codec stuff must be initialized properly here. */
+  if (avio_open(&format_context->pb, fname, AVIO_FLAG_WRITE) < 0) {
     fprintf(stderr,
             "Couldn't open outputfile! "
             "Proxy not built!\n");
-    av_free(rv->of);
-    return 0;
+    av_free(format_context);
+    return NULL;
   }
 
-  avcodec_open2(rv->c, rv->codec, NULL);
+  return format_context;
+}
 
-  rv->orig_height = av_get_cropped_height_from_codec(st->codec);
+static struct proxy_output_ctx *alloc_proxy_output_ffmpeg(
+    struct anim *anim, AVStream *inpuf_stream, int proxy_size, int width, int height, int quality)
+{
+  struct proxy_output_ctx *proxy_out_ctx = MEM_callocN(sizeof(struct proxy_output_ctx),
+                                                       "alloc_proxy_output");
 
-  if (st->codec->width != width || st->codec->height != height ||
-      st->codec->pix_fmt != rv->c->pix_fmt) {
-    rv->frame = av_frame_alloc();
-    avpicture_fill((AVPicture *)rv->frame,
-                   MEM_mallocN(avpicture_get_size(rv->c->pix_fmt, round_up(width, 16), height),
-                               "alloc proxy output frame"),
-                   rv->c->pix_fmt,
-                   round_up(width, 16),
-                   height);
+  proxy_out_ctx->proxy_size = proxy_size;
+  proxy_out_ctx->anim = anim;
 
-    rv->sws_ctx = sws_getContext(st->codec->width,
-                                 rv->orig_height,
-                                 st->codec->pix_fmt,
-                                 width,
-                                 height,
-                                 rv->c->pix_fmt,
-                                 SWS_FAST_BILINEAR | SWS_PRINT_INFO,
-                                 NULL,
-                                 NULL,
-                                 NULL);
+  proxy_out_ctx->output_format = alloc_proxy_output_output_format_context(anim, proxy_size);
+
+  proxy_out_ctx->stream = avformat_new_stream(proxy_out_ctx->output_format, NULL);
+  proxy_out_ctx->stream->id = 0;
+
+  proxy_out_ctx->codec_context = proxy_out_ctx->stream->codec;
+  proxy_out_ctx->codec_context->thread_count = BLI_system_thread_count();
+  proxy_out_ctx->codec_context->thread_type = FF_THREAD_SLICE;
+  proxy_out_ctx->codec_context->codec_type = AVMEDIA_TYPE_VIDEO;
+  proxy_out_ctx->codec_context->codec_id = AV_CODEC_ID_MJPEG;
+  proxy_out_ctx->codec_context->width = width;
+  proxy_out_ctx->codec_context->height = height;
+
+  proxy_out_ctx->output_format->oformat->video_codec = proxy_out_ctx->codec_context->codec_id;
+  proxy_out_ctx->codec = avcodec_find_encoder(proxy_out_ctx->codec_context->codec_id);
+
+  if (!proxy_out_ctx->codec) {
+    fprintf(stderr,
+            "No ffmpeg MJPEG encoder available? "
+            "Proxy not built!\n");
+    av_free(proxy_out_ctx->output_format);
+    return NULL;
   }
 
-  if (avformat_write_header(rv->of, NULL) < 0) {
+  if (proxy_out_ctx->codec->pix_fmts) {
+    proxy_out_ctx->codec_context->pix_fmt = proxy_out_ctx->codec->pix_fmts[0];
+  }
+  else {
+    proxy_out_ctx->codec_context->pix_fmt = AV_PIX_FMT_YUVJ420P;
+  }
+
+  proxy_out_ctx->codec_context->sample_aspect_ratio = proxy_out_ctx->stream->sample_aspect_ratio =
+      inpuf_stream->codec->sample_aspect_ratio;
+
+  proxy_out_ctx->codec_context->time_base.den = 25;
+  proxy_out_ctx->codec_context->time_base.num = 1;
+  proxy_out_ctx->stream->time_base = proxy_out_ctx->codec_context->time_base;
+
+  if (proxy_out_ctx->output_format->flags & AVFMT_GLOBALHEADER) {
+    proxy_out_ctx->codec_context->flags |= CODEC_FLAG_GLOBAL_HEADER;
+  }
+
+  /* there's no  way to set JPEG quality in the same way as in AVI JPEG and image sequence,
+   * but this seems to be giving expected quality result */
+  int ffmpeg_quality = (int)(1.0f + 30.0f * (1.0f - (float)quality / 100.0f) + 0.5f);
+  av_opt_set_int(proxy_out_ctx->codec_context, "qmin", ffmpeg_quality, 0);
+  av_opt_set_int(proxy_out_ctx->codec_context, "qmax", ffmpeg_quality, 0);
+
+  fprintf(stderr, "Starting work on proxy: %s\n", proxy_out_ctx->output_format->filename);
+  if (avformat_write_header(proxy_out_ctx->output_format, NULL) < 0) {
     fprintf(stderr,
             "Couldn't set output parameters? "
             "Proxy not built!\n");
-    av_free(rv->of);
+    av_free(proxy_out_ctx->output_format);
     return 0;
   }
 
-  return rv;
-}
-
-static int add_to_proxy_output_ffmpeg(struct proxy_output_ctx *ctx, AVFrame *frame)
-{
-  AVPacket packet = {0};
-  int ret, got_output;
-
-  av_init_packet(&packet);
-
-  if (!ctx) {
-    return 0;
-  }
-
-  if (ctx->sws_ctx && frame &&
-      (frame->data[0] || frame->data[1] || frame->data[2] || frame->data[3])) {
-    sws_scale(ctx->sws_ctx,
-              (const uint8_t *const *)frame->data,
-              frame->linesize,
-              0,
-              ctx->orig_height,
-              ctx->frame->data,
-              ctx->frame->linesize);
-  }
-
-  frame = ctx->sws_ctx ? (frame ? ctx->frame : 0) : frame;
-
-  if (frame) {
-    frame->pts = ctx->cfra++;
-  }
-
-  ret = avcodec_encode_video2(ctx->c, &packet, frame, &got_output);
-  if (ret < 0) {
-    fprintf(stderr, "Error encoding proxy frame %d for '%s'\n", ctx->cfra - 1, ctx->of->filename);
-    return 0;
-  }
-
-  if (got_output) {
-    if (packet.pts != AV_NOPTS_VALUE) {
-      packet.pts = av_rescale_q(packet.pts, ctx->c->time_base, ctx->st->time_base);
-    }
-    if (packet.dts != AV_NOPTS_VALUE) {
-      packet.dts = av_rescale_q(packet.dts, ctx->c->time_base, ctx->st->time_base);
-    }
-
-    packet.stream_index = ctx->st->index;
-
-    if (av_interleaved_write_frame(ctx->of, &packet) != 0) {
-      fprintf(stderr,
-              "Error writing proxy frame %d "
-              "into '%s'\n",
-              ctx->cfra - 1,
-              ctx->of->filename);
-      return 0;
-    }
-
-    return 1;
-  }
-
-  return 0;
+  return proxy_out_ctx;
 }
 
 static void free_proxy_output_ffmpeg(struct proxy_output_ctx *ctx, int rollback)
@@ -650,30 +657,14 @@ static void free_proxy_output_ffmpeg(struct proxy_output_ctx *ctx, int rollback)
     return;
   }
 
-  if (!rollback) {
-    while (add_to_proxy_output_ffmpeg(ctx, NULL)) {
+  av_write_trailer(ctx->output_format);
+
+  if (ctx->output_format->oformat) {
+    if (!(ctx->output_format->oformat->flags & AVFMT_NOFILE)) {
+      avio_close(ctx->output_format->pb);
     }
   }
-
-  avcodec_flush_buffers(ctx->c);
-
-  av_write_trailer(ctx->of);
-
-  avcodec_close(ctx->c);
-
-  if (ctx->of->oformat) {
-    if (!(ctx->of->oformat->flags & AVFMT_NOFILE)) {
-      avio_close(ctx->of->pb);
-    }
-  }
-  avformat_free_context(ctx->of);
-
-  if (ctx->sws_ctx) {
-    sws_freeContext(ctx->sws_ctx);
-
-    MEM_freeN(ctx->frame->data[0]);
-    av_free(ctx->frame);
-  }
+  avformat_free_context(ctx->output_format);
 
   get_proxy_filename(ctx->anim, ctx->proxy_size, fname_tmp, true);
 
@@ -689,35 +680,103 @@ static void free_proxy_output_ffmpeg(struct proxy_output_ctx *ctx, int rollback)
   MEM_freeN(ctx);
 }
 
-typedef struct FFmpegIndexBuilderContext {
-  int anim_type;
+static AVFormatContext *index_ffmpeg_context_open_input_format(FFmpegIndexBuilderContext *context,
+                                                               struct anim *anim)
+{
+  AVFormatContext *format_context = avformat_alloc_context();
 
-  AVFormatContext *iFormatCtx;
-  AVCodecContext *iCodecCtx;
-  AVCodec *iCodec;
-  AVStream *iStream;
-  int videoStream;
+  if (avformat_open_input(&format_context, anim->name, NULL, NULL) != 0) {
+    return NULL;
+  }
 
-  int num_proxy_sizes;
-  int num_indexers;
+  if (avformat_find_stream_info(format_context, NULL) < 0) {
+    avformat_close_input(&format_context);
+    return NULL;
+  }
 
-  struct proxy_output_ctx *proxy_ctx[IMB_PROXY_MAX_SLOT];
-  anim_index_builder *indexer[IMB_TC_MAX_SLOT];
+  return format_context;
+}
 
-  IMB_Timecode_Type tcs_in_use;
-  IMB_Proxy_Size proxy_sizes_in_use;
+static int index_ffmpeg_context_find_video_stream(struct anim *anim,
+                                                  AVFormatContext *format_context)
+{
+  int streamcount = anim->streamindex;
+  int video_stream = -1;
+  for (int i = 0; i < format_context->nb_streams; i++) {
+    if (format_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+      if (streamcount > 0) {
+        streamcount--;
+        continue;
+      }
+      video_stream = i;
+      break;
+    }
+  }
 
-  uint64_t seek_pos;
-  uint64_t last_seek_pos;
-  uint64_t seek_pos_dts;
-  uint64_t seek_pos_pts;
-  uint64_t last_seek_pos_dts;
-  uint64_t start_pts;
-  double frame_rate;
-  double pts_time_base;
-  int frameno, frameno_gapless;
-  int start_pts_set;
-} FFmpegIndexBuilderContext;
+  return video_stream;
+}
+
+static struct input_ctx *index_ffmpeg_create_input_context(FFmpegIndexBuilderContext *context)
+{
+  struct input_ctx *input_context = MEM_callocN(sizeof(struct input_ctx), "input context");
+
+  input_context->format_context = index_ffmpeg_context_open_input_format(context, context->anim);
+  if (input_context->format_context == NULL) {
+    MEM_freeN(input_context);
+    return NULL;
+  }
+
+  input_context->video_stream = index_ffmpeg_context_find_video_stream(
+      context->anim, input_context->format_context);
+  if (input_context->video_stream == -1) {
+    avformat_close_input(&input_context->format_context);
+    MEM_freeN(input_context);
+    return NULL;
+  }
+
+  input_context->stream = input_context->format_context->streams[input_context->video_stream];
+  input_context->codec_context = input_context->stream->codec;
+
+  input_context->codec = avcodec_find_decoder(input_context->codec_context->codec_id);
+  if (input_context->codec == NULL) {
+    avformat_close_input(&input_context->format_context);
+    MEM_freeN(input_context);
+    return NULL;
+  }
+
+  input_context->codec_context->workaround_bugs = 1;
+
+  if (avcodec_open2(input_context->codec_context, input_context->codec, NULL) < 0) {
+    avformat_close_input(&input_context->format_context);
+    MEM_freeN(input_context);
+    return NULL;
+  }
+
+  input_context->codec = avcodec_find_decoder(input_context->codec_context->codec_id);
+  if (input_context->codec == NULL) {
+    avformat_close_input(&input_context->format_context);
+    MEM_freeN(input_context);
+    return NULL;
+  }
+
+  input_context->codec_context->workaround_bugs = 1;
+
+  if (avcodec_open2(input_context->codec_context, input_context->codec, NULL) < 0) {
+    avformat_close_input(&input_context->format_context);
+    MEM_freeN(input_context);
+    return NULL;
+  }
+
+  return input_context;
+}
+
+static void index_ffmpeg_free_input_context(struct input_ctx *input_context)
+{
+  avcodec_flush_buffers(input_context->codec_context);
+  avcodec_close(input_context->codec_context);
+  avformat_close_input(&input_context->format_context);
+  MEM_freeN(input_context);
+}
 
 static IndexBuildContext *index_ffmpeg_create_context(struct anim *anim,
                                                       IMB_Timecode_Type tcs_in_use,
@@ -726,85 +785,43 @@ static IndexBuildContext *index_ffmpeg_create_context(struct anim *anim,
 {
   FFmpegIndexBuilderContext *context = MEM_callocN(sizeof(FFmpegIndexBuilderContext),
                                                    "FFmpeg index builder context");
-  int num_proxy_sizes = IMB_PROXY_MAX_SLOT;
-  int num_indexers = IMB_TC_MAX_SLOT;
-  int i, streamcount;
 
+  context->anim = anim;
+  context->quality = quality;
   context->tcs_in_use = tcs_in_use;
   context->proxy_sizes_in_use = proxy_sizes_in_use;
   context->num_proxy_sizes = IMB_PROXY_MAX_SLOT;
   context->num_indexers = IMB_TC_MAX_SLOT;
+  context->num_transcode_threads = BLI_system_thread_count();
 
+  /* Setup input file context. */
+  context->input_ctx = index_ffmpeg_create_input_context(context);
+  if (context->input_ctx == NULL) {
+    MEM_freeN(context);
+    return NULL;
+  }
+
+  /* Setup proxy file writing context. */
+  struct input_ctx *input_context = context->input_ctx;
   memset(context->proxy_ctx, 0, sizeof(context->proxy_ctx));
-  memset(context->indexer, 0, sizeof(context->indexer));
-
-  if (avformat_open_input(&context->iFormatCtx, anim->name, NULL, NULL) != 0) {
-    MEM_freeN(context);
-    return NULL;
-  }
-
-  if (avformat_find_stream_info(context->iFormatCtx, NULL) < 0) {
-    avformat_close_input(&context->iFormatCtx);
-    MEM_freeN(context);
-    return NULL;
-  }
-
-  streamcount = anim->streamindex;
-
-  /* Find the video stream */
-  context->videoStream = -1;
-  for (i = 0; i < context->iFormatCtx->nb_streams; i++) {
-    if (context->iFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
-      if (streamcount > 0) {
-        streamcount--;
-        continue;
-      }
-      context->videoStream = i;
-      break;
-    }
-  }
-
-  if (context->videoStream == -1) {
-    avformat_close_input(&context->iFormatCtx);
-    MEM_freeN(context);
-    return NULL;
-  }
-
-  context->iStream = context->iFormatCtx->streams[context->videoStream];
-  context->iCodecCtx = context->iStream->codec;
-
-  context->iCodec = avcodec_find_decoder(context->iCodecCtx->codec_id);
-
-  if (context->iCodec == NULL) {
-    avformat_close_input(&context->iFormatCtx);
-    MEM_freeN(context);
-    return NULL;
-  }
-
-  context->iCodecCtx->workaround_bugs = 1;
-
-  if (avcodec_open2(context->iCodecCtx, context->iCodec, NULL) < 0) {
-    avformat_close_input(&context->iFormatCtx);
-    MEM_freeN(context);
-    return NULL;
-  }
-
-  for (i = 0; i < num_proxy_sizes; i++) {
-    if (proxy_sizes_in_use & proxy_sizes[i]) {
+  for (int i = 0; i < context->num_proxy_sizes; i++) {
+    if (context->proxy_sizes_in_use & proxy_sizes[i]) {
       context->proxy_ctx[i] = alloc_proxy_output_ffmpeg(
-          anim,
-          context->iStream,
+          context->anim,
+          input_context->stream,
           proxy_sizes[i],
-          context->iCodecCtx->width * proxy_fac[i],
-          av_get_cropped_height_from_codec(context->iCodecCtx) * proxy_fac[i],
-          quality);
+          input_context->codec_context->width * proxy_fac[i],
+          av_get_cropped_height_from_codec(input_context->codec_context) * proxy_fac[i],
+          context->quality);
       if (!context->proxy_ctx[i]) {
-        proxy_sizes_in_use &= ~proxy_sizes[i];
+        context->proxy_sizes_in_use &= ~proxy_sizes[i];
       }
     }
   }
 
-  for (i = 0; i < num_indexers; i++) {
+  /* Setup indexing context. */
+  memset(context->indexer, 0, sizeof(context->indexer));
+  for (int i = 0; i < context->num_indexers; i++) {
     if (tcs_in_use & tc_types[i]) {
       char fname[FILE_MAX];
 
@@ -820,9 +837,11 @@ static IndexBuildContext *index_ffmpeg_create_context(struct anim *anim,
   return (IndexBuildContext *)context;
 }
 
-static void index_rebuild_ffmpeg_finish(FFmpegIndexBuilderContext *context, int stop)
+static void index_ffmpeg_free_context(FFmpegIndexBuilderContext *context, int stop)
 {
   int i;
+
+  index_ffmpeg_free_input_context(context->input_ctx);
 
   for (i = 0; i < context->num_indexers; i++) {
     if (context->tcs_in_use & tc_types[i]) {
@@ -836,24 +855,336 @@ static void index_rebuild_ffmpeg_finish(FFmpegIndexBuilderContext *context, int 
     }
   }
 
-  avcodec_close(context->iCodecCtx);
-  avformat_close_input(&context->iFormatCtx);
-
   MEM_freeN(context);
 }
 
-static void index_rebuild_ffmpeg_proc_decoded_frame(FFmpegIndexBuilderContext *context,
-                                                    AVPacket *curr_packet,
-                                                    AVFrame *in_frame)
+static struct transcode_output_ctx *index_ffmpeg_create_transcode_output_context(
+    AVStream *input_stream,
+    AVStream *output_stream,
+    AVCodecContext *proxy_codec_context,
+    AVCodec *proxy_codec,
+    int width,
+    int height)
 {
-  int i;
+  struct transcode_output_ctx *output_ctx = MEM_callocN(sizeof(struct transcode_output_ctx),
+                                                        "alloc_proxy_output");
+
+  output_ctx->codec_context = avcodec_alloc_context3(NULL);
+  avcodec_copy_context(output_ctx->codec_context, proxy_codec_context);
+  avcodec_open2(output_ctx->codec_context, proxy_codec, NULL);
+
+  output_ctx->orig_height = av_get_cropped_height_from_codec(input_stream->codec);
+
+  if (input_stream->codec->width != width || input_stream->codec->height != height ||
+      input_stream->codec->pix_fmt != output_ctx->codec_context->pix_fmt) {
+    output_ctx->sws_ctx = alloc_proxy_output_sws_context(input_stream->codec,
+                                                         output_ctx->codec_context);
+  }
+
+  return output_ctx;
+}
+
+static void index_ffmpeg_free_transcode_output_context(struct transcode_output_ctx *output_ctx)
+{
+
+  if (!output_ctx) {
+    return;
+  }
+
+  sws_freeContext(output_ctx->sws_ctx);
+  avcodec_close(output_ctx->codec_context);
+  MEM_freeN(output_ctx);
+}
+
+static void index_ffmpeg_free_transcode_contexts(FFmpegIndexBuilderContext *context)
+{
+  for (int i = 0; i < context->num_transcode_threads; i++) {
+    struct proxy_transcode_ctx *transcode_context = context->transcode_context_array[i];
+    /* Free input codec context. */
+    avcodec_flush_buffers(transcode_context->input_codec_context);
+    avcodec_close(transcode_context->input_codec_context);
+
+    /* Free mutex and thread condition */
+    BLI_condition_end(context->transcode_suspend_cond[i]);
+    MEM_freeN(context->transcode_suspend_cond[i]);
+    BLI_mutex_free(context->transcode_suspend_mutex[i]);
+
+    for (int size = 0; size < context->num_proxy_sizes; size++) {
+      if (transcode_context->output_context[size] == NULL) {
+        continue;
+      }
+      index_ffmpeg_free_transcode_output_context(transcode_context->output_context[size]);
+    }
+    MEM_freeN(transcode_context);
+  }
+  MEM_freeN(context->transcode_context_array);
+  MEM_freeN(context->transcode_suspend_mutex);
+  MEM_freeN(context->transcode_suspend_cond);
+}
+
+static void index_ffmpeg_create_transcode_context(FFmpegIndexBuilderContext *context,
+                                                  short *stop,
+                                                  short *do_update,
+                                                  float *progress)
+{
+  /* Setup transcoding input contexts and data. */
+  context->transcode_context_array = MEM_callocN(sizeof(context->transcode_context_array) *
+                                                     context->num_transcode_threads,
+                                                 "transcode context array");
+  context->transcode_suspend_cond = MEM_callocN(sizeof(context->transcode_suspend_cond) *
+                                                    context->num_transcode_threads,
+                                                "transcode suspend cond array");
+  context->transcode_suspend_mutex = MEM_callocN(sizeof(context->transcode_suspend_mutex) *
+                                                     context->num_transcode_threads,
+                                                 "transcode suspend mutex array");
+
+  /* Job coordination */
+  context->stop = stop;
+  context->do_update = do_update;
+  context->progress = progress;
+  context->last_gop_chunk_written = 0;
+  context->all_packets_written = false;
+  BLI_condition_init(&context->reader_suspend_cond);
+  BLI_condition_init(&context->writer_suspend_cond);
+  BLI_condition_init(&context->builder_suspend_cond);
+  BLI_mutex_init(&context->reader_suspend_mutex);
+  BLI_mutex_init(&context->writer_suspend_mutex);
+  BLI_mutex_init(&context->builder_suspend_mutex);
+  BLI_mutex_init(&context->packet_access_mutex);
+  context->source_packets = BLI_ghash_new(
+      BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, "source packets ghash");
+  context->transcoded_packets = BLI_ghash_new(
+      BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, "transcoded packets ghash");
+
+  for (int i = 0; i < context->num_transcode_threads; i++) {
+    context->transcode_context_array[i] = MEM_mallocN(sizeof(struct proxy_transcode_ctx),
+                                                      "transcode context");
+    struct proxy_transcode_ctx *transcode_context = context->transcode_context_array[i];
+
+    /* Copy input codec context. */
+    transcode_context->input_codec_context = avcodec_alloc_context3(NULL);
+    avcodec_copy_context(transcode_context->input_codec_context,
+                         context->input_ctx->codec_context);
+    avcodec_open2(transcode_context->input_codec_context, context->input_ctx->codec, NULL);
+
+    /* Setup mutex and therad condition. */
+    context->transcode_suspend_mutex[i] = BLI_mutex_alloc();
+    context->transcode_suspend_cond[i] = MEM_callocN(sizeof(ThreadCondition),
+                                                     "transcode suspend cond");
+    BLI_condition_init(context->transcode_suspend_cond[i]);
+  }
+
+  /* Setup transcoding output contexts. */
+  for (int i = 0; i < context->num_transcode_threads; i++) {
+    struct proxy_transcode_ctx *transcode_context = context->transcode_context_array[i];
+    memset(transcode_context->output_context, 0, sizeof(transcode_context->output_context));
+    for (int size = 0; size < context->num_proxy_sizes; size++) {
+      struct proxy_output_ctx *proxy_context = context->proxy_ctx[size];
+      if (proxy_context == NULL) {
+        continue;
+      }
+      transcode_context->output_context[size] = index_ffmpeg_create_transcode_output_context(
+          context->input_ctx->stream,
+          proxy_context->stream,
+          proxy_context->codec_context,
+          proxy_context->codec,
+          context->input_ctx->codec_context->width * proxy_fac[size],
+          av_get_cropped_height_from_codec(context->input_ctx->codec_context) * proxy_fac[size]);
+    }
+  }
+}
+
+static void index_ffmpeg_free_transcode_context(FFmpegIndexBuilderContext *context)
+{
+
+  BLI_condition_end(&context->reader_suspend_cond);
+  BLI_condition_end(&context->writer_suspend_cond);
+  BLI_condition_end(&context->builder_suspend_cond);
+  BLI_mutex_end(&context->reader_suspend_mutex);
+  BLI_mutex_end(&context->writer_suspend_mutex);
+  BLI_mutex_end(&context->builder_suspend_mutex);
+  BLI_mutex_end(&context->packet_access_mutex);
+
+  BLI_ghash_free(context->source_packets, NULL, MEM_freeN);
+  BLI_ghash_free(context->transcoded_packets, NULL, MEM_freeN);
+
+  index_ffmpeg_free_transcode_contexts(context);
+}
+
+typedef struct output_packet_wrap {
+  AVPacket *output_packet[IMB_PROXY_MAX_SLOT];
+  int frame_index;
+  int gop_chunk_index;
+  int64_t pos;
+  bool is_transcoded;
+
+  /* Needed for TC building.*/
+  uint64_t pts_from_frame;
+} output_packet_wrap;
+
+typedef struct source_packet_wrap {
+  AVPacket *input_packet;
+  int frame_index;
+  int gop_chunk_index;
+} source_packet_wrap;
+
+typedef struct TranscodeJob {
+  FFmpegIndexBuilderContext *context;
+  int thread_number;
+} TranscodeJob;
+
+static source_packet_wrap *create_source_packet_wrap(FFmpegIndexBuilderContext *context,
+                                                     AVPacket *packet,
+                                                     int gop_chunk_index,
+                                                     uint64_t frame_index)
+{
+  source_packet_wrap *packet_wrap = MEM_callocN(sizeof(source_packet_wrap), "");
+  packet_wrap->input_packet = packet;
+  packet_wrap->frame_index = frame_index;
+  packet_wrap->gop_chunk_index = gop_chunk_index;
+  BLI_mutex_lock(&context->packet_access_mutex);
+  BLI_ghash_insert(context->source_packets, (void *)frame_index, packet_wrap);
+  BLI_mutex_unlock(&context->packet_access_mutex);
+  return packet_wrap;
+}
+
+static output_packet_wrap *create_output_packet_wrap(FFmpegIndexBuilderContext *context,
+                                                     AVPacket *packet,
+                                                     int gop_chunk_index,
+                                                     uint64_t frame_index)
+{
+
+  output_packet_wrap *packet_wrap = MEM_callocN(sizeof(output_packet_wrap), "");
+  BLI_mutex_lock(&context->packet_access_mutex);
+  BLI_ghash_insert(context->transcoded_packets, (void *)frame_index, packet_wrap);
+  packet_wrap->pos = packet->pos;
+  packet_wrap->frame_index = frame_index;
+  packet_wrap->gop_chunk_index = gop_chunk_index;
+  BLI_mutex_unlock(&context->packet_access_mutex);
+  return packet_wrap;
+}
+
+static source_packet_wrap *get_source_packet_wrap(FFmpegIndexBuilderContext *context,
+                                                  uint64_t index)
+{
+  BLI_mutex_lock(&context->packet_access_mutex);
+  source_packet_wrap *packet_wrap = BLI_ghash_lookup(context->source_packets, (void *)index);
+  BLI_mutex_unlock(&context->packet_access_mutex);
+  return packet_wrap;
+}
+
+static output_packet_wrap *get_output_packet_wrap(FFmpegIndexBuilderContext *context,
+                                                  uint64_t index)
+{
+  BLI_mutex_lock(&context->packet_access_mutex);
+  output_packet_wrap *packet_wrap = BLI_ghash_lookup(context->transcoded_packets, (void *)index);
+  BLI_mutex_unlock(&context->packet_access_mutex);
+  return packet_wrap;
+}
+
+static int index_ffmpeg_transcode_source_packet_count_get(FFmpegIndexBuilderContext *context)
+{
+  GHash *av_packet_base = context->source_packets;
+  BLI_mutex_lock(&context->packet_access_mutex);
+  int packets_read = BLI_ghash_len(av_packet_base);
+  BLI_mutex_unlock(&context->packet_access_mutex);
+  return packets_read;
+}
+
+static void index_ffmpeg_read_resume(FFmpegIndexBuilderContext *context)
+{
+  ThreadCondition *suspend_cond = &context->reader_suspend_cond;
+  BLI_condition_notify_one(suspend_cond);
+}
+
+static void index_ffmpeg_read_suspend(FFmpegIndexBuilderContext *context, int gop_chunk_index)
+{
+  /* All transcode threads must have at least 1 GOP chunk available. Greater lookahead will be
+   * probably better for files with small GOP size. */
+  int gop_lookahead_margin = context->num_transcode_threads * 5;
+  ThreadMutex *suspend_mutex = &context->reader_suspend_mutex;
+  ThreadCondition *suspend_cond = &context->reader_suspend_cond;
+  BLI_mutex_lock(suspend_mutex);
+  while (gop_chunk_index > (context->last_gop_chunk_written + gop_lookahead_margin) &&
+         !context->all_packets_written) {
+    BLI_condition_wait(suspend_cond, suspend_mutex);
+  }
+  BLI_mutex_unlock(suspend_mutex);
+}
+
+static void index_ffmpeg_transcode_resume(FFmpegIndexBuilderContext *context)
+{
+  for (int i = 0; i < context->num_transcode_threads; i++) {
+    ThreadCondition *suspend_cond = context->transcode_suspend_cond[i];
+    BLI_condition_notify_one(suspend_cond);
+  }
+}
+
+static void index_ffmpeg_transcode_wait_for_packet(TranscodeJob *transcode_job, int frame_index)
+{
+  FFmpegIndexBuilderContext *context = transcode_job->context;
+  ThreadMutex *suspend_mutex = context->transcode_suspend_mutex[transcode_job->thread_number];
+  ThreadCondition *suspend_cond = context->transcode_suspend_cond[transcode_job->thread_number];
+  BLI_mutex_lock(suspend_mutex);
+  while (index_ffmpeg_transcode_source_packet_count_get(context) <= frame_index &&
+         !context->all_packets_read) {
+    BLI_condition_wait(suspend_cond, suspend_mutex);
+  }
+  BLI_mutex_unlock(suspend_mutex);
+}
+
+static void index_ffmpeg_write_resume(FFmpegIndexBuilderContext *context)
+{
+  ThreadCondition *suspend_cond = &context->writer_suspend_cond;
+  BLI_condition_notify_one(suspend_cond);
+}
+
+static output_packet_wrap *get_decoded_output_packet_wrap(FFmpegIndexBuilderContext *context,
+                                                          uint64_t index)
+{
+  ThreadMutex *suspend_mutex = &context->writer_suspend_mutex;
+  ThreadCondition *suspend_cond = &context->writer_suspend_cond;
+  BLI_mutex_lock(suspend_mutex);
+
+  /* Try to get packet. */
+  output_packet_wrap *packet_wrap = get_output_packet_wrap(context, index);
+  while (!context->all_packets_read && packet_wrap == NULL) {
+    BLI_condition_wait(suspend_cond, suspend_mutex);
+    packet_wrap = get_output_packet_wrap(context, index);
+  }
+
+  if (packet_wrap == NULL) {
+    BLI_mutex_unlock(suspend_mutex);
+    return NULL;
+  }
+
+  /* Wait until packet is transcoded. */
+  while (!packet_wrap->is_transcoded &&
+         context->transcode_jobs_done < context->num_transcode_threads) {
+    BLI_condition_wait(suspend_cond, suspend_mutex);
+  }
+
+  BLI_mutex_unlock(suspend_mutex);
+  return packet_wrap;
+}
+
+static void build_timecode_index(FFmpegIndexBuilderContext *context, int frame_index)
+{
+  source_packet_wrap *source_wrap = get_source_packet_wrap(context, frame_index);
+  output_packet_wrap *output_wrap = get_output_packet_wrap(context, frame_index);
+  AVPacket *source_packet = source_wrap->input_packet;
+
+  if (source_packet->flags & AV_PKT_FLAG_KEY) {
+    context->last_seek_pos = context->seek_pos;
+    context->last_seek_pos_dts = context->seek_pos_dts;
+    context->seek_pos = source_packet->pos;
+    context->seek_pos_dts = source_packet->dts;
+    context->seek_pos_pts = source_packet->pts;
+  }
+
   uint64_t s_pos = context->seek_pos;
   uint64_t s_dts = context->seek_pos_dts;
-  uint64_t pts = av_get_pts_from_frame(context->iFormatCtx, in_frame);
-
-  for (i = 0; i < context->num_proxy_sizes; i++) {
-    add_to_proxy_output_ffmpeg(context->proxy_ctx[i], in_frame);
-  }
+  uint64_t pts = output_wrap->pts_from_frame;
 
   if (!context->start_pts_set) {
     context->start_pts = pts;
@@ -875,7 +1206,7 @@ static void index_rebuild_ffmpeg_proc_decoded_frame(FFmpegIndexBuilderContext *c
     s_dts = context->last_seek_pos_dts;
   }
 
-  for (i = 0; i < context->num_indexers; i++) {
+  for (int i = 0; i < context->num_indexers; i++) {
     if (context->tcs_in_use & tc_types[i]) {
       int tc_frameno = context->frameno;
 
@@ -884,93 +1215,417 @@ static void index_rebuild_ffmpeg_proc_decoded_frame(FFmpegIndexBuilderContext *c
       }
 
       IMB_index_builder_proc_frame(context->indexer[i],
-                                   curr_packet->data,
-                                   curr_packet->size,
+                                   source_packet->data,
+                                   source_packet->size,
                                    tc_frameno,
                                    s_pos,
                                    s_dts,
                                    pts);
     }
   }
-
   context->frameno_gapless++;
+  av_packet_free(&source_wrap->input_packet);
 }
 
-static int index_rebuild_ffmpeg(FFmpegIndexBuilderContext *context,
-                                const short *stop,
-                                short *do_update,
-                                float *progress)
+static void *index_ffmpeg_read_packets(void *job_data)
 {
-  AVFrame *in_frame = 0;
-  AVPacket next_packet;
-  uint64_t stream_size;
+  FFmpegIndexBuilderContext *context = job_data;
+  struct input_ctx *input_ctx = context->input_ctx;
 
-  memset(&next_packet, 0, sizeof(AVPacket));
+  /* Needed for TC building. */
+  context->frame_rate = av_q2d(
+      av_guess_frame_rate(context->input_ctx->format_context, context->input_ctx->stream, NULL));
+  context->pts_time_base = av_q2d(context->input_ctx->stream->time_base);
 
-  in_frame = av_frame_alloc();
+  int gop_chunk_index = -1; /* First I-frame will increase this to 0. */
+  int ret = 0;
+  int frame_index = 0;
 
-  stream_size = avio_size(context->iFormatCtx->pb);
+  while (ret >= 0) {
+    index_ffmpeg_read_suspend(context, gop_chunk_index);
+    AVPacket *av_packet = av_packet_alloc();
+    ret = av_read_frame(input_ctx->format_context, av_packet);
 
-  context->frame_rate = av_q2d(av_guess_frame_rate(context->iFormatCtx, context->iStream, NULL));
-  context->pts_time_base = av_q2d(context->iStream->time_base);
-
-  while (av_read_frame(context->iFormatCtx, &next_packet) >= 0) {
-    int frame_finished = 0;
-    float next_progress =
-        (float)((int)floor(((double)next_packet.pos) * 100 / ((double)stream_size) + 0.5)) / 100;
-
-    if (*progress != next_progress) {
-      *progress = next_progress;
-      *do_update = true;
-    }
-
-    if (*stop) {
-      av_free_packet(&next_packet);
+    if (*context->stop || ret < 0) {
       break;
     }
 
-    if (next_packet.stream_index == context->videoStream) {
-      if (next_packet.flags & AV_PKT_FLAG_KEY) {
-        context->last_seek_pos = context->seek_pos;
-        context->last_seek_pos_dts = context->seek_pos_dts;
-        context->seek_pos = next_packet.pos;
-        context->seek_pos_dts = next_packet.dts;
-        context->seek_pos_pts = next_packet.pts;
-      }
-
-      avcodec_decode_video2(context->iCodecCtx, in_frame, &frame_finished, &next_packet);
+    /* Only process packets from chosen video stream. */
+    if (av_packet->stream_index != input_ctx->video_stream) {
+      continue;
     }
 
-    if (frame_finished) {
-      index_rebuild_ffmpeg_proc_decoded_frame(context, &next_packet, in_frame);
+    /* Packets are separated into segments separated by I-frames, because decoding must start on
+     * I-frame. */
+    if (av_packet->flags & AV_PKT_FLAG_KEY) {
+      gop_chunk_index++;
     }
-    av_free_packet(&next_packet);
+
+    create_source_packet_wrap(context, av_packet, gop_chunk_index, frame_index);
+    create_output_packet_wrap(context, av_packet, gop_chunk_index, frame_index);
+
+    frame_index++;
+    index_ffmpeg_transcode_resume(context);
   }
 
-  /* process pictures still stuck in decoder engine after EOF
-   * according to ffmpeg docs using 0-size packets.
-   *
-   * At least, if we haven't already stopped... */
+  printf("read %d packets\n", frame_index - 1);
 
-  /* this creates the 0-size packet and prevents a memory leak. */
-  av_free_packet(&next_packet);
+  context->all_packets_read = true;
+  index_ffmpeg_transcode_resume(context);
+  BLI_condition_notify_one(&context->builder_suspend_cond);
+  return 0;
+}
 
-  if (!*stop) {
-    int frame_finished;
+static bool index_ffmpeg_decode_packet(struct proxy_transcode_ctx *transcode_ctx,
+                                       AVPacket *av_packet,
+                                       AVFrame *decoded_frame)
+{
+  int frame_finished = 0;
+  avcodec_decode_video2(
+      transcode_ctx->input_codec_context, decoded_frame, &frame_finished, av_packet);
+  return frame_finished != 0;
+}
 
-    do {
-      frame_finished = 0;
+static void index_ffmpeg_scale_frame(TranscodeJob *transcode_job,
+                                     AVFrame *decoded_frame,
+                                     AVFrame **r_scaled_frame)
+{
+  FFmpegIndexBuilderContext *context = transcode_job->context;
+  int thread_number = transcode_job->thread_number;
+  struct proxy_transcode_ctx *transcode_ctx =
+      transcode_job->context->transcode_context_array[thread_number];
 
-      avcodec_decode_video2(context->iCodecCtx, in_frame, &frame_finished, &next_packet);
+  for (int size = 0; size < context->num_proxy_sizes; size++) {
+    struct transcode_output_ctx *output_ctx = transcode_ctx->output_context[size];
+    if (output_ctx == NULL) {
+      continue;
+    }
 
-      if (frame_finished) {
-        index_rebuild_ffmpeg_proc_decoded_frame(context, &next_packet, in_frame);
+    struct SwsContext *sws_ctx = output_ctx->sws_ctx;
+    if (sws_ctx && decoded_frame &&
+        (decoded_frame->data[0] || decoded_frame->data[1] || decoded_frame->data[2] ||
+         decoded_frame->data[3])) {
+      sws_scale(sws_ctx,
+                (const uint8_t *const *)decoded_frame->data,
+                decoded_frame->linesize,
+                0,
+                output_ctx->orig_height,
+                r_scaled_frame[size]->data,
+                r_scaled_frame[size]->linesize);
+    }
+  }
+}
+
+static void index_ffmpeg_encode_frame(TranscodeJob *transcode_job,
+                                      output_packet_wrap *packet_wrap,
+                                      AVFrame **scaled_frame)
+{
+  int thread_number = transcode_job->thread_number;
+  FFmpegIndexBuilderContext *context = transcode_job->context;
+  struct proxy_transcode_ctx *transcode_ctx = (struct proxy_transcode_ctx *)
+                                                  context->transcode_context_array[thread_number];
+
+  for (int size = 0; size < IMB_PROXY_MAX_SLOT; size++) {
+    struct transcode_output_ctx *output_ctx = transcode_ctx->output_context[size];
+
+    if (output_ctx == NULL) {
+      continue;
+    }
+
+    AVPacket *packet = av_packet_alloc();
+
+    AVFrame *frame = scaled_frame[size];
+    int got_output;
+    int ret = avcodec_encode_video2(output_ctx->codec_context, packet, frame, &got_output);
+    if (ret < 0) {
+      fprintf(stderr,
+              "Error encoding proxy frame %d for '%s'\n",
+              packet_wrap->frame_index,
+              context->proxy_ctx[size]->output_format->filename);
+      *context->stop = 1;
+      return;
+    }
+
+    if (got_output) {
+      if (packet->pts != AV_NOPTS_VALUE) {
+        packet->pts = av_rescale_q(packet->pts,
+                                   output_ctx->codec_context->time_base,
+                                   context->proxy_ctx[size]->stream->time_base);
       }
-    } while (frame_finished);
+      if (packet->dts != AV_NOPTS_VALUE) {
+        packet->dts = av_rescale_q(packet->dts,
+                                   output_ctx->codec_context->time_base,
+                                   context->proxy_ctx[size]->stream->time_base);
+      }
+      packet->stream_index = context->proxy_ctx[size]->stream->index;
+
+      packet_wrap->output_packet[size] = packet;
+    }
+  }
+}
+
+static void index_ffmpeg_transcode_init_temporary_data(struct proxy_transcode_ctx *transcode_ctx,
+                                                       AVFrame **r_scaled_frame)
+{
+  for (int size = 0; size < IMB_PROXY_MAX_SLOT; size++) {
+    struct transcode_output_ctx *output_ctx = transcode_ctx->output_context[size];
+    if (output_ctx == NULL) {
+      continue;
+    }
+
+    r_scaled_frame[size] = av_frame_alloc();
+    avpicture_fill((AVPicture *)r_scaled_frame[size],
+                   MEM_mallocN(avpicture_get_size(output_ctx->codec_context->pix_fmt,
+                                                  round_up(output_ctx->codec_context->width, 16),
+                                                  output_ctx->codec_context->height),
+                               "alloc proxy output frame"),
+                   output_ctx->codec_context->pix_fmt,
+                   round_up(output_ctx->codec_context->width, 16),
+                   output_ctx->codec_context->height);
+  }
+}
+
+static void index_ffmpeg_transcode_free_temporary_data(struct proxy_transcode_ctx *transcode_ctx,
+                                                       AVFrame *decoded_frame,
+                                                       AVFrame **scaled_frame)
+{
+  av_frame_free(&decoded_frame);
+  for (int size = 0; size < IMB_PROXY_MAX_SLOT; size++) {
+    struct transcode_output_ctx *output_ctx = transcode_ctx->output_context[size];
+    if (output_ctx == NULL) {
+      continue;
+    }
+
+    MEM_freeN(scaled_frame[size]->data[0]);
+    av_frame_free(&scaled_frame[size]);
+  }
+}
+
+static void *index_ffmpeg_transcode_packets(void *job_data)
+{
+  TranscodeJob *transcode_job = job_data;
+  FFmpegIndexBuilderContext *context = transcode_job->context;
+  int threads_total = context->num_transcode_threads;
+  int thread_number = transcode_job->thread_number;
+  struct proxy_transcode_ctx *transcode_ctx =
+      transcode_job->context->transcode_context_array[thread_number];
+
+  /* Prepare temporary data */
+  AVFrame *decoded_frame = av_frame_alloc();
+  AVFrame *scaled_frame[IMB_PROXY_MAX_SLOT];
+  index_ffmpeg_transcode_init_temporary_data(transcode_ctx, scaled_frame);
+
+  /* Some codecs do not output frames immediately (H264). These codecs require flushing. */
+  bool needs_flushing = context->input_ctx->codec->capabilities & AV_CODEC_CAP_DELAY;
+  int frame_index = 0;
+  int output_packet_frame_index = 0;
+  int gop_chunk_jump_length = 0;
+  source_packet_wrap *source_packet;
+  output_packet_wrap *output_packet = NULL;
+  do {
+    /* Ensure, that packet is read before accessing it. */
+    index_ffmpeg_transcode_wait_for_packet(transcode_job, frame_index);
+    source_packet = get_source_packet_wrap(context, frame_index);
+
+    if (*context->stop || source_packet == NULL) {
+      break;
+    }
+
+    frame_index++;
+
+    /* Each thread works on own segment of packets. Jump GOP's until we find next one that we can
+     * work on. */
+    if ((source_packet->gop_chunk_index % threads_total) != thread_number) {
+      gop_chunk_jump_length++;
+      continue;
+    }
+
+    output_packet = get_output_packet_wrap(context, output_packet_frame_index);
+
+    /* Increment output_packet_frame_index after jumping GOP chunks. This way last jump can be
+     * ignored so codec can be flushed. */
+    if ((output_packet->gop_chunk_index % threads_total) != thread_number &&
+        gop_chunk_jump_length > 0) {
+      output_packet_frame_index += gop_chunk_jump_length;
+      gop_chunk_jump_length = 0;
+      output_packet = get_output_packet_wrap(context, output_packet_frame_index);
+    }
+
+    if (index_ffmpeg_decode_packet(transcode_ctx, source_packet->input_packet, decoded_frame)) {
+      index_ffmpeg_scale_frame(transcode_job, decoded_frame, scaled_frame);
+
+      if (!output_packet) {
+        BLI_assert(!"Missing output packet, this shouldn't happen");
+        break;
+        return 0;
+      }
+
+      index_ffmpeg_encode_frame(transcode_job, output_packet, scaled_frame);
+
+      /* pts_from_frame is needed for TC index builder. */
+      output_packet->pts_from_frame = av_get_pts_from_frame(context->input_ctx->format_context,
+                                                            decoded_frame);
+      output_packet->is_transcoded = true;
+      output_packet_frame_index++;
+      index_ffmpeg_write_resume(context);
+    }
+  } while (source_packet);
+
+  /* Flush decoder. */
+  if (output_packet && needs_flushing) {
+    output_packet = get_output_packet_wrap(context, output_packet->frame_index + 1);
+    AVPacket *flushing_packet = av_packet_alloc();
+    while (output_packet &&
+           index_ffmpeg_decode_packet(transcode_ctx, flushing_packet, decoded_frame)) {
+      index_ffmpeg_scale_frame(transcode_job, decoded_frame, scaled_frame);
+      index_ffmpeg_encode_frame(transcode_job, output_packet, scaled_frame);
+
+      /* pts_from_frame is needed for TC index builder. */
+      output_packet->pts_from_frame = av_get_pts_from_frame(context->input_ctx->format_context,
+                                                            decoded_frame);
+      output_packet->is_transcoded = true;
+      output_packet = get_output_packet_wrap(context, output_packet->frame_index + 1);
+      index_ffmpeg_write_resume(context);
+    }
+    av_packet_free(&flushing_packet);
   }
 
-  av_free(in_frame);
+  index_ffmpeg_transcode_free_temporary_data(transcode_ctx, decoded_frame, scaled_frame);
+  context->transcode_jobs_done++;
+  index_ffmpeg_write_resume(context);
+  BLI_condition_notify_one(&context->builder_suspend_cond);
+  return 0;
+}
 
+static void *index_ffmpeg_write_frames(void *job_data)
+{
+  FFmpegIndexBuilderContext *context = job_data;
+
+  int frame_index = 0;
+  output_packet_wrap *output_packet;
+  while (output_packet = get_decoded_output_packet_wrap(context, frame_index)) {
+
+    if (*context->stop) {
+      break;
+    }
+
+    for (int size = 0; size < context->num_proxy_sizes; size++) {
+      if (output_packet->output_packet[size]) {
+        AVPacket *packet = output_packet->output_packet[size];
+
+        if (av_interleaved_write_frame(context->proxy_ctx[size]->output_format, packet) != 0) {
+          fprintf(stderr,
+                  "Error writing proxy frame %d "
+                  "into '%s'\n",
+                  context->proxy_ctx[size]->cfra - 1,
+                  context->proxy_ctx[size]->output_format->filename);
+          return 0;
+        }
+
+        av_packet_free(&packet);
+      }
+    }
+
+    uint64_t stream_size = avio_size(context->input_ctx->format_context->pb);
+    float next_progress = (float)((int)floor(
+                              ((double)output_packet->pos) * 100 / ((double)stream_size) + 0.5)) /
+                          100;
+
+    if (*context->progress != next_progress) {
+      *context->progress = next_progress;
+      *context->do_update = true;
+    }
+
+    context->last_gop_chunk_written = output_packet->gop_chunk_index;
+    build_timecode_index(context, frame_index);
+
+    frame_index++;
+    index_ffmpeg_read_resume(context);
+  }
+
+  context->all_packets_written = true;
+  BLI_condition_notify_one(&context->builder_suspend_cond);
+  return 0;
+}
+
+static TranscodeJob **index_rebuild_ffmpeg_init_jobs(FFmpegIndexBuilderContext *context,
+                                                     ListBase *reader_thread,
+                                                     ListBase *transcoder_thread,
+                                                     ListBase *encoder_thread)
+{
+  BLI_threadpool_init(reader_thread, index_ffmpeg_read_packets, 1);
+  BLI_threadpool_init(
+      transcoder_thread, index_ffmpeg_transcode_packets, context->num_transcode_threads);
+  BLI_threadpool_init(encoder_thread, index_ffmpeg_write_frames, 1);
+
+  TranscodeJob **transcode_job_array = MEM_callocN(
+      sizeof(TranscodeJob *) * context->num_transcode_threads, "transcode job array");
+
+  for (int i = 0; i < context->num_transcode_threads; i++) {
+    transcode_job_array[i] = MEM_callocN(sizeof(TranscodeJob), "transcode job");
+    transcode_job_array[i]->context = context;
+    transcode_job_array[i]->thread_number = i;
+  }
+
+  return transcode_job_array;
+}
+
+static void index_rebuild_ffmpeg_free_jobs(FFmpegIndexBuilderContext *context,
+                                           ListBase *reader_thread,
+                                           ListBase *transcoder_thread,
+                                           ListBase *writer_thread,
+                                           TranscodeJob **transcode_job_array)
+{
+  for (int i = 0; i < context->num_transcode_threads; i++) {
+    MEM_freeN(transcode_job_array[i]);
+  }
+  MEM_freeN(transcode_job_array);
+  BLI_threadpool_remove(reader_thread, context);
+  BLI_threadpool_end(reader_thread);
+  BLI_threadpool_remove(transcoder_thread, context);
+  BLI_threadpool_end(transcoder_thread);
+  BLI_threadpool_remove(writer_thread, context);
+  BLI_threadpool_end(writer_thread);
+}
+
+static int index_rebuild_ffmpeg(FFmpegIndexBuilderContext *context,
+                                short *stop,
+                                short *do_update,
+                                float *progress)
+{
+  index_ffmpeg_create_transcode_context(context, stop, do_update, progress);
+
+  ListBase reader_thread;
+  ListBase transcoder_thread;
+  ListBase writer_thread;
+  TranscodeJob **transcode_job_array = index_rebuild_ffmpeg_init_jobs(
+      context, &reader_thread, &transcoder_thread, &writer_thread);
+
+  /* Read packets. */
+  BLI_threadpool_insert(&reader_thread, context);
+
+  /* Transcode. Job runs in multiple threads working on chunks separated by I-frames. */
+  for (int i = 0; i < context->num_transcode_threads; i++) {
+    BLI_threadpool_insert(&transcoder_thread, transcode_job_array[i]);
+  }
+
+  /* Write frames. */
+  BLI_threadpool_insert(&writer_thread, context);
+
+  /* Wait until all jobs are done. */
+  BLI_mutex_lock(&context->builder_suspend_mutex);
+  while (!context->all_packets_read ||
+         context->transcode_jobs_done < context->num_transcode_threads ||
+         !context->all_packets_written) {
+    BLI_condition_wait(&context->builder_suspend_cond, &context->builder_suspend_mutex);
+  }
+  BLI_mutex_unlock(&context->builder_suspend_mutex);
+
+  /* Free jobs. */
+  index_rebuild_ffmpeg_free_jobs(
+      context, &reader_thread, &transcoder_thread, &writer_thread, transcode_job_array);
+
+  index_ffmpeg_free_transcode_context(context);
   return 1;
 }
 
@@ -1255,7 +1910,7 @@ void IMB_anim_index_rebuild_finish(IndexBuildContext *context, short stop)
   switch (context->anim_type) {
 #ifdef WITH_FFMPEG
     case ANIM_FFMPEG:
-      index_rebuild_ffmpeg_finish((FFmpegIndexBuilderContext *)context, stop);
+      index_ffmpeg_free_context((FFmpegIndexBuilderContext *)context, stop);
       break;
 #endif
 #ifdef WITH_AVI
