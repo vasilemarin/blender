@@ -40,30 +40,6 @@ using blender::Map;
 using blender::Set;
 using blender::StringRef;
 
-static const NodeUIStorage *node_ui_storage_get_from_context(const bContext *C,
-                                                             const bNodeTree &ntree,
-                                                             const bNode &node)
-{
-  const NodeTreeUIStorage *ui_storage = ntree.ui_storage;
-  if (ui_storage == nullptr) {
-    return nullptr;
-  }
-
-  const Object *active_object = CTX_data_active_object(C);
-  const ModifierData *active_modifier = BKE_object_active_modifier(active_object);
-  if (active_object == nullptr || active_modifier == nullptr) {
-    return nullptr;
-  }
-
-  const NodeTreeEvaluationContext context(*active_object, *active_modifier);
-  const Map<std::string, NodeUIStorage> *storage = ui_storage->context_map.lookup_ptr(context);
-  if (storage == nullptr) {
-    return nullptr;
-  }
-
-  return storage->lookup_ptr_as(StringRef(node.name));
-}
-
 struct AttributeSearchData {
   const bNodeTree &node_tree;
   const bNode &node;
@@ -83,7 +59,7 @@ static void attribute_search_update_fn(const bContext *C,
                                        uiSearchItems *items)
 {
   AttributeSearchData *data = static_cast<AttributeSearchData *>(arg);
-  const NodeUIStorage *ui_storage = node_ui_storage_get_from_context(
+  const NodeUIStorage *ui_storage = BKE_node_tree_ui_storage_get_from_context(
       C, data->node_tree, data->node);
   if (ui_storage == nullptr) {
     return;
@@ -122,12 +98,6 @@ void button_add_attribute_search(
     const bContext *C, bNode *node, bNodeSocket *socket, uiBlock *block, uiBut *but)
 {
   BLI_assert(socket->type == SOCK_STRING);
-
-  /* Always adding the button default value is valid because this search menu
-   * shouldn't display when the socket is connected with an input link anyway. */
-  const bNodeSocketValueString *socket_value = static_cast<bNodeSocketValueString *>(
-      socket->default_value);
-  const char *current_value = socket_value->value;
 
   /* TODO: This could just get a node tree argument. */
   SpaceNode *space_node = CTX_wm_space_node(C);
