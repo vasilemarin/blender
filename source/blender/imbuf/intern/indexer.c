@@ -792,7 +792,10 @@ static IndexBuildContext *index_ffmpeg_create_context(struct anim *anim,
   context->proxy_sizes_in_use = proxy_sizes_in_use;
   context->num_proxy_sizes = IMB_PROXY_MAX_SLOT;
   context->num_indexers = IMB_TC_MAX_SLOT;
-  context->num_transcode_threads = BLI_system_thread_count();
+  /* Use only half of thread count, because transcoding contexts use a lot of RAM. Ideally this
+   * would use CPU count directly, because hyper-threading shouldn't have great effect here. But
+   * using only half of threads may be slightly slower in practice in some cases. */
+  context->num_transcode_threads = BLI_system_thread_count() / 2;
 
   /* Setup input file context. */
   context->input_ctx = index_ffmpeg_create_input_context(context);
@@ -1031,6 +1034,8 @@ typedef struct source_packet_wrap {
 typedef struct TranscodeJob {
   FFmpegIndexBuilderContext *context;
   int thread_number;
+  int num_jumps_stored;
+  int gop_jump_length[32];
 } TranscodeJob;
 
 static source_packet_wrap *create_source_packet_wrap(FFmpegIndexBuilderContext *context,
@@ -1101,12 +1106,12 @@ static void index_ffmpeg_read_suspend(FFmpegIndexBuilderContext *context, int go
 {
   /* All transcode threads must have at least 1 GOP chunk available. Greater lookahead will be
    * probably better for files with small GOP size. */
-  int gop_lookahead_margin = context->num_transcode_threads * 5;
+  int gop_lookahead_margin = context->num_transcode_threads * 10;
   ThreadMutex *suspend_mutex = &context->reader_suspend_mutex;
   ThreadCondition *suspend_cond = &context->reader_suspend_cond;
   BLI_mutex_lock(suspend_mutex);
   while (gop_chunk_index > (context->last_gop_chunk_written + gop_lookahead_margin) &&
-         !context->all_packets_written) {
+         !context->all_packets_written && !*context->stop) {
     BLI_condition_wait(suspend_cond, suspend_mutex);
   }
   BLI_mutex_unlock(suspend_mutex);
@@ -1120,23 +1125,34 @@ static void index_ffmpeg_transcode_resume(FFmpegIndexBuilderContext *context)
   }
 }
 
-static void index_ffmpeg_transcode_wait_for_packet(TranscodeJob *transcode_job, int frame_index)
+static source_packet_wrap *index_ffmpeg_transcode_get_read_packet(TranscodeJob *transcode_job,
+                                                                  int frame_index)
 {
   FFmpegIndexBuilderContext *context = transcode_job->context;
   ThreadMutex *suspend_mutex = context->transcode_suspend_mutex[transcode_job->thread_number];
   ThreadCondition *suspend_cond = context->transcode_suspend_cond[transcode_job->thread_number];
   BLI_mutex_lock(suspend_mutex);
   while (index_ffmpeg_transcode_source_packet_count_get(context) <= frame_index &&
-         !context->all_packets_read) {
+         !context->all_packets_read && !*context->stop) {
     BLI_condition_wait(suspend_cond, suspend_mutex);
   }
   BLI_mutex_unlock(suspend_mutex);
+
+  return get_source_packet_wrap(context, frame_index);
 }
 
 static void index_ffmpeg_write_resume(FFmpegIndexBuilderContext *context)
 {
   ThreadCondition *suspend_cond = &context->writer_suspend_cond;
   BLI_condition_notify_one(suspend_cond);
+}
+
+static void index_ffmpeg_resume_all(FFmpegIndexBuilderContext *context)
+{
+  index_ffmpeg_write_resume(context);
+  index_ffmpeg_transcode_resume(context);
+  index_ffmpeg_read_resume(context);
+  BLI_condition_notify_one(&context->builder_suspend_cond);
 }
 
 static output_packet_wrap *get_decoded_output_packet_wrap(FFmpegIndexBuilderContext *context,
@@ -1148,7 +1164,7 @@ static output_packet_wrap *get_decoded_output_packet_wrap(FFmpegIndexBuilderCont
 
   /* Try to get packet. */
   output_packet_wrap *packet_wrap = get_output_packet_wrap(context, index);
-  while (!context->all_packets_read && packet_wrap == NULL) {
+  while (!context->all_packets_read && packet_wrap == NULL && !*context->stop) {
     BLI_condition_wait(suspend_cond, suspend_mutex);
     packet_wrap = get_output_packet_wrap(context, index);
   }
@@ -1160,7 +1176,7 @@ static output_packet_wrap *get_decoded_output_packet_wrap(FFmpegIndexBuilderCont
 
   /* Wait until packet is transcoded. */
   while (!packet_wrap->is_transcoded &&
-         context->transcode_jobs_done < context->num_transcode_threads) {
+         context->transcode_jobs_done < context->num_transcode_threads && !*context->stop) {
     BLI_condition_wait(suspend_cond, suspend_mutex);
   }
 
@@ -1268,11 +1284,8 @@ static void *index_ffmpeg_read_packets(void *job_data)
     index_ffmpeg_transcode_resume(context);
   }
 
-  printf("read %d packets\n", frame_index - 1);
-
   context->all_packets_read = true;
-  index_ffmpeg_transcode_resume(context);
-  BLI_condition_notify_one(&context->builder_suspend_cond);
+  index_ffmpeg_resume_all(context);
   return 0;
 }
 
@@ -1401,6 +1414,59 @@ static void index_ffmpeg_transcode_free_temporary_data(struct proxy_transcode_ct
   }
 }
 
+static int index_ffmpeg_transcode_jump_pop(TranscodeJob *transcode_job)
+{
+  int oldest_jump = transcode_job->gop_jump_length[transcode_job->num_jumps_stored - 1];
+  transcode_job->gop_jump_length[transcode_job->num_jumps_stored - 1] = 0;
+  transcode_job->num_jumps_stored--;
+  return oldest_jump;
+}
+
+/* If transcoded GOP chunk is smaller or equal to output packets lag behind source packets, size of
+ * jump can't be applied right away. It must be stored and applied to output packets as needed. */
+static void index_ffmpeg_transcode_jump_push(TranscodeJob *transcode_job, int jump_length)
+{
+  int num_jumps_max = sizeof(transcode_job->gop_jump_length) /
+                      sizeof(transcode_job->gop_jump_length[0]);
+  BLI_assert(transcode_job->num_jumps_stored < num_jumps_max - 1);
+
+  /* Shift stored gaps. */
+  for (int i = 0; i < transcode_job->num_jumps_stored; i++) {
+    transcode_job->gop_jump_length[i + 1] = transcode_job->gop_jump_length[i];
+  }
+
+  /* Store last gap. */
+  transcode_job->gop_jump_length[0] = jump_length;
+  transcode_job->num_jumps_stored++;
+}
+
+static int index_ffmpeg_transcode_jump_to_next_gop(TranscodeJob *transcode_job,
+                                                   int current_frame_index)
+{
+  FFmpegIndexBuilderContext *context = transcode_job->context;
+  int frame_index = current_frame_index;
+  int thread_number = transcode_job->thread_number;
+  int threads_total = context->num_transcode_threads;
+
+  int gop_jump_length = 0;
+  source_packet_wrap *source_packet;
+  while (source_packet = index_ffmpeg_transcode_get_read_packet(transcode_job, frame_index)) {
+    if (source_packet == NULL) {
+      return gop_jump_length;
+    }
+
+    if ((source_packet->gop_chunk_index % threads_total) == thread_number) {
+      break;
+    }
+
+    gop_jump_length++;
+    frame_index++;
+  }
+
+  index_ffmpeg_transcode_jump_push(transcode_job, gop_jump_length);
+  return gop_jump_length;
+}
+
 static void *index_ffmpeg_transcode_packets(void *job_data)
 {
   TranscodeJob *transcode_job = job_data;
@@ -1419,35 +1485,26 @@ static void *index_ffmpeg_transcode_packets(void *job_data)
   bool needs_flushing = context->input_ctx->codec->capabilities & AV_CODEC_CAP_DELAY;
   int frame_index = 0;
   int output_packet_frame_index = 0;
-  int gop_chunk_jump_length = 0;
   source_packet_wrap *source_packet;
   output_packet_wrap *output_packet = NULL;
-  do {
-    /* Ensure, that packet is read before accessing it. */
-    index_ffmpeg_transcode_wait_for_packet(transcode_job, frame_index);
-    source_packet = get_source_packet_wrap(context, frame_index);
 
+  while (source_packet = index_ffmpeg_transcode_get_read_packet(transcode_job, frame_index)) {
     if (*context->stop || source_packet == NULL) {
       break;
     }
 
-    frame_index++;
-
     /* Each thread works on own segment of packets. Jump GOP's until we find next one that we can
      * work on. */
     if ((source_packet->gop_chunk_index % threads_total) != thread_number) {
-      gop_chunk_jump_length++;
+      frame_index += index_ffmpeg_transcode_jump_to_next_gop(transcode_job, frame_index);
       continue;
     }
 
+    /* This packet may belong to another thread. In such case make jump following source_packet. */
     output_packet = get_output_packet_wrap(context, output_packet_frame_index);
-
-    /* Increment output_packet_frame_index after jumping GOP chunks. This way last jump can be
-     * ignored so codec can be flushed. */
     if ((output_packet->gop_chunk_index % threads_total) != thread_number &&
-        gop_chunk_jump_length > 0) {
-      output_packet_frame_index += gop_chunk_jump_length;
-      gop_chunk_jump_length = 0;
+        transcode_job->num_jumps_stored > 0) {
+      output_packet_frame_index += index_ffmpeg_transcode_jump_pop(transcode_job);
       output_packet = get_output_packet_wrap(context, output_packet_frame_index);
     }
 
@@ -1461,7 +1518,6 @@ static void *index_ffmpeg_transcode_packets(void *job_data)
       }
 
       index_ffmpeg_encode_frame(transcode_job, output_packet, scaled_frame);
-
       /* pts_from_frame is needed for TC index builder. */
       output_packet->pts_from_frame = av_get_pts_from_frame(context->input_ctx->format_context,
                                                             decoded_frame);
@@ -1469,7 +1525,8 @@ static void *index_ffmpeg_transcode_packets(void *job_data)
       output_packet_frame_index++;
       index_ffmpeg_write_resume(context);
     }
-  } while (source_packet);
+    frame_index++;
+  }
 
   /* Flush decoder. */
   if (output_packet && needs_flushing) {
@@ -1492,8 +1549,8 @@ static void *index_ffmpeg_transcode_packets(void *job_data)
 
   index_ffmpeg_transcode_free_temporary_data(transcode_ctx, decoded_frame, scaled_frame);
   context->transcode_jobs_done++;
-  index_ffmpeg_write_resume(context);
-  BLI_condition_notify_one(&context->builder_suspend_cond);
+
+  index_ffmpeg_resume_all(context);
   return 0;
 }
 
@@ -1504,7 +1561,6 @@ static void *index_ffmpeg_write_frames(void *job_data)
   int frame_index = 0;
   output_packet_wrap *output_packet;
   while (output_packet = get_decoded_output_packet_wrap(context, frame_index)) {
-
     if (*context->stop) {
       break;
     }
@@ -1544,7 +1600,7 @@ static void *index_ffmpeg_write_frames(void *job_data)
   }
 
   context->all_packets_written = true;
-  BLI_condition_notify_one(&context->builder_suspend_cond);
+  index_ffmpeg_resume_all(context);
   return 0;
 }
 
@@ -1565,6 +1621,10 @@ static TranscodeJob **index_rebuild_ffmpeg_init_jobs(FFmpegIndexBuilderContext *
     transcode_job_array[i] = MEM_callocN(sizeof(TranscodeJob), "transcode job");
     transcode_job_array[i]->context = context;
     transcode_job_array[i]->thread_number = i;
+    memset(transcode_job_array[i]->gop_jump_length,
+           0,
+           sizeof(transcode_job_array[i]->gop_jump_length));
+    transcode_job_array[i]->num_jumps_stored = 0;
   }
 
   return transcode_job_array;
