@@ -67,8 +67,8 @@ static void attribute_search_update_fn(const bContext *C,
   const Set<std::string> &attribute_name_hints = ui_storage->attribute_name_hints;
 
   if (str[0] != '\0') {
-    /* Any string may be valid, so add the current search string with the hints,
-     * but gray it out if if the attribute already exists. */
+    /* Any string may be valid, so add the current search string with the hints, but gray it out
+     * if the attribute already exists. TODO: Don't add this for input attributes. */
     const bool contains_search = attribute_name_hints.contains_as(StringRef(str));
     UI_search_item_add(
         items, str, (void *)str, ICON_ADD, contains_search ? UI_BUT_DISABLED : 0, 0);
