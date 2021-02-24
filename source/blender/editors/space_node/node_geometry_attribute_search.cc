@@ -93,9 +93,8 @@ static void attribute_search_free_fn(void *arg)
   delete data;
 }
 
-void node_geometry_add_attribute_search_button(const bContext *C,
-                                               const bNodeTree *node_tree,
-                                               bNode *node,
+void node_geometry_add_attribute_search_button(const bNodeTree *node_tree,
+                                               const bNode *node,
                                                PointerRNA *socket_ptr,
                                                uiLayout *layout)
 {

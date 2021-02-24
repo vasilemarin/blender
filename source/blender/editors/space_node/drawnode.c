@@ -3394,7 +3394,7 @@ static void std_node_socket_draw(
       BLI_assert(space_node != NULL && space_node->edittree != NULL);
       const bNodeTree *node_tree = space_node->edittree;
       if (node_tree->type == NTREE_GEOMETRY) {
-        node_geometry_add_attribute_search_button(C, node_tree, node, ptr, row);
+        node_geometry_add_attribute_search_button(node_tree, node, ptr, row);
       }
       else {
         uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
