@@ -114,7 +114,7 @@ void node_geometry_add_attribute_search_button(const bNodeTree *node_tree,
                                  "",
                                  0,
                                  0,
-                                 200,
+                                 10 * UI_UNIT_X, /* Dummy value, replaced by layout system. */
                                  UI_UNIT_Y,
                                  socket_ptr,
                                  "default_value",
