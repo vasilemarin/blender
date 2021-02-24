@@ -291,6 +291,13 @@ void NODE_GGT_backdrop_corner_pin(struct wmGizmoGroupType *gzgt);
 void NODE_OT_cryptomatte_layer_add(struct wmOperatorType *ot);
 void NODE_OT_cryptomatte_layer_remove(struct wmOperatorType *ot);
 
+/* node_geometry_attribute_search.cc */
+void node_socket_button_add_attribute_search(const struct bContext *C,
+                                             struct bNode *node,
+                                             struct bNodeSocket *socket,
+                                             struct uiBlock *block,
+                                             struct uiBut *but);
+
 extern const char *node_context_dir[];
 
 /* XXXXXX */
@@ -308,32 +315,6 @@ extern const char *node_context_dir[];
 #define NODE_MULTI_INPUT_LINK_GAP (0.25f * U.widget_unit)
 #define NODE_RESIZE_MARGIN (0.20f * U.widget_unit)
 #define NODE_LINK_RESOL 12
-
-/* Button events (butspace) */
-enum eNodeSpace_ButEvents {
-  B_NOP = 0,
-  B_REDR = 1,
-  B_NODE_USEMAT,
-  B_NODE_USESCENE,
-  B_NODE_USETEX,
-  B_TEXBROWSE,
-  B_TEXALONE,
-  B_TEXLOCAL,
-  B_TEXDELETE,
-  B_TEXPRV,
-  B_AUTOTEXNAME,
-  B_KEEPDATA,
-  B_NODE_EXEC,
-  B_MATPRV,
-  B_NODE_LOADIMAGE,
-  B_NODE_SETIMAGE,
-};
-
-void node_socket_button_add_attribute_search(const struct bContext *C,
-                                             struct bNode *node,
-                                             struct bNodeSocket *socket,
-                                             struct uiBlock *block,
-                                             struct uiBut *but);
 
 #ifdef __cplusplus
 }
