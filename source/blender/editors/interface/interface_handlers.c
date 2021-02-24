@@ -171,7 +171,7 @@ static bool ui_mouse_motion_keynav_test(struct uiKeyNavLock *keynav, const wmEve
 /* pixels to move the cursor to get out of keyboard navigation */
 #define BUTTON_KEYNAV_PX_LIMIT 8
 
-#define MENU_TOWARDS_MARGIN 20      /* margin in pixels */
+#define MENU_TOWARDS_MARGIN 20 /* margin in pixels */
 #define MENU_TOWARDS_WIGGLE_ROOM 64 /* tolerance in pixels */
 /* drag-lock distance threshold in pixels */
 #define BUTTON_DRAGLOCK_THRESH 3
@@ -3407,8 +3407,8 @@ static void ui_textedit_end(bContext *C, uiBut *but, uiHandleButtonData *data)
     }
 
     if (data->searchbox) {
-      uiButSearch *but_search = (uiButSearch *)but;
       BLI_assert(but->type == UI_BTYPE_SEARCH_MENU);
+      uiButSearch *but_search = (uiButSearch *)but;
 
       if (data->cancel == false && !but_search->all_strings_valid) {
         if ((ui_searchbox_apply(but, data->searchbox) == false) &&
