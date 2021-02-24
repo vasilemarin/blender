@@ -468,7 +468,8 @@ static void ui_searchbox_update_fn(bContext *C,
     wmWindow *win = CTX_wm_window(C);
     WM_tooltip_clear(C, win);
   }
-  search_but->items_update_fn(C, search_but->arg, str, items);
+  const bool is_first_search = !search_but->but.changed;
+  search_but->items_update_fn(C, search_but->arg, str, items, is_first_search);
 }
 
 /* region is the search box itself */

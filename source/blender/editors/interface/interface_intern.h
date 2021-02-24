@@ -1199,7 +1199,8 @@ typedef struct uiRNACollectionSearch {
 void ui_rna_collection_search_update_fn(const struct bContext *C,
                                         void *arg,
                                         const char *str,
-                                        uiSearchItems *items);
+                                        uiSearchItems *items,
+                                        const bool is_first);
 
 /* interface_ops.c */
 bool ui_jump_to_target_button_poll(struct bContext *C);
