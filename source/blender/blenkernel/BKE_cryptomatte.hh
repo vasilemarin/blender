@@ -25,6 +25,7 @@
 
 #include <string>
 
+#include "BLI_map.hh"
 #include "BLI_string_ref.hh"
 
 namespace blender {
@@ -55,5 +56,18 @@ std::string BKE_cryptomatte_meta_data_key(const StringRef layer_name,
  * `render_pass_name` internal data.
  */
 StringRef BKE_cryptomatte_extract_layer_name(const StringRef render_pass_name);
+
+struct CryptomatteLayer {
+  blender::Map<std::string, std::string> hashes;
+
+#ifdef WITH_CXX_GUARDEDALLOC
+  MEM_CXX_CLASS_ALLOC_FUNCS("cryptomatte:CryptomatteLayer")
+#endif
+  std::string encode_hash(uint32_t cryptomatte_hash);
+
+  void add_hash(blender::StringRef name, uint32_t cryptomatte_hash);
+  void add_encoded_hash(blender::StringRef name, blender::StringRefNull cryptomatte_encoded_hash);
+  std::string manifest();
+};
 
 }  // namespace blender

@@ -35,7 +35,6 @@
 #include "BLI_dynstr.h"
 #include "BLI_hash_mm3.h"
 #include "BLI_listbase.h"
-#include "BLI_map.hh"
 #include "BLI_string.h"
 
 #include "MEM_guardedalloc.h"
@@ -47,55 +46,10 @@
 #include <string>
 #include <string_view>
 
-struct CryptomatteLayer {
-  blender::Map<std::string, std::string> hashes;
-
-#ifdef WITH_CXX_GUARDEDALLOC
-  MEM_CXX_CLASS_ALLOC_FUNCS("cryptomatte:CryptomatteLayer")
-#endif
-  std::string encode_hash(uint32_t cryptomatte_hash)
-  {
-    std::stringstream encoded;
-    encoded << std::setfill('0') << std::setw(sizeof(uint32_t) * 2) << std::hex
-            << cryptomatte_hash;
-    return encoded.str();
-  }
-
-  void add_hash(blender::StringRef name, uint32_t cryptomatte_hash)
-  {
-    add_encoded_hash(name, encode_hash(cryptomatte_hash));
-  }
-
-  void add_encoded_hash(blender::StringRef name, blender::StringRefNull cryptomatte_encoded_hash)
-  {
-    hashes.add_overwrite(name, cryptomatte_encoded_hash);
-  }
-
-  std::string manifest()
-  {
-    std::stringstream manifest;
-
-    bool is_first = true;
-    const blender::Map<std::string, std::string> &const_map = hashes;
-    manifest << "{";
-    for (blender::Map<std::string, std::string>::Item item : const_map.items()) {
-      if (is_first) {
-        is_first = false;
-      }
-      else {
-        manifest << ",";
-      }
-      manifest << quoted(item.key) << ":\"" << item.value << "\"";
-    }
-    manifest << "}";
-    return manifest.str();
-  }
-};
-
 struct CryptomatteSession {
-  CryptomatteLayer objects;
-  CryptomatteLayer assets;
-  CryptomatteLayer materials;
+  blender::CryptomatteLayer objects;
+  blender::CryptomatteLayer assets;
+  blender::CryptomatteLayer materials;
 
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("cryptomatte:CryptomatteSession")
@@ -120,7 +74,7 @@ uint32_t BKE_cryptomatte_hash(const char *name, const int name_len)
   return cryptohash_int;
 }
 
-static uint32_t cryptomatte_hash(CryptomatteLayer *layer, const ID *id)
+static uint32_t cryptomatte_hash(blender::CryptomatteLayer *layer, const ID *id)
 {
   const char *name = &id->name[2];
   const int name_len = BLI_strnlen(name, MAX_NAME - 2);
@@ -300,7 +254,7 @@ void BKE_cryptomatte_store_metadata(struct CryptomatteSession *session,
                                     const char *cryptomatte_layer_name)
 {
   /* Create Manifest. */
-  CryptomatteLayer *layer = nullptr;
+  blender::CryptomatteLayer *layer = nullptr;
   switch (cryptomatte_layer) {
     case VIEW_LAYER_CRYPTOMATTE_OBJECT:
       layer = &session->objects;
@@ -359,6 +313,44 @@ StringRef BKE_cryptomatte_extract_layer_name(const StringRef render_pass_name)
     last_token -= 1;
   }
   return render_pass_name.substr(0, last_token);
+}
+
+std::string CryptomatteLayer::encode_hash(uint32_t cryptomatte_hash)
+{
+  std::stringstream encoded;
+  encoded << std::setfill('0') << std::setw(sizeof(uint32_t) * 2) << std::hex << cryptomatte_hash;
+  return encoded.str();
+}
+
+void CryptomatteLayer::add_hash(blender::StringRef name, uint32_t cryptomatte_hash)
+{
+  add_encoded_hash(name, encode_hash(cryptomatte_hash));
+}
+
+void CryptomatteLayer::add_encoded_hash(blender::StringRef name,
+                                        blender::StringRefNull cryptomatte_encoded_hash)
+{
+  hashes.add_overwrite(name, cryptomatte_encoded_hash);
+}
+
+std::string CryptomatteLayer::manifest()
+{
+  std::stringstream manifest;
+
+  bool is_first = true;
+  const blender::Map<std::string, std::string> &const_map = hashes;
+  manifest << "{";
+  for (blender::Map<std::string, std::string>::Item item : const_map.items()) {
+    if (is_first) {
+      is_first = false;
+    }
+    else {
+      manifest << ",";
+    }
+    manifest << quoted(item.key) << ":\"" << item.value << "\"";
+  }
+  manifest << "}";
+  return manifest.str();
 }
 
 }  // namespace blender

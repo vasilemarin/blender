@@ -41,4 +41,23 @@ TEST(cryptomatte, extract_layer_name)
   ASSERT_EQ("", BKE_cryptomatte_extract_layer_name(""));
 }
 
+TEST(cryptomatte, cryptomatte_layer)
+{
+  blender::CryptomatteLayer layer;
+  ASSERT_EQ("{}", layer.manifest());
+
+  layer.add_hash("Object", 123);
+  ASSERT_EQ("{\"Object\":\"0000007b\"}", layer.manifest());
+
+  layer.add_encoded_hash("Object2", "123245678");
+  ASSERT_EQ("{\"Object\":\"0000007b\",\"Object2\":\"123245678\"}", layer.manifest());
+}
+
+TEST(cryptomatte, cryptomatte_layer_quoted)
+{
+  blender::CryptomatteLayer layer;
+  layer.add_hash("\"Object\"", 123);
+  ASSERT_EQ("{\"\\\"Object\\\"\":\"0000007b\"}", layer.manifest());
+}
+
 }  // namespace blender::bke::tests
