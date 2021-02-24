@@ -3407,8 +3407,8 @@ static void ui_textedit_end(bContext *C, uiBut *but, uiHandleButtonData *data)
     }
 
     if (data->searchbox) {
-      uiButSearch *but_search = (uiButSearch *)but;
       BLI_assert(but->type == UI_BTYPE_SEARCH_MENU);
+      uiButSearch *but_search = (uiButSearch *)but;
 
       if (data->cancel == false && !but_search->all_strings_valid) {
         if ((ui_searchbox_apply(but, data->searchbox) == false) &&
