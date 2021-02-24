@@ -52,10 +52,8 @@ struct AttributeSearchData {
   uiBlock *button_store_block;
 };
 
-static void attribute_search_update_fn(const bContext *C,
-                                       void *arg,
-                                       const char *str,
-                                       uiSearchItems *items)
+static void attribute_search_update_fn(
+    const bContext *C, void *arg, const char *str, uiSearchItems *items, const bool is_first)
 {
   AttributeSearchData *data = static_cast<AttributeSearchData *>(arg);
   const NodeUIStorage *ui_storage = BKE_node_tree_ui_storage_get_from_context(
@@ -72,6 +70,14 @@ static void attribute_search_update_fn(const bContext *C,
     const bool contains_search = attribute_name_hints.contains_as(StringRef(str));
     UI_search_item_add(
         items, str, (void *)str, ICON_ADD, contains_search ? UI_BUT_DISABLED : 0, 0);
+  }
+
+  /* Skip the filter when the menu is first opened, so all of the items are visible. */
+  if (is_first) {
+    for (const std::string &attribute_name : attribute_name_hints) {
+      UI_search_item_add(items, attribute_name.c_str(), (void *)&attribute_name, ICON_NONE, 0, 0);
+    }
+    return;
   }
 
   StringSearch *search = BLI_string_search_new();
