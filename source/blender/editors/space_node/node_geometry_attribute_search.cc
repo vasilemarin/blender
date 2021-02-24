@@ -66,6 +66,14 @@ static void attribute_search_update_fn(const bContext *C,
 
   const Set<std::string> &attribute_name_hints = ui_storage->attribute_name_hints;
 
+  if (str[0] != '\0') {
+    /* Any string may be valid, so add the current search string with the hints,
+     * but gray it out if if the attribute already exists. */
+    const bool contains_search = attribute_name_hints.contains_as(StringRef(str));
+    UI_search_item_add(
+        items, str, (void *)str, ICON_ADD, contains_search ? UI_BUT_DISABLED : 0, 0);
+  }
+
   StringSearch *search = BLI_string_search_new();
   for (const std::string &attribute_name : attribute_name_hints) {
     BLI_string_search_add(search, attribute_name.c_str(), (void *)&attribute_name);
