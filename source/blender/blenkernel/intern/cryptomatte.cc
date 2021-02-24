@@ -315,6 +315,94 @@ StringRef BKE_cryptomatte_extract_layer_name(const StringRef render_pass_name)
   return render_pass_name.substr(0, last_token);
 }
 
+struct CryptomatteManifestParser {
+  int skip_whitespaces_len_(blender::StringRef manifest)
+  {
+    int skip_len = 0;
+    while (!manifest.is_empty()) {
+      char front = manifest[skip_len];
+      if (!std::isspace<char>(front, std::locale::classic())) {
+        break;
+      }
+      skip_len++;
+    }
+    return skip_len;
+  }
+
+  int quoted_string_len_(blender::StringRef ref)
+  {
+    int len = 1;
+    while (len < ref.size()) {
+      char current_char = ref[len];
+      if (current_char == '\"') {
+        len += 1;
+        break;
+      }
+      len += 1;
+    }
+    return len;
+  }
+
+  bool parse(CryptomatteLayer &layer, blender::StringRefNull manifest)
+  {
+    StringRef ref = manifest;
+    ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+    if (ref.is_empty() || ref.front() != '{') {
+      return false;
+    }
+    ref = ref.drop_prefix(1);
+    while (!ref.is_empty()) {
+      char front = ref.front();
+
+      if (front == '\"') {
+        const int quoted_name_len = quoted_string_len_(ref);
+        const int name_len = quoted_name_len - 2;
+        blender::StringRef name = ref.substr(1, name_len);
+        ref = ref.drop_prefix(quoted_name_len);
+        ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+
+        char colon = ref.front();
+        if (colon != ':') {
+          return false;
+        }
+        ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+
+        const int quoted_hash_len = quoted_string_len_(ref);
+        const int hash_len = quoted_hash_len - 2;
+        blender::StringRef hash = ref.substr(1, hash_len);
+        ref = ref.drop_prefix(quoted_hash_len);
+        layer.add_encoded_hash(name, blender::StringRefNull(hash));
+      }
+      if (front == ',') {
+        ref = ref.drop_prefix(1);
+      }
+      if (front == '}') {
+        ref = ref.drop_prefix(1);
+        ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+
+        break;
+      }
+      ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+    }
+
+    if (!ref.is_empty()) {
+      return false;
+    }
+
+    return true;
+  }
+};
+
+CryptomatteLayer::CryptomatteLayer()
+{
+}
+
+CryptomatteLayer::CryptomatteLayer(blender::StringRefNull manifest)
+{
+  CryptomatteManifestParser parser;
+  parser.parse(*this, manifest);
+}
+
 std::string CryptomatteLayer::encode_hash(uint32_t cryptomatte_hash)
 {
   std::stringstream encoded;

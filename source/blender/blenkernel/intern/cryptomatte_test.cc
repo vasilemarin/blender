@@ -60,4 +60,9 @@ TEST(cryptomatte, cryptomatte_layer_quoted)
   ASSERT_EQ("{\"\\\"Object\\\"\":\"0000007b\"}", layer.manifest());
 }
 
+TEST(cryptomatte, cryptomatte_layer_from_manifest)
+{
+  ASSERT_EQ("{}", blender::CryptomatteLayer("{}").manifest());
+}
+
 }  // namespace blender::bke::tests

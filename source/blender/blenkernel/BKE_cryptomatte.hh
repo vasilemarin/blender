@@ -63,8 +63,12 @@ struct CryptomatteLayer {
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("cryptomatte:CryptomatteLayer")
 #endif
-  std::string encode_hash(uint32_t cryptomatte_hash);
 
+  CryptomatteLayer();
+  /** Create a cryptomatte layer from the given manifest. */
+  CryptomatteLayer(blender::StringRefNull manifest);
+
+  static std::string encode_hash(uint32_t cryptomatte_hash);
   void add_hash(blender::StringRef name, uint32_t cryptomatte_hash);
   void add_encoded_hash(blender::StringRef name, blender::StringRefNull cryptomatte_encoded_hash);
   std::string manifest();
