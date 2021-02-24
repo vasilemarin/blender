@@ -3390,25 +3390,16 @@ static void std_node_socket_draw(
       uiLayout *row = uiLayoutSplit(layout, 0.5f, false);
       uiItemL(row, text, 0);
 
-      uiBlock *block = uiLayoutGetBlock(row);
-      uiBut *but = uiDefIconTextButR(block,
-                                     UI_BTYPE_SEARCH_MENU,
-                                     0,
-                                     ICON_NONE,
-                                     "",
-                                     0,
-                                     0,
-                                     200,
-                                     UI_UNIT_Y,
-                                     ptr,
-                                     "default_value",
-                                     0,
-                                     0.0f,
-                                     0.0f,
-                                     0.0f,
-                                     0.0f,
-                                     "");
-      node_socket_button_add_attribute_search(C, node, sock, block, but);
+      SpaceNode *space_node = CTX_wm_space_node(C);
+      BLI_assert(space_node != NULL && space_node->edittree != NULL);
+      const bNodeTree *node_tree = space_node->edittree;
+      if (node_tree->type == NTREE_GEOMETRY) {
+        node_geometry_add_attribute_search_button(C, node_tree, node, ptr, row);
+      }
+      else {
+        uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
+      }
+
       break;
     }
     case SOCK_OBJECT: {

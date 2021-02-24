@@ -43,7 +43,6 @@ using blender::StringRef;
 struct AttributeSearchData {
   const bNodeTree &node_tree;
   const bNode &node;
-  bNodeSocket &socket;
 
   /* Needed for proper interaction with the search button. Otherwise the interface code can't keep
    * track of which button is active by comparing pointers to this struct, because it is newly
@@ -94,23 +93,34 @@ static void attribute_search_free_fn(void *arg)
   delete data;
 }
 
-void node_socket_button_add_attribute_search(
-    const bContext *C, bNode *node, bNodeSocket *socket, uiBlock *block, uiBut *but)
+void node_geometry_add_attribute_search_button(const bContext *C,
+                                               const bNodeTree *node_tree,
+                                               bNode *node,
+                                               PointerRNA *socket_ptr,
+                                               uiLayout *layout)
 {
-  BLI_assert(socket->type == SOCK_STRING);
-
-  SpaceNode *space_node = CTX_wm_space_node(C);
-  if (space_node == nullptr) {
-    return;
-  }
-  if (space_node->edittree == nullptr) {
-    return;
-  }
+  uiBlock *block = uiLayoutGetBlock(layout);
+  uiBut *but = uiDefIconTextButR(block,
+                                 UI_BTYPE_SEARCH_MENU,
+                                 0,
+                                 ICON_NONE,
+                                 "",
+                                 0,
+                                 0,
+                                 200,
+                                 UI_UNIT_Y,
+                                 socket_ptr,
+                                 "default_value",
+                                 0,
+                                 0.0f,
+                                 0.0f,
+                                 0.0f,
+                                 0.0f,
+                                 "");
 
   AttributeSearchData *data = new AttributeSearchData{
-      *space_node->edittree,
+      *node_tree,
       *node,
-      *socket,
       but,
       UI_butstore_create(block),
       block,

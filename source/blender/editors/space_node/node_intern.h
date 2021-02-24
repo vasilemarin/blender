@@ -292,11 +292,11 @@ void NODE_OT_cryptomatte_layer_add(struct wmOperatorType *ot);
 void NODE_OT_cryptomatte_layer_remove(struct wmOperatorType *ot);
 
 /* node_geometry_attribute_search.cc */
-void node_socket_button_add_attribute_search(const struct bContext *C,
-                                             struct bNode *node,
-                                             struct bNodeSocket *socket,
-                                             struct uiBlock *block,
-                                             struct uiBut *but);
+void node_geometry_add_attribute_search_button(const struct bContext *C,
+                                               const struct bNodeTree *node_tree,
+                                               struct bNode *node,
+                                               struct PointerRNA *socket_ptr,
+                                               struct uiLayout *layout);
 
 extern const char *node_context_dir[];
 
