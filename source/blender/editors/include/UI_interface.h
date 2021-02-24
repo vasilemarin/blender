@@ -502,7 +502,8 @@ typedef struct ARegion *(*uiButSearchCreateFn)(struct bContext *C,
 typedef void (*uiButSearchUpdateFn)(const struct bContext *C,
                                     void *arg,
                                     const char *str,
-                                    uiSearchItems *items);
+                                    uiSearchItems *items,
+                                    const bool is_first);
 typedef void (*uiButSearchArgFreeFn)(void *arg);
 typedef bool (*uiButSearchContextMenuFn)(struct bContext *C,
                                          void *arg,

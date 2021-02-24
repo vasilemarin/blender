@@ -6673,7 +6673,8 @@ void UI_but_func_search_set_all_strings_valid(uiBut *but, const bool value)
 static void operator_enum_search_update_fn(const struct bContext *C,
                                            void *but,
                                            const char *str,
-                                           uiSearchItems *items)
+                                           uiSearchItems *items,
+                                           const bool UNUSED(is_first))
 {
   wmOperatorType *ot = ((uiBut *)but)->optype;
   PropertyRNA *prop = ot->prop;
