@@ -77,7 +77,7 @@ struct NodeWarning {
 
 struct NodeUIStorage {
   blender::Vector<NodeWarning> warnings;
-  blender::Set<std::string> attribute_name_hints = {"HELLO!", "DOES", "THIS", "WORK???"};
+  blender::Set<std::string> attribute_name_hints;
 };
 
 struct NodeTreeUIStorage {
@@ -96,3 +96,8 @@ void BKE_nodetree_error_message_add(bNodeTree &ntree,
                                     const bNode &node,
                                     const NodeWarningType type,
                                     std::string message);
+
+void BKE_nodetree_attribute_hint_add(bNodeTree &ntree,
+                                     const NodeTreeEvaluationContext &context,
+                                     const bNode &node,
+                                     const blender::StringRef attribute_name);
