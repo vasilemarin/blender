@@ -3390,9 +3390,7 @@ static void std_node_socket_draw(
       uiLayout *row = uiLayoutSplit(layout, 0.5f, false);
       uiItemL(row, text, 0);
 
-      SpaceNode *space_node = CTX_wm_space_node(C);
-      BLI_assert(space_node != NULL && space_node->edittree != NULL);
-      const bNodeTree *node_tree = space_node->edittree;
+      const bNodeTree *node_tree = (const bNodeTree *)node_ptr->owner_id;
       if (node_tree->type == NTREE_GEOMETRY) {
         node_geometry_add_attribute_search_button(node_tree, node, ptr, row);
       }
