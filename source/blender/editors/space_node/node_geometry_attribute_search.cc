@@ -64,17 +64,16 @@ static void attribute_search_update_fn(
 
   const Set<std::string> &attribute_name_hints = ui_storage->attribute_name_hints;
 
-  if (str[0] != '\0') {
-    /* Any string may be valid, so add the current search string with the hints, but gray it out
-     * if the attribute already exists. TODO: Don't add this for input attributes. */
-    const bool contains_search = attribute_name_hints.contains_as(StringRef(str));
-    UI_search_item_add(
-        items, str, (void *)str, ICON_ADD, contains_search ? UI_BUT_DISABLED : 0, 0);
+  if (str[0] != '\0' && !attribute_name_hints.contains_as(StringRef(str))) {
+    /* Any string may be valid, so add the current search string with the hints. */
+    UI_search_item_add(items, str, (void *)str, ICON_ADD, 0, 0);
   }
 
   /* Skip the filter when the menu is first opened, so all of the items are visible. */
   if (is_first) {
     for (const std::string &attribute_name : attribute_name_hints) {
+      /* Just use the pointer to the name string as the search data,
+       * since it's not used anyway but we need a pointer. */
       UI_search_item_add(items, attribute_name.c_str(), (void *)&attribute_name, ICON_NONE, 0, 0);
     }
     return;
