@@ -52,17 +52,10 @@ static void cryptomatte_add(Main *bmain, NodeCryptomatte *n, float encoded_hash)
     return;
   }
 
-  const char *name = NULL;
-  const ID *matching_id = BKE_cryptomatte_find_id(bmain, encoded_hash);
-  if (matching_id != NULL) {
-    name = matching_id->name + 2;
-  }
-
   CryptomatteEntry *entry = MEM_callocN(sizeof(CryptomatteEntry), __func__);
   entry->encoded_hash = encoded_hash;
-  if (name != NULL) {
-    BLI_strncpy(entry->name, name, sizeof(entry->name));
-  }
+  BKE_cryptomatte_find_name(bmain, encoded_hash, entry->name, sizeof(entry->name));
+
   BLI_addtail(&n->entries, entry);
 }
 
