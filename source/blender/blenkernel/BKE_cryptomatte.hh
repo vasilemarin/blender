@@ -23,10 +23,13 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "BLI_map.hh"
 #include "BLI_string_ref.hh"
+
+struct ID;
 
 namespace blender::bke::cryptomatte {
 
@@ -65,7 +68,9 @@ struct CryptomatteLayer {
 #endif
 
   static std::unique_ptr<CryptomatteLayer> read_from_manifest(blender::StringRefNull manifest);
+  uint32_t add_ID(const struct ID &id);
   void add_hash(blender::StringRef name, uint32_t cryptomatte_hash);
+  std::optional<std::string> find_name_by_float_hash(float encoded_hash) const;
   std::string manifest();
 };
 

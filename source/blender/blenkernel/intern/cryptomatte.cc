@@ -51,10 +51,38 @@ struct CryptomatteSession {
   blender::bke::cryptomatte::CryptomatteLayer assets;
   blender::bke::cryptomatte::CryptomatteLayer materials;
 
+  CryptomatteSession();
+  CryptomatteSession(const Main *bmain);
+
+  std::optional<std::string> find_name_by_float_hash(float encoded_hash) const;
+
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("cryptomatte:CryptomatteSession")
 #endif
 };
+
+CryptomatteSession::CryptomatteSession()
+{
+}
+
+CryptomatteSession::CryptomatteSession(const Main *bmain)
+{
+  LISTBASE_FOREACH (ID *, id, &bmain->objects) {
+    objects.add_ID(*id);
+  }
+  LISTBASE_FOREACH (ID *, id, &bmain->materials) {
+    materials.add_ID(*id);
+  }
+}
+
+std::optional<std::string> CryptomatteSession::find_name_by_float_hash(float encoded_hash) const
+{
+  std::optional<std::string> result = objects.find_name_by_float_hash(encoded_hash);
+  if (result) {
+    return result;
+  }
+  return materials.find_name_by_float_hash(encoded_hash);
+}
 
 CryptomatteSession *BKE_cryptomatte_init(void)
 {
@@ -74,22 +102,9 @@ uint32_t BKE_cryptomatte_hash(const char *name, const int name_len)
   return cryptohash_int;
 }
 
-static uint32_t cryptomatte_hash(blender::bke::cryptomatte::CryptomatteLayer *layer, const ID *id)
-{
-  const char *name = &id->name[2];
-  const int name_len = BLI_strnlen(name, MAX_NAME - 2);
-  uint32_t cryptohash_int = BKE_cryptomatte_hash(name, name_len);
-
-  if (layer != nullptr) {
-    layer->add_hash(blender::StringRef(name, name_len), cryptohash_int);
-  }
-
-  return cryptohash_int;
-}
-
 uint32_t BKE_cryptomatte_object_hash(CryptomatteSession *session, const Object *object)
 {
-  return cryptomatte_hash(&session->objects, &object->id);
+  return session->objects.add_ID(object->id);
 }
 
 uint32_t BKE_cryptomatte_material_hash(CryptomatteSession *session, const Material *material)
@@ -97,7 +112,7 @@ uint32_t BKE_cryptomatte_material_hash(CryptomatteSession *session, const Materi
   if (material == nullptr) {
     return 0.0f;
   }
-  return cryptomatte_hash(&session->materials, &material->id);
+  return session->materials.add_ID(material->id);
 }
 
 uint32_t BKE_cryptomatte_asset_hash(CryptomatteSession *session, const Object *object)
@@ -106,7 +121,7 @@ uint32_t BKE_cryptomatte_asset_hash(CryptomatteSession *session, const Object *o
   while (asset_object->parent != nullptr) {
     asset_object = asset_object->parent;
   }
-  return cryptomatte_hash(&session->assets, &asset_object->id);
+  return session->assets.add_ID(asset_object->id);
 }
 
 /* Convert a cryptomatte hash to a float.
@@ -132,28 +147,6 @@ float BKE_cryptomatte_hash_to_float(uint32_t cryptomatte_hash)
   float f;
   memcpy(&f, &float_bits, sizeof(uint32_t));
   return f;
-}
-
-static ID *cryptomatte_find_id(const ListBase *ids, const float encoded_hash)
-{
-  LISTBASE_FOREACH (ID *, id, ids) {
-    uint32_t hash = BKE_cryptomatte_hash((id->name + 2), BLI_strnlen(id->name + 2, MAX_NAME));
-    if (BKE_cryptomatte_hash_to_float(hash) == encoded_hash) {
-      return id;
-    }
-  }
-  return nullptr;
-}
-
-/* Find an ID in the given main that matches the given encoded float. */
-static struct ID *BKE_cryptomatte_find_id(const Main *bmain, const float encoded_hash)
-{
-  ID *result;
-  result = cryptomatte_find_id(&bmain->objects, encoded_hash);
-  if (result == nullptr) {
-    result = cryptomatte_find_id(&bmain->materials, encoded_hash);
-  }
-  return result;
 }
 
 char *BKE_cryptomatte_entries_to_matte_id(NodeCryptomatte *node_storage)
@@ -182,6 +175,7 @@ void BKE_cryptomatte_matte_id_to_entries(const Main *bmain,
                                          const char *matte_id)
 {
   BLI_freelistN(&node_storage->entries);
+  CryptomatteSession session(bmain);
 
   std::istringstream ss(matte_id);
   while (ss.good()) {
@@ -201,9 +195,9 @@ void BKE_cryptomatte_matte_id_to_entries(const Main *bmain,
         entry = (CryptomatteEntry *)MEM_callocN(sizeof(CryptomatteEntry), __func__);
         entry->encoded_hash = encoded_hash;
         if (bmain) {
-          ID *id = BKE_cryptomatte_find_id(bmain, encoded_hash);
-          if (id != nullptr) {
-            BLI_strncpy(entry->name, id->name + 2, sizeof(entry->name));
+          std::optional<std::string> name = session.find_name_by_float_hash(encoded_hash);
+          if (name) {
+            STRNCPY(entry->name, name->c_str());
           }
         }
       }
@@ -211,7 +205,7 @@ void BKE_cryptomatte_matte_id_to_entries(const Main *bmain,
         const char *name = token.c_str();
         int name_len = token.length();
         entry = (CryptomatteEntry *)MEM_callocN(sizeof(CryptomatteEntry), __func__);
-        BLI_strncpy(entry->name, name, sizeof(entry->name));
+        STRNCPY(entry->name, name);
         uint32_t hash = BKE_cryptomatte_hash(name, name_len);
         entry->encoded_hash = BKE_cryptomatte_hash_to_float(hash);
       }
@@ -463,9 +457,31 @@ std::unique_ptr<CryptomatteLayer> CryptomatteLayer::read_from_manifest(
   return layer;
 }
 
+uint32_t CryptomatteLayer::add_ID(const ID &id)
+{
+  const char *name = &id.name[2];
+  const int name_len = BLI_strnlen(name, MAX_NAME - 2);
+  uint32_t cryptohash_int = BKE_cryptomatte_hash(name, name_len);
+
+  add_hash(blender::StringRef(name, name_len), cryptohash_int);
+
+  return cryptohash_int;
+}
+
 void CryptomatteLayer::add_hash(blender::StringRef name, uint32_t cryptomatte_hash)
 {
   hashes.add_overwrite(name, cryptomatte_hash);
+}
+
+std::optional<std::string> CryptomatteLayer::find_name_by_float_hash(float encoded_hash) const
+{
+  const blender::Map<std::string, uint32_t> &const_map = hashes;
+  for (blender::Map<std::string, uint32_t>::Item item : const_map.items()) {
+    if (BKE_cryptomatte_hash_to_float(item.value) == encoded_hash) {
+      return std::make_optional(item.key);
+    }
+  }
+  return std::nullopt;
 }
 
 std::string CryptomatteLayer::manifest()
