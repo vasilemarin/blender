@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -64,6 +64,7 @@
 #include "BKE_armature.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
+#include "BKE_lib_override.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_outliner_treehash.h"
@@ -577,6 +578,50 @@ static void outliner_add_object_contents(SpaceOutliner *space_outliner,
   }
 }
 
+static void outliner_add_library_override_contents(SpaceOutliner *soops, TreeElement *te, ID *id)
+{
+  if (!id->override_library) {
+    return;
+  }
+
+  const bool show_system_overrides = (SUPPORT_FILTER_OUTLINER(soops) &&
+                                      (soops->filter & SO_FILTER_SHOW_SYSTEM_OVERRIDES) != 0);
+
+  PointerRNA idpoin;
+  RNA_id_pointer_create(id, &idpoin);
+
+  PointerRNA override_ptr;
+  PropertyRNA *override_prop;
+  int index = 0;
+  LISTBASE_FOREACH (IDOverrideLibraryProperty *, op, &id->override_library->properties) {
+    if (!BKE_lib_override_rna_property_find(&idpoin, op, &override_ptr, &override_prop)) {
+      /* This is fine, override properties list is not always fully up-to-date with current
+       * RNA/IDProps etc., this gets cleaned up when re-generating the overrides rules,
+       * no error here. */
+      continue;
+    }
+    if (!show_system_overrides && op->rna_prop_type == PROP_POINTER &&
+        RNA_struct_is_ID(RNA_property_pointer_type(&override_ptr, override_prop))) {
+      bool do_continue = true;
+      LISTBASE_FOREACH (IDOverrideLibraryPropertyOperation *, opop, &op->operations) {
+        if ((opop->flag & IDOVERRIDE_LIBRARY_FLAG_IDPOINTER_MATCH_REFERENCE) == 0) {
+          do_continue = false;
+          break;
+        }
+      }
+
+      if (do_continue) {
+        continue;
+      }
+    }
+
+    TreeElement *ten = outliner_add_element(
+        soops, &te->subtree, id, te, TSE_LIBRARY_OVERRIDE, index++);
+    ten->name = op->rna_path;
+    ten->directdata = op;
+  }
+}
+
 /* Can be inlined if necessary. */
 static void outliner_add_id_contents(SpaceOutliner *space_outliner,
                                      TreeElement *te,
@@ -820,6 +865,18 @@ static void outliner_add_id_contents(SpaceOutliner *space_outliner,
     default:
       break;
   }
+
+  const bool lib_overrides_visible = SUPPORT_FILTER_OUTLINER(space_outliner) &&
+                                     ((space_outliner->filter & SO_FILTER_NO_LIB_OVERRIDE) == 0);
+
+  if (lib_overrides_visible && ID_IS_OVERRIDE_LIBRARY(id)) {
+    TreeElement *ten = outliner_add_element(
+        space_outliner, &te->subtree, id, te, TSE_LIBRARY_OVERRIDE_BASE, 0);
+
+    ten->name = IFACE_("Library Overrides");
+    ten->directdata = id->override_library;
+    outliner_add_library_override_contents(space_outliner, ten, id);
+  }
 }
 
 /**
@@ -912,11 +969,7 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
     /* Other cases must be caught above. */
     BLI_assert(TSE_IS_REAL_ID(tselem));
 
-    /* The new type design sets the name already, don't override that here. We need to figure out
-     * how to deal with the idcode for non-TSE_SOME_ID types still. Some rely on it... */
-    if (!te->type) {
-      te->name = id->name + 2; /* Default, can be overridden by Library or non-ID data. */
-    }
+    te->name = id->name + 2; /* Default, can be overridden by Library or non-ID data. */
     te->idcode = GS(id->name);
   }
 
@@ -924,10 +977,11 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
     outliner_tree_element_type_expand(te->type, space_outliner);
   }
   else if (type == TSE_SOME_ID) {
-    /* ID types not (fully) ported to new design yet. */
-    if (outliner_tree_element_type_expand_poll(te->type, space_outliner)) {
+    TreeStoreElem *tsepar = parent ? TREESTORE(parent) : NULL;
+
+    /* ID data-block. */
+    if (tsepar == NULL || tsepar->type != TSE_ID_BASE || space_outliner->filter_id_type) {
       outliner_add_id_contents(space_outliner, te, tselem, id);
-      outliner_tree_element_type_post_expand(te->type, space_outliner);
     }
   }
   else if (ELEM(type,
