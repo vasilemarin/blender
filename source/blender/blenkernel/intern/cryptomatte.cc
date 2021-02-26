@@ -124,29 +124,9 @@ uint32_t BKE_cryptomatte_asset_hash(CryptomatteSession *session, const Object *o
   return session->assets.add_ID(asset_object->id);
 }
 
-/* Convert a cryptomatte hash to a float.
- *
- * Cryptomatte hashes are stored in float textures and images. The conversion is taken from the
- * cryptomatte specification. See Floating point conversion section in
- * https://github.com/Psyop/Cryptomatte/blob/master/specification/cryptomatte_specification.pdf.
- *
- * The conversion uses as many 32 bit floating point values as possible to minimize hash
- * collisions. Unfortunately not all 32 bits can be used as NaN and Inf can be problematic.
- *
- * Note that this conversion assumes to be running on a L-endian system. */
 float BKE_cryptomatte_hash_to_float(uint32_t cryptomatte_hash)
 {
-  uint32_t mantissa = cryptomatte_hash & ((1 << 23) - 1);
-  uint32_t exponent = (cryptomatte_hash >> 23) & ((1 << 8) - 1);
-  exponent = MAX2(exponent, (uint32_t)1);
-  exponent = MIN2(exponent, (uint32_t)254);
-  exponent = exponent << 23;
-  uint32_t sign = (cryptomatte_hash >> 31);
-  sign = sign << 31;
-  uint32_t float_bits = sign | exponent | mantissa;
-  float f;
-  memcpy(&f, &float_bits, sizeof(uint32_t));
-  return f;
+  return blender::bke::cryptomatte::CryptomatteHash(cryptomatte_hash).float_encoded();
 }
 
 char *BKE_cryptomatte_entries_to_matte_id(NodeCryptomatte *node_storage)
@@ -457,6 +437,31 @@ std::string CryptomatteHash::hex_encoded() const
   std::stringstream encoded;
   encoded << std::setfill('0') << std::setw(sizeof(uint32_t) * 2) << std::hex << hash;
   return encoded.str();
+}
+
+/* Convert a cryptomatte hash to a float.
+ *
+ * Cryptomatte hashes are stored in float textures and images. The conversion is taken from the
+ * cryptomatte specification. See Floating point conversion section in
+ * https://github.com/Psyop/Cryptomatte/blob/master/specification/cryptomatte_specification.pdf.
+ *
+ * The conversion uses as many 32 bit floating point values as possible to minimize hash
+ * collisions. Unfortunately not all 32 bits can be used as NaN and Inf can be problematic.
+ *
+ * Note that this conversion assumes to be running on a L-endian system. */
+float CryptomatteHash::float_encoded() const
+{
+  uint32_t mantissa = hash & ((1 << 23) - 1);
+  uint32_t exponent = (hash >> 23) & ((1 << 8) - 1);
+  exponent = MAX2(exponent, (uint32_t)1);
+  exponent = MIN2(exponent, (uint32_t)254);
+  exponent = exponent << 23;
+  uint32_t sign = (hash >> 31);
+  sign = sign << 31;
+  uint32_t float_bits = sign | exponent | mantissa;
+  float f;
+  memcpy(&f, &float_bits, sizeof(uint32_t));
+  return f;
 }
 
 std::unique_ptr<CryptomatteLayer> CryptomatteLayer::read_from_manifest(

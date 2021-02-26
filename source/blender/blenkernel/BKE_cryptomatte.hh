@@ -68,6 +68,7 @@ struct CryptomatteHash {
   static CryptomatteHash from_hex_encoded(blender::StringRef hex_encoded);
 
   std::string hex_encoded() const;
+  float float_encoded() const;
 };
 
 struct CryptomatteLayer {
