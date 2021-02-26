@@ -60,9 +60,25 @@ TEST(cryptomatte, cryptomatte_layer_quoted)
   ASSERT_EQ("{\"\\\"Object\\\"\":\"0000007b\"}", layer.manifest());
 }
 
+static void test_cryptomatte_manifest(std::string expected, std::string manifest)
+{
+  EXPECT_EQ(expected, blender::CryptomatteLayer::read_from_manifest(manifest)->manifest());
+}
+
 TEST(cryptomatte, cryptomatte_layer_from_manifest)
 {
-  ASSERT_EQ("{}", blender::CryptomatteLayer("{}").manifest());
+  test_cryptomatte_manifest("{}", "{}");
+  test_cryptomatte_manifest("{\"Object\":\"12345678\"}", "{\"Object\": \"12345678\"}");
+  test_cryptomatte_manifest("{\"Object\":\"12345678\",\"Object2\":\"87654321\"}",
+                            "{\"Object\":\"12345678\",\"Object2\":\"87654321\"}");
+  test_cryptomatte_manifest(
+      "{\"Object\":\"12345678\",\"Object2\":\"87654321\"}",
+      "  {  \"Object\"  :  \"12345678\"  ,  \"Object2\"  :  \"87654321\"  }  ");
+  test_cryptomatte_manifest("{\"Object\\\"01\\\"\":\"12345678\"}",
+                            "{\"Object\\\"01\\\"\": \"12345678\"}");
+  test_cryptomatte_manifest(
+      "{\"Object\\\"01\\\"\":\"12345678\",\"Object\":\"12345678\",\"Object2\":\"87654321\"}",
+      "{\"Object\\\"01\\\"\":\"12345678\",\"Object\":\"12345678\", \"Object2\":\"87654321\"}");
 }
 
 }  // namespace blender::bke::tests

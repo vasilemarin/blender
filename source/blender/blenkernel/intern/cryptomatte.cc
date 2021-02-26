@@ -315,12 +315,12 @@ StringRef BKE_cryptomatte_extract_layer_name(const StringRef render_pass_name)
   return render_pass_name.substr(0, last_token);
 }
 
-struct CryptomatteManifestParser {
-  int skip_whitespaces_len_(blender::StringRef manifest)
+struct CryptomatteManifestReader {
+  static constexpr int skip_whitespaces_len_(blender::StringRef ref)
   {
     int skip_len = 0;
-    while (!manifest.is_empty()) {
-      char front = manifest[skip_len];
+    while (skip_len < ref.size()) {
+      char front = ref[skip_len];
       if (!std::isspace<char>(front, std::locale::classic())) {
         break;
       }
@@ -329,24 +329,56 @@ struct CryptomatteManifestParser {
     return skip_len;
   }
 
-  int quoted_string_len_(blender::StringRef ref)
+  static constexpr blender::StringRef skip_whitespaces_(blender::StringRef ref)
+  {
+    return ref.drop_prefix(skip_whitespaces_len_(ref));
+  }
+
+  static constexpr int quoted_string_len_(blender::StringRef ref)
   {
     int len = 1;
+    bool skip_next = false;
     while (len < ref.size()) {
       char current_char = ref[len];
-      if (current_char == '\"') {
-        len += 1;
-        break;
+      if (skip_next) {
+        skip_next = false;
+      }
+      else {
+        if (current_char == '\\') {
+          skip_next = true;
+        }
+        if (current_char == '\"') {
+          len += 1;
+          break;
+        }
       }
       len += 1;
     }
     return len;
   }
 
-  bool parse(CryptomatteLayer &layer, blender::StringRefNull manifest)
+  static std::string unquote_(const blender::StringRef ref)
+  {
+    std::ostringstream stream;
+    for (char c : ref) {
+      if (c != '\\') {
+        stream << c;
+      }
+    }
+    return stream.str();
+  }
+
+  static uint32_t decode_hash_(const blender::StringRef ref)
+  {
+    uint32_t result;
+    std::istringstream(ref) >> std::hex >> result;
+    return result;
+  }
+
+  static bool parse(CryptomatteLayer &layer, blender::StringRefNull manifest)
   {
     StringRef ref = manifest;
-    ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+    ref = skip_whitespaces_(ref);
     if (ref.is_empty() || ref.front() != '{') {
       return false;
     }
@@ -357,32 +389,36 @@ struct CryptomatteManifestParser {
       if (front == '\"') {
         const int quoted_name_len = quoted_string_len_(ref);
         const int name_len = quoted_name_len - 2;
-        blender::StringRef name = ref.substr(1, name_len);
+        std::string name = unquote_(ref.substr(1, name_len));
         ref = ref.drop_prefix(quoted_name_len);
-        ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+        ref = skip_whitespaces_(ref);
 
         char colon = ref.front();
         if (colon != ':') {
           return false;
         }
-        ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+        ref = ref.drop_prefix(1);
+        ref = skip_whitespaces_(ref);
+
+        if (ref.front() != '\"') {
+          return false;
+        }
 
         const int quoted_hash_len = quoted_string_len_(ref);
         const int hash_len = quoted_hash_len - 2;
-        blender::StringRef hash = ref.substr(1, hash_len);
+        uint32_t hash = decode_hash_(ref.substr(1, hash_len));
         ref = ref.drop_prefix(quoted_hash_len);
-        layer.add_encoded_hash(name, blender::StringRefNull(hash));
+        layer.add_hash(name, hash);
       }
-      if (front == ',') {
+      else if (front == ',') {
         ref = ref.drop_prefix(1);
       }
-      if (front == '}') {
+      else if (front == '}') {
         ref = ref.drop_prefix(1);
-        ref = ref.drop_prefix(skip_whitespaces_len_(ref));
-
+        ref = skip_whitespaces_(ref);
         break;
       }
-      ref = ref.drop_prefix(skip_whitespaces_len_(ref));
+      ref = skip_whitespaces_(ref);
     }
 
     if (!ref.is_empty()) {
@@ -393,14 +429,12 @@ struct CryptomatteManifestParser {
   }
 };
 
-CryptomatteLayer::CryptomatteLayer()
+std::unique_ptr<CryptomatteLayer> CryptomatteLayer::read_from_manifest(
+    blender::StringRefNull manifest)
 {
-}
-
-CryptomatteLayer::CryptomatteLayer(blender::StringRefNull manifest)
-{
-  CryptomatteManifestParser parser;
-  parser.parse(*this, manifest);
+  std::unique_ptr<CryptomatteLayer> layer = std::make_unique<CryptomatteLayer>();
+  CryptomatteManifestReader::parse(*layer.get(), manifest);
+  return layer;
 }
 
 std::string CryptomatteLayer::encode_hash(uint32_t cryptomatte_hash)
