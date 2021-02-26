@@ -215,6 +215,8 @@ void GpencilExporterSVG::export_gpencil_layers(void)
 
         /* Apply layer thickness change. */
         gps_duplicate->thickness += gpl->line_change;
+        /* Apply object scale to thickness. */
+        gps_duplicate->thickness *= mat4_to_scale(ob->obmat);
         CLAMP_MIN(gps_duplicate->thickness, 1.0f);
 
         if (gps_duplicate->totpoints == 1) {
