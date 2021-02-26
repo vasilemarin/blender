@@ -54,7 +54,7 @@ struct CryptomatteSession {
   CryptomatteSession();
   CryptomatteSession(const Main *bmain);
 
-  std::optional<std::string> find_name_by_float_hash(float encoded_hash) const;
+  std::optional<std::string> operator[](float encoded_hash) const;
 
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("cryptomatte:CryptomatteSession")
@@ -75,13 +75,13 @@ CryptomatteSession::CryptomatteSession(const Main *bmain)
   }
 }
 
-std::optional<std::string> CryptomatteSession::find_name_by_float_hash(float encoded_hash) const
+std::optional<std::string> CryptomatteSession::operator[](float encoded_hash) const
 {
-  std::optional<std::string> result = objects.find_name_by_float_hash(encoded_hash);
+  std::optional<std::string> result = objects[encoded_hash];
   if (result) {
     return result;
   }
-  return materials.find_name_by_float_hash(encoded_hash);
+  return materials[encoded_hash];
 }
 
 CryptomatteSession *BKE_cryptomatte_init(void)
@@ -98,8 +98,8 @@ void BKE_cryptomatte_free(CryptomatteSession *session)
 
 uint32_t BKE_cryptomatte_hash(const char *name, const int name_len)
 {
-  uint32_t cryptohash_int = BLI_hash_mm3((const unsigned char *)name, name_len, 0);
-  return cryptohash_int;
+  blender::bke::cryptomatte::CryptomatteHash hash(name, name_len);
+  return hash.hash;
 }
 
 uint32_t BKE_cryptomatte_object_hash(CryptomatteSession *session, const Object *object)
@@ -195,7 +195,7 @@ void BKE_cryptomatte_matte_id_to_entries(const Main *bmain,
         entry = (CryptomatteEntry *)MEM_callocN(sizeof(CryptomatteEntry), __func__);
         entry->encoded_hash = encoded_hash;
         if (bmain) {
-          std::optional<std::string> name = session.find_name_by_float_hash(encoded_hash);
+          std::optional<std::string> name = session[encoded_hash];
           if (name) {
             STRNCPY(entry->name, name->c_str());
           }
@@ -328,13 +328,6 @@ static std::string unquote_(const blender::StringRef ref)
   return stream.str();
 }
 
-static uint32_t decode_hash_(const blender::StringRef ref)
-{
-  uint32_t result;
-  std::istringstream(ref) >> std::hex >> result;
-  return result;
-}
-
 static bool from_manifest(CryptomatteLayer &layer, blender::StringRefNull manifest)
 {
   StringRef ref = manifest;
@@ -366,7 +359,7 @@ static bool from_manifest(CryptomatteLayer &layer, blender::StringRefNull manife
 
       const int quoted_hash_len = quoted_string_len_(ref);
       const int hash_len = quoted_hash_len - 2;
-      uint32_t hash = decode_hash_(ref.substr(1, hash_len));
+      CryptomatteHash hash = CryptomatteHash::from_hex_encoded(ref.substr(1, hash_len));
       ref = ref.drop_prefix(quoted_hash_len);
       layer.add_hash(name, hash);
     }
@@ -387,28 +380,22 @@ static bool from_manifest(CryptomatteLayer &layer, blender::StringRefNull manife
 
   return true;
 }
-static std::string encode_hash_(const uint32_t cryptomatte_hash)
-{
-  std::stringstream encoded;
-  encoded << std::setfill('0') << std::setw(sizeof(uint32_t) * 2) << std::hex << cryptomatte_hash;
-  return encoded.str();
-}
 
 static std::string to_manifest(const CryptomatteLayer *layer)
 {
   std::stringstream manifest;
 
   bool is_first = true;
-  const blender::Map<std::string, uint32_t> &const_map = layer->hashes;
+  const blender::Map<std::string, CryptomatteHash> &const_map = layer->hashes;
   manifest << "{";
-  for (blender::Map<std::string, uint32_t>::Item item : const_map.items()) {
+  for (blender::Map<std::string, CryptomatteHash>::Item item : const_map.items()) {
     if (is_first) {
       is_first = false;
     }
     else {
       manifest << ",";
     }
-    manifest << quoted(item.key) << ":\"" << encode_hash_(item.value) << "\"";
+    manifest << quoted(item.key) << ":\"" << (item.value.hex_encoded()) << "\"";
   }
   manifest << "}";
   return manifest.str();
@@ -449,6 +436,29 @@ StringRef BKE_cryptomatte_extract_layer_name(const StringRef render_pass_name)
   return render_pass_name.substr(0, last_token);
 }
 
+CryptomatteHash::CryptomatteHash(uint32_t hash) : hash(hash)
+{
+}
+
+CryptomatteHash::CryptomatteHash(const char *name, const int name_len)
+{
+  hash = BLI_hash_mm3((const unsigned char *)name, name_len, 0);
+}
+
+CryptomatteHash CryptomatteHash::from_hex_encoded(blender::StringRef hex_encoded)
+{
+  CryptomatteHash result(0);
+  std::istringstream(hex_encoded) >> std::hex >> result.hash;
+  return result;
+}
+
+std::string CryptomatteHash::hex_encoded() const
+{
+  std::stringstream encoded;
+  encoded << std::setfill('0') << std::setw(sizeof(uint32_t) * 2) << std::hex << hash;
+  return encoded.str();
+}
+
 std::unique_ptr<CryptomatteLayer> CryptomatteLayer::read_from_manifest(
     blender::StringRefNull manifest)
 {
@@ -468,16 +478,16 @@ uint32_t CryptomatteLayer::add_ID(const ID &id)
   return cryptohash_int;
 }
 
-void CryptomatteLayer::add_hash(blender::StringRef name, uint32_t cryptomatte_hash)
+void CryptomatteLayer::add_hash(blender::StringRef name, CryptomatteHash cryptomatte_hash)
 {
   hashes.add_overwrite(name, cryptomatte_hash);
 }
 
-std::optional<std::string> CryptomatteLayer::find_name_by_float_hash(float encoded_hash) const
+std::optional<std::string> CryptomatteLayer::operator[](float encoded_hash) const
 {
-  const blender::Map<std::string, uint32_t> &const_map = hashes;
-  for (blender::Map<std::string, uint32_t>::Item item : const_map.items()) {
-    if (BKE_cryptomatte_hash_to_float(item.value) == encoded_hash) {
+  const blender::Map<std::string, CryptomatteHash> &const_map = hashes;
+  for (blender::Map<std::string, CryptomatteHash>::Item item : const_map.items()) {
+    if (BKE_cryptomatte_hash_to_float(item.value.hash) == encoded_hash) {
       return std::make_optional(item.key);
     }
   }

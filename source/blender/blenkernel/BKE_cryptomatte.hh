@@ -60,8 +60,18 @@ std::string BKE_cryptomatte_meta_data_key(const StringRef layer_name,
  */
 StringRef BKE_cryptomatte_extract_layer_name(const StringRef render_pass_name);
 
+struct CryptomatteHash {
+  uint32_t hash;
+
+  CryptomatteHash(uint32_t hash);
+  CryptomatteHash(const char *name, const int name_len);
+  static CryptomatteHash from_hex_encoded(blender::StringRef hex_encoded);
+
+  std::string hex_encoded() const;
+};
+
 struct CryptomatteLayer {
-  blender::Map<std::string, uint32_t> hashes;
+  blender::Map<std::string, CryptomatteHash> hashes;
 
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("cryptomatte:CryptomatteLayer")
@@ -69,9 +79,10 @@ struct CryptomatteLayer {
 
   static std::unique_ptr<CryptomatteLayer> read_from_manifest(blender::StringRefNull manifest);
   uint32_t add_ID(const struct ID &id);
-  void add_hash(blender::StringRef name, uint32_t cryptomatte_hash);
-  std::optional<std::string> find_name_by_float_hash(float encoded_hash) const;
+  void add_hash(blender::StringRef name, CryptomatteHash cryptomatte_hash);
   std::string manifest();
+
+  std::optional<std::string> operator[](float encoded_hash) const;
 };
 
 }  // namespace blender::bke::cryptomatte
