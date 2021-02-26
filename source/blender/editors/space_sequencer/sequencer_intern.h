@@ -59,7 +59,8 @@ float sequence_handle_size_get_clamped(struct Sequence *seq, const float pixelx)
 /* UNUSED */
 /* void seq_reset_imageofs(struct SpaceSeq *sseq); */
 
-struct ImBuf *sequencer_ibuf_get(struct Main *bmain,
+struct ImBuf *sequencer_ibuf_get(const struct bContext *C,
+                                 struct Main *bmain,
                                  struct ARegion *region,
                                  struct Depsgraph *depsgraph,
                                  struct Scene *scene,

@@ -969,6 +969,55 @@ static int ffmpeg_decode_video_frame(struct anim *anim)
   return (rval >= 0);
 }
 
+/* Decode first I-frame only and quit. */
+static bool ffmpeg_decode_video_frame_scan_fast(struct anim *anim, int64_t pts_to_search)
+{
+  int rval = 0;
+
+  av_log(anim->pFormatCtx, AV_LOG_DEBUG, "  SCAN FAST\n");
+
+  if (anim->next_packet.stream_index == anim->videoStream) {
+    av_free_packet(&anim->next_packet);
+    anim->next_packet.stream_index = -1;
+  }
+
+  while ((rval = av_read_frame(anim->pFormatCtx, &anim->next_packet)) >= 0) {
+    if (anim->next_packet.stream_index != anim->videoStream) {
+      continue;
+    }
+    if ((anim->next_packet.flags & AV_PKT_FLAG_KEY) == 0) {
+      continue;
+    }
+    printf("fast decode\n");
+    anim->pFrameComplete = 0;
+    avcodec_decode_video2(
+        anim->pCodecCtx, anim->pFrame, &anim->pFrameComplete, &anim->next_packet);
+
+    if (anim->pFrameComplete) {
+      anim->next_pts = av_get_pts_from_frame(anim->pFormatCtx, anim->pFrame);
+      break;
+    }
+    av_free_packet(&anim->next_packet);
+    anim->next_packet.stream_index = -1;
+  }
+
+  if (rval == AVERROR_EOF) {
+    /* Must not happen... */
+  }
+
+  if (rval < 0) {
+    anim->next_packet.stream_index = -1;
+
+    av_log(anim->pFormatCtx,
+           AV_LOG_ERROR,
+           "  DECODE READ FAILED: av_read_frame() "
+           "returned error: %d\n",
+           rval);
+  }
+
+  return (rval >= 0);
+}
+
 static void ffmpeg_decode_video_frame_scan(struct anim *anim, int64_t pts_to_search)
 {
   /* there seem to exist *very* silly GOP lengths out in the wild... */
@@ -1049,37 +1098,18 @@ static int ffmpeg_seek_by_byte(AVFormatContext *pFormatCtx)
   return false;
 }
 
-static ImBuf *ffmpeg_fetchibuf(struct anim *anim, int position, IMB_Timecode_Type tc)
+static int64_t ffmpeg_get_pts_to_search(struct anim *anim,
+                                        struct anim_index *tc_index,
+                                        int position)
 {
-  int64_t pts_to_search = 0;
-  double frame_rate;
-  double pts_time_base;
-  int64_t st_time;
-  struct anim_index *tc_index = 0;
-  AVStream *v_st;
-  int new_frame_index = 0; /* To quiet gcc barking... */
-  int old_frame_index = 0; /* To quiet gcc barking... */
-
-  if (anim == NULL) {
-    return 0;
-  }
-
-  av_log(anim->pFormatCtx, AV_LOG_DEBUG, "FETCH: pos=%d\n", position);
-
-  if (tc != IMB_TC_NONE) {
-    tc_index = IMB_anim_open_index(anim, tc);
-  }
-
-  v_st = anim->pFormatCtx->streams[anim->videoStream];
-
-  frame_rate = av_q2d(av_guess_frame_rate(anim->pFormatCtx, v_st, NULL));
-
-  st_time = anim->pFormatCtx->start_time;
-  pts_time_base = av_q2d(v_st->time_base);
+  int64_t pts_to_search;
+  int64_t st_time = anim->pFormatCtx->start_time;
+  AVStream *v_st = anim->pFormatCtx->streams[anim->videoStream];
+  double frame_rate = av_q2d(av_guess_frame_rate(anim->pFormatCtx, v_st, NULL));
+  double pts_time_base = av_q2d(v_st->time_base);
 
   if (tc_index) {
-    new_frame_index = IMB_indexer_get_frame_index(tc_index, position);
-    old_frame_index = IMB_indexer_get_frame_index(tc_index, anim->curposition);
+    int new_frame_index = IMB_indexer_get_frame_index(tc_index, position);
     pts_to_search = IMB_indexer_get_pts(tc_index, new_frame_index);
   }
   else {
@@ -1089,6 +1119,141 @@ static ImBuf *ffmpeg_fetchibuf(struct anim *anim, int position, IMB_Timecode_Typ
       pts_to_search += st_time / pts_time_base / AV_TIME_BASE;
     }
   }
+  return pts_to_search;
+}
+
+static bool ffmpeg_can_seek_by_scan(struct anim *anim, int position, struct anim_index *tc_index)
+{
+  if (position > anim->curposition + 1 && anim->preseek && !tc_index &&
+      position - (anim->curposition + 1) < anim->preseek) {
+    return true;
+  }
+
+  if (tc_index == NULL) {
+    return false;
+  }
+
+  int new_frame_index = IMB_indexer_get_frame_index(tc_index, position);
+  int old_frame_index = IMB_indexer_get_frame_index(tc_index, anim->curposition);
+  return IMB_indexer_can_scan(tc_index, old_frame_index, new_frame_index);
+}
+
+static int ffmpeg_seek(struct anim *anim,
+                       int position,
+                       struct anim_index *tc_index,
+                       bool fast_imprecise_seek)
+{
+  AVStream *v_st = anim->pFormatCtx->streams[anim->videoStream];
+  double frame_rate = av_q2d(av_guess_frame_rate(anim->pFormatCtx, v_st, NULL));
+  int64_t st_time = anim->pFormatCtx->start_time;
+
+  int64_t pts_to_search = ffmpeg_get_pts_to_search(anim, tc_index, position);
+
+  int64_t pos;
+  int ret;
+
+  if (tc_index) {
+    int new_frame_index = IMB_indexer_get_frame_index(tc_index, position);
+    uint64_t dts;
+
+    pos = IMB_indexer_get_seek_pos(tc_index, new_frame_index);
+    dts = IMB_indexer_get_seek_pos_dts(tc_index, new_frame_index);
+
+    av_log(anim->pFormatCtx, AV_LOG_DEBUG, "TC INDEX seek pos = %" PRId64 "\n", pos);
+    av_log(anim->pFormatCtx, AV_LOG_DEBUG, "TC INDEX seek dts = %" PRIu64 "\n", dts);
+
+    if (ffmpeg_seek_by_byte(anim->pFormatCtx)) {
+      av_log(anim->pFormatCtx, AV_LOG_DEBUG, "... using BYTE pos\n");
+
+      ret = av_seek_frame(anim->pFormatCtx, -1, pos, AVSEEK_FLAG_BYTE);
+      av_update_cur_dts(anim->pFormatCtx, v_st, dts);
+    }
+    else {
+      av_log(anim->pFormatCtx, AV_LOG_DEBUG, "... using DTS pos\n");
+      ret = av_seek_frame(anim->pFormatCtx, anim->videoStream, dts, AVSEEK_FLAG_BACKWARD);
+    }
+  }
+  else {
+    pos = (int64_t)(position)*AV_TIME_BASE / frame_rate;
+
+    av_log(anim->pFormatCtx,
+           AV_LOG_DEBUG,
+           "NO INDEX seek pos = %" PRId64 ", st_time = %" PRId64 "\n",
+           pos,
+           (st_time != AV_NOPTS_VALUE) ? st_time : 0);
+
+    if (pos < 0) {
+      pos = 0;
+    }
+
+    if (st_time != AV_NOPTS_VALUE) {
+      pos += st_time;
+    }
+
+    av_log(anim->pFormatCtx, AV_LOG_DEBUG, "NO INDEX final seek pos = %" PRId64 "\n", pos);
+
+    ret = av_seek_frame(anim->pFormatCtx, -1, pos, AVSEEK_FLAG_BACKWARD);
+  }
+
+  if (ret < 0) {
+    av_log(anim->pFormatCtx,
+           AV_LOG_ERROR,
+           "FETCH: "
+           "error while seeking to DTS = %" PRId64 " (frameno = %d, PTS = %" PRId64
+           "): errcode = %d\n",
+           pos,
+           position,
+           (int64_t)pts_to_search,
+           ret);
+  }
+  avcodec_flush_buffers(anim->pCodecCtx);
+
+  anim->next_pts = -1;
+
+  if (anim->next_packet.stream_index == anim->videoStream) {
+    av_free_packet(&anim->next_packet);
+    anim->next_packet.stream_index = -1;
+  }
+
+  /* memset(anim->pFrame, ...) ?? */
+  if (ret < 0) {
+    /* Seek failed. */
+    return 0;
+  }
+
+  if (fast_imprecise_seek) {
+    ffmpeg_decode_video_frame_scan_fast(anim, pts_to_search);
+
+    double pts_time_base = av_q2d(v_st->time_base);
+    int decoded_frame = (anim->pFrame->pts * pts_time_base * frame_rate);
+    printf("requested frame: %d", position);
+    printf(", got frame: %d\n", decoded_frame);
+    return decoded_frame;
+  }
+  else {
+    ffmpeg_decode_video_frame_scan(anim, pts_to_search);
+    return position;
+  }
+}
+
+static ImBuf *ffmpeg_fetchibuf(struct anim *anim,
+                               int position,
+                               IMB_Timecode_Type tc,
+                               bool fast_imprecise_seek)
+{
+  if (anim == NULL) {
+    return 0;
+  }
+
+  av_log(anim->pFormatCtx, AV_LOG_DEBUG, "FETCH: pos=%d\n", position);
+
+  struct anim_index *tc_index = IMB_anim_open_index(anim, tc);
+  int64_t pts_to_search = ffmpeg_get_pts_to_search(anim, tc_index, position);
+
+  AVStream *v_st = anim->pFormatCtx->streams[anim->videoStream];
+  double frame_rate = av_q2d(av_guess_frame_rate(anim->pFormatCtx, v_st, NULL));
+  double pts_time_base = av_q2d(v_st->time_base);
+  int64_t st_time = anim->pFormatCtx->start_time;
 
   av_log(anim->pFormatCtx,
          AV_LOG_DEBUG,
@@ -1099,111 +1264,43 @@ static ImBuf *ffmpeg_fetchibuf(struct anim *anim, int position, IMB_Timecode_Typ
          frame_rate,
          st_time);
 
-  if (anim->last_frame && anim->last_pts <= pts_to_search && anim->next_pts > pts_to_search) {
-    av_log(anim->pFormatCtx,
-           AV_LOG_DEBUG,
-           "FETCH: frame repeat: last: %" PRId64 " next: %" PRId64 "\n",
-           (int64_t)anim->last_pts,
-           (int64_t)anim->next_pts);
-    IMB_refImBuf(anim->last_frame);
-    anim->curposition = position;
-    return anim->last_frame;
-  }
-
-  if (position > anim->curposition + 1 && anim->preseek && !tc_index &&
-      position - (anim->curposition + 1) < anim->preseek) {
-    av_log(anim->pFormatCtx, AV_LOG_DEBUG, "FETCH: within preseek interval (no index)\n");
-
-    ffmpeg_decode_video_frame_scan(anim, pts_to_search);
-  }
-  else if (tc_index && IMB_indexer_can_scan(tc_index, old_frame_index, new_frame_index)) {
-    av_log(anim->pFormatCtx,
-           AV_LOG_DEBUG,
-           "FETCH: within preseek interval "
-           "(index tells us)\n");
-
-    ffmpeg_decode_video_frame_scan(anim, pts_to_search);
-  }
-  else if (position != anim->curposition + 1) {
-    int64_t pos;
-    int ret;
-
-    if (tc_index) {
-      uint64_t dts;
-
-      pos = IMB_indexer_get_seek_pos(tc_index, new_frame_index);
-      dts = IMB_indexer_get_seek_pos_dts(tc_index, new_frame_index);
-
-      av_log(anim->pFormatCtx, AV_LOG_DEBUG, "TC INDEX seek pos = %" PRId64 "\n", pos);
-      av_log(anim->pFormatCtx, AV_LOG_DEBUG, "TC INDEX seek dts = %" PRIu64 "\n", dts);
-
-      if (ffmpeg_seek_by_byte(anim->pFormatCtx)) {
-        av_log(anim->pFormatCtx, AV_LOG_DEBUG, "... using BYTE pos\n");
-
-        ret = av_seek_frame(anim->pFormatCtx, -1, pos, AVSEEK_FLAG_BYTE);
-        av_update_cur_dts(anim->pFormatCtx, v_st, dts);
-      }
-      else {
-        av_log(anim->pFormatCtx, AV_LOG_DEBUG, "... using DTS pos\n");
-        ret = av_seek_frame(anim->pFormatCtx, anim->videoStream, dts, AVSEEK_FLAG_BACKWARD);
-      }
-    }
-    else {
-      pos = (int64_t)(position - anim->preseek) * AV_TIME_BASE / frame_rate;
-
+  if (!fast_imprecise_seek) {
+    if (anim->last_frame && anim->last_pts <= pts_to_search && anim->next_pts > pts_to_search) {
       av_log(anim->pFormatCtx,
              AV_LOG_DEBUG,
-             "NO INDEX seek pos = %" PRId64 ", st_time = %" PRId64 "\n",
-             pos,
-             (st_time != AV_NOPTS_VALUE) ? st_time : 0);
-
-      if (pos < 0) {
-        pos = 0;
-      }
-
-      if (st_time != AV_NOPTS_VALUE) {
-        pos += st_time;
-      }
-
-      av_log(anim->pFormatCtx, AV_LOG_DEBUG, "NO INDEX final seek pos = %" PRId64 "\n", pos);
-
-      ret = av_seek_frame(anim->pFormatCtx, -1, pos, AVSEEK_FLAG_BACKWARD);
+             "FETCH: frame repeat: last: %" PRId64 " next: %" PRId64 "\n",
+             (int64_t)anim->last_pts,
+             (int64_t)anim->next_pts);
+      IMB_refImBuf(anim->last_frame);
+      anim->curposition = position;
+      return anim->last_frame;
     }
 
-    if (ret < 0) {
-      av_log(anim->pFormatCtx,
-             AV_LOG_ERROR,
-             "FETCH: "
-             "error while seeking to DTS = %" PRId64 " (frameno = %d, PTS = %" PRId64
-             "): errcode = %d\n",
-             pos,
-             position,
-             (int64_t)pts_to_search,
-             ret);
-    }
+    /******************  Actual seeking ******************/
 
-    avcodec_flush_buffers(anim->pCodecCtx);
-
-    anim->next_pts = -1;
-
-    if (anim->next_packet.stream_index == anim->videoStream) {
-      av_free_packet(&anim->next_packet);
-      anim->next_packet.stream_index = -1;
-    }
-
-    /* memset(anim->pFrame, ...) ?? */
-
-    if (ret >= 0) {
+    if (ffmpeg_can_seek_by_scan(anim, position, tc_index)) {
+      av_log(anim->pFormatCtx, AV_LOG_DEBUG, "FETCH: within preseek interval\n");
       ffmpeg_decode_video_frame_scan(anim, pts_to_search);
     }
-  }
-  else if (position == 0 && anim->curposition == -1) {
-    /* first frame without seeking special case... */
-    ffmpeg_decode_video_frame(anim);
+    else if (position != anim->curposition + 1) {
+      position = ffmpeg_seek(anim, position, tc_index, fast_imprecise_seek);
+    }
+    else if (position == 0 && anim->curposition == -1) {
+      /* first frame without seeking special case... */
+      ffmpeg_decode_video_frame(anim);
+    }
+    else {
+      av_log(anim->pFormatCtx, AV_LOG_DEBUG, "FETCH: no seek necessary, just continue...\n");
+    }
   }
   else {
-    av_log(anim->pFormatCtx, AV_LOG_DEBUG, "FETCH: no seek necessary, just continue...\n");
+    position = ffmpeg_seek(anim, position, tc_index, fast_imprecise_seek);
   }
+
+  int decoded_frame = (anim->pFrame->pts * pts_time_base * frame_rate);
+  printf("got frame: %d\n", decoded_frame);
+
+  anim->curposition = position;
 
   IMB_freeImBuf(anim->last_frame);
 
@@ -1235,9 +1332,14 @@ static ImBuf *ffmpeg_fetchibuf(struct anim *anim, int position, IMB_Timecode_Typ
 
   anim->last_pts = anim->next_pts;
 
-  ffmpeg_decode_video_frame(anim);
-
-  anim->curposition = position;
+  if (!fast_imprecise_seek) {
+    ffmpeg_decode_video_frame(anim);
+  }
+  else {
+    anim->last_pts = -1;
+    anim->next_pts = -1;
+    anim->curposition = -1;
+  }
 
   IMB_refImBuf(anim->last_frame);
 
@@ -1359,6 +1461,92 @@ struct ImBuf *IMB_anim_previewframe(struct anim *anim)
   return ibuf;
 }
 
+struct ImBuf *IMB_anim_absolute_fast_imprecise(struct anim *anim,
+                                               int position,
+                                               IMB_Timecode_Type tc,
+                                               IMB_Proxy_Size preview_size)
+{
+  struct ImBuf *ibuf = NULL;
+  char head[256], tail[256];
+  unsigned short digits;
+  int pic;
+  int filter_y;
+  if (anim == NULL) {
+    return NULL;
+  }
+
+  filter_y = (anim->ib_flags & IB_animdeinterlace);
+
+  if (preview_size == IMB_PROXY_NONE) {
+    if (anim->curtype == 0) {
+      ibuf = anim_getnew(anim);
+      if (ibuf == NULL) {
+        return NULL;
+      }
+
+      IMB_freeImBuf(ibuf); /* ???? */
+      ibuf = NULL;
+    }
+
+    if (position < 0) {
+      return NULL;
+    }
+    if (position >= anim->duration_in_frames) {
+      return NULL;
+    }
+  }
+  else {
+    struct anim *proxy = IMB_anim_open_proxy(anim, preview_size);
+
+    if (proxy) {
+      position = IMB_anim_index_get_frame_index(anim, tc, position);
+
+      return IMB_anim_absolute(proxy, position, IMB_TC_NONE, IMB_PROXY_NONE);
+    }
+  }
+
+  switch (anim->curtype) {
+    case ANIM_SEQUENCE:
+      pic = an_stringdec(anim->first, head, tail, &digits);
+      pic += position;
+      an_stringenc(anim->name, head, tail, digits, pic);
+      ibuf = IMB_loadiffname(anim->name, IB_rect, anim->colorspace);
+      if (ibuf) {
+        anim->curposition = position;
+      }
+      break;
+    case ANIM_MOVIE:
+      ibuf = movie_fetchibuf(anim, position);
+      if (ibuf) {
+        anim->curposition = position;
+        IMB_convert_rgba_to_abgr(ibuf);
+      }
+      break;
+#ifdef WITH_AVI
+    case ANIM_AVI:
+      ibuf = avi_fetchibuf(anim, position);
+      if (ibuf) {
+        anim->curposition = position;
+      }
+      break;
+#endif
+#ifdef WITH_FFMPEG
+    case ANIM_FFMPEG:
+      ibuf = ffmpeg_fetchibuf(anim, position, tc, true);
+      filter_y = 0; /* done internally */
+      break;
+#endif
+  }
+
+  if (ibuf) {
+    if (filter_y) {
+      IMB_filtery(ibuf);
+    }
+    BLI_snprintf(ibuf->name, sizeof(ibuf->name), "%s.%04d", anim->name, anim->curposition + 1);
+  }
+  return ibuf;
+}
+
 struct ImBuf *IMB_anim_absolute(struct anim *anim,
                                 int position,
                                 IMB_Timecode_Type tc,
@@ -1430,10 +1618,7 @@ struct ImBuf *IMB_anim_absolute(struct anim *anim,
 #endif
 #ifdef WITH_FFMPEG
     case ANIM_FFMPEG:
-      ibuf = ffmpeg_fetchibuf(anim, position, tc);
-      if (ibuf) {
-        anim->curposition = position;
-      }
+      ibuf = ffmpeg_fetchibuf(anim, position, tc, false);
       filter_y = 0; /* done internally */
       break;
 #endif

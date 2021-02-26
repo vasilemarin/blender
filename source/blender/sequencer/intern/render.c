@@ -80,6 +80,7 @@
 #include "strip_time.h"
 #include "utils.h"
 
+#include "PIL_time.h"
 static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
                                      SeqRenderState *state,
                                      ListBase *seqbasep,
@@ -1156,10 +1157,13 @@ static ImBuf *seq_render_movie_strip_view(const SeqRenderData *context,
       ibuf = seq_render_movie_strip_custom_file_proxy(context, seq, timeline_frame);
     }
     else {
+      double start = PIL_check_seconds_timer();
       ibuf = IMB_anim_absolute(sanim->anim,
                                frame_index + seq->anim_startofs,
                                seq->strip->proxy ? seq->strip->proxy->tc : IMB_TC_RECORD_RUN,
                                psize);
+      double end = PIL_check_seconds_timer();
+      printf("frame rendered in %f\n", end - start);
     }
 
     if (ibuf != NULL) {
@@ -1169,10 +1173,24 @@ static ImBuf *seq_render_movie_strip_view(const SeqRenderData *context,
 
   /* Fetching for requested proxy size failed, try fetching the original instead. */
   if (ibuf == NULL) {
-    ibuf = IMB_anim_absolute(sanim->anim,
-                             frame_index + seq->anim_startofs,
-                             seq->strip->proxy ? seq->strip->proxy->tc : IMB_TC_RECORD_RUN,
-                             IMB_PROXY_NONE);
+    double start = PIL_check_seconds_timer();
+    if (context->is_scrubbing) {
+      printf("scrub\n");
+      ibuf = IMB_anim_absolute_fast_imprecise(sanim->anim,
+                                              frame_index + seq->anim_startofs,
+                                              seq->strip->proxy ? seq->strip->proxy->tc :
+                                                                  IMB_TC_RECORD_RUN,
+                                              IMB_PROXY_NONE);
+    }
+    else {
+      printf("no scrub\n");
+      ibuf = IMB_anim_absolute(sanim->anim,
+                               frame_index + seq->anim_startofs,
+                               seq->strip->proxy ? seq->strip->proxy->tc : IMB_TC_RECORD_RUN,
+                               IMB_PROXY_NONE);
+    }
+    double end = PIL_check_seconds_timer();
+    printf("frame rendered in %f\n", end - start);
   }
   if (ibuf == NULL) {
     return NULL;

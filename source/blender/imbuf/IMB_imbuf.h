@@ -398,6 +398,15 @@ struct ImBuf *IMB_anim_absolute(struct anim *anim,
 /**
  *
  * \attention Defined in anim_movie.c
+ */
+
+struct ImBuf *IMB_anim_absolute_fast_imprecise(struct anim *anim,
+                                               int position,
+                                               IMB_Timecode_Type tc,
+                                               IMB_Proxy_Size preview_size);
+/**
+ *
+ * \attention Defined in anim_movie.c
  * fetches a define preview-frame, usually half way into the movie.
  */
 struct ImBuf *IMB_anim_previewframe(struct anim *anim);

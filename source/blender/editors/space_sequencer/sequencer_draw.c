@@ -1279,7 +1279,8 @@ void ED_sequencer_special_preview_clear(void)
  * TODO: do not rely on such hack and just update the \a ibuf outside of
  * the UI drawing code.
  */
-ImBuf *sequencer_ibuf_get(struct Main *bmain,
+ImBuf *sequencer_ibuf_get(const bContext *C,
+                          struct Main *bmain,
                           ARegion *region,
                           struct Depsgraph *depsgraph,
                           Scene *scene,
@@ -1311,6 +1312,15 @@ ImBuf *sequencer_ibuf_get(struct Main *bmain,
   SEQ_render_new_render_data(
       bmain, depsgraph, scene, rectx, recty, sseq->render_size, false, &context);
   context.view_id = BKE_scene_multiview_view_id_get(&scene->r, viewname);
+
+  bScreen *screen = CTX_wm_screen(C);
+  if (screen->scrubbing) {
+    context.is_scrubbing = true;
+    context.skip_cache = true;
+  }
+  else {
+    context.is_scrubbing = false;
+  }
 
   /* Sequencer could start rendering, in this case we need to be sure it wouldn't be canceled
    * by Escape pressed somewhere in the past. */
@@ -1841,8 +1851,15 @@ void sequencer_draw_preview(const bContext *C,
   }
 
   /* Get image. */
-  ibuf = sequencer_ibuf_get(
-      bmain, region, depsgraph, scene, sseq, timeline_frame, offset, names[sseq->multiview_eye]);
+  ibuf = sequencer_ibuf_get(C,
+                            bmain,
+                            region,
+                            depsgraph,
+                            scene,
+                            sseq,
+                            timeline_frame,
+                            offset,
+                            names[sseq->multiview_eye]);
 
   /* Setup off-screen buffers. */
   GPUViewport *viewport = WM_draw_region_get_viewport(region);

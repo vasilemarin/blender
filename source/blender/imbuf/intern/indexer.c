@@ -1326,6 +1326,10 @@ struct anim *IMB_anim_open_proxy(struct anim *anim, IMB_Proxy_Size preview_size)
 
 struct anim_index *IMB_anim_open_index(struct anim *anim, IMB_Timecode_Type tc)
 {
+  if (tc == IMB_TC_NONE) {
+    return NULL;
+  }
+
   char fname[FILE_MAX];
   int i = IMB_timecode_to_array_index(tc);
 

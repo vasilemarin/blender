@@ -86,7 +86,7 @@ static void metadata_panel_context_draw(const bContext *C, Panel *panel)
   /* NOTE: We disable multiview for drawing, since we don't know what is the
    * from the panel (is kind of all the views?). */
   ImBuf *ibuf = sequencer_ibuf_get(
-      bmain, region, depsgraph, scene, space_sequencer, scene->r.cfra, 0, "");
+      C, bmain, region, depsgraph, scene, space_sequencer, scene->r.cfra, 0, "");
   if (ibuf != NULL) {
     ED_region_image_metadata_panel_draw(ibuf, panel->layout);
     IMB_freeImBuf(ibuf);
