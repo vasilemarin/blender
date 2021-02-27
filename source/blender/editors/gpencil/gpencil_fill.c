@@ -55,6 +55,7 @@
 #include "BKE_screen.h"
 
 #include "ED_gpencil.h"
+#include "ED_keyframing.h"
 #include "ED_screen.h"
 #include "ED_space_api.h"
 #include "ED_view3d.h"
@@ -2064,6 +2065,12 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
       estate = OPERATOR_CANCELLED;
       break;
     case LEFTMOUSE:
+      if (!IS_AUTOKEY_ON(tgpf->scene) && (!is_multiedit) && (tgpf->gpl->actframe == NULL)) {
+        BKE_report(op->reports, RPT_INFO, "No available frame for creating stroke");
+        estate = OPERATOR_CANCELLED;
+        break;
+      }
+
       /* first time the event is not enabled to show help lines. */
       if ((tgpf->oldkey != -1) || (!help_lines)) {
         ARegion *region = BKE_area_find_region_xy(
@@ -2092,7 +2099,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
              * a new frame before to make the hash function can find something. */
             if (!is_multiedit) {
               tgpf->gpf = BKE_gpencil_layer_frame_get(
-                  tgpf->gpl, tgpf->active_cfra, GP_GETFRAME_ADD_NEW);
+                  tgpf->gpl,
+                  tgpf->active_cfra,
+                  IS_AUTOKEY_ON(tgpf->scene) ? GP_GETFRAME_ADD_NEW : GP_GETFRAME_USE_PREV);
               tgpf->gpf->flag |= GP_FRAME_SELECT;
             }
 
