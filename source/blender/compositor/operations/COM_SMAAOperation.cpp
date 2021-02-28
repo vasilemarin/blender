@@ -175,6 +175,17 @@ void SMAAEdgeDetectionOperation::deinitExecution()
 	this->m_valueReader = NULL;
 }
 
+void SMAAEdgeDetectionOperation::setThreshold(float threshold)
+{
+	m_threshold = threshold * 0.5;
+}
+
+void SMAAEdgeDetectionOperation::setLocalContrastAdaptationFactor(float factor)
+{
+	// todo (habib): replace with generic interval mapping function, e.g. from BLI_
+	m_local_contrast_adaptation_factor = (factor * 9) + 1;
+}
+
 bool SMAAEdgeDetectionOperation::determineDependingAreaOfInterest(rcti *input,
 								  ReadBufferOperation *readOperation, rcti *output)
 {
@@ -396,6 +407,11 @@ void *SMAABlendingWeightCalculationOperation::initializeTileData(rcti *rect)
 void SMAABlendingWeightCalculationOperation::initExecution()
 {
 	this->m_imageReader = this->getInputSocketReader(0);
+}
+
+void SMAABlendingWeightCalculationOperation::setCornerRounding(float rounding)
+{
+	m_corner_rounding = static_cast<int>(rounding * 100);
 }
 
 void SMAABlendingWeightCalculationOperation::executePixel(float output[4], int x, int y, void */*data*/)

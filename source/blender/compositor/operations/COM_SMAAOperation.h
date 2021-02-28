@@ -50,8 +50,14 @@ public:
 	 */
 	void deinitExecution();
 
-	void setThreshold(float threshold) { m_threshold = threshold; }
-	void setLocalContrastAdaptationFactor(float factor) { m_local_contrast_adaptation_factor = factor; }
+	/**
+	 * map from [0, 1] to [0, 0.5]
+	 */
+	void setThreshold(float threshold);
+	/**
+	 * map to [0, 1] to [1, 10]
+	 */
+	void setLocalContrastAdaptationFactor(float factor);
 
 	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
 };
@@ -99,7 +105,10 @@ public:
 	 */
 	void deinitExecution();
 
-	void setCornerRounding(int rounding) { m_corner_rounding = rounding; }
+	/**
+	 * Map from [0, 1] to [0, 100]
+	 */
+	void setCornerRounding(float rounding);
 
 	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
 private:

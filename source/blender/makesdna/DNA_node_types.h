@@ -719,9 +719,10 @@ typedef struct NodeAntiAliasingData {
   float thresh;
   float val_thresh;
   float adapt_fac;
-  short rounding;
+  float rounding;
   char detect_type;
   char corner;
+  char _pad[2];
 } NodeAntiAliasingData;
 
 /* NOTE: Only for do-version code. */

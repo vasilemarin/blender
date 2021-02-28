@@ -49,11 +49,11 @@ static void node_composit_init_antialiasing(bNodeTree *UNUSED(ntree), bNode *nod
   NodeAntiAliasingData *data = MEM_callocN(sizeof(NodeAntiAliasingData), "node antialiasing data");
 
   data->detect_type = CMP_NODE_ANTIALIASING_COLOR;
-  data->thresh = 0.5f;
+  data->thresh = 1;// 0.5f;
   data->val_thresh = 0.1f;
-  data->adapt_fac = 2.0f;
+  data->adapt_fac = 0.2; // 2.0f;
   data->corner = true;
-  data->rounding = 25;
+  data->rounding = 0.25; // 25;
 
   node->storage = data;
 }
