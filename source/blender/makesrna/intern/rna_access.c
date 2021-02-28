@@ -5826,29 +5826,26 @@ ID *RNA_find_real_ID_and_path(Main *bmain, ID *id, const char **r_path)
     *r_path = "";
   }
 
-  if ((id == NULL) || (id->flag & LIB_EMBEDDED_DATA) == 0) {
-    return id;
-  }
-
-  const IDTypeInfo *id_type = BKE_idtype_get_info_from_id(id);
-  if (r_path) {
+  if ((id != NULL) && (id->flag & LIB_EMBEDDED_DATA)) {
     switch (GS(id->name)) {
       case ID_NT:
-        *r_path = "node_tree";
-        break;
+        if (r_path) {
+          *r_path = "node_tree";
+        }
+        return BKE_node_tree_find_owner_ID(bmain, (bNodeTree *)id);
       case ID_GR:
-        *r_path = "collection";
-        break;
+        if (r_path) {
+          *r_path = "collection";
+        }
+        return (ID *)BKE_collection_master_scene_search(bmain, (struct Collection *)id);
+
       default:
-        BLI_assert(!"Missing handling of embedded id type.");
+        return NULL;
     }
   }
-
-  if (id_type->owner_get == NULL) {
-    BLI_assert(!"Missing handling of embedded id type.");
+  else {
     return id;
   }
-  return id_type->owner_get(bmain, id);
 }
 
 static char *rna_prepend_real_ID_path(Main *bmain, ID *id, char *path, ID **r_real_id)

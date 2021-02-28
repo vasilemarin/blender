@@ -384,8 +384,8 @@ static PyObject *bpy_orphans_purge(PyObject *UNUSED(self), PyObject *args, PyObj
   }
 
   /* Tag all IDs to delete. */
-  BKE_lib_query_unused_ids_tag(
-      bmain, LIB_TAG_DOIT, do_local_ids, do_linked_ids, do_recursive_cleanup, num_tagged);
+  // BKE_lib_query_unused_ids_tag(
+  //     bmain, LIB_TAG_DOIT, do_local_ids, do_linked_ids, do_recursive_cleanup, num_tagged);
 
   if (num_tagged[INDEX_ID_NULL] == 0) {
     return PyLong_FromSize_t(0);

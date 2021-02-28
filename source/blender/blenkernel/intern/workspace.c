@@ -185,7 +185,6 @@ IDTypeInfo IDType_ID_WS = {
     .make_local = NULL,
     .foreach_id = workspace_foreach_id,
     .foreach_cache = NULL,
-    .owner_get = NULL,
 
     .blend_write = workspace_blend_write,
     .blend_read_data = workspace_blend_read_data,

@@ -355,7 +355,6 @@ IDTypeInfo IDType_ID_MC = {
     .make_local = NULL,
     .foreach_id = movie_clip_foreach_id,
     .foreach_cache = movie_clip_foreach_cache,
-    .owner_get = NULL,
 
     .blend_write = movieclip_blend_write,
     .blend_read_data = movieclip_blend_read_data,
