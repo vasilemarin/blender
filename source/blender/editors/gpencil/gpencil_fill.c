@@ -543,12 +543,18 @@ static void gpencil_draw_datablock(tGPDfill *tgpf, const float ink[4])
     if (gpl == tgpf->gpl) {
       if ((gpl->actframe == NULL) || (gpl->actframe->framenum != tgpf->active_cfra)) {
         short add_frame_mode;
-        if (ts->gpencil_flags & GP_TOOL_FLAG_RETAIN_LAST) {
-          add_frame_mode = GP_GETFRAME_ADD_COPY;
+        if (IS_AUTOKEY_ON(tgpf->scene)) {
+          if (ts->gpencil_flags & GP_TOOL_FLAG_RETAIN_LAST) {
+            add_frame_mode = GP_GETFRAME_ADD_COPY;
+          }
+          else {
+            add_frame_mode = GP_GETFRAME_ADD_NEW;
+          }
         }
         else {
-          add_frame_mode = GP_GETFRAME_ADD_NEW;
+          add_frame_mode = GP_GETFRAME_USE_PREV;
         }
+
         BKE_gpencil_layer_frame_get(gpl, tgpf->active_cfra, add_frame_mode);
       }
     }
@@ -1457,7 +1463,10 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
   tgpf->done = true;
 
   /* Get frame or create a new one. */
-  tgpf->gpf = BKE_gpencil_layer_frame_get(tgpf->gpl, tgpf->active_cfra, GP_GETFRAME_ADD_NEW);
+  tgpf->gpf = BKE_gpencil_layer_frame_get(tgpf->gpl,
+                                          tgpf->active_cfra,
+                                          IS_AUTOKEY_ON(tgpf->scene) ? GP_GETFRAME_ADD_NEW :
+                                                                       GP_GETFRAME_USE_PREV);
 
   /* Set frame as selected. */
   tgpf->gpf->flag |= GP_FRAME_SELECT;
@@ -2095,19 +2104,24 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             gpencil_stroke_convertcoords_tpoint(
                 tgpf->scene, tgpf->region, tgpf->ob, &point2D, NULL, &pt->x);
 
+            /* Hash of selected frames.*/
+            GHash *frame_list = BLI_ghash_int_new_ex(__func__, 64);
+
             /* If not multiframe and there is no frame in CFRA for the active layer, create
-             * a new frame before to make the hash function can find something. */
+             * a new frame. */
             if (!is_multiedit) {
               tgpf->gpf = BKE_gpencil_layer_frame_get(
                   tgpf->gpl,
                   tgpf->active_cfra,
                   IS_AUTOKEY_ON(tgpf->scene) ? GP_GETFRAME_ADD_NEW : GP_GETFRAME_USE_PREV);
               tgpf->gpf->flag |= GP_FRAME_SELECT;
-            }
 
-            /* Hash of selected frames.*/
-            GHash *frame_list = BLI_ghash_int_new_ex(__func__, 64);
-            BKE_gpencil_frame_selected_hash(tgpf->gpd, frame_list);
+              BLI_ghash_insert(
+                  frame_list, POINTER_FROM_INT(tgpf->active_cfra), tgpf->gpl->actframe);
+            }
+            else {
+              BKE_gpencil_frame_selected_hash(tgpf->gpd, frame_list);
+            }
 
             /* Loop all frames. */
             wmWindow *win = CTX_wm_window(C);
