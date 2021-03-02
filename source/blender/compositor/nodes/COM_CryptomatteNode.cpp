@@ -56,9 +56,10 @@ void CryptomatteNode::buildInputOperationsFromRenderSource(
     RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
     if (render_layer) {
       std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
-      LISTBASE_FOREACH (RenderPass *, rpass, &render_layer->passes) {
-        if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
-          RenderLayersProg *op = new RenderLayersProg(rpass->name, COM_DT_COLOR, rpass->channels);
+      LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
+        if (blender::StringRef(render_pass->name, sizeof(render_pass->name)).startswith(prefix)) {
+          RenderLayersProg *op = new RenderLayersProg(
+              render_pass->name, COM_DT_COLOR, render_pass->channels);
           op->setScene(scene);
           op->setLayerId(cryptomatte_layer_id);
           op->setRenderData(context.getRenderData());
@@ -107,12 +108,12 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
     if (render_layer) {
       int render_pass_index = 0;
       std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
-      for (RenderPass *rpass = (RenderPass *)render_layer->passes.first; rpass;
-           rpass = rpass->next, render_pass_index++) {
-        if (blender::StringRef(rpass->name, sizeof(rpass->name)).startswith(prefix)) {
-          MultilayerColorOperation *op = new MultilayerColorOperation(render_pass_index, view);
+      for (RenderPass *render_pass = (RenderPass *)render_layer->passes.first; render_pass;
+           render_pass = render_pass->next, render_pass_index++) {
+        if (blender::StringRef(render_pass->name, sizeof(render_pass->name)).startswith(prefix)) {
+          MultilayerColorOperation *op = new MultilayerColorOperation(
+              render_layer, render_pass, view);
           op->setImage(image);
-          op->setRenderLayer(render_layer);
           op->setImageUser(iuser);
           op->setFramenumber(context.getFramenumber());
           r_input_operations.append(op);
