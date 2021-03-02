@@ -38,7 +38,6 @@ struct Object;
 struct RenderResult;
 
 struct CryptomatteSession *BKE_cryptomatte_init(void);
-void BKE_cryptomatte_finish(struct CryptomatteSession *session);
 void BKE_cryptomatte_free(struct CryptomatteSession *session);
 
 uint32_t BKE_cryptomatte_hash(const char *name, int name_len);
@@ -49,11 +48,13 @@ uint32_t BKE_cryptomatte_material_hash(struct CryptomatteSession *session,
 uint32_t BKE_cryptomatte_asset_hash(struct CryptomatteSession *session,
                                     const struct Object *object);
 float BKE_cryptomatte_hash_to_float(uint32_t cryptomatte_hash);
-struct ID *BKE_cryptomatte_find_id(const struct Main *bmain, const float encoded_hash);
+bool BKE_cryptomatte_find_name(const struct Main *bmain,
+                               const float encoded_hash,
+                               char *r_name,
+                               int name_len);
 
 char *BKE_cryptomatte_entries_to_matte_id(struct NodeCryptomatte *node_storage);
-void BKE_cryptomatte_matte_id_to_entries(const struct Main *bmain,
-                                         struct NodeCryptomatte *node_storage,
+void BKE_cryptomatte_matte_id_to_entries(struct NodeCryptomatte *node_storage,
                                          const char *matte_id);
 
 void BKE_cryptomatte_store_metadata(struct CryptomatteSession *session,
