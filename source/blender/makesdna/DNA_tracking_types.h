@@ -141,7 +141,7 @@ typedef struct MovieTrackingTrack {
   /** Count of markers in track. */
   int markersnr;
   /** Most recently used marker. */
-  int last_marker;
+  int _pad;
   /** Markers in track. */
   MovieTrackingMarker *markers;
 
@@ -328,7 +328,7 @@ typedef struct MovieTrackingStabilization {
   float target_pos[2];
   /** Expected target rotation of frame after raw stabilization, will be compensated. */
   float target_rot;
-  /** Zoom factor known to be present on original footage. Also used for autoscale. */
+  /** Zoom factor known to be present on original footage. Also used for auto-scale. */
   float scale;
 
   /** Influence on location, scale and rotation. */
@@ -521,7 +521,6 @@ typedef enum eTrackFrameMatch {
   TRACK_MATCH_KEYFRAME = 0,
   TRACK_MATCH_PREVIOS_FRAME = 1,
 } eTrackFrameMatch;
-
 
 /* MovieTrackingSettings->motion_flag */
 enum {

@@ -33,6 +33,7 @@
 #include "DNA_windowmanager_types.h" /* for ReportType */
 #include "zlib.h"
 
+struct BLI_mmap_file;
 struct BLOCacheStorage;
 struct IDNameLib_Map;
 struct Key;
@@ -41,7 +42,6 @@ struct Object;
 struct OldNewMap;
 struct ReportList;
 struct UserDef;
-struct BLI_mmap_file;
 
 typedef struct IDNameLib_Map IDNameLib_Map;
 
@@ -91,7 +91,7 @@ typedef struct FileData {
   struct MemFile *memfile;
   /** Whether we are undoing (< 0) or redoing (> 0), used to choose which 'unchanged' flag to use
    * to detect unchanged data from memfile. */
-  short undo_direction;
+  int undo_direction; /* eUndoStepDir */
 
   /** Variables needed for reading from file. */
   gzFile gzfiledes;
