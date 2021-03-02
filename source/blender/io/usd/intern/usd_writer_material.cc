@@ -801,7 +801,8 @@ pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
       // Cycles Standalone uses a different enum for distribution and subsurface, we encode strings
       // instead
 
-      int distribution = ((node->custom1) & 6);
+      // Commenting out unused to prevent compiler warning.
+      //int distribution = ((node->custom1) & 6);
 
       usd_handle_shader_enum(pxr::TfToken("Distribution"),
                              node_principled_distribution_conversion,

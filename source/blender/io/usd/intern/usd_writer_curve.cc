@@ -58,7 +58,6 @@ void USDCurveWriter::do_write(HierarchyContext &context)
   std::vector<float> weights;
   std::vector<float> knots;
   std::vector<uint8_t> orders;
-  pxr::GfVec3f temp_vert;
 
   pxr::VtIntArray curve_point_counts;
 
