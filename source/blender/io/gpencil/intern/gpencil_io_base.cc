@@ -192,11 +192,13 @@ void GpencilIO::create_object_list(void)
         ob_list_.push_back(obz);
       }
     }
-
-    /* Sort list of objects from point of view. */
-    ob_list_.sort(
-        [](const ObjectZ &obz1, const ObjectZ &obz2) { return obz1.zdepth < obz2.zdepth; });
   }
+  /* Sort list of objects from point of view. */
+  std::sort(ob_list_.begin(), ob_list_.end(), [](const ObjectZ &obz1, const ObjectZ &obz2) {
+    return obz1.zdepth < obz2.zdepth;
+  });
+  // ob_list_.sort(
+  //    [](const ObjectZ &obz1, const ObjectZ &obz2) { return obz1.zdepth < obz2.zdepth; });
 }
 
 /**

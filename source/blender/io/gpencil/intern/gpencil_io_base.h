@@ -21,8 +21,8 @@
 /** \file
  * \ingroup bgpencil
  */
-#include <list>
 #include <string>
+#include <vector>
 
 #include "gpencil_io.h"
 
@@ -62,7 +62,7 @@ class GpencilIO {
   };
 
   /** List of included objects. */
-  std::list<ObjectZ> ob_list_;
+  std::vector<ObjectZ> ob_list_;
 
   /* Data for easy access. */
   struct Depsgraph *depsgraph_;
