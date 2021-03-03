@@ -3470,15 +3470,12 @@ void BKE_gpencil_stroke_uniform_subdivide(bGPdata *gpd,
  */
 void BKE_gpencil_stroke_to_view_space(RegionView3D *rv3d, bGPDstroke *gps, float diff_mat[4][4])
 {
-  float tmp[3];
-
   for (int i = 0; i < gps->totpoints; i++) {
     bGPDspoint *pt = &gps->points[i];
-    /* point to parent space */
-    mul_v3_m4v3(tmp, diff_mat, &pt->x);
+    /* Point to parent space. */
+    mul_v3_m4v3(&pt->x, diff_mat, &pt->x);
     /* point to view space */
-    mul_m4_v3(rv3d->viewmat, tmp);
-    copy_v3_v3(&pt->x, tmp);
+    mul_m4_v3(rv3d->viewmat, &pt->x);
   }
 }
 
