@@ -93,7 +93,7 @@ class GpencilIO {
   void gpencil_3d_point_to_render_space(const float co[3], float r_co[2]);
   void gpencil_3d_point_to_2D(const float co[3], float r_co[2]);
 
-  float stroke_point_radius_get(struct bGPDstroke *gps);
+  float stroke_point_radius_get(struct bGPDlayer *gpl, struct bGPDstroke *gps);
   void create_object_list(void);
 
   struct MaterialGPencilStyle *gp_style_current_get(void);
@@ -104,12 +104,7 @@ class GpencilIO {
 
   float stroke_average_opacity_get(void);
 
-  struct bGPDlayer *gpl_current_get(void);
-  struct bGPDframe *gpf_current_get(void);
-  struct bGPDstroke *gps_current_get(void);
-  void gpl_current_set(struct bGPDlayer *gpl);
-  void gpf_current_set(struct bGPDframe *gpf);
-  void gps_current_set(struct bGPDstroke *gps);
+  void gpl_matrix_set(struct bGPDlayer *gpl);
   void gps_current_color_set(struct Object *ob, struct bGPDstroke *gps);
 
   void selected_objects_boundbox_set(void);
@@ -117,9 +112,6 @@ class GpencilIO {
   void filename_set(const char *filename);
 
  private:
-  struct bGPDlayer *gpl_cur_;
-  struct bGPDframe *gpf_cur_;
-  struct bGPDstroke *gps_cur_;
   struct MaterialGPencilStyle *gp_style_;
   bool is_stroke_;
   bool is_fill_;

@@ -29,6 +29,8 @@
 #include "hpdf.h"
 
 struct GpencilIOParams;
+struct bGPDlayer;
+struct bGPDstroke;
 
 #define PDF_EXPORTER_NAME "PDF Exporter for Grease Pencil"
 #define PDF_EXPORTER_VERSION "v1.0"
@@ -57,9 +59,12 @@ class GpencilExporterPDF : public GpencilExporter {
   bool add_page(void);
   void export_gpencil_layers(void);
 
-  void export_stroke_to_point(void);
-  void export_stroke_to_polyline(const bool is_fill, const bool normalize);
-  void color_set(const bool do_fill);
+  void export_stroke_to_point(bGPDlayer *gpl, bGPDstroke *gps);
+  void export_stroke_to_polyline(bGPDlayer *gpl,
+                                 bGPDstroke *gps,
+                                 const bool is_fill,
+                                 const bool normalize);
+  void color_set(bGPDlayer *gpl, const bool do_fill);
 };
 
 }  // namespace blender::io::gpencil

@@ -69,13 +69,24 @@ class GpencilExporterSVG : public GpencilExporter {
   void create_document_header(void);
   void export_gpencil_layers(void);
 
-  void export_stroke_to_point(pugi::xml_node gpl_node);
+  void export_stroke_to_point(struct bGPDlayer *gpl,
+                              struct bGPDstroke *gps,
+                              pugi::xml_node node_gpl);
 
-  void export_stroke_to_path(pugi::xml_node gpl_node, const bool is_fill);
+  void export_stroke_to_path(struct bGPDlayer *gpl,
+                             struct bGPDstroke *gps,
+                             pugi::xml_node node_gpl,
+                             const bool is_fill);
 
-  void export_stroke_to_polyline(pugi::xml_node gpl_node, const bool is_fill);
+  void export_stroke_to_polyline(struct bGPDlayer *gpl,
+                                 struct bGPDstroke *gps,
+                                 pugi::xml_node node_gpl,
+                                 const bool is_fill);
 
-  void color_string_set(pugi::xml_node gps_node, const bool is_fill);
+  void color_string_set(struct bGPDlayer *gpl,
+                        struct bGPDstroke *gps,
+                        pugi::xml_node node_gps,
+                        const bool is_fill);
 };
 
 }  // namespace blender::io::gpencil

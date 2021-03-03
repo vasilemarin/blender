@@ -166,13 +166,12 @@ void GpencilExporterPDF::export_gpencil_layers(void)
       if (gpl->flag & GP_LAYER_HIDE) {
         continue;
       }
-      gpl_current_set(gpl);
+      gpl_matrix_set(gpl);
 
       bGPDframe *gpf = gpl->actframe;
       if ((gpf == nullptr) || (gpf->strokes.first == nullptr)) {
         continue;
       }
-      gpf_current_set(gpf);
 
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         if (gps->totpoints == 0) {
@@ -183,8 +182,6 @@ void GpencilExporterPDF::export_gpencil_layers(void)
         }
         /* Duplicate the stroke to apply any layer thickness change. */
         bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false);
-
-        gps_current_set(gps_duplicate);
         gps_current_color_set(ob, gps_duplicate);
 
         /* Apply layer thickness change. */
@@ -193,32 +190,30 @@ void GpencilExporterPDF::export_gpencil_layers(void)
         gps_duplicate->thickness *= mat4_to_scale(ob->obmat);
         CLAMP_MIN(gps_duplicate->thickness, 1.0f);
         if (gps_duplicate->totpoints == 1) {
-          export_stroke_to_point();
+          export_stroke_to_point(gpl, gps_duplicate);
         }
         else {
           /* Fill. */
           if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
             /* Fill is exported as polygon for fill and stroke in a different shape. */
-            export_stroke_to_polyline(true, false);
+            export_stroke_to_polyline(gpl, gps_duplicate, true, false);
           }
 
           /* Stroke. */
           if (material_is_stroke()) {
             if (is_normalized) {
-              export_stroke_to_polyline(false, true);
+              export_stroke_to_polyline(gpl, gps_duplicate, false, true);
             }
             else {
               bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
                   rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
-
-              gps_current_set(gps_perimeter);
 
               /* Sample stroke. */
               if (params_.stroke_sample > 0.0f) {
                 BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false);
               }
 
-              export_stroke_to_polyline(false, false);
+              export_stroke_to_polyline(gpl, gps_perimeter, false, false);
 
               BKE_gpencil_free_stroke(gps_perimeter);
             }
@@ -233,17 +228,15 @@ void GpencilExporterPDF::export_gpencil_layers(void)
 /**
  * Export a point
  */
-void GpencilExporterPDF::export_stroke_to_point(void)
+void GpencilExporterPDF::export_stroke_to_point(bGPDlayer *gpl, bGPDstroke *gps)
 {
-  bGPDstroke *gps = gps_current_get();
-
   BLI_assert(gps->totpoints == 1);
   float screen_co[2];
 
   bGPDspoint *pt = &gps->points[0];
   gpencil_3d_point_to_2D(&pt->x, screen_co);
   /* Radius. */
-  float radius = stroke_point_radius_get(gps);
+  float radius = stroke_point_radius_get(gpl, gps);
 
   HPDF_Page_Circle(page_, screen_co[0], screen_co[1], radius);
   HPDF_Page_ClosePathFillStroke(page_);
@@ -253,11 +246,11 @@ void GpencilExporterPDF::export_stroke_to_point(void)
  * Export a stroke using polyline or polygon
  * \param do_fill: True if the stroke is only fill
  */
-void GpencilExporterPDF::export_stroke_to_polyline(const bool do_fill, const bool normalize)
+void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
+                                                   bGPDstroke *gps,
+                                                   const bool do_fill,
+                                                   const bool normalize)
 {
-  bGPDlayer *gpl = gpl_current_get();
-  bGPDstroke *gps = gps_current_get();
-
   const bool is_thickness_const = is_stroke_thickness_constant(gps);
   const bool cyclic = ((gps->flag & GP_STROKE_CYCLIC) != 0);
 
@@ -276,11 +269,11 @@ void GpencilExporterPDF::export_stroke_to_polyline(const bool do_fill, const boo
   copy_v3_v3(&pt_dst->x, &pt_src->x);
   pt_dst->pressure = avg_pressure;
 
-  float radius = stroke_point_radius_get(gps_temp);
+  float radius = stroke_point_radius_get(gpl, gps_temp);
 
   BKE_gpencil_free_stroke(gps_temp);
 
-  color_set(do_fill);
+  color_set(gpl, do_fill);
 
   if (material_is_stroke() && !do_fill) {
     HPDF_Page_SetLineJoin(page_, HPDF_ROUND_JOIN);
@@ -319,10 +312,8 @@ void GpencilExporterPDF::export_stroke_to_polyline(const bool do_fill, const boo
  * Set color
  * @param do_fill: True if the stroke is only fill
  */
-void GpencilExporterPDF::color_set(const bool do_fill)
+void GpencilExporterPDF::color_set(bGPDlayer *gpl, const bool do_fill)
 {
-  bGPDlayer *gpl = gpl_current_get();
-
   const float fill_opacity = fill_color_[3] * gpl->opacity;
   const float stroke_opacity = stroke_color_[3] * stroke_average_opacity_get() * gpl->opacity;
 

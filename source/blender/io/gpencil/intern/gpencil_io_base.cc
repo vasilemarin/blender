@@ -148,10 +148,6 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
     offset_[0] = boundbox.xmin;
     offset_[1] = boundbox.ymin;
   }
-
-  gpl_cur_ = nullptr;
-  gpf_cur_ = nullptr;
-  gps_cur_ = nullptr;
 }
 
 /** Create a list of selected objects sorted from back to front */
@@ -327,9 +323,8 @@ bool GpencilIO::is_stroke_thickness_constant(struct bGPDstroke *gps)
 }
 
 /** Get radius of point. */
-float GpencilIO::stroke_point_radius_get(struct bGPDstroke *gps)
+float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, struct bGPDstroke *gps)
 {
-  const bGPDlayer *gpl = gpl_current_get();
   bGPDspoint *pt = nullptr;
   float v1[2], screen_co[2], screen_ex[2];
 
@@ -364,7 +359,7 @@ std::string GpencilIO::rgb_to_hexstr(float color[3])
   return hexstr;
 }
 
-/** Convert a color to gray scale. */
+/** Convert a color to grayscale. */
 void GpencilIO::rgb_to_grayscale(float color[3])
 {
   float grayscale = ((0.3f * color[0]) + (0.59f * color[1]) + (0.11f * color[2]));
@@ -373,35 +368,10 @@ void GpencilIO::rgb_to_grayscale(float color[3])
   color[2] = grayscale;
 }
 
-struct bGPDlayer *GpencilIO::gpl_current_get(void)
+void GpencilIO::gpl_matrix_set(struct bGPDlayer *gpl)
 {
-  return gpl_cur_;
-}
-
-void GpencilIO::gpl_current_set(struct bGPDlayer *gpl)
-{
-  gpl_cur_ = gpl;
   BKE_gpencil_layer_transform_matrix_get(depsgraph_, params_.ob, gpl, diff_mat_);
   mul_m4_m4m4(diff_mat_, diff_mat_, gpl->layer_invmat);
-}
-
-struct bGPDframe *GpencilIO::gpf_current_get(void)
-{
-  return gpf_cur_;
-}
-
-void GpencilIO::gpf_current_set(struct bGPDframe *gpf)
-{
-  gpf_cur_ = gpf;
-}
-struct bGPDstroke *GpencilIO::gps_current_get(void)
-{
-  return gps_cur_;
-}
-
-void GpencilIO::gps_current_set(struct bGPDstroke *gps)
-{
-  gps_cur_ = gps;
 }
 
 void GpencilIO::gps_current_color_set(struct Object *ob, struct bGPDstroke *gps)

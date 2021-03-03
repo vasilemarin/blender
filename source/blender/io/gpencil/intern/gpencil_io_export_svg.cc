@@ -184,21 +184,20 @@ void GpencilExporterSVG::export_gpencil_layers(void)
       if (gpl->flag & GP_LAYER_HIDE) {
         continue;
       }
-      gpl_current_set(gpl);
+      gpl_matrix_set(gpl);
 
       bGPDframe *gpf = gpl->actframe;
       if ((gpf == nullptr) || (gpf->strokes.first == nullptr)) {
         continue;
       }
-      gpf_current_set(gpf);
 
       /* Layer node. */
       std::string txt = "Layer: ";
       txt.append(gpl->info);
       ob_node.append_child(pugi::node_comment).set_value(txt.c_str());
 
-      pugi::xml_node gpl_node = ob_node.append_child("g");
-      gpl_node.append_attribute("id").set_value(gpl->info);
+      pugi::xml_node node_gpl = ob_node.append_child("g");
+      node_gpl.append_attribute("id").set_value(gpl->info);
 
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         if (gps->totpoints == 0) {
@@ -211,7 +210,6 @@ void GpencilExporterSVG::export_gpencil_layers(void)
         /* Duplicate the stroke to apply any layer thickness change. */
         bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false);
 
-        gps_current_set(gps_duplicate);
         gps_current_color_set(ob, gps_duplicate);
 
         /* Apply layer thickness change. */
@@ -221,7 +219,7 @@ void GpencilExporterSVG::export_gpencil_layers(void)
         CLAMP_MIN(gps_duplicate->thickness, 1.0f);
 
         if (gps_duplicate->totpoints == 1) {
-          export_stroke_to_point(gpl_node);
+          export_stroke_to_point(gpl, gps_duplicate, node_gpl);
         }
         else {
           bool is_normalized = ((params_.flag & GP_EXPORT_NORM_THICKNESS) != 0) ||
@@ -231,26 +229,24 @@ void GpencilExporterSVG::export_gpencil_layers(void)
           if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
             /* Fill is always exported as polygon because the stroke of the fill is done
              * in a different SVG command. */
-            export_stroke_to_polyline(gpl_node, true);
+            export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, true);
           }
 
           /* Stroke. */
           if (material_is_stroke()) {
             if (is_normalized) {
-              export_stroke_to_polyline(gpl_node, false);
+              export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, false);
             }
             else {
               bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
                   rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
-
-              gps_current_set(gps_perimeter);
 
               /* Sample stroke. */
               if (params_.stroke_sample > 0.0f) {
                 BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false);
               }
 
-              export_stroke_to_path(gpl_node, false);
+              export_stroke_to_path(gpl, gps_perimeter, node_gpl, false);
 
               BKE_gpencil_free_stroke(gps_perimeter);
             }
@@ -265,51 +261,51 @@ void GpencilExporterSVG::export_gpencil_layers(void)
 
 /**
  * Export a point
- * \param gpl_node: Node of the layer.
+ * \param node_gpl: Node of the layer.
  */
-void GpencilExporterSVG::export_stroke_to_point(pugi::xml_node gpl_node)
+void GpencilExporterSVG::export_stroke_to_point(struct bGPDlayer *gpl,
+                                                struct bGPDstroke *gps,
+                                                pugi::xml_node node_gpl)
 {
-  bGPDstroke *gps = gps_current_get();
-
   BLI_assert(gps->totpoints == 1);
   float screen_co[2];
 
-  pugi::xml_node gps_node = gpl_node.append_child("circle");
+  pugi::xml_node node_gps = node_gpl.append_child("circle");
 
-  color_string_set(gps_node, false);
+  color_string_set(gpl, gps, node_gps, false);
 
   bGPDspoint *pt = &gps->points[0];
   gpencil_3d_point_to_2D(&pt->x, screen_co);
 
-  gps_node.append_attribute("cx").set_value(screen_co[0]);
-  gps_node.append_attribute("cy").set_value(screen_co[1]);
+  node_gps.append_attribute("cx").set_value(screen_co[0]);
+  node_gps.append_attribute("cy").set_value(screen_co[1]);
 
   /* Radius. */
-  float radius = stroke_point_radius_get(gps);
-  gps_node.append_attribute("r").set_value(radius);
+  float radius = stroke_point_radius_get(gpl, gps);
+  node_gps.append_attribute("r").set_value(radius);
 }
 
 /**
  * Export a stroke using SVG path
- * \param gpl_node: Node of the layer.
+ * \param node_gpl: Node of the layer.
  * \param do_fill: True if the stroke is only fill
  */
-void GpencilExporterSVG::export_stroke_to_path(pugi::xml_node gpl_node, const bool do_fill)
+void GpencilExporterSVG::export_stroke_to_path(struct bGPDlayer *gpl,
+                                               struct bGPDstroke *gps,
+                                               pugi::xml_node node_gpl,
+                                               const bool do_fill)
 {
-  bGPDlayer *gpl = gpl_current_get();
-  bGPDstroke *gps = gps_current_get();
-
-  pugi::xml_node gps_node = gpl_node.append_child("path");
+  pugi::xml_node node_gps = node_gpl.append_child("path");
 
   float col[3];
   std::string stroke_hex;
   if (do_fill) {
-    gps_node.append_attribute("fill-opacity").set_value(fill_color_[3] * gpl->opacity);
+    node_gps.append_attribute("fill-opacity").set_value(fill_color_[3] * gpl->opacity);
 
     interp_v3_v3v3(col, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
   }
   else {
-    gps_node.append_attribute("fill-opacity")
+    node_gps.append_attribute("fill-opacity")
         .set_value(stroke_color_[3] * stroke_average_opacity_get() * gpl->opacity);
 
     interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
@@ -318,8 +314,8 @@ void GpencilExporterSVG::export_stroke_to_path(pugi::xml_node gpl_node, const bo
   linearrgb_to_srgb_v3_v3(col, col);
   stroke_hex = rgb_to_hexstr(col);
 
-  gps_node.append_attribute("fill").set_value(stroke_hex.c_str());
-  gps_node.append_attribute("stroke").set_value("none");
+  node_gps.append_attribute("fill").set_value(stroke_hex.c_str());
+  node_gps.append_attribute("stroke").set_value("none");
 
   std::string txt = "M";
   for (int32_t i = 0; i < gps->totpoints; i++) {
@@ -336,19 +332,19 @@ void GpencilExporterSVG::export_stroke_to_path(pugi::xml_node gpl_node, const bo
     txt.append("z");
   }
 
-  gps_node.append_attribute("d").set_value(txt.c_str());
+  node_gps.append_attribute("d").set_value(txt.c_str());
 }
 
 /**
  * Export a stroke using polyline or polygon
- * \param gpl_node: Node of the layer.
+ * \param node_gpl: Node of the layer.
  * \param do_fill: True if the stroke is only fill
  */
-void GpencilExporterSVG::export_stroke_to_polyline(pugi::xml_node gpl_node, const bool do_fill)
+void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
+                                                   struct bGPDstroke *gps,
+                                                   pugi::xml_node node_gpl,
+                                                   const bool do_fill)
 {
-  bGPDlayer *gpl = gpl_current_get();
-  bGPDstroke *gps = gps_current_get();
-
   const bool is_thickness_const = is_stroke_thickness_constant(gps);
   const bool cyclic = ((gps->flag & GP_STROKE_CYCLIC) != 0);
 
@@ -367,16 +363,16 @@ void GpencilExporterSVG::export_stroke_to_polyline(pugi::xml_node gpl_node, cons
   copy_v3_v3(&pt_dst->x, &pt_src->x);
   pt_dst->pressure = avg_pressure;
 
-  float radius = stroke_point_radius_get(gps_temp);
+  float radius = stroke_point_radius_get(gpl, gps_temp);
 
   BKE_gpencil_free_stroke(gps_temp);
 
-  pugi::xml_node gps_node = gpl_node.append_child(do_fill || cyclic ? "polygon" : "polyline");
+  pugi::xml_node node_gps = node_gpl.append_child(do_fill || cyclic ? "polygon" : "polyline");
 
-  color_string_set(gps_node, do_fill);
+  color_string_set(gpl, gps, node_gps, do_fill);
 
   if (material_is_stroke() && !do_fill) {
-    gps_node.append_attribute("stroke-width").set_value((radius * 2.0f) - gpl->line_change);
+    node_gps.append_attribute("stroke-width").set_value((radius * 2.0f) - gpl->line_change);
   }
 
   std::string txt;
@@ -390,19 +386,19 @@ void GpencilExporterSVG::export_stroke_to_polyline(pugi::xml_node gpl_node, cons
     txt.append(std::to_string(screen_co[0]) + "," + std::to_string(screen_co[1]));
   }
 
-  gps_node.append_attribute("points").set_value(txt.c_str());
+  node_gps.append_attribute("points").set_value(txt.c_str());
 }
 
 /**
  * Set color SVG string for stroke
- * \param gps_node: Stroke node
+ * \param node_gps: Stroke node
  * @param do_fill: True if the stroke is only fill
  */
-void GpencilExporterSVG::color_string_set(pugi::xml_node gps_node, const bool do_fill)
+void GpencilExporterSVG::color_string_set(struct bGPDlayer *gpl,
+                                          struct bGPDstroke *gps,
+                                          pugi::xml_node node_gps,
+                                          const bool do_fill)
 {
-  bGPDlayer *gpl = gpl_current_get();
-  bGPDstroke *gps = gps_current_get();
-
   const bool round_cap = (gps->caps[0] == GP_STROKE_CAP_ROUND ||
                           gps->caps[1] == GP_STROKE_CAP_ROUND);
 
@@ -411,25 +407,25 @@ void GpencilExporterSVG::color_string_set(pugi::xml_node gps_node, const bool do
     interp_v3_v3v3(col, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
     linearrgb_to_srgb_v3_v3(col, col);
     std::string stroke_hex = rgb_to_hexstr(col);
-    gps_node.append_attribute("fill").set_value(stroke_hex.c_str());
-    gps_node.append_attribute("stroke").set_value("none");
-    gps_node.append_attribute("fill-opacity").set_value(fill_color_[3] * gpl->opacity);
+    node_gps.append_attribute("fill").set_value(stroke_hex.c_str());
+    node_gps.append_attribute("stroke").set_value("none");
+    node_gps.append_attribute("fill-opacity").set_value(fill_color_[3] * gpl->opacity);
   }
   else {
     interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
     linearrgb_to_srgb_v3_v3(col, col);
     std::string stroke_hex = rgb_to_hexstr(col);
-    gps_node.append_attribute("stroke").set_value(stroke_hex.c_str());
-    gps_node.append_attribute("stroke-opacity")
+    node_gps.append_attribute("stroke").set_value(stroke_hex.c_str());
+    node_gps.append_attribute("stroke-opacity")
         .set_value(stroke_color_[3] * stroke_average_opacity_get() * gpl->opacity);
 
     if (gps->totpoints > 1) {
-      gps_node.append_attribute("fill").set_value("none");
-      gps_node.append_attribute("stroke-linecap").set_value(round_cap ? "round" : "square");
+      node_gps.append_attribute("fill").set_value("none");
+      node_gps.append_attribute("stroke-linecap").set_value(round_cap ? "round" : "square");
     }
     else {
-      gps_node.append_attribute("fill").set_value(stroke_hex.c_str());
-      gps_node.append_attribute("fill-opacity").set_value(fill_color_[3] * gpl->opacity);
+      node_gps.append_attribute("fill").set_value(stroke_hex.c_str());
+      node_gps.append_attribute("fill-opacity").set_value(fill_color_[3] * gpl->opacity);
     }
   }
 }
