@@ -149,10 +149,7 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
   bool done = gpencil_io_import(filename, &params);
   WM_cursor_wait(0);
 
-  if (done) {
-    BKE_report(op->reports, RPT_INFO, "SVG file imported");
-  }
-  else {
+  if (!done) {
     BKE_report(op->reports, RPT_WARNING, "Unable to import SVG");
   }
 

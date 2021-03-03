@@ -207,10 +207,7 @@ static int wm_gpencil_export_svg_exec(bContext *C, wmOperator *op)
   bool done = gpencil_io_export(filename, &params);
   WM_cursor_wait(false);
 
-  if (done) {
-    BKE_report(op->reports, RPT_INFO, "SVG export file created");
-  }
-  else {
+  if (!done) {
     BKE_report(op->reports, RPT_WARNING, "Unable to export SVG");
   }
 
