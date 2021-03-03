@@ -61,20 +61,17 @@
 
 static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfptr)
 {
-  uiLayout *box, *row, *col, *sub;
+  uiLayout *box, *row, *col;
 
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
   uiItemL(row, IFACE_("Export Options"), ICON_SCENE_DATA);
 
   col = uiLayoutColumn(box, false);
-
-  sub = uiLayoutColumn(col, true);
-  uiItemR(sub, imfptr, "stroke_sample", 0, NULL, ICON_NONE);
-  uiItemR(sub, imfptr, "use_fill", 0, NULL, ICON_NONE);
-  uiItemR(sub, imfptr, "use_normalized_thickness", 0, NULL, ICON_NONE);
-
-  uiItemR(sub, imfptr, "use_clip_camera", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "stroke_sample", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "use_fill", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "use_normalized_thickness", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "use_clip_camera", 0, NULL, ICON_NONE);
 }
 
 /* <-------- SVG single frame export. --------> */
@@ -120,11 +117,6 @@ static void gpencil_export_common_props_svg(wmOperatorType *ot)
                   false,
                   "Clip Camera",
                   "Clip drawings to camera size when export in camera view");
-  RNA_def_boolean(ot->srna,
-                  "use_gray_scale",
-                  false,
-                  "Gray Scale",
-                  "Export in gray scale instead of full color");
   RNA_def_float(
       ot->srna,
       "stroke_sample",
@@ -185,7 +177,7 @@ static int wm_gpencil_export_svg_exec(bContext *C, wmOperator *op)
 
   const bool use_fill = RNA_boolean_get(op->ptr, "use_fill");
   const bool use_norm_thickness = RNA_boolean_get(op->ptr, "use_normalized_thickness");
-  const short select_mode = RNA_enum_get(op->ptr, "selected_object_type");
+  const eGpencilExportSelect select_mode = RNA_enum_get(op->ptr, "selected_object_type");
 
   const bool use_clip_camera = RNA_boolean_get(op->ptr, "use_clip_camera");
 
@@ -211,9 +203,9 @@ static int wm_gpencil_export_svg_exec(bContext *C, wmOperator *op)
                                    .resolution = 1.0f};
 
   /* Do export. */
-  WM_cursor_wait(1);
+  WM_cursor_wait(true);
   bool done = gpencil_io_export(filename, &params);
-  WM_cursor_wait(0);
+  WM_cursor_wait(false);
 
   if (done) {
     BKE_report(op->reports, RPT_INFO, "SVG export file created");
@@ -390,14 +382,11 @@ static int wm_gpencil_export_pdf_exec(bContext *C, wmOperator *op)
                                    .resolution = 1.0f};
 
   /* Do export. */
-  WM_cursor_wait(1);
+  WM_cursor_wait(true);
   bool done = gpencil_io_export(filename, &params);
-  WM_cursor_wait(0);
+  WM_cursor_wait(false);
 
-  if (done) {
-    BKE_report(op->reports, RPT_INFO, "PDF export file created");
-  }
-  else {
+  if (!done) {
     BKE_report(op->reports, RPT_WARNING, "Unable to export PDF");
   }
 

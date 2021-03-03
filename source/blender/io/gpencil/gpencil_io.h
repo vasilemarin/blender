@@ -37,25 +37,19 @@ struct GpencilIOParams {
   View3D *v3d;
   /** Grease pencil object. */
   Object *ob;
-  /** Mode.  */
+  /** Mode (see eGpencilIO_Modes). */
   uint16_t mode;
-  /** Start frame. */
   int32_t frame_start;
-  /** End frame.  */
   int32_t frame_end;
-  /* Current frame. */
   int32_t frame_cur;
-  /** Flags. */
   uint32_t flag;
-  /** Scale. */
   float scale;
-  /** Select mode. */
+  /** Select mode (see eGpencilExportSelect). */
   uint16_t select_mode;
-  /** Frame mode. */
+  /** Frame mode (see eGpencilExportFrame). */
   uint16_t frame_mode;
-  /** Stroke sampling. */
+  /** Stroke sampling factor. */
   float stroke_sample;
-  /** Resolution. */
   int32_t resolution;
 };
 

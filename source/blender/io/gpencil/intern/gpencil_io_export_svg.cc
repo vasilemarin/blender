@@ -211,7 +211,8 @@ void GpencilExporterSVG::export_gpencil_layers(void)
         /* Duplicate the stroke to apply any layer thickness change. */
         bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false);
 
-        gps_current_set(ob, gps_duplicate, true);
+        gps_current_set(gps_duplicate);
+        gps_current_color_set(ob, gps_duplicate);
 
         /* Apply layer thickness change. */
         gps_duplicate->thickness += gpl->line_change;
@@ -242,7 +243,7 @@ void GpencilExporterSVG::export_gpencil_layers(void)
               bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
                   rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
 
-              gps_current_set(ob, gps_perimeter, false);
+              gps_current_set(gps_perimeter);
 
               /* Sample stroke. */
               if (params_.stroke_sample > 0.0f) {

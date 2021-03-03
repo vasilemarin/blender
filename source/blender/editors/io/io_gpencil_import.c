@@ -78,63 +78,6 @@ bool wm_gpencil_import_svg_common_check(bContext *UNUSED(C), wmOperator *op)
   return false;
 }
 
-static void gpencil_import_common_props(wmOperatorType *ot)
-{
-  PropertyRNA *prop;
-
-  static const EnumPropertyItem target_object_modes[] = {
-      {GP_TARGET_OB_NEW, "NEW", 0, "New Object", ""},
-      {GP_TARGET_OB_SELECTED, "ACTIVE", 0, "Active Object", ""},
-      {0, NULL, 0, NULL, NULL},
-  };
-
-  prop = RNA_def_enum(ot->srna,
-                      "target",
-                      target_object_modes,
-                      GP_TARGET_OB_NEW,
-                      "Target Object",
-                      "Target grease pencil object");
-
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  RNA_def_int(ot->srna,
-              "resolution",
-              10,
-              1,
-              30,
-              "Resolution",
-              "Resolution of the generated curves",
-              1,
-              20);
-
-  RNA_def_float(ot->srna,
-                "scale",
-                10.0f,
-                0.001f,
-                100.0f,
-                "Scale",
-                "Scale of the final stroke",
-                0.001f,
-                100.0f);
-}
-
-static void ui_gpencil_import_common_settings(uiLayout *layout, PointerRNA *imfptr)
-{
-  uiLayout *box, *row, *col, *sub;
-
-  box = uiLayoutBox(layout);
-  row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Import Options"), ICON_SCENE_DATA);
-
-  col = uiLayoutColumn(box, false);
-
-  sub = uiLayoutColumn(col, true);
-  uiItemR(sub, imfptr, "target", 0, NULL, ICON_NONE);
-  sub = uiLayoutColumn(col, true);
-  uiItemR(sub, imfptr, "resolution", 0, NULL, ICON_NONE);
-  sub = uiLayoutColumn(col, true);
-  uiItemR(sub, imfptr, "scale", 0, NULL, ICON_NONE);
-}
-
 static int wm_gpencil_import_svg_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   UNUSED_VARS(event);
@@ -218,14 +161,19 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
 
 static void ui_gpencil_import_svg_settings(uiLayout *layout, PointerRNA *imfptr)
 {
-  uiLayout *box;
+  uiLayout *box, *row, *col;
 
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
 
   box = uiLayoutBox(layout);
+  row = uiLayoutRow(box, false);
+  uiItemL(row, IFACE_("Import Options"), ICON_SCENE_DATA);
 
-  ui_gpencil_import_common_settings(layout, imfptr);
+  col = uiLayoutColumn(box, false);
+  uiItemR(col, imfptr, "target", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "resolution", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "scale", 0, NULL, ICON_NONE);
 }
 
 static void wm_gpencil_import_svg_draw(bContext *UNUSED(C), wmOperator *op)
@@ -249,6 +197,14 @@ static bool wm_gpencil_import_svg_poll(bContext *C)
 
 void WM_OT_gpencil_import_svg(wmOperatorType *ot)
 {
+  PropertyRNA *prop;
+
+  static const EnumPropertyItem target_object_modes[] = {
+      {GP_TARGET_OB_NEW, "NEW", 0, "New Object", ""},
+      {GP_TARGET_OB_SELECTED, "ACTIVE", 0, "Active Object", ""},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   ot->name = "Import SVG";
   ot->description = "Import SVG into grease pencil";
   ot->idname = "WM_OT_gpencil_import_svg";
@@ -267,5 +223,31 @@ void WM_OT_gpencil_import_svg(wmOperatorType *ot)
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_DEFAULT);
 
-  gpencil_import_common_props(ot);
+  prop = RNA_def_enum(ot->srna,
+                      "target",
+                      target_object_modes,
+                      GP_TARGET_OB_NEW,
+                      "Target Object",
+                      "Target grease pencil object");
+
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  RNA_def_int(ot->srna,
+              "resolution",
+              10,
+              1,
+              30,
+              "Resolution",
+              "Resolution of the generated curves",
+              1,
+              20);
+
+  RNA_def_float(ot->srna,
+                "scale",
+                10.0f,
+                0.001f,
+                100.0f,
+                "Scale",
+                "Scale of the final stroke",
+                0.001f,
+                100.0f);
 }

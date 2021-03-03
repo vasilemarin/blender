@@ -85,7 +85,6 @@ class GpencilIO {
 
   static std::string rgb_to_hexstr(float color[3]);
   static void rgb_to_grayscale(float color[3]);
-  static std::string to_lower_string(char *input_text);
   static float stroke_average_pressure_get(struct bGPDstroke *gps);
   static bool is_stroke_thickness_constant(struct bGPDstroke *gps);
 
@@ -110,7 +109,8 @@ class GpencilIO {
   struct bGPDstroke *gps_current_get(void);
   void gpl_current_set(struct bGPDlayer *gpl);
   void gpf_current_set(struct bGPDframe *gpf);
-  void gps_current_set(struct Object *ob, struct bGPDstroke *gps, const bool set_colors);
+  void gps_current_set(struct bGPDstroke *gps);
+  void gps_current_color_set(struct Object *ob, struct bGPDstroke *gps);
 
   void selected_objects_boundbox_set(void);
   void selected_objects_boundbox_get(rctf *boundbox);

@@ -37,6 +37,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
+#include "BLI_span.hh"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_layer_types.h"
@@ -53,6 +54,8 @@
 #include "DEG_depsgraph_query.h"
 
 #include "gpencil_io_base.h"
+
+using blender::Span;
 
 namespace blender::io::gpencil {
 
@@ -202,7 +205,6 @@ void GpencilIO::create_object_list(void)
 
 /**
  * Set file input_text full path.
- * \param C: Context.
  * \param filename: Path of the file provided by save dialog.
  */
 void GpencilIO::filename_set(const char *filename)
@@ -211,12 +213,7 @@ void GpencilIO::filename_set(const char *filename)
   BLI_path_abs(filename_, BKE_main_blendfile_path(bmain_));
 }
 
-/**
- * Convert to screenspace
- * \param co: 3D position
- * \param r_co: 2D position
- * \return False if error
- */
+/** Convert to screenspace. */
 bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2])
 {
   float parent_co[3];
@@ -257,11 +254,7 @@ bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2
   return false;
 }
 
-/**
- * Convert to render space
- * \param co: 3D position
- * \param r_co: 2D position
- */
+/** Convert to render space. */
 void GpencilIO::gpencil_3d_point_to_render_space(const float co[3], float r_co[2])
 {
   float parent_co[3];
@@ -284,11 +277,7 @@ void GpencilIO::gpencil_3d_point_to_render_space(const float co[3], float r_co[2
   }
 }
 
-/**
- * Convert to 2D
- * \param co: 3D position
- * \param r_co: 2D position
- */
+/** Convert to 2D. */
 void GpencilIO::gpencil_3d_point_to_2D(const float co[3], float r_co[2])
 {
   const bool is_camera = (bool)(rv3d_->persp == RV3D_CAMOB);
@@ -300,11 +289,7 @@ void GpencilIO::gpencil_3d_point_to_2D(const float co[3], float r_co[2])
   }
 }
 
-/**
- * Get average pressure
- * \param gps: Pointer to stroke
- * \retun value
- */
+/** Get average pressure. */
 float GpencilIO::stroke_average_pressure_get(struct bGPDstroke *gps)
 {
   bGPDspoint *pt = nullptr;
@@ -315,31 +300,25 @@ float GpencilIO::stroke_average_pressure_get(struct bGPDstroke *gps)
   }
 
   float tot = 0.0f;
-  for (int32_t i = 0; i < gps->totpoints; i++) {
-    pt = &gps->points[i];
-    tot += pt->pressure;
+  for (const bGPDspoint &pt : Span(gps->points, gps->totpoints)) {
+    tot += pt.pressure;
   }
 
   return tot / (float)gps->totpoints;
 }
 
-/**
- * Check if the thickness of the stroke is constant
- * \param gps: Pointer to stroke
- * \retun true if all points thickness are equal.
- */
+/** Check if the thickness of the stroke is constant. */
 bool GpencilIO::is_stroke_thickness_constant(struct bGPDstroke *gps)
 {
   if (gps->totpoints == 1) {
     return true;
   }
 
-  bGPDspoint *pt = &gps->points[0];
-  float prv_pressure = pt->pressure;
+  bGPDspoint *pt_first = &gps->points[0];
+  float prv_pressure = pt_first->pressure;
 
-  for (int32_t i = 0; i < gps->totpoints; i++) {
-    pt = &gps->points[i];
-    if (pt->pressure != prv_pressure) {
+  for (const bGPDspoint &pt : Span(gps->points, gps->totpoints)) {
+    if (pt.pressure != prv_pressure) {
       return false;
     }
   }
@@ -347,11 +326,7 @@ bool GpencilIO::is_stroke_thickness_constant(struct bGPDstroke *gps)
   return true;
 }
 
-/**
- * Get radius of point
- * \param gps: Stroke
- * \return Radius in pixels
- */
+/** Get radius of point. */
 float GpencilIO::stroke_point_radius_get(struct bGPDstroke *gps)
 {
   const bGPDlayer *gpl = gpl_current_get();
@@ -375,11 +350,7 @@ float GpencilIO::stroke_point_radius_get(struct bGPDstroke *gps)
   return MAX2(radius, 1.0f);
 }
 
-/**
- * Convert a color to Hex value (#FFFFFF)
- * \param color: Original RGB color
- * \return String with the conversion
- */
+/** Convert a color to Hex value (#FFFFFF). */
 std::string GpencilIO::rgb_to_hexstr(float color[3])
 {
   uint8_t r = color[0] * 255.0f;
@@ -393,37 +364,13 @@ std::string GpencilIO::rgb_to_hexstr(float color[3])
   return hexstr;
 }
 
-/**
- * Convert a color to gray scale.
- * \param color: Color to convert
- */
+/** Convert a color to gray scale. */
 void GpencilIO::rgb_to_grayscale(float color[3])
 {
   float grayscale = ((0.3f * color[0]) + (0.59f * color[1]) + (0.11f * color[2]));
   color[0] = grayscale;
   color[1] = grayscale;
   color[2] = grayscale;
-}
-
-/**
- * Convert a full string to lowercase
- * \param input_text: Input input_text
- * \return Lower case string
- */
-std::string GpencilIO::to_lower_string(char *input_text)
-{
-  std::string text = input_text;
-  /* First remove any point of the string. */
-  size_t found = text.find_first_of(".");
-  while (found != std::string::npos) {
-    text[found] = '_';
-    found = text.find_first_of(".", found + 1);
-  }
-
-  std::transform(
-      text.begin(), text.end(), text.begin(), [](unsigned char c) { return std::tolower(c); });
-
-  return text;
 }
 
 struct bGPDlayer *GpencilIO::gpl_current_get(void)
@@ -452,37 +399,38 @@ struct bGPDstroke *GpencilIO::gps_current_get(void)
   return gps_cur_;
 }
 
-void GpencilIO::gps_current_set(struct Object *ob, struct bGPDstroke *gps, const bool set_colors)
+void GpencilIO::gps_current_set(struct bGPDstroke *gps)
 {
   gps_cur_ = gps;
-  if (set_colors) {
-    gp_style_ = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
+}
 
-    is_stroke_ = ((gp_style_->flag & GP_MATERIAL_STROKE_SHOW) &&
-                  (gp_style_->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
-    is_fill_ = ((gp_style_->flag & GP_MATERIAL_FILL_SHOW) &&
-                (gp_style_->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+void GpencilIO::gps_current_color_set(struct Object *ob, struct bGPDstroke *gps)
+{
+  gp_style_ = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
 
-    /* Stroke color. */
-    copy_v4_v4(stroke_color_, gp_style_->stroke_rgba);
-    avg_opacity_ = 0;
-    /* Get average vertex color and apply. */
-    float avg_color[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    for (int32_t i = 0; i < gps->totpoints; i++) {
-      bGPDspoint *pt = &gps->points[i];
-      add_v4_v4(avg_color, pt->vert_color);
-      avg_opacity_ += pt->strength;
-    }
+  is_stroke_ = ((gp_style_->flag & GP_MATERIAL_STROKE_SHOW) &&
+                (gp_style_->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+  is_fill_ = ((gp_style_->flag & GP_MATERIAL_FILL_SHOW) &&
+              (gp_style_->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
 
-    mul_v4_v4fl(avg_color, avg_color, 1.0f / (float)gps->totpoints);
-    interp_v3_v3v3(stroke_color_, stroke_color_, avg_color, avg_color[3]);
-    avg_opacity_ /= (float)gps->totpoints;
-
-    /* Fill color. */
-    copy_v4_v4(fill_color_, gp_style_->fill_rgba);
-    /* Apply vertex color for fill. */
-    interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
+  /* Stroke color. */
+  copy_v4_v4(stroke_color_, gp_style_->stroke_rgba);
+  avg_opacity_ = 0;
+  /* Get average vertex color and apply. */
+  float avg_color[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+  for (const bGPDspoint &pt : Span(gps->points, gps->totpoints)) {
+    add_v4_v4(avg_color, pt.vert_color);
+    avg_opacity_ += pt.strength;
   }
+
+  mul_v4_v4fl(avg_color, avg_color, 1.0f / (float)gps->totpoints);
+  interp_v3_v3v3(stroke_color_, stroke_color_, avg_color, avg_color[3]);
+  avg_opacity_ /= (float)gps->totpoints;
+
+  /* Fill color. */
+  copy_v4_v4(fill_color_, gp_style_->fill_rgba);
+  /* Apply vertex color for fill. */
+  interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
 }
 
 struct MaterialGPencilStyle *GpencilIO::gp_style_current_get(void)
