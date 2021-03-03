@@ -104,7 +104,7 @@ class GpencilIO {
 
   float stroke_average_opacity_get(void);
 
-  void gpl_matrix_set(struct bGPDlayer *gpl);
+  void gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl);
   void gps_current_color_set(struct Object *ob, struct bGPDstroke *gps);
 
   void selected_objects_boundbox_set(void);

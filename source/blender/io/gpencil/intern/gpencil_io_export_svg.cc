@@ -184,7 +184,7 @@ void GpencilExporterSVG::export_gpencil_layers(void)
       if (gpl->flag & GP_LAYER_HIDE) {
         continue;
       }
-      gpl_matrix_set(gpl);
+      gpl_matrix_set(ob, gpl);
 
       bGPDframe *gpf = gpl->actframe;
       if ((gpf == nullptr) || (gpf->strokes.first == nullptr)) {

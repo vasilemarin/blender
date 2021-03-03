@@ -370,9 +370,9 @@ void GpencilIO::rgb_to_grayscale(float color[3])
   color[2] = grayscale;
 }
 
-void GpencilIO::gpl_matrix_set(struct bGPDlayer *gpl)
+void GpencilIO::gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl)
 {
-  BKE_gpencil_layer_transform_matrix_get(depsgraph_, params_.ob, gpl, diff_mat_);
+  BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob, gpl, diff_mat_);
   mul_m4_m4m4(diff_mat_, diff_mat_, gpl->layer_invmat);
 }
 
