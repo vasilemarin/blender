@@ -3933,7 +3933,7 @@ bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *rv3d,
   const bool cyclic = ((gps_temp->flag & GP_STROKE_CYCLIC) != 0);
 
   /* If Cyclic, add a new point. */
-  if ((cyclic) && (gps_temp->totpoints > 1)) {
+  if (cyclic && (gps_temp->totpoints > 1)) {
     gps_temp->totpoints++;
     gps_temp->points = MEM_recallocN(gps_temp->points,
                                      sizeof(*gps_temp->points) * gps_temp->totpoints);
@@ -3955,7 +3955,7 @@ bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *rv3d,
     return NULL;
   }
 
-  /* create new stroke */
+  /* Create new stroke. */
   bGPDstroke *perimeter_stroke = BKE_gpencil_stroke_new(gps_temp->mat_nr, num_perimeter_points, 1);
 
   tPerimeterPoint *curr = perimeter_points->first;
@@ -3963,24 +3963,21 @@ bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *rv3d,
     bGPDspoint *pt = &perimeter_stroke->points[i];
 
     copy_v3_v3(&pt->x, &curr->x);
-
-    /* Set pressure to zero and strength to one */
     pt->pressure = 0.0f;
     pt->strength = 1.0f;
 
     pt->flag |= GP_SPOINT_SELECT;
-    // pt->flag |= (curr->is_left) ? 0 : GP_SPOINT_RIGHT_SIDE;
 
     curr = curr->next;
   }
 
   BKE_gpencil_stroke_from_view_space(rv3d, perimeter_stroke, diff_mat);
 
-  /* free temp data */
+  /* Free temp data. */
   BLI_freelistN(perimeter_points);
   MEM_freeN(perimeter_points);
 
-  /* triangles cache needs to be recalculated */
+  /* Triangles cache needs to be recalculated. */
   BKE_gpencil_stroke_geometry_update(gpd, perimeter_stroke);
 
   perimeter_stroke->flag |= GP_STROKE_SELECT | GP_STROKE_CYCLIC;
