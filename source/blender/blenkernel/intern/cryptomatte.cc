@@ -183,13 +183,12 @@ float BKE_cryptomatte_hash_to_float(uint32_t cryptomatte_hash)
 }
 
 /* Find an ID in the given main that matches the given encoded float. */
-bool BKE_cryptomatte_find_name(const Main *bmain,
+bool BKE_cryptomatte_find_name(const CryptomatteSession *session,
                                const float encoded_hash,
                                char *r_name,
                                int name_len)
 {
-  CryptomatteSession session(bmain);
-  std::optional<std::string> name = session[encoded_hash];
+  std::optional<std::string> name = (*session)[encoded_hash];
   if (!name) {
     return false;
   }

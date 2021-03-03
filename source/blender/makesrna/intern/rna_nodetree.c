@@ -3812,13 +3812,13 @@ static void rna_NodeCryptomatte_matte_set(PointerRNA *ptr, const char *value)
 
 static void rna_NodeCryptomatte_update_add(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-  ntreeCompositCryptomatteSyncFromAdd(bmain, (bNodeTree *)ptr->owner_id, ptr->data);
+  ntreeCompositCryptomatteSyncFromAdd(ptr->data);
   rna_Node_update(bmain, scene, ptr);
 }
 
 static void rna_NodeCryptomatte_update_remove(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-  ntreeCompositCryptomatteSyncFromRemove(bmain, (bNodeTree *)ptr->owner_id, ptr->data);
+  ntreeCompositCryptomatteSyncFromRemove(ptr->data);
   rna_Node_update(bmain, scene, ptr);
 }
 

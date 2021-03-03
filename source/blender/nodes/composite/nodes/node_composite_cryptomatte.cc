@@ -35,6 +35,50 @@
 #include "BKE_library.h"
 #include "BKE_main.h"
 
+static CryptomatteSession *cryptomatte_init_from_node(const bNode &node, int frame_number)
+{
+  if (node.type != CMP_NODE_CRYPTOMATTE) {
+    return nullptr;
+  }
+
+  NodeCryptomatte *node_cryptomatte = static_cast<NodeCryptomatte *>(node.storage);
+  CryptomatteSession *session = nullptr;
+  switch (node.custom1) {
+    case CMP_CRYPTOMATTE_SRC_RENDER: {
+      Scene *scene = (Scene *)node.id;
+      BLI_assert(GS(scene->id.name) == ID_SCE);
+      Render *render = (scene) ? RE_GetSceneRender(scene) : nullptr;
+      RenderResult *render_result = render ? RE_AcquireResultRead(render) : nullptr;
+      if (render_result) {
+        session = BKE_cryptomatte_init_from_render_result(render_result);
+      }
+      if (render) {
+        RE_ReleaseResult(render);
+      }
+      break;
+    }
+
+    case CMP_CRYPTOMATTE_SRC_IMAGE: {
+      Image *image = (Image *)node.id;
+      BLI_assert(!image || GS(image->id.name) == ID_IM);
+      if (!image || image->type != IMA_TYPE_MULTILAYER) {
+        break;
+      }
+
+      ImageUser *iuser = &node_cryptomatte->iuser;
+      BKE_image_user_frame_calc(image, iuser, frame_number);
+      ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
+      RenderResult *render_result = image->rr;
+      if (render_result) {
+        session = BKE_cryptomatte_init_from_render_result(render_result);
+      }
+      BKE_image_release_ibuf(image, ibuf, NULL);
+      break;
+    }
+  }
+  return session;
+}
+
 extern "C" {
 static CryptomatteEntry *cryptomatte_find(const NodeCryptomatte &n, float encoded_hash)
 {
@@ -46,19 +90,24 @@ static CryptomatteEntry *cryptomatte_find(const NodeCryptomatte &n, float encode
   return nullptr;
 }
 
-static void cryptomatte_add(Main *bmain, NodeCryptomatte &n, float encoded_hash)
+static void cryptomatte_add(bNode &node, NodeCryptomatte &node_cryptomatte, float encoded_hash)
 {
   /* Check if entry already exist. */
-  if (cryptomatte_find(n, encoded_hash)) {
+  if (cryptomatte_find(node_cryptomatte, encoded_hash)) {
     return;
   }
 
   CryptomatteEntry *entry = static_cast<CryptomatteEntry *>(
       MEM_callocN(sizeof(CryptomatteEntry), __func__));
   entry->encoded_hash = encoded_hash;
-  BKE_cryptomatte_find_name(bmain, encoded_hash, entry->name, sizeof(entry->name));
+  /* TODO(jbakker): Get current frame from scene. */
+  CryptomatteSession *session = cryptomatte_init_from_node(node, 0);
+  if (session) {
+    BKE_cryptomatte_find_name(session, encoded_hash, entry->name, sizeof(entry->name));
+    BKE_cryptomatte_free(session);
+  }
 
-  BLI_addtail(&n.entries, entry);
+  BLI_addtail(&node_cryptomatte.entries, entry);
 }
 
 static void cryptomatte_remove(NodeCryptomatte &n, float encoded_hash)
@@ -81,18 +130,16 @@ static bNodeSocketTemplate cmp_node_cryptomatte_out[] = {
     {-1, ""},
 };
 
-void ntreeCompositCryptomatteSyncFromAdd(Main *bmain, bNodeTree *UNUSED(ntree), bNode *node)
+void ntreeCompositCryptomatteSyncFromAdd(bNode *node)
 {
   NodeCryptomatte *n = static_cast<NodeCryptomatte *>(node->storage);
   if (n->add[0] != 0.0f) {
-    cryptomatte_add(bmain, *n, n->add[0]);
+    cryptomatte_add(*node, *n, n->add[0]);
     zero_v3(n->add);
   }
 }
 
-void ntreeCompositCryptomatteSyncFromRemove(Main *UNUSED(bmain),
-                                            bNodeTree *UNUSED(ntree),
-                                            bNode *node)
+void ntreeCompositCryptomatteSyncFromRemove(bNode *node)
 {
   NodeCryptomatte *n = static_cast<NodeCryptomatte *>(node->storage);
   if (n->remove[0] != 0.0f) {
