@@ -86,9 +86,9 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
   cfra_ = iparams->frame_cur;
 
   /* Calculate camera matrix. */
-  Object *cam_ob = (Object *)params_.v3d->camera;
+  Object *cam_ob = params_.v3d->camera;
   if (cam_ob != NULL) {
-    RenderData *re = &scene_->r;
+    RenderData *rd = &scene_->r;
     CameraParams params;
 
     /* Setup parameters. */
@@ -96,7 +96,7 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
     BKE_camera_params_from_object(&params, cam_ob);
 
     /* Compute matrix, viewplane, .. */
-    BKE_camera_params_compute_viewplane(&params, re->xsch, re->ysch, re->xasp, re->yasp);
+    BKE_camera_params_compute_viewplane(&params, rd->xsch, rd->ysch, rd->xasp, rd->yasp);
     BKE_camera_params_compute_matrix(&params);
 
     float viewmat[4][4];
