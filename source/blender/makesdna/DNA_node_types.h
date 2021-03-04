@@ -1059,13 +1059,6 @@ typedef struct NodeSunBeams {
   float ray_length;
 } NodeSunBeams;
 
-/* NodeCryptomatte.type. */
-typedef enum eNodeCryptomatteLayerTypes {
-  CMP_CRYPTOMATTE_TYPE_OBJECT = 0,
-  CMP_CRYPTOMATTE_TYPE_MATERIAL = 1,
-  CMP_CRYPTOMATTE_TYPE_ASSET = 2,
-} eNodeCryptomatteLayerType;
-
 typedef struct CryptomatteEntry {
   struct CryptomatteEntry *next, *prev;
   float encoded_hash;
@@ -1082,11 +1075,11 @@ typedef struct NodeCryptomatte {
 
   /* Contains `CryptomatteEntry`. */
   ListBase entries;
-  int type;
 
   float add[3];
   float remove[3];
-  char _pad[4];
+  /* MAX_NAME */
+  char layer_name[64];
   char *matte_id DNA_DEPRECATED;
 } NodeCryptomatte;
 

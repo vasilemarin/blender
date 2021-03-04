@@ -3735,6 +3735,44 @@ static void rna_NodeCryptomatte_source_set(PointerRNA *ptr, int value)
   node->custom1 = value;
 }
 
+#  if 0
+static int rna_NodeCryptomatte_layer_name_get(PointerRNA *ptr)
+{
+  return 0;
+}
+
+static void rna_NodeCryptomatte_layer_name_set(PointerRNA *ptr, int new_value)
+{
+}
+
+static const EnumPropertyItem *rna_NodeCryptomatte_layer_name_itemf(bContext *C,
+                                                                    PointerRNA *ptr,
+                                                                    PropertyRNA *UNUSED(prop),
+                                                                    bool *r_free)
+{
+  bNode *node = (bNode *)ptr->data;
+
+  EnumPropertyItem *item = NULL;
+  EnumPropertyItem tmp = {0, "", 0, "", ""};
+  int totitem = 0;
+
+  struct CryptomatteSession *session = ntreeCompositCryptomatteSessionInitFromNode(node);
+  tmp.value = 0;
+  tmp.identifier = "test";
+  tmp.name = "test";
+  RNA_enum_item_add(&item, &totitem, &tmp);
+
+  if (session) {
+    BKE_cryptomatte_free(session);
+  }
+
+  RNA_enum_item_end(&item, &totitem);
+  *r_free = true;
+
+  return NULL;
+}
+#  endif
+
 static PointerRNA rna_NodeCryptomatte_scene_get(PointerRNA *ptr)
 {
   bNode *node = (bNode *)ptr->data;
@@ -8480,12 +8518,13 @@ static void def_cmp_cryptomatte(StructRNA *srna)
       {CMP_CRYPTOMATTE_SRC_RENDER, "RENDER", 0, "Render", "Use Cryptomatte passes from a render"},
       {CMP_CRYPTOMATTE_SRC_IMAGE, "IMAGE", 0, "Image", "Use Cryptomatte passes from an image"},
       {0, NULL, 0, NULL, NULL}};
-
-  static const EnumPropertyItem cryptomatte_type_items[] = {
-      {CMP_CRYPTOMATTE_TYPE_OBJECT, "OBJECT", 0, "Object", "Use Object layer"},
-      {CMP_CRYPTOMATTE_TYPE_MATERIAL, "MATERIAL", 0, "Material", "Use Material layer"},
-      {CMP_CRYPTOMATTE_TYPE_ASSET, "ASSET", 0, "Asset", "Use Asset layer"},
+#  if 0
+  static const EnumPropertyItem cryptomatte_layer_name_items[] = {
+      {0, "CryptoObject", 0, "Object", "Use Object layer"},
+      // {CMP_CRYPTOMATTE_TYPE_MATERIAL, "CryptoMaterial", 0, "Material", "Use Material layer"},
+      // {CMP_CRYPTOMATTE_TYPE_ASSET, "CryptoAsset", 0, "Asset", "Use Asset layer"},
       {0, NULL, 0, NULL, NULL}};
+#  endif
 
   prop = RNA_def_property(srna, "source", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "custom1");
@@ -8521,11 +8560,26 @@ static void def_cmp_cryptomatte(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_view_layer_update");
 
   RNA_def_struct_sdna_from(srna, "NodeCryptomatte", "storage");
-  prop = RNA_def_property(srna, "type", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, NULL, "type");
-  RNA_def_property_enum_items(prop, cryptomatte_type_items);
-  RNA_def_property_ui_text(prop, "Type", "What type of Cryptomatte layer is used");
+  /* TODO(jbakker): Prefer to have an enum field that stores the chosen cryptomatte
+   * layer in the `layer_name` DNA field. Might need to look at AOVs where we did
+   * a similar trick. The enabled `cryptomatte_layer_name` is just a quick workaround
+   * for testing purposes. */
+#  if 0
+  prop = RNA_def_property(srna, "cryptomatte_layer_name", PROP_ENUM, PROP_NONE);
+  // RNA_def_property_enum_sdna(prop, NULL, "layer_name");
+  RNA_def_property_enum_items(prop, cryptomatte_layer_name_items);
+  RNA_def_property_enum_funcs(prop,
+                              "rna_NodeCryptomatte_layer_name_get",
+                              "rna_NodeCryptomatte_layer_name_set",
+                              "rna_NodeCryptomatte_layer_name_itemf");
+  RNA_def_property_ui_text(prop, "Cryptomatte Layer", "What Cryptomatte layer is used");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+#  else
+  prop = RNA_def_property(srna, "layer_name", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_sdna(prop, NULL, "layer_name");
+  RNA_def_property_ui_text(prop, "Cryptomatte Layer", "What Cryptomatte layer is used");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+#  endif
 
   prop = RNA_def_property(srna, "add", PROP_FLOAT, PROP_COLOR);
   RNA_def_property_float_array_default(prop, default_1);

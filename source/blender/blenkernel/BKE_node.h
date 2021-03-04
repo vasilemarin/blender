@@ -47,6 +47,7 @@ struct BlendLibReader;
 struct BlendWriter;
 struct ColorManagedDisplaySettings;
 struct ColorManagedViewSettings;
+struct CryptomatteSession;
 struct FreestyleLineStyle;
 struct GPUMaterial;
 struct GPUNodeStack;
@@ -1285,7 +1286,7 @@ void ntreeCompositColorBalanceSyncFromCDL(bNodeTree *ntree, bNode *node);
 void ntreeCompositCryptomatteSyncFromAdd(bNode *node);
 void ntreeCompositCryptomatteSyncFromRemove(bNode *node);
 const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node);
-
+struct CryptomatteSession *ntreeCompositCryptomatteSessionInitFromNode(const bNode *node);
 /** \} */
 
 /* -------------------------------------------------------------------- */
