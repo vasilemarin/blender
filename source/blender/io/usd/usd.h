@@ -122,6 +122,9 @@ struct USDImportParams {
   bool import_proxy;
   bool import_render;
   bool import_visible_only;
+  bool use_instancing;
+  bool import_usd_preview;
+  bool set_material_blend;
 };
 
 /* The USD_export takes a as_background_job parameter, and returns a boolean.

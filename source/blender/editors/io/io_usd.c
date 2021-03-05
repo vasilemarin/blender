@@ -712,6 +712,11 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
   const bool import_proxy = RNA_boolean_get(op->ptr, "import_proxy");
   const bool import_render = RNA_boolean_get(op->ptr, "import_render");
 
+  const bool use_instancing = RNA_boolean_get(op->ptr, "use_instancing");
+
+  const bool import_usd_preview = RNA_boolean_get(op->ptr, "import_usd_preview");
+  const bool set_material_blend = RNA_boolean_get(op->ptr, "set_material_blend");
+
   int offset = 0;
   int sequence_len = 1;
 
@@ -753,6 +758,9 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
       import_proxy,
       import_render,
       import_visible_only,
+      use_instancing,
+      import_usd_preview,
+      set_material_blend,
   };
 
   bool ok = USD_import(C, filename, &params, as_background_job);
@@ -838,6 +846,11 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   uiItemR(box, ptr, "import_proxy", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "import_render", 0, NULL, ICON_NONE);
 
+  box = uiLayoutBox(layout);
+  uiItemL(box, IFACE_("Experimental"), ICON_NONE);
+  uiItemR(box, ptr, "use_instancing", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "import_usd_preview", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "set_material_blend", 0, NULL, ICON_NONE);
 }
 
 void WM_OT_usd_import(struct wmOperatorType *ot)
@@ -940,7 +953,8 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   true,
                   "Import Instance Proxies",
                   "If enabled, USD instances will be traversed with instance proxies, "
-                  "creating a unique Blender object for each instance");
+                  "creating a unique Blender object for each instance.  Note that "
+                  "this option is ignored if the Instancing option is also checked");
 
   RNA_def_boolean(ot->srna,
                   "import_visible_only",
@@ -978,7 +992,30 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "import_proxy", true, "Proxy", "When checked, import proxy geometry");
 
   RNA_def_boolean(
-    ot->srna, "import_render", true, "Render", "When checked, import final render geometry");
+      ot->srna, "import_render", true, "Render", "When checked, import final render geometry");
+
+  RNA_def_boolean(
+      ot->srna,
+      "use_instancing",
+      false,
+      "Instancing",
+      "When checked, USD scenegraph instances are imported as collection instances in Blender.  "
+      "Note that point instancers are not yet handled by this option");
+
+  RNA_def_boolean(
+      ot->srna,
+      "import_usd_preview",
+      false,
+      "Import USD Preview",
+      "When checked, convert UsdPreviewSurface shaders to Principled BSD shader networks.");
+
+  RNA_def_boolean(ot->srna,
+                  "set_material_blend",
+                  false,
+                  "Set Material Blend",
+                  "When checked and if the Import Usd Preview option is enabled, "
+                  "the material blend method will automatically be set based on the "
+                  "shader's opacity and opacityThreshold inputs");
 }
 
 #endif /* WITH_USD */
