@@ -802,7 +802,7 @@ pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
       // instead
 
       // Commenting out unused to prevent compiler warning.
-      //int distribution = ((node->custom1) & 6);
+      // int distribution = ((node->custom1) & 6);
 
       usd_handle_shader_enum(pxr::TfToken("Distribution"),
                              node_principled_distribution_conversion,

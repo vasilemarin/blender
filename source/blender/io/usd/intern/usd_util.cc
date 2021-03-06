@@ -506,4 +506,3 @@ std::string get_node_tex_image_filepath(bNode *node)
 }
 
 }  // Namespace blender::io::usd
-

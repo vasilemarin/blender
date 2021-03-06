@@ -190,4 +190,3 @@ void USDHairWriter::assign_material(const HierarchyContext &context,
 }
 
 }  // namespace blender::io::usd
-

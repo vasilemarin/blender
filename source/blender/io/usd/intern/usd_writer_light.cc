@@ -156,7 +156,7 @@ void USDLightWriter::do_write(HierarchyContext &context)
   else {
     usd_intensity = light->energy / 100.0f;
   }
-  
+
   usd_light.CreateIntensityAttr().Set(usd_intensity, timecode);
 
   usd_light.CreateColorAttr().Set(pxr::GfVec3f(light->r, light->g, light->b), timecode);

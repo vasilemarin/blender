@@ -96,12 +96,12 @@ bool USDGenericMeshWriter::is_supported(const HierarchyContext *context) const
 {
   // TODO(makowalski) -- Check if we should be calling is_object_visible() below.
   // if (usd_export_context_.export_params.visible_objects_only) {
-    // return context->is_object_visible(usd_export_context_.export_params.evaluation_mode);
+  // return context->is_object_visible(usd_export_context_.export_params.evaluation_mode);
   // }
 
   if (!usd_export_context_.export_params.visible_objects_only) {
-      // We can skip the visibility test.
-      return true;
+    // We can skip the visibility test.
+    return true;
   }
 
   Object *object = context->object;
@@ -123,7 +123,7 @@ bool USDGenericMeshWriter::is_supported(const HierarchyContext *context) const
   if (is_dupli) {
     object->base_flag = base_flag;
   }
-  
+
   return (visibility & OB_VISIBLE_SELF) != 0;
 }
 
@@ -358,8 +358,7 @@ void USDGenericMeshWriter::write_vertex_groups(const Object *ob,
           /* This out of bounds check is necessary because MDeformVert.totweight can be
           larger than the number of bDeformGroup structs in Object.defbase. It appears to be
           a Blender bug that can cause this scenario.*/
-          if (idx < num_groups)
-          {
+          if (idx < num_groups) {
             pv_data[idx][i] = w;
           }
         }
@@ -388,8 +387,7 @@ void USDGenericMeshWriter::write_vertex_groups(const Object *ob,
             /* This out of bounds check is necessary because MDeformVert.totweight can be
             larger than the number of bDeformGroup structs in Object.defbase. Appears to be
             a Blender bug that can cause this scenario.*/
-            if (idx < num_groups)
-            {
+            if (idx < num_groups) {
               pv_data[idx][p_idx] = w;
             }
           }
@@ -472,7 +470,7 @@ void USDGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
       (usd_export_context_.export_params.export_as_overs) ?
           pxr::UsdGeomMesh(usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path)) :
           pxr::UsdGeomMesh::Define(usd_export_context_.stage, usd_export_context_.usd_path);
-          
+
   write_visibility(context, timecode, usd_mesh);
 
   USDMeshData usd_mesh_data;
