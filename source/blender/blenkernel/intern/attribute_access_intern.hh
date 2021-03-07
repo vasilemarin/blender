@@ -56,6 +56,52 @@ class ConstantReadAttribute final : public ReadAttribute {
   }
 };
 
+template<typename T> class ArrayReadAttribute final : public ReadAttribute {
+ private:
+  Span<T> data_;
+
+ public:
+  ArrayReadAttribute(AttributeDomain domain, Span<T> data)
+      : ReadAttribute(domain, CPPType::get<T>(), data.size()), data_(data)
+  {
+  }
+
+  void get_internal(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(data_[index]);
+  }
+
+  void initialize_span() const override
+  {
+    /* The data will not be modified, so this const_cast is fine. */
+    array_buffer_ = const_cast<T *>(data_.data());
+    array_is_temporary_ = false;
+  }
+};
+
+template<typename T> class OwnedArrayReadAttribute final : public ReadAttribute {
+ private:
+  Array<T> data_;
+
+ public:
+  OwnedArrayReadAttribute(AttributeDomain domain, Array<T> data)
+      : ReadAttribute(domain, CPPType::get<T>(), data.size()), data_(std::move(data))
+  {
+  }
+
+  void get_internal(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(data_[index]);
+  }
+
+  void initialize_span() const override
+  {
+    /* The data will not be modified, so this const_cast is fine. */
+    array_buffer_ = const_cast<T *>(data_.data());
+    array_is_temporary_ = false;
+  }
+};
+
 template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
 class DerivedArrayReadAttribute final : public ReadAttribute {
  private:
@@ -72,6 +118,38 @@ class DerivedArrayReadAttribute final : public ReadAttribute {
     const StructT &struct_value = data_[index];
     const ElemT value = GetFunc(struct_value);
     new (r_value) ElemT(value);
+  }
+};
+
+template<typename T> class ArrayWriteAttribute final : public WriteAttribute {
+ private:
+  MutableSpan<T> data_;
+
+ public:
+  ArrayWriteAttribute(AttributeDomain domain, MutableSpan<T> data)
+      : WriteAttribute(domain, CPPType::get<T>(), data.size()), data_(data)
+  {
+  }
+
+  void get_internal(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(data_[index]);
+  }
+
+  void set_internal(const int64_t index, const void *value) override
+  {
+    data_[index] = *reinterpret_cast<const T *>(value);
+  }
+
+  void initialize_span(const bool UNUSED(write_only)) override
+  {
+    array_buffer_ = data_.data();
+    array_is_temporary_ = false;
+  }
+
+  void apply_span_if_necessary() override
+  {
+    /* Do nothing, because the span contains the attribute itself already. */
   }
 };
 

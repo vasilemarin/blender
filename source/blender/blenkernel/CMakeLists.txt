@@ -134,6 +134,7 @@ set(SRC
   intern/geometry_component_instances.cc
   intern/geometry_component_pointcloud.cc
   intern/geometry_component_mesh.cc
+  intern/geometry_component_volume.cc
   intern/geometry_set.cc
   intern/geometry_set_instances.cc
   intern/gpencil.c

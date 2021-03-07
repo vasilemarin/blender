@@ -49,9 +49,6 @@ using blender::bke::ReadAttributePtr;
 using blender::bke::WriteAttributePtr;
 using blender::fn::GMutableSpan;
 
-/* Can't include BKE_object_deform.h right now, due to an enum forward declaration.  */
-extern "C" MDeformVert *BKE_object_defgroup_data_create(ID *id);
-
 namespace blender::bke {
 
 /* -------------------------------------------------------------------- */
@@ -161,38 +158,6 @@ void WriteAttribute::apply_span_if_necessary()
   }
 }
 
-template<typename T> class ArrayWriteAttribute final : public WriteAttribute {
- private:
-  MutableSpan<T> data_;
-
- public:
-  ArrayWriteAttribute(AttributeDomain domain, MutableSpan<T> data)
-      : WriteAttribute(domain, CPPType::get<T>(), data.size()), data_(data)
-  {
-  }
-
-  void get_internal(const int64_t index, void *r_value) const override
-  {
-    new (r_value) T(data_[index]);
-  }
-
-  void set_internal(const int64_t index, const void *value) override
-  {
-    data_[index] = *reinterpret_cast<const T *>(value);
-  }
-
-  void initialize_span(const bool UNUSED(write_only)) override
-  {
-    array_buffer_ = data_.data();
-    array_is_temporary_ = false;
-  }
-
-  void apply_span_if_necessary() override
-  {
-    /* Do nothing, because the span contains the attribute itself already. */
-  }
-};
-
 /* This is used by the #OutputAttributePtr class. */
 class TemporaryWriteAttribute final : public WriteAttribute {
  public:
@@ -238,52 +203,6 @@ class TemporaryWriteAttribute final : public WriteAttribute {
   void apply_span_if_necessary() override
   {
     /* Do nothing, because the span contains the attribute itself already. */
-  }
-};
-
-template<typename T> class ArrayReadAttribute final : public ReadAttribute {
- private:
-  Span<T> data_;
-
- public:
-  ArrayReadAttribute(AttributeDomain domain, Span<T> data)
-      : ReadAttribute(domain, CPPType::get<T>(), data.size()), data_(data)
-  {
-  }
-
-  void get_internal(const int64_t index, void *r_value) const override
-  {
-    new (r_value) T(data_[index]);
-  }
-
-  void initialize_span() const override
-  {
-    /* The data will not be modified, so this const_cast is fine. */
-    array_buffer_ = const_cast<T *>(data_.data());
-    array_is_temporary_ = false;
-  }
-};
-
-template<typename T> class OwnedArrayReadAttribute final : public ReadAttribute {
- private:
-  Array<T> data_;
-
- public:
-  OwnedArrayReadAttribute(AttributeDomain domain, Array<T> data)
-      : ReadAttribute(domain, CPPType::get<T>(), data.size()), data_(std::move(data))
-  {
-  }
-
-  void get_internal(const int64_t index, void *r_value) const override
-  {
-    new (r_value) T(data_[index]);
-  }
-
-  void initialize_span() const override
-  {
-    /* The data will not be modified, so this const_cast is fine. */
-    array_buffer_ = const_cast<T *>(data_.data());
-    array_is_temporary_ = false;
   }
 };
 
@@ -456,7 +375,7 @@ AttributeDomain attribute_domain_highest_priority(Span<AttributeDomain> domains)
 }
 
 ReadAttributePtr BuiltinCustomDataLayerProvider::try_get_for_read(
-    const GeometryComponent &component) const final
+    const GeometryComponent &component) const
 {
   const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
   if (custom_data == nullptr) {
@@ -476,7 +395,7 @@ ReadAttributePtr BuiltinCustomDataLayerProvider::try_get_for_read(
 }
 
 WriteAttributePtr BuiltinCustomDataLayerProvider::try_get_for_write(
-    GeometryComponent &component) const final
+    GeometryComponent &component) const
 {
   if (writable_ != Writable) {
     return {};
@@ -501,7 +420,7 @@ WriteAttributePtr BuiltinCustomDataLayerProvider::try_get_for_write(
   return as_write_attribute_(data, domain_size);
 }
 
-bool BuiltinCustomDataLayerProvider::try_delete(GeometryComponent &component) const final
+bool BuiltinCustomDataLayerProvider::try_delete(GeometryComponent &component) const
 {
   if (deletable_ != Deletable) {
     return false;
@@ -521,7 +440,7 @@ bool BuiltinCustomDataLayerProvider::try_delete(GeometryComponent &component) co
   return delete_success;
 }
 
-bool BuiltinCustomDataLayerProvider::try_create(GeometryComponent &component) const final
+bool BuiltinCustomDataLayerProvider::try_create(GeometryComponent &component) const
 {
   if (createable_ != Creatable) {
     return false;
@@ -544,7 +463,7 @@ bool BuiltinCustomDataLayerProvider::try_create(GeometryComponent &component) co
   return success;
 }
 
-bool BuiltinCustomDataLayerProvider::exists(const GeometryComponent &component) const final
+bool BuiltinCustomDataLayerProvider::exists(const GeometryComponent &component) const
 {
   const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
   if (custom_data == nullptr) {
@@ -555,7 +474,7 @@ bool BuiltinCustomDataLayerProvider::exists(const GeometryComponent &component) 
 }
 
 ReadAttributePtr CustomDataAttributeProvider::try_get_for_read(
-    const GeometryComponent &component, const StringRef attribute_name) const final
+    const GeometryComponent &component, const StringRef attribute_name) const
 {
   const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
   if (custom_data == nullptr) {
@@ -588,7 +507,7 @@ ReadAttributePtr CustomDataAttributeProvider::try_get_for_read(
 }
 
 WriteAttributePtr CustomDataAttributeProvider::try_get_for_write(
-    GeometryComponent &component, const StringRef attribute_name) const final
+    GeometryComponent &component, const StringRef attribute_name) const
 {
   CustomData *custom_data = custom_data_access_.get_custom_data(component);
   if (custom_data == nullptr) {
@@ -622,7 +541,7 @@ WriteAttributePtr CustomDataAttributeProvider::try_get_for_write(
 }
 
 bool CustomDataAttributeProvider::try_delete(GeometryComponent &component,
-                                             const StringRef attribute_name) const final
+                                             const StringRef attribute_name) const
 {
   CustomData *custom_data = custom_data_access_.get_custom_data(component);
   if (custom_data == nullptr) {
@@ -642,7 +561,7 @@ bool CustomDataAttributeProvider::try_delete(GeometryComponent &component,
 bool CustomDataAttributeProvider::try_create(GeometryComponent &component,
                                              const StringRef attribute_name,
                                              const AttributeDomain domain,
-                                             const CustomDataType data_type) const final
+                                             const CustomDataType data_type) const
 {
   if (domain_ != domain) {
     return false;
@@ -667,8 +586,8 @@ bool CustomDataAttributeProvider::try_create(GeometryComponent &component,
   return true;
 }
 
-bool CustomDataAttributeProvider::foreach_attribute(
-    const GeometryComponent &component, const AttributeForeachCallback callback) const final
+bool CustomDataAttributeProvider::foreach_attribute(const GeometryComponent &component,
+                                                    const AttributeForeachCallback callback) const
 {
   const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
   if (custom_data == nullptr) {
@@ -687,7 +606,7 @@ bool CustomDataAttributeProvider::foreach_attribute(
 }
 
 ReadAttributePtr NamedLegacyCustomDataProvider::try_get_for_read(
-    const GeometryComponent &component, const StringRef attribute_name) const final
+    const GeometryComponent &component, const StringRef attribute_name) const
 {
   const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
   if (custom_data == nullptr) {
@@ -705,7 +624,7 @@ ReadAttributePtr NamedLegacyCustomDataProvider::try_get_for_read(
 }
 
 WriteAttributePtr NamedLegacyCustomDataProvider::try_get_for_write(
-    GeometryComponent &component, const StringRef attribute_name) const final
+    GeometryComponent &component, const StringRef attribute_name) const
 {
   CustomData *custom_data = custom_data_access_.get_custom_data(component);
   if (custom_data == nullptr) {
@@ -729,7 +648,7 @@ WriteAttributePtr NamedLegacyCustomDataProvider::try_get_for_write(
 }
 
 bool NamedLegacyCustomDataProvider::try_delete(GeometryComponent &component,
-                                               const StringRef attribute_name) const final
+                                               const StringRef attribute_name) const
 {
   CustomData *custom_data = custom_data_access_.get_custom_data(component);
   if (custom_data == nullptr) {
@@ -750,7 +669,7 @@ bool NamedLegacyCustomDataProvider::try_delete(GeometryComponent &component,
 }
 
 bool NamedLegacyCustomDataProvider::foreach_attribute(
-    const GeometryComponent &component, const AttributeForeachCallback callback) const final
+    const GeometryComponent &component, const AttributeForeachCallback callback) const
 {
   const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
   if (custom_data == nullptr) {
@@ -767,8 +686,7 @@ bool NamedLegacyCustomDataProvider::foreach_attribute(
   return true;
 }
 
-void NamedLegacyCustomDataProvider::supported_domains(
-    Vector<AttributeDomain> &r_domains) const final
+void NamedLegacyCustomDataProvider::supported_domains(Vector<AttributeDomain> &r_domains) const
 {
   r_domains.append_non_duplicates(domain_);
 }
