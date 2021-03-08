@@ -42,22 +42,31 @@ void CryptomatteNode::buildInputOperationsFromRenderSource(
     blender::Vector<NodeOperation *> &r_input_operations)
 {
   Scene *scene = (Scene *)node.id;
+  if (!scene) {
+    return;
+  }
+
   BLI_assert(GS(scene->id.name) == ID_SCE);
-  Render *render = (scene) ? RE_GetSceneRender(scene) : nullptr;
+  Render *render = RE_GetSceneRender(scene);
   RenderResult *render_result = render ? RE_AcquireResultRead(render) : nullptr;
 
   if (!render_result) {
     return;
   }
 
-  const short cryptomatte_layer_id = node.custom2;
-  ViewLayer *view_layer = (ViewLayer *)BLI_findlink(&scene->view_layers, cryptomatte_layer_id);
-  if (view_layer) {
+  const short cryptomatte_layer_id = 0;
+  std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
+  LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
     RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
     if (render_layer) {
-      std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
       LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
-        if (blender::StringRef(render_pass->name, sizeof(render_pass->name)).startswith(prefix)) {
+        blender::StringRef combined_name =
+            blender::StringRef(view_layer->name,
+                               strnlen(view_layer->name, sizeof(view_layer->name))) +
+            "." +
+            blender::StringRef(render_pass->name,
+                               strnlen(render_pass->name, sizeof(render_pass->name)));
+        if (combined_name.startswith(prefix)) {
           RenderLayersProg *op = new RenderLayersProg(
               render_pass->name, COM_DT_COLOR, render_pass->channels);
           op->setScene(scene);
