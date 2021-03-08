@@ -614,4 +614,14 @@ void CryptomatteStampDataCallbackData::extract_layer_manifest(void *_data,
   blender::bke::cryptomatte::manifest::from_manifest(layer, propvalue);
 }
 
+blender::Vector<blender::StringRef> BKE_cryptomatte_layer_names_get(
+    const CryptomatteSession &session)
+{
+  blender::Vector<blender::StringRef> layer_names;
+  for (std::string layer_name : session.layers.keys()) {
+    layer_names.append(layer_name);
+  }
+  return layer_names;
+}
+
 }  // namespace blender::bke::cryptomatte

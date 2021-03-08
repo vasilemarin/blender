@@ -398,6 +398,12 @@ static const EnumPropertyItem prop_shader_output_target_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+static const EnumPropertyItem node_cryptomatte_layer_name_items[] = {
+    {0, "CryptoObject", 0, "Object", "Use Object layer"},
+    {1, "CryptoMaterial", 0, "Material", "Use Material layer"},
+    {2, "CryptoAsset", 0, "Asset", "Use Asset layer"},
+    {0, NULL, 0, NULL, NULL}};
+
 #endif
 
 #define ITEM_ATTRIBUTE \
@@ -3735,7 +3741,6 @@ static void rna_NodeCryptomatte_source_set(PointerRNA *ptr, int value)
   node->custom1 = value;
 }
 
-#  if 0
 static int rna_NodeCryptomatte_layer_name_get(PointerRNA *ptr)
 {
   return 0;
@@ -3751,27 +3756,25 @@ static const EnumPropertyItem *rna_NodeCryptomatte_layer_name_itemf(bContext *C,
                                                                     bool *r_free)
 {
   bNode *node = (bNode *)ptr->data;
-
+  NodeCryptomatte *storage = node->storage;
   EnumPropertyItem *item = NULL;
-  EnumPropertyItem tmp = {0, "", 0, "", ""};
+  EnumPropertyItem template = {0, "", 0, "", ""};
   int totitem = 0;
 
-  struct CryptomatteSession *session = ntreeCompositCryptomatteSessionInitFromNode(node);
-  tmp.value = 0;
-  tmp.identifier = "test";
-  tmp.name = "test";
-  RNA_enum_item_add(&item, &totitem, &tmp);
-
-  if (session) {
-    BKE_cryptomatte_free(session);
+  ntreeCompositCryptomatteUpdateLayerNames(node);
+  int layer_index;
+  LISTBASE_FOREACH_INDEX (CryptomatteLayer *, layer, &storage->runtime.layers, layer_index) {
+    template.value = layer_index;
+    template.identifier = layer->name;
+    template.name = layer->name;
+    RNA_enum_item_add(&item, &totitem, &template);
   }
 
   RNA_enum_item_end(&item, &totitem);
   *r_free = true;
 
-  return NULL;
+  return item;
 }
-#  endif
 
 static PointerRNA rna_NodeCryptomatte_scene_get(PointerRNA *ptr)
 {
@@ -8518,13 +8521,6 @@ static void def_cmp_cryptomatte(StructRNA *srna)
       {CMP_CRYPTOMATTE_SRC_RENDER, "RENDER", 0, "Render", "Use Cryptomatte passes from a render"},
       {CMP_CRYPTOMATTE_SRC_IMAGE, "IMAGE", 0, "Image", "Use Cryptomatte passes from an image"},
       {0, NULL, 0, NULL, NULL}};
-#  if 0
-  static const EnumPropertyItem cryptomatte_layer_name_items[] = {
-      {0, "CryptoObject", 0, "Object", "Use Object layer"},
-      // {CMP_CRYPTOMATTE_TYPE_MATERIAL, "CryptoMaterial", 0, "Material", "Use Material layer"},
-      // {CMP_CRYPTOMATTE_TYPE_ASSET, "CryptoAsset", 0, "Asset", "Use Asset layer"},
-      {0, NULL, 0, NULL, NULL}};
-#  endif
 
   prop = RNA_def_property(srna, "source", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "custom1");
@@ -8564,10 +8560,10 @@ static void def_cmp_cryptomatte(StructRNA *srna)
    * layer in the `layer_name` DNA field. Might need to look at AOVs where we did
    * a similar trick. The enabled `cryptomatte_layer_name` is just a quick workaround
    * for testing purposes. */
-#  if 0
-  prop = RNA_def_property(srna, "cryptomatte_layer_name", PROP_ENUM, PROP_NONE);
+#  if 1
+  prop = RNA_def_property(srna, "layer_name", PROP_ENUM, PROP_NONE);
   // RNA_def_property_enum_sdna(prop, NULL, "layer_name");
-  RNA_def_property_enum_items(prop, cryptomatte_layer_name_items);
+  RNA_def_property_enum_items(prop, node_cryptomatte_layer_name_items);
   RNA_def_property_enum_funcs(prop,
                               "rna_NodeCryptomatte_layer_name_get",
                               "rna_NodeCryptomatte_layer_name_set",
@@ -8582,6 +8578,7 @@ static void def_cmp_cryptomatte(StructRNA *srna)
 #  endif
 
   prop = RNA_def_property(srna, "add", PROP_FLOAT, PROP_COLOR);
+  RNA_def_property_float_sdna(prop, NULL, "runtime.add");
   RNA_def_property_float_array_default(prop, default_1);
   RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
   RNA_def_property_ui_text(
@@ -8589,6 +8586,7 @@ static void def_cmp_cryptomatte(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeCryptomatte_update_add");
 
   prop = RNA_def_property(srna, "remove", PROP_FLOAT, PROP_COLOR);
+  RNA_def_property_float_sdna(prop, NULL, "runtime.remove");
   RNA_def_property_float_array_default(prop, default_1);
   RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
   RNA_def_property_ui_text(

@@ -26,10 +26,11 @@
 #include "BLI_assert.h"
 #include "BLI_dynstr.h"
 #include "BLI_hash_mm3.h"
+#include "BLI_string_ref.hh"
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
-#include "BKE_cryptomatte.h"
+#include "BKE_cryptomatte.hh"
 #include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_library.h"
@@ -133,29 +134,39 @@ static bNodeSocketTemplate cmp_node_cryptomatte_out[] = {
 void ntreeCompositCryptomatteSyncFromAdd(bNode *node)
 {
   NodeCryptomatte *n = static_cast<NodeCryptomatte *>(node->storage);
-  if (n->add[0] != 0.0f) {
-    cryptomatte_add(*node, *n, n->add[0]);
-    zero_v3(n->add);
+  if (n->runtime.add[0] != 0.0f) {
+    cryptomatte_add(*node, *n, n->runtime.add[0]);
+    zero_v3(n->runtime.add);
   }
 }
 
 void ntreeCompositCryptomatteSyncFromRemove(bNode *node)
 {
   NodeCryptomatte *n = static_cast<NodeCryptomatte *>(node->storage);
-  if (n->remove[0] != 0.0f) {
-    cryptomatte_remove(*n, n->remove[0]);
-    zero_v3(n->remove);
+  if (n->runtime.remove[0] != 0.0f) {
+    cryptomatte_remove(*n, n->runtime.remove[0]);
+    zero_v3(n->runtime.remove);
   }
 }
-CryptomatteSession *ntreeCompositCryptomatteSessionInitFromNode(const bNode *node)
+void ntreeCompositCryptomatteUpdateLayerNames(bNode *node)
 {
-  return cryptomatte_init_from_node(*node, 0);
-}
+  NodeCryptomatte *n = static_cast<NodeCryptomatte *>(node->storage);
+  BLI_freelistN(&n->runtime.layers);
 
-const char *CRYPTOMATTE_LAYER_PREFIX_OBJECT = "CryptoObject";
-const char *CRYPTOMATTE_LAYER_PREFIX_MATERIAL = "CryptoMaterial";
-const char *CRYPTOMATTE_LAYER_PREFIX_ASSET = "CryptoAsset";
-const char *CRYPTOMATTE_LAYER_PREFIX_UNKNOWN = "";
+  CryptomatteSession *session = cryptomatte_init_from_node(*node, 0);
+
+  if (session) {
+    for (blender::StringRef layer_name :
+         blender::bke::cryptomatte::BKE_cryptomatte_layer_names_get(*session)) {
+      CryptomatteLayer *layer = static_cast<CryptomatteLayer *>(
+          MEM_callocN(sizeof(CryptomatteLayer), __func__));
+      layer_name.copy(layer->name);
+      BLI_addtail(&n->runtime.layers, layer);
+    }
+
+    BKE_cryptomatte_free(session);
+  }
+}
 
 const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node)
 {

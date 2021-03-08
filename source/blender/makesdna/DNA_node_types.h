@@ -1067,6 +1067,19 @@ typedef struct CryptomatteEntry {
   char _pad[4];
 } CryptomatteEntry;
 
+typedef struct CryptomatteLayer {
+  struct CryptomatteEntry *next, *prev;
+  char name[64];
+} CryptomatteLayer;
+
+typedef struct NodeCryptomatte_Runtime {
+  /* Contains `CryptomatteLayer`. */
+  ListBase layers;
+  /* Temp storage for the cryptomatte picker. */
+  float add[3];
+  float remove[3];
+} NodeCryptomatte_Runtime;
+
 typedef struct NodeCryptomatte {
   /* iuser needs to be first element due to RNA limitations.
    * When we define the ImageData properties, we can't define them from
@@ -1076,12 +1089,12 @@ typedef struct NodeCryptomatte {
   /* Contains `CryptomatteEntry`. */
   ListBase entries;
 
-  float add[3];
-  float remove[3];
   /* MAX_NAME */
   char layer_name[64];
   /* Stores `entries` as a string for opening in 2.80-2.91. */
   char *matte_id;
+
+  NodeCryptomatte_Runtime runtime;
 } NodeCryptomatte;
 
 typedef struct NodeDenoise {

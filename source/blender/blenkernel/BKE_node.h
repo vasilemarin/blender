@@ -1286,7 +1286,9 @@ void ntreeCompositColorBalanceSyncFromCDL(bNodeTree *ntree, bNode *node);
 void ntreeCompositCryptomatteSyncFromAdd(bNode *node);
 void ntreeCompositCryptomatteSyncFromRemove(bNode *node);
 const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node);
-struct CryptomatteSession *ntreeCompositCryptomatteSessionInitFromNode(const bNode *node);
+/* Update the runtime layer names with the cryptomatte layer names of the references
+ * render layer or image. */
+void ntreeCompositCryptomatteUpdateLayerNames(bNode *node);
 /** \} */
 
 /* -------------------------------------------------------------------- */

@@ -707,6 +707,7 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
           NodeCryptomatte *nc = (NodeCryptomatte *)node->storage;
           BLO_read_data_address(reader, &nc->matte_id);
           BLO_read_list(reader, &nc->entries);
+          BLI_listbase_clear(&nc->runtime.layers);
           break;
         }
         case TEX_NODE_IMAGE: {
