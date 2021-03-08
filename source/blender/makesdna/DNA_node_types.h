@@ -1080,7 +1080,8 @@ typedef struct NodeCryptomatte {
   float remove[3];
   /* MAX_NAME */
   char layer_name[64];
-  char *matte_id DNA_DEPRECATED;
+  /* Stores `entries` as a string for opening in 2.80-2.91. */
+  char *matte_id;
 } NodeCryptomatte;
 
 typedef struct NodeDenoise {
