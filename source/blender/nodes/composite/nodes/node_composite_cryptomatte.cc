@@ -47,7 +47,11 @@ static CryptomatteSession *cryptomatte_init_from_node(const bNode &node, int fra
   switch (node.custom1) {
     case CMP_CRYPTOMATTE_SRC_RENDER: {
       Scene *scene = (Scene *)node.id;
+      if (!scene) {
+        return nullptr;
+      }
       BLI_assert(GS(scene->id.name) == ID_SCE);
+
       Render *render = (scene) ? RE_GetSceneRender(scene) : nullptr;
       RenderResult *render_result = render ? RE_AcquireResultRead(render) : nullptr;
       if (render_result) {
