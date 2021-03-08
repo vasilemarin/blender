@@ -30,14 +30,17 @@
 extern "C" {
 #endif
 
+/* Forward declarations. */
 struct CryptomatteSession;
 struct Material;
 struct Object;
 struct RenderResult;
+struct Scene;
 
 struct CryptomatteSession *BKE_cryptomatte_init(void);
 struct CryptomatteSession *BKE_cryptomatte_init_from_render_result(
     const struct RenderResult *render_result);
+struct CryptomatteSession *BKE_cryptomatte_init_from_scene(const struct Scene *scene);
 void BKE_cryptomatte_free(struct CryptomatteSession *session);
 void BKE_cryptomatte_add_layer(struct CryptomatteSession *session, const char *layer_name);
 

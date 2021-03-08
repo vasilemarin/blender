@@ -30,6 +30,7 @@
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
 #include "BLI_compiler_attrs.h"
 #include "BLI_dynstr.h"
@@ -54,6 +55,7 @@ struct CryptomatteSession {
   CryptomatteSession();
   CryptomatteSession(const Main *bmain);
   CryptomatteSession(StampData *stamp_data);
+  CryptomatteSession(const Scene *scene);
 
   blender::bke::cryptomatte::CryptomatteLayer &add_layer(std::string layer_name);
   std::optional<std::string> operator[](float encoded_hash) const;
@@ -99,6 +101,15 @@ CryptomatteSession::CryptomatteSession(StampData *stamp_data)
       false);
 }
 
+CryptomatteSession::CryptomatteSession(const Scene *scene)
+{
+  LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
+    add_layer(blender::StringRefNull(view_layer->name) + ".CryptoObject");
+    add_layer(blender::StringRefNull(view_layer->name) + ".CryptoAsset");
+    add_layer(blender::StringRefNull(view_layer->name) + ".CryptoMaterial");
+  }
+}
+
 blender::bke::cryptomatte::CryptomatteLayer &CryptomatteSession::add_layer(std::string layer_name)
 {
   return layers.lookup_or_add_default(layer_name);
@@ -125,6 +136,12 @@ struct CryptomatteSession *BKE_cryptomatte_init_from_render_result(
     const struct RenderResult *render_result)
 {
   CryptomatteSession *session = new CryptomatteSession(render_result->stamp_data);
+  return session;
+}
+
+struct CryptomatteSession *BKE_cryptomatte_init_from_scene(const struct Scene *scene)
+{
+  CryptomatteSession *session = new CryptomatteSession(scene);
   return session;
 }
 

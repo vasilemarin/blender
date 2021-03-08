@@ -3743,14 +3743,29 @@ static void rna_NodeCryptomatte_source_set(PointerRNA *ptr, int value)
 
 static int rna_NodeCryptomatte_layer_name_get(PointerRNA *ptr)
 {
+  int index = 0;
+  bNode *node = (bNode *)ptr->data;
+  NodeCryptomatte *storage = node->storage;
+  LISTBASE_FOREACH_INDEX (CryptomatteLayer *, layer, &storage->runtime.layers, index) {
+    if (STREQLEN(storage->layer_name, layer->name, sizeof(storage->layer_name))) {
+      return index;
+    }
+  }
   return 0;
 }
 
 static void rna_NodeCryptomatte_layer_name_set(PointerRNA *ptr, int new_value)
 {
+  bNode *node = (bNode *)ptr->data;
+  NodeCryptomatte *storage = node->storage;
+
+  CryptomatteLayer *layer = BLI_findlink(&storage->runtime.layers, new_value);
+  if (layer) {
+    STRNCPY(storage->layer_name, layer->name);
+  }
 }
 
-static const EnumPropertyItem *rna_NodeCryptomatte_layer_name_itemf(bContext *C,
+static const EnumPropertyItem *rna_NodeCryptomatte_layer_name_itemf(bContext *UNUSED(C),
                                                                     PointerRNA *ptr,
                                                                     PropertyRNA *UNUSED(prop),
                                                                     bool *r_free)
@@ -8547,22 +8562,9 @@ static void def_cmp_cryptomatte(StructRNA *srna)
   RNA_def_property_ui_text(prop, "Image", "");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 
-  prop = RNA_def_property(srna, "view_layer", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, NULL, "custom2");
-  RNA_def_property_enum_items(prop, prop_view_layer_items);
-  RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_Node_view_layer_itemf");
-  RNA_def_property_flag(prop, PROP_ENUM_NO_TRANSLATE);
-  RNA_def_property_ui_text(prop, "Layer", "");
-  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_view_layer_update");
-
   RNA_def_struct_sdna_from(srna, "NodeCryptomatte", "storage");
-  /* TODO(jbakker): Prefer to have an enum field that stores the chosen cryptomatte
-   * layer in the `layer_name` DNA field. Might need to look at AOVs where we did
-   * a similar trick. The enabled `cryptomatte_layer_name` is just a quick workaround
-   * for testing purposes. */
-#  if 1
+
   prop = RNA_def_property(srna, "layer_name", PROP_ENUM, PROP_NONE);
-  // RNA_def_property_enum_sdna(prop, NULL, "layer_name");
   RNA_def_property_enum_items(prop, node_cryptomatte_layer_name_items);
   RNA_def_property_enum_funcs(prop,
                               "rna_NodeCryptomatte_layer_name_get",
@@ -8570,12 +8572,6 @@ static void def_cmp_cryptomatte(StructRNA *srna)
                               "rna_NodeCryptomatte_layer_name_itemf");
   RNA_def_property_ui_text(prop, "Cryptomatte Layer", "What Cryptomatte layer is used");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
-#  else
-  prop = RNA_def_property(srna, "layer_name", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, NULL, "layer_name");
-  RNA_def_property_ui_text(prop, "Cryptomatte Layer", "What Cryptomatte layer is used");
-  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
-#  endif
 
   prop = RNA_def_property(srna, "add", PROP_FLOAT, PROP_COLOR);
   RNA_def_property_float_sdna(prop, NULL, "runtime.add");

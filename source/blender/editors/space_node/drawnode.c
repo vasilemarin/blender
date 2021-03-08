@@ -2675,9 +2675,6 @@ static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *C, Pointe
   col = uiLayoutColumn(layout, true);
   if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
     uiTemplateID(col, C, ptr, "scene", NULL, NULL, NULL, UI_TEMPLATE_ID_FILTER_ALL, false, NULL);
-    if (node->id) {
-      uiItemR(col, ptr, "view_layer", 0, "", ICON_NONE);
-    }
   }
   else {
     uiTemplateID(
@@ -2695,7 +2692,7 @@ static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *C, Pointe
   }
 
   col = uiLayoutColumn(layout, true);
-  uiItemR(col, ptr, "layer_name", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "layer_name", 0, "", ICON_NONE);
   uiItemL(col, IFACE_("Matte ID:"), ICON_NONE);
 
   uiLayout *row = uiLayoutRow(col, true);

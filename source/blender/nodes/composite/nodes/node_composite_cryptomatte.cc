@@ -53,6 +53,9 @@ static CryptomatteSession *cryptomatte_init_from_node(const bNode &node, int fra
       if (render_result) {
         session = BKE_cryptomatte_init_from_render_result(render_result);
       }
+      else {
+        session = BKE_cryptomatte_init_from_scene(scene);
+      }
       if (render) {
         RE_ReleaseResult(render);
       }
