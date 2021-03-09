@@ -207,6 +207,7 @@ static void node_free_cryptomatte(bNode *node)
   NodeCryptomatte *nc = static_cast<NodeCryptomatte *>(node->storage);
 
   if (nc) {
+    BLI_freelistN(&nc->runtime.layers);
     BLI_freelistN(&nc->entries);
     MEM_freeN(nc);
   }
@@ -220,6 +221,7 @@ static void node_copy_cryptomatte(bNodeTree *UNUSED(dest_ntree),
   NodeCryptomatte *dest_nc = static_cast<NodeCryptomatte *>(MEM_dupallocN(src_nc));
 
   BLI_duplicatelist(&dest_nc->entries, &src_nc->entries);
+  BLI_listbase_clear(&dest_nc->runtime.layers);
   dest_node->storage = dest_nc;
 }
 
