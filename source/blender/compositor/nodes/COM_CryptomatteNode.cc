@@ -55,7 +55,7 @@ void CryptomatteNode::buildInputOperationsFromRenderSource(
   }
 
   const short cryptomatte_layer_id = 0;
-  std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
+  const std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
     RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
     if (render_layer) {
@@ -88,8 +88,12 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
 {
   NodeCryptomatte *cryptoMatteSettings = (NodeCryptomatte *)node.storage;
   Image *image = (Image *)node.id;
-  BLI_assert(!image || GS(image->id.name) == ID_IM);
-  if (!image || image->type != IMA_TYPE_MULTILAYER) {
+  if (!image) {
+    return;
+  }
+
+  BLI_assert(GS(image->id.name) == ID_IM);
+  if (image->type != IMA_TYPE_MULTILAYER) {
     return;
   }
 
@@ -113,13 +117,17 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
       }
     }
 
-    RenderLayer *render_layer = (RenderLayer *)BLI_findlink(&image->rr->layers, iuser->layer);
-    if (render_layer) {
-      int render_pass_index = 0;
-      std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
-      for (RenderPass *render_pass = (RenderPass *)render_layer->passes.first; render_pass;
-           render_pass = render_pass->next, render_pass_index++) {
-        if (blender::StringRef(render_pass->name, sizeof(render_pass->name)).startswith(prefix)) {
+    const std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
+    LISTBASE_FOREACH (RenderLayer *, render_layer, &image->rr->layers) {
+      LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
+        blender::StringRef combined_name =
+            blender::StringRef(render_layer->name,
+                               strnlen(render_layer->name, sizeof(render_layer->name))) +
+            "." +
+            blender::StringRef(render_pass->name,
+                               strnlen(render_pass->name, sizeof(render_pass->name)));
+
+        if (combined_name.startswith(prefix)) {
           MultilayerColorOperation *op = new MultilayerColorOperation(
               render_layer, render_pass, view);
           op->setImage(image);
