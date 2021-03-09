@@ -138,17 +138,17 @@ static void eyedropper_exit(bContext *C, wmOperator *op)
 
 /* *** eyedropper_color_ helper functions *** */
 
-static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *rl,
+static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *render_layer,
                                                          const char *prefix,
                                                          const float fpos[2],
                                                          float r_col[3])
 {
-  if (!rl) {
+  if (!render_layer) {
     return false;
   }
 
-  const int render_layer_name_len = BLI_strnlen(rl->name, sizeof(rl->name));
-  if (strncmp(prefix, rl->name, render_layer_name_len) != 0) {
+  const int render_layer_name_len = BLI_strnlen(render_layer->name, sizeof(render_layer->name));
+  if (strncmp(prefix, render_layer->name, render_layer_name_len) != 0) {
     return false;
   }
 
@@ -158,7 +158,7 @@ static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *rl,
   }
 
   const char *render_pass_name_prefix = prefix + render_layer_name_len + 1;
-  LISTBASE_FOREACH (RenderPass *, render_pass, &rl->passes) {
+  LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
     if (STRPREFIX(render_pass->name, render_pass_name_prefix)) {
       BLI_assert(render_pass->channels == 4);
       const int x = (int)(fpos[0] * render_pass->rectx);
@@ -240,8 +240,9 @@ static bool eyedropper_cryptomatte_sample_fl(
       RenderResult *rr = RE_AcquireResultRead(re);
       if (rr) {
         LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-          RenderLayer *rl = RE_GetRenderLayer(rr, view_layer->name);
-          success = eyedropper_cryptomatte_sample_renderlayer_fl(rl, prefix, fpos, r_col);
+          RenderLayer *render_layer = RE_GetRenderLayer(rr, view_layer->name);
+          success = eyedropper_cryptomatte_sample_renderlayer_fl(
+              render_layer, prefix, fpos, r_col);
           if (success) {
             break;
           }
