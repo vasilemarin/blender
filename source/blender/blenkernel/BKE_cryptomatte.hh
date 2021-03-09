@@ -31,6 +31,8 @@
 #include "BLI_map.hh"
 #include "BLI_string_ref.hh"
 
+#include "BKE_cryptomatte.h"
+
 struct ID;
 
 namespace blender::bke::cryptomatte {
@@ -107,5 +109,14 @@ struct CryptomatteStampDataCallbackData {
 
 const blender::Vector<std::string> &BKE_cryptomatte_layer_names_get(
     const CryptomatteSession &session);
+
+struct CryptomatteSessionDeleter {
+  void operator()(CryptomatteSession *session)
+  {
+    BKE_cryptomatte_free(session);
+  }
+};
+
+using CryptomatteSessionPtr = std::unique_ptr<CryptomatteSession, CryptomatteSessionDeleter>;
 
 }  // namespace blender::bke::cryptomatte
