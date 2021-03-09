@@ -51,6 +51,8 @@
 
 struct CryptomatteSession {
   blender::Map<std::string, blender::bke::cryptomatte::CryptomatteLayer> layers;
+  /* Layer names in order of creation. */
+  blender::Vector<std::string> layer_names;
 
   CryptomatteSession();
   CryptomatteSession(const Main *bmain);
@@ -104,14 +106,29 @@ CryptomatteSession::CryptomatteSession(StampData *stamp_data)
 CryptomatteSession::CryptomatteSession(const Scene *scene)
 {
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-    add_layer(blender::StringRefNull(view_layer->name) + ".CryptoObject");
-    add_layer(blender::StringRefNull(view_layer->name) + ".CryptoAsset");
-    add_layer(blender::StringRefNull(view_layer->name) + ".CryptoMaterial");
+    eViewLayerCryptomatteFlags cryptoflags = static_cast<eViewLayerCryptomatteFlags>(
+        view_layer->cryptomatte_flag & VIEW_LAYER_CRYPTOMATTE_ALL);
+    if (cryptoflags == 0) {
+      cryptoflags = static_cast<eViewLayerCryptomatteFlags>(VIEW_LAYER_CRYPTOMATTE_ALL);
+    }
+
+    if (cryptoflags & VIEW_LAYER_CRYPTOMATTE_OBJECT) {
+      add_layer(blender::StringRefNull(view_layer->name) + ".CryptoObject");
+    }
+    if (cryptoflags & VIEW_LAYER_CRYPTOMATTE_ASSET) {
+      add_layer(blender::StringRefNull(view_layer->name) + ".CryptoAsset");
+    }
+    if (cryptoflags & VIEW_LAYER_CRYPTOMATTE_MATERIAL) {
+      add_layer(blender::StringRefNull(view_layer->name) + ".CryptoMaterial");
+    }
   }
 }
 
 blender::bke::cryptomatte::CryptomatteLayer &CryptomatteSession::add_layer(std::string layer_name)
 {
+  if (!layer_names.contains(layer_name)) {
+    layer_names.append(layer_name);
+  }
   return layers.lookup_or_add_default(layer_name);
 }
 
@@ -245,7 +262,8 @@ void BKE_cryptomatte_matte_id_to_entries(NodeCryptomatte *node_storage, const ch
   }
   /* Update the matte_id so the files can be opened in versions that don't
    * use `CryptomatteEntry`. */
-  if (matte_id != node_storage->matte_id && STREQ(node_storage->matte_id, matte_id)) {
+  if (matte_id != node_storage->matte_id && node_storage->matte_id &&
+      STREQ(node_storage->matte_id, matte_id)) {
     MEM_SAFE_FREE(node_storage->matte_id);
     node_storage->matte_id = static_cast<char *>(MEM_dupallocN(matte_id));
   }
@@ -631,14 +649,10 @@ void CryptomatteStampDataCallbackData::extract_layer_manifest(void *_data,
   blender::bke::cryptomatte::manifest::from_manifest(layer, propvalue);
 }
 
-blender::Vector<blender::StringRef> BKE_cryptomatte_layer_names_get(
+const blender::Vector<std::string> &BKE_cryptomatte_layer_names_get(
     const CryptomatteSession &session)
 {
-  blender::Vector<blender::StringRef> layer_names;
-  for (std::string layer_name : session.layers.keys()) {
-    layer_names.append(layer_name);
-  }
-  return layer_names;
+  return session.layer_names;
 }
 
 }  // namespace blender::bke::cryptomatte

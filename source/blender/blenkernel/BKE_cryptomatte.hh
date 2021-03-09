@@ -105,7 +105,7 @@ struct CryptomatteStampDataCallbackData {
   static void extract_layer_manifest(void *_data, const char *propname, char *propvalue, int len);
 };
 
-blender::Vector<blender::StringRef> BKE_cryptomatte_layer_names_get(
+const blender::Vector<std::string> &BKE_cryptomatte_layer_names_get(
     const CryptomatteSession &session);
 
 }  // namespace blender::bke::cryptomatte
