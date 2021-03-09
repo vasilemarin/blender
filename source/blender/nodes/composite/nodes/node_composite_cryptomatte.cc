@@ -36,7 +36,9 @@
 #include "BKE_library.h"
 #include "BKE_main.h"
 
-static CryptomatteSession *cryptomatte_init_from_node(const bNode &node, int frame_number)
+static CryptomatteSession *cryptomatte_init_from_node(const bNode &node,
+                                                      const int frame_number,
+                                                      const bool use_meta_data)
 {
   if (node.type != CMP_NODE_CRYPTOMATTE) {
     return nullptr;
@@ -52,17 +54,21 @@ static CryptomatteSession *cryptomatte_init_from_node(const bNode &node, int fra
       }
       BLI_assert(GS(scene->id.name) == ID_SCE);
 
-      Render *render = (scene) ? RE_GetSceneRender(scene) : nullptr;
-      RenderResult *render_result = render ? RE_AcquireResultRead(render) : nullptr;
-      if (render_result) {
-        session = BKE_cryptomatte_init_from_render_result(render_result);
+      if (use_meta_data) {
+        Render *render = (scene) ? RE_GetSceneRender(scene) : nullptr;
+        RenderResult *render_result = render ? RE_AcquireResultRead(render) : nullptr;
+        if (render_result) {
+          session = BKE_cryptomatte_init_from_render_result(render_result);
+        }
+        if (render) {
+          RE_ReleaseResult(render);
+        }
       }
-      else {
+
+      if (session == nullptr) {
         session = BKE_cryptomatte_init_from_scene(scene);
       }
-      if (render) {
-        RE_ReleaseResult(render);
-      }
+
       break;
     }
 
@@ -109,7 +115,7 @@ static void cryptomatte_add(bNode &node, NodeCryptomatte &node_cryptomatte, floa
       MEM_callocN(sizeof(CryptomatteEntry), __func__));
   entry->encoded_hash = encoded_hash;
   /* TODO(jbakker): Get current frame from scene. */
-  CryptomatteSession *session = cryptomatte_init_from_node(node, 0);
+  CryptomatteSession *session = cryptomatte_init_from_node(node, 0, true);
   if (session) {
     BKE_cryptomatte_find_name(session, encoded_hash, entry->name, sizeof(entry->name));
     BKE_cryptomatte_free(session);
@@ -160,7 +166,7 @@ void ntreeCompositCryptomatteUpdateLayerNames(bNode *node)
   NodeCryptomatte *n = static_cast<NodeCryptomatte *>(node->storage);
   BLI_freelistN(&n->runtime.layers);
 
-  CryptomatteSession *session = cryptomatte_init_from_node(*node, 0);
+  CryptomatteSession *session = cryptomatte_init_from_node(*node, 0, false);
 
   if (session) {
     for (blender::StringRef layer_name :
