@@ -455,6 +455,7 @@ bool ED_space_node_get_position(
   Image *ima = BKE_image_ensure_viewer(bmain, IMA_TYPE_COMPOSITE, "Viewer Node");
   ImBuf *ibuf = BKE_image_acquire_ibuf(ima, NULL, &lock);
   if (!ibuf) {
+    BKE_image_release_ibuf(ima, ibuf, lock);
     return false;
   }
 
