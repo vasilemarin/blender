@@ -41,17 +41,17 @@
 static blender::bke::cryptomatte::CryptomatteSessionPtr cryptomatte_init_from_node(
     const bNode &node, const int frame_number, const bool use_meta_data)
 {
+  blender::bke::cryptomatte::CryptomatteSessionPtr session;
   if (node.type != CMP_NODE_CRYPTOMATTE) {
-    return nullptr;
+    return session;
   }
 
   NodeCryptomatte *node_cryptomatte = static_cast<NodeCryptomatte *>(node.storage);
-  blender::bke::cryptomatte::CryptomatteSessionPtr session;
   switch (node.custom1) {
     case CMP_CRYPTOMATTE_SRC_RENDER: {
       Scene *scene = (Scene *)node.id;
       if (!scene) {
-        return nullptr;
+        return session;
       }
       BLI_assert(GS(scene->id.name) == ID_SCE);
 
