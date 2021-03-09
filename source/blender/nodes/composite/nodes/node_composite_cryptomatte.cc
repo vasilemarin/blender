@@ -36,6 +36,8 @@
 #include "BKE_library.h"
 #include "BKE_main.h"
 
+#include <optional>
+
 static CryptomatteSession *cryptomatte_init_from_node(const bNode &node,
                                                       const int frame_number,
                                                       const bool use_meta_data)
@@ -184,7 +186,29 @@ void ntreeCompositCryptomatteUpdateLayerNames(bNode *node)
 const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node)
 {
   NodeCryptomatte *node_cryptomatte = (NodeCryptomatte *)node->storage;
-  return node_cryptomatte->layer_name;
+  CryptomatteSession *session = cryptomatte_init_from_node(*node, 0, false);
+  std::optional<std::string> first_layer_name = std::nullopt;
+
+  if (session) {
+    for (blender::StringRef layer_name :
+         blender::bke::cryptomatte::BKE_cryptomatte_layer_names_get(*session)) {
+      if (!first_layer_name.has_value()) {
+        first_layer_name = layer_name;
+      }
+
+      if (layer_name == node_cryptomatte->layer_name) {
+        BKE_cryptomatte_free(session);
+        return node_cryptomatte->layer_name;
+      }
+    }
+
+    BKE_cryptomatte_free(session);
+  }
+
+  if (!first_layer_name.has_value()) {
+    return "";
+  }
+  return first_layer_name.value().c_str();
 }
 
 static void node_init_cryptomatte(bNodeTree *UNUSED(ntree), bNode *node)
