@@ -33,6 +33,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_math_vector.h"
+#include "BLI_string.h"
 
 #include "BKE_context.h"
 #include "BKE_image.h"
@@ -146,8 +147,19 @@ static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *rl,
     return false;
   }
 
+  const int render_layer_name_len = BLI_strnlen(rl->name, sizeof(rl->name));
+  if (strncmp(prefix, rl->name, render_layer_name_len) != 0) {
+    return false;
+  }
+
+  const int prefix_len = strlen(prefix);
+  if (prefix_len <= render_layer_name_len + 1) {
+    return false;
+  }
+
+  const char *render_pass_name_prefix = prefix + render_layer_name_len + 1;
   LISTBASE_FOREACH (RenderPass *, render_pass, &rl->passes) {
-    if (STRPREFIX(render_pass->name, prefix)) {
+    if (STRPREFIX(render_pass->name, render_pass_name_prefix)) {
       BLI_assert(render_pass->channels == 4);
       const int x = (int)(fpos[0] * render_pass->rectx);
       const int y = (int)(fpos[1] * render_pass->recty);
@@ -210,21 +222,29 @@ static bool eyedropper_cryptomatte_sample_fl(
     return false;
   }
 
+  /* CMP_CRYPTOMATTE_SRC_RENDER and CMP_CRYPTOMATTE_SRC_IMAGE require a referenced image/scene to
+   * work properly. */
+  if (!node->id) {
+    return false;
+  }
+
   bool success = false;
+  const char *prefix = ntreeCompositCryptomatteLayerPrefix(node);
+
   if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
     Scene *scene = (Scene *)node->id;
     BLI_assert(GS(scene->id.name) == ID_SCE);
-    Render *re = (scene) ? RE_GetSceneRender(scene) : NULL;
+    Render *re = RE_GetSceneRender(scene);
 
     if (re) {
-      const short layerId = node->custom2;
       RenderResult *rr = RE_AcquireResultRead(re);
       if (rr) {
-        ViewLayer *view_layer = (ViewLayer *)BLI_findlink(&scene->view_layers, layerId);
-        if (view_layer) {
+        LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
           RenderLayer *rl = RE_GetRenderLayer(rr, view_layer->name);
-          const char *prefix = ntreeCompositCryptomatteLayerPrefix(node);
           success = eyedropper_cryptomatte_sample_renderlayer_fl(rl, prefix, fpos, r_col);
+          if (success) {
+            break;
+          }
         }
       }
       RE_ReleaseResult(re);
@@ -238,9 +258,13 @@ static bool eyedropper_cryptomatte_sample_fl(
     if (image && image->type == IMA_TYPE_MULTILAYER) {
       ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
       if (image->rr) {
-        RenderLayer *rl = (RenderLayer *)BLI_findlink(&image->rr->layers, iuser->layer);
-        const char *prefix = ntreeCompositCryptomatteLayerPrefix(node);
-        success = eyedropper_cryptomatte_sample_renderlayer_fl(rl, prefix, fpos, r_col);
+        LISTBASE_FOREACH (RenderLayer *, render_layer, &image->rr->layers) {
+          success = eyedropper_cryptomatte_sample_renderlayer_fl(
+              render_layer, prefix, fpos, r_col);
+          if (success) {
+            break;
+          }
+        }
       }
       BKE_image_release_ibuf(image, ibuf, NULL);
     }
