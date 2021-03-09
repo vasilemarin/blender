@@ -2669,10 +2669,10 @@ static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *C, Pointe
 {
   bNode *node = ptr->data;
 
-  uiLayout *col = uiLayoutColumn(layout, true);
-  uiItemR(col, ptr, "source", 0, NULL, ICON_NONE);
+  uiLayout *row = uiLayoutRow(layout, true);
+  uiItemR(row, ptr, "source", DEFAULT_FLAGS | UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
-  col = uiLayoutColumn(layout, true);
+  uiLayout *col = uiLayoutColumn(layout, false);
   if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
     uiTemplateID(col, C, ptr, "scene", NULL, NULL, NULL, UI_TEMPLATE_ID_FILTER_ALL, false, NULL);
   }
@@ -2695,7 +2695,7 @@ static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *C, Pointe
   uiItemR(col, ptr, "layer_name", 0, "", ICON_NONE);
   uiItemL(col, IFACE_("Matte ID:"), ICON_NONE);
 
-  uiLayout *row = uiLayoutRow(col, true);
+  row = uiLayoutRow(col, true);
   uiItemR(row, ptr, "matte_id", DEFAULT_FLAGS, "", ICON_NONE);
   uiTemplateCryptoPicker(row, ptr, "add", ICON_ADD);
   uiTemplateCryptoPicker(row, ptr, "remove", ICON_REMOVE);
