@@ -499,13 +499,22 @@ void USDMeshReader::read_attributes(Mesh *mesh,
       type_size = sizeof(pxr::GfVec3i);
       data = (void *)idata.cdata();
     }
+    else {
+      continue;
+    }
 
     void *cdata = CustomData_get_layer_named(cd, cd_type, name);
 
     if (!cdata) {
       cdata = CustomData_add_layer_named(cd, cd_type, CD_DEFAULT, NULL, num, name);
     }
-    memcpy(cdata, data, num * type_size);
+
+    if (cdata) {
+      memcpy(cdata, data, num * type_size);
+    }
+    else {
+      std::cerr << "WARNING: Couldn't add custom data layer " << name << std::endl;
+    }
   }
 }
 
@@ -533,6 +542,90 @@ void USDMeshReader::read_vels(Mesh *mesh,
       vdata[i][0] = velocities[i][0] * vel_scale;
       vdata[i][1] = velocities[i][1] * vel_scale;
       vdata[i][2] = velocities[i][2] * vel_scale;
+    }
+  }
+}
+
+void USDMeshReader::read_colors(Mesh *mesh,
+                                const pxr::UsdGeomMesh &mesh_prim,
+                                double motionSampleTime)
+{
+  if (!(mesh && mesh_prim && mesh->totloop > 0)) {
+    return;
+  }
+
+  pxr::UsdGeomPrimvar color_primvar = mesh_prim.GetDisplayColorPrimvar();
+
+  if (!color_primvar.HasValue()) {
+    return;
+  }
+
+  pxr::TfToken interp = color_primvar.GetInterpolation();
+
+  if (interp == pxr::UsdGeomTokens->varying) {
+    std::cerr << "WARNING: Unsupported varying interpolation for display colors\n" << std::endl;
+    return;
+  }
+
+  pxr::VtArray<pxr::GfVec3f> display_colors;
+
+  if (!color_primvar.ComputeFlattened(&display_colors)) {
+    std::cerr << "WARNING: Couldn't compute display colors\n" << std::endl;
+    return;
+  }
+
+  if ((interp == pxr::UsdGeomTokens->faceVarying && display_colors.size() != mesh->totloop) ||
+      (interp == pxr::UsdGeomTokens->vertex && display_colors.size() != mesh->totvert) ||
+      (interp == pxr::UsdGeomTokens->constant && display_colors.size() != 1) ||
+      (interp == pxr::UsdGeomTokens->uniform && display_colors.size() != mesh->totpoly)) {
+    std::cerr << "WARNING: display colors count mismatch\n" << std::endl;
+    return;
+  }
+
+  void *cd_ptr = add_customdata_cb(mesh, "displayColors", CD_MLOOPCOL);
+
+  if (!cd_ptr) {
+    std::cerr << "WARNING: Couldn't add displayColors custom data.\n";
+    return;
+  }
+
+  MLoopCol *colors = static_cast<MLoopCol *>(cd_ptr);
+
+  mesh->mloopcol = colors;
+
+  MPoly *poly = mesh->mpoly;
+
+  for (int i = 0, e = mesh->totpoly; i < e; ++i, ++poly) {
+    for (int j = 0; j < poly->totloop; ++j) {
+      int loop_index = poly->loopstart + j;
+
+      int usd_index = 0;  // Default for constant varying interpolation.
+
+      if (interp == pxr::UsdGeomTokens->vertex) {
+        usd_index = mesh->mloop[loop_index].v;
+      }
+      else if (interp == pxr::UsdGeomTokens->faceVarying) {
+        usd_index = poly->loopstart;
+        if (m_isLeftHanded) {
+          usd_index += poly->totloop - 1 - j;
+        }
+        else {
+          usd_index += j;
+        }
+      }
+      else if (interp == pxr::UsdGeomTokens->uniform) {
+        // Uniform varying uses the poly index.
+        usd_index = i;
+      }
+
+      if (usd_index >= display_colors.size()) {
+        continue;
+      }
+
+      colors[loop_index].r = unit_float_to_uchar_clamp(display_colors[usd_index][0]);
+      colors[loop_index].g = unit_float_to_uchar_clamp(display_colors[usd_index][1]);
+      colors[loop_index].b = unit_float_to_uchar_clamp(display_colors[usd_index][2]);
+      colors[loop_index].a = unit_float_to_uchar_clamp(1.0);
     }
   }
 }
@@ -666,7 +759,11 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
     read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
   }*/
 
-  if ((settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
+  // Note that for new meshes we always want to read verts and polys,
+  // regradless of the value of the read_flag, to avoid a crash downstream
+  // in code that expect this data to be there.
+
+  if (new_mesh || (settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
     for (int i = 0; i < m_positions.size(); i++) {
       MVert &mvert = mesh->mvert[i];
       mvert.co[0] = m_positions[i][0];
@@ -675,7 +772,7 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
     }
   }
 
-  if ((settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
+  if (new_mesh || (settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
     read_mpolys(mesh, mesh_prim, motionSampleTime);
     if (m_normalInterpolation == pxr::UsdGeomTokens->faceVarying) {
       process_normals_face_varying(mesh);
@@ -708,6 +805,10 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
 
   if ((settings->read_flag & MOD_MESHSEQ_READ_VELS) != 0) {
     read_vels(mesh, mesh_prim, settings->vel_scale, motionSampleTime);
+  }
+
+  if ((settings->read_flag & MOD_MESHSEQ_READ_COLOR) != 0) {
+    read_colors(mesh, mesh_prim, motionSampleTime);
   }
 }
 
