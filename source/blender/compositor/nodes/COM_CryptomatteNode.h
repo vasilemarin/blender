@@ -61,14 +61,13 @@ class CryptomatteNode : public CryptomatteBaseNode {
       const NodeCryptomatte *cryptomatte_settings) const override;
 
  private:
-  static blender::Vector<NodeOperation *> createInputOperations(const CompositorContext &context,
-                                                                const bNode &node);
-  static blender::StringRef getCryptomatteLayerPrefix(const bNode &node);
-  static void buildInputOperationsFromRenderSource(
+  static blender::Vector<NodeOperation *> create_input_operations(const CompositorContext &context,
+                                                                  const bNode &node);
+  static void input_operations_from_render_source(
       const CompositorContext &context,
       const bNode &node,
       blender::Vector<NodeOperation *> &r_input_operations);
-  static void buildInputOperationsFromImageSource(
+  static void input_operations_from_image_source(
       const CompositorContext &context,
       const bNode &node,
       blender::Vector<NodeOperation *> &r_input_operations);
