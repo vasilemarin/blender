@@ -99,7 +99,7 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
 
   ImageUser *iuser = &cryptoMatteSettings->iuser;
   BKE_image_user_frame_calc(image, iuser, context.getFramenumber());
-  ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
+  ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, nullptr);
 
   if (image->rr) {
     int view = 0;
@@ -109,8 +109,9 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
          * image. */
         view = BLI_findstringindex(
             &image->rr->views, context.getViewName(), offsetof(RenderView, name));
-        if (view == -1)
+        if (view == -1) {
           view = 0;
+        }
       }
       else {
         view = iuser->view - 1;
@@ -138,7 +139,7 @@ void CryptomatteNode::buildInputOperationsFromImageSource(
       }
     }
   }
-  BKE_image_release_ibuf(image, ibuf, NULL);
+  BKE_image_release_ibuf(image, ibuf, nullptr);
 }
 
 blender::Vector<NodeOperation *> CryptomatteNode::createInputOperations(
