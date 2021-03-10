@@ -102,7 +102,7 @@ static bool eyedropper_init(bContext *C, wmOperator *op)
 
   float col[4];
   RNA_property_float_get_array(&eye->ptr, eye->prop, col);
-  if (eye->ptr.type == &RNA_CompositorNodeCryptomatte) {
+  if (ELEM(eye->ptr.type, &RNA_CompositorNodeCryptomatteV2, &RNA_CompositorNodeCryptomatte)) {
     eye->crypto_node = (bNode *)eye->ptr.data;
   }
   else {

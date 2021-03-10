@@ -1094,6 +1094,11 @@ typedef struct NodeCryptomatte {
   /* Stores `entries` as a string for opening in 2.80-2.91. */
   char *matte_id;
 
+  /** Legacy attributes */
+  /* Number of input sockets. */
+  int num_inputs;
+
+  char _pad[4];
   NodeCryptomatte_Runtime runtime;
 } NodeCryptomatte;
 

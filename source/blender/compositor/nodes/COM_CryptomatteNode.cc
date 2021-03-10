@@ -31,10 +31,50 @@
 #include <iterator>
 #include <string>
 
-CryptomatteNode::CryptomatteNode(bNode *editorNode) : Node(editorNode)
+/** \name Cryptomatte base
+ * \{ */
+
+void CryptomatteBaseNode::convertToOperations(NodeConverter &converter,
+                                              const CompositorContext &context) const
 {
-  /* pass */
+  NodeInput *inputSocketImage = this->getInputSocket(0);
+  NodeOutput *outputSocketImage = this->getOutputSocket(0);
+  NodeOutput *outputSocketMatte = this->getOutputSocket(1);
+  NodeOutput *outputSocketPick = this->getOutputSocket(2);
+
+  bNode *node = this->getbNode();
+  NodeCryptomatte *cryptoMatteSettings = static_cast<NodeCryptomatte *>(node->storage);
+
+  CryptomatteOperation *operation = create_cryptomatte_operation(
+      converter, context, *node, cryptoMatteSettings);
+  converter.addOperation(operation);
+
+  SeparateChannelOperation *separateOperation = new SeparateChannelOperation;
+  separateOperation->setChannel(3);
+  converter.addOperation(separateOperation);
+
+  SetAlphaMultiplyOperation *operationAlpha = new SetAlphaMultiplyOperation();
+  converter.addOperation(operationAlpha);
+
+  converter.addLink(operation->getOutputSocket(0), separateOperation->getInputSocket(0));
+  converter.addLink(separateOperation->getOutputSocket(0), operationAlpha->getInputSocket(1));
+
+  SetAlphaMultiplyOperation *clearAlphaOperation = new SetAlphaMultiplyOperation();
+  converter.addOperation(clearAlphaOperation);
+  converter.addInputValue(clearAlphaOperation->getInputSocket(1), 1.0f);
+
+  converter.addLink(operation->getOutputSocket(0), clearAlphaOperation->getInputSocket(0));
+
+  converter.mapInputSocket(inputSocketImage, operationAlpha->getInputSocket(0));
+  converter.mapOutputSocket(outputSocketMatte, separateOperation->getOutputSocket(0));
+  converter.mapOutputSocket(outputSocketImage, operationAlpha->getOutputSocket(0));
+  converter.mapOutputSocket(outputSocketPick, clearAlphaOperation->getOutputSocket(0));
 }
+
+/* \} */
+
+/** \name Cryptomatte V2
+ * \{ */
 
 void CryptomatteNode::buildInputOperationsFromRenderSource(
     const CompositorContext &context,
@@ -165,47 +205,48 @@ blender::Vector<NodeOperation *> CryptomatteNode::createInputOperations(
   }
   return input_operations;
 }
-
-void CryptomatteNode::convertToOperations(NodeConverter &converter,
-                                          const CompositorContext &context) const
+CryptomatteOperation *CryptomatteNode::create_cryptomatte_operation(
+    NodeConverter &converter,
+    const CompositorContext &context,
+    const bNode &node,
+    const NodeCryptomatte *cryptomatte_settings) const
 {
-  NodeInput *inputSocketImage = this->getInputSocket(0);
-  NodeOutput *outputSocketImage = this->getOutputSocket(0);
-  NodeOutput *outputSocketMatte = this->getOutputSocket(1);
-  NodeOutput *outputSocketPick = this->getOutputSocket(2);
-
-  bNode *node = this->getbNode();
-  NodeCryptomatte *cryptoMatteSettings = (NodeCryptomatte *)node->storage;
-
-  blender::Vector<NodeOperation *> input_operations = createInputOperations(context, *node);
+  blender::Vector<NodeOperation *> input_operations = createInputOperations(context, node);
   CryptomatteOperation *operation = new CryptomatteOperation(input_operations.size());
-  LISTBASE_FOREACH (CryptomatteEntry *, cryptomatte_entry, &cryptoMatteSettings->entries) {
+  LISTBASE_FOREACH (CryptomatteEntry *, cryptomatte_entry, &cryptomatte_settings->entries) {
     operation->addObjectIndex(cryptomatte_entry->encoded_hash);
   }
-  converter.addOperation(operation);
   for (int i = 0; i < input_operations.size(); ++i) {
     converter.addOperation(input_operations[i]);
     converter.addLink(input_operations[i]->getOutputSocket(), operation->getInputSocket(i));
   }
-
-  SeparateChannelOperation *separateOperation = new SeparateChannelOperation;
-  separateOperation->setChannel(3);
-  converter.addOperation(separateOperation);
-
-  SetAlphaMultiplyOperation *operationAlpha = new SetAlphaMultiplyOperation();
-  converter.addOperation(operationAlpha);
-
-  converter.addLink(operation->getOutputSocket(0), separateOperation->getInputSocket(0));
-  converter.addLink(separateOperation->getOutputSocket(0), operationAlpha->getInputSocket(1));
-
-  SetAlphaMultiplyOperation *clearAlphaOperation = new SetAlphaMultiplyOperation();
-  converter.addOperation(clearAlphaOperation);
-  converter.addInputValue(clearAlphaOperation->getInputSocket(1), 1.0f);
-
-  converter.addLink(operation->getOutputSocket(0), clearAlphaOperation->getInputSocket(0));
-
-  converter.mapInputSocket(inputSocketImage, operationAlpha->getInputSocket(0));
-  converter.mapOutputSocket(outputSocketMatte, separateOperation->getOutputSocket(0));
-  converter.mapOutputSocket(outputSocketImage, operationAlpha->getOutputSocket(0));
-  converter.mapOutputSocket(outputSocketPick, clearAlphaOperation->getOutputSocket(0));
+  return operation;
 }
+
+/* \} */
+
+/** \name Cryptomatte legacy
+ * \{ */
+
+CryptomatteOperation *CryptomatteLegacyNode::create_cryptomatte_operation(
+    NodeConverter &converter,
+    const CompositorContext &UNUSED(context),
+    const bNode &UNUSED(node),
+    const NodeCryptomatte *cryptomatte_settings) const
+{
+  const int num_inputs = getNumberOfInputSockets() - 1;
+  CryptomatteOperation *operation = new CryptomatteOperation(num_inputs);
+  if (cryptomatte_settings) {
+    LISTBASE_FOREACH (CryptomatteEntry *, cryptomatte_entry, &cryptomatte_settings->entries) {
+      operation->addObjectIndex(cryptomatte_entry->encoded_hash);
+    }
+  }
+
+  for (int i = 0; i < num_inputs; i++) {
+    converter.mapInputSocket(this->getInputSocket(i + 1), operation->getInputSocket(i));
+  }
+
+  return operation;
+}
+
+/* \} */

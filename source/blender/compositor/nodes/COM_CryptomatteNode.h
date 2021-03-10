@@ -20,21 +20,50 @@
 
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
+
+#include "COM_CryptomatteOperation.h"
 #include "COM_Node.h"
 
 /**
  * \brief CryptomatteNode
  * \ingroup Node
  */
-class CryptomatteNode : public Node {
+class CryptomatteBaseNode : public Node {
+ protected:
+  CryptomatteBaseNode(bNode *editor_node) : Node(editor_node)
+  {
+    /* pass */
+  }
+
  public:
-  CryptomatteNode(bNode *editorNode);
   void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
 
+ protected:
+  virtual CryptomatteOperation *create_cryptomatte_operation(
+      NodeConverter &converter,
+      const CompositorContext &context,
+      const bNode &node,
+      const NodeCryptomatte *cryptomatte_settings) const = 0;
+};
+
+class CryptomatteNode : public CryptomatteBaseNode {
+ public:
+  CryptomatteNode(bNode *editor_node) : CryptomatteBaseNode(editor_node)
+  {
+    /* pass */
+  }
+
+ protected:
+  CryptomatteOperation *create_cryptomatte_operation(
+      NodeConverter &converter,
+      const CompositorContext &context,
+      const bNode &node,
+      const NodeCryptomatte *cryptomatte_settings) const override;
+
  private:
-  static blender::StringRef getCryptomatteLayerPrefix(const bNode &node);
   static blender::Vector<NodeOperation *> createInputOperations(const CompositorContext &context,
                                                                 const bNode &node);
+  static blender::StringRef getCryptomatteLayerPrefix(const bNode &node);
   static void buildInputOperationsFromRenderSource(
       const CompositorContext &context,
       const bNode &node,
@@ -43,4 +72,19 @@ class CryptomatteNode : public Node {
       const CompositorContext &context,
       const bNode &node,
       blender::Vector<NodeOperation *> &r_input_operations);
+};
+
+class CryptomatteLegacyNode : public CryptomatteBaseNode {
+ public:
+  CryptomatteLegacyNode(bNode *editor_node) : CryptomatteBaseNode(editor_node)
+  {
+    /* pass */
+  }
+
+ protected:
+  CryptomatteOperation *create_cryptomatte_operation(
+      NodeConverter &converter,
+      const CompositorContext &context,
+      const bNode &node,
+      const NodeCryptomatte *cryptomatte_settings) const override;
 };

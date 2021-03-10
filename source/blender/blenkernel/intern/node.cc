@@ -538,7 +538,8 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
         }
         BLO_write_struct_by_name(writer, node->typeinfo->storagename, node->storage);
       }
-      else if ((ntree->type == NTREE_COMPOSIT) && (node->type == CMP_NODE_CRYPTOMATTE)) {
+      else if ((ntree->type == NTREE_COMPOSIT) &&
+               (ELEM(node->type, CMP_NODE_CRYPTOMATTE, CMP_NODE_CRYPTOMATTE_LEGACY))) {
         NodeCryptomatte *nc = (NodeCryptomatte *)node->storage;
         BLO_write_string(writer, nc->matte_id);
         LISTBASE_FOREACH (CryptomatteEntry *, entry, &nc->entries) {
@@ -703,6 +704,7 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
           iuser->scene = nullptr;
           break;
         }
+        case CMP_NODE_CRYPTOMATTE_LEGACY:
         case CMP_NODE_CRYPTOMATTE: {
           NodeCryptomatte *nc = (NodeCryptomatte *)node->storage;
           BLO_read_data_address(reader, &nc->matte_id);
@@ -4605,6 +4607,7 @@ static void registerCompositNodes()
   register_node_type_cmp_keyingscreen();
   register_node_type_cmp_keying();
   register_node_type_cmp_cryptomatte();
+  register_node_type_cmp_cryptomatte_legacy();
 
   register_node_type_cmp_translate();
   register_node_type_cmp_rotate();
@@ -4972,19 +4975,12 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer
 {
   BLI_assert(layer_index != -1);
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    /* Check whether this node references layers. */
-    short *node_index = nullptr;
     if (node->type == CMP_NODE_R_LAYERS && (Scene *)node->id == scene) {
-      node_index = &node->custom1;
-    }
-
-    /* If it does, ensure that it remains valid. */
-    if (node_index) {
-      if (*node_index == layer_index) {
-        *node_index = 0;
+      if (node->custom1 == layer_index) {
+        node->custom1 = 0;
       }
-      else if (*node_index > layer_index) {
-        *node_index -= 1;
+      else if (node->custom1 > layer_index) {
+        node->custom1--;
       }
     }
   }

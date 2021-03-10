@@ -1205,9 +1205,10 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 #define CMP_NODE_PLANETRACKDEFORM 320
 #define CMP_NODE_CORNERPIN 321
 #define CMP_NODE_SWITCH_VIEW 322
-#define CMP_NODE_CRYPTOMATTE 323
+#define CMP_NODE_CRYPTOMATTE_LEGACY 323
 #define CMP_NODE_DENOISE 324
 #define CMP_NODE_EXPOSURE 325
+#define CMP_NODE_CRYPTOMATTE 326
 
 /* channel toggles */
 #define CMP_CHAN_RGB 1
@@ -1285,6 +1286,8 @@ void ntreeCompositColorBalanceSyncFromCDL(bNodeTree *ntree, bNode *node);
 
 void ntreeCompositCryptomatteSyncFromAdd(bNode *node);
 void ntreeCompositCryptomatteSyncFromRemove(bNode *node);
+bNodeSocket *ntreeCompositCryptomatteAddSocket(bNodeTree *ntree, bNode *node);
+int ntreeCompositCryptomatteRemoveSocket(bNodeTree *ntree, bNode *node);
 const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node);
 /* Update the runtime layer names with the cryptomatte layer names of the references
  * render layer or image. */
