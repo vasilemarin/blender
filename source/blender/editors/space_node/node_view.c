@@ -445,7 +445,7 @@ static void sample_draw(const bContext *C, ARegion *region, void *arg_info)
 
 /* Returns mouse position in image space. */
 bool ED_space_node_get_position(
-    Main *bmain, SpaceNode *snode, struct ARegion *ar, int mval[2], float fpos[2])
+    Main *bmain, SpaceNode *snode, struct ARegion *ar, const int mval[2], float fpos[2])
 {
   if (!ED_node_is_compositor(snode) || (snode->flag & SNODE_BACKDRAW) == 0) {
     return false;

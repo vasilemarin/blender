@@ -84,13 +84,13 @@ static blender::bke::cryptomatte::CryptomatteSessionPtr cryptomatte_init_from_no
 
       ImageUser *iuser = &node_cryptomatte->iuser;
       BKE_image_user_frame_calc(image, iuser, frame_number);
-      ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, NULL);
+      ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, nullptr);
       RenderResult *render_result = image->rr;
       if (render_result) {
         session = blender::bke::cryptomatte::CryptomatteSessionPtr(
             BKE_cryptomatte_init_from_render_result(render_result));
       }
-      BKE_image_release_ibuf(image, ibuf, NULL);
+      BKE_image_release_ibuf(image, ibuf, nullptr);
       break;
     }
   }
@@ -255,11 +255,13 @@ static bool node_poll_cryptomatte(bNodeType *UNUSED(ntype), bNodeTree *ntree)
 
     /* See node_composit_poll_rlayers. */
     for (scene = static_cast<Scene *>(G.main->scenes.first); scene;
-         scene = static_cast<Scene *>(scene->id.next))
-      if (scene->nodetree == ntree)
+         scene = static_cast<Scene *>(scene->id.next)) {
+      if (scene->nodetree == ntree) {
         break;
+      }
+    }
 
-    return (scene != NULL);
+    return scene != nullptr;
   }
   return false;
 }

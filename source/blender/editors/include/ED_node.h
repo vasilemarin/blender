@@ -124,7 +124,7 @@ void ED_operatormacros_node(void);
 bool ED_space_node_get_position(struct Main *bmain,
                                 struct SpaceNode *snode,
                                 struct ARegion *region,
-                                int mval[2],
+                                const int mval[2],
                                 float fpos[2]);
 bool ED_space_node_color_sample(struct Main *bmain,
                                 struct SpaceNode *snode,

@@ -4973,13 +4973,9 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer
   BLI_assert(layer_index != -1);
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     /* Check whether this node references layers. */
-    short *node_index = NULL;
+    short *node_index = nullptr;
     if (node->type == CMP_NODE_R_LAYERS && (Scene *)node->id == scene) {
       node_index = &node->custom1;
-    }
-    else if (node->type == CMP_NODE_CRYPTOMATTE && node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER &&
-             (Scene *)node->id == scene) {
-      node_index = &node->custom2;
     }
 
     /* If it does, ensure that it remains valid. */
