@@ -37,38 +37,38 @@
 void CryptomatteBaseNode::convertToOperations(NodeConverter &converter,
                                               const CompositorContext &context) const
 {
-  NodeInput *inputSocketImage = this->getInputSocket(0);
-  NodeOutput *outputSocketImage = this->getOutputSocket(0);
-  NodeOutput *outputSocketMatte = this->getOutputSocket(1);
-  NodeOutput *outputSocketPick = this->getOutputSocket(2);
+  NodeOutput *output_image_socket = this->getOutputSocket(0);
 
   bNode *node = this->getbNode();
-  NodeCryptomatte *cryptoMatteSettings = static_cast<NodeCryptomatte *>(node->storage);
+  NodeCryptomatte *cryptomatte_settings = static_cast<NodeCryptomatte *>(node->storage);
 
-  CryptomatteOperation *operation = create_cryptomatte_operation(
-      converter, context, *node, cryptoMatteSettings);
-  converter.addOperation(operation);
+  CryptomatteOperation *cryptomatte_operation = create_cryptomatte_operation(
+      converter, context, *node, cryptomatte_settings);
+  converter.addOperation(cryptomatte_operation);
 
-  SeparateChannelOperation *separateOperation = new SeparateChannelOperation;
-  separateOperation->setChannel(3);
-  converter.addOperation(separateOperation);
+  NodeOutput *output_matte_socket = this->getOutputSocket(1);
+  SeparateChannelOperation *extract_mask_operation = new SeparateChannelOperation;
+  extract_mask_operation->setChannel(3);
+  converter.addOperation(extract_mask_operation);
+  converter.addLink(cryptomatte_operation->getOutputSocket(0),
+                    extract_mask_operation->getInputSocket(0));
+  converter.mapOutputSocket(output_matte_socket, extract_mask_operation->getOutputSocket(0));
 
-  SetAlphaMultiplyOperation *operationAlpha = new SetAlphaMultiplyOperation();
-  converter.addOperation(operationAlpha);
+  NodeInput *input_image_socket = this->getInputSocket(0);
+  SetAlphaMultiplyOperation *apply_mask_operation = new SetAlphaMultiplyOperation();
+  converter.mapInputSocket(input_image_socket, apply_mask_operation->getInputSocket(0));
+  converter.addOperation(apply_mask_operation);
+  converter.addLink(extract_mask_operation->getOutputSocket(0),
+                    apply_mask_operation->getInputSocket(1));
+  converter.mapOutputSocket(output_image_socket, apply_mask_operation->getOutputSocket(0));
 
-  converter.addLink(operation->getOutputSocket(0), separateOperation->getInputSocket(0));
-  converter.addLink(separateOperation->getOutputSocket(0), operationAlpha->getInputSocket(1));
-
-  SetAlphaMultiplyOperation *clearAlphaOperation = new SetAlphaMultiplyOperation();
-  converter.addOperation(clearAlphaOperation);
-  converter.addInputValue(clearAlphaOperation->getInputSocket(1), 1.0f);
-
-  converter.addLink(operation->getOutputSocket(0), clearAlphaOperation->getInputSocket(0));
-
-  converter.mapInputSocket(inputSocketImage, operationAlpha->getInputSocket(0));
-  converter.mapOutputSocket(outputSocketMatte, separateOperation->getOutputSocket(0));
-  converter.mapOutputSocket(outputSocketImage, operationAlpha->getOutputSocket(0));
-  converter.mapOutputSocket(outputSocketPick, clearAlphaOperation->getOutputSocket(0));
+  NodeOutput *output_pick_socket = this->getOutputSocket(2);
+  SetAlphaMultiplyOperation *extract_pick_operation = new SetAlphaMultiplyOperation();
+  converter.addOperation(extract_pick_operation);
+  converter.addInputValue(extract_pick_operation->getInputSocket(1), 1.0f);
+  converter.addLink(cryptomatte_operation->getOutputSocket(0),
+                    extract_pick_operation->getInputSocket(0));
+  converter.mapOutputSocket(output_pick_socket, extract_pick_operation->getOutputSocket(0));
 }
 
 /* \} */
@@ -126,7 +126,7 @@ void CryptomatteNode::input_operations_from_image_source(
     const bNode &node,
     blender::Vector<NodeOperation *> &r_input_operations)
 {
-  NodeCryptomatte *cryptoMatteSettings = (NodeCryptomatte *)node.storage;
+  NodeCryptomatte *cryptomatte_settings = (NodeCryptomatte *)node.storage;
   Image *image = (Image *)node.id;
   if (!image) {
     return;
@@ -137,7 +137,7 @@ void CryptomatteNode::input_operations_from_image_source(
     return;
   }
 
-  ImageUser *iuser = &cryptoMatteSettings->iuser;
+  ImageUser *iuser = &cryptomatte_settings->iuser;
   BKE_image_user_frame_calc(image, iuser, context.getFramenumber());
   ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, nullptr);
 
