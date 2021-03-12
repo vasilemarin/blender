@@ -1292,6 +1292,7 @@ const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node);
 /* Update the runtime layer names with the cryptomatte layer names of the references
  * render layer or image. */
 void ntreeCompositCryptomatteUpdateLayerNames(bNode *node);
+struct CryptomatteSession *ntreeCompositCryptomatteSession(bNode *node);
 /** \} */
 
 /* -------------------------------------------------------------------- */
