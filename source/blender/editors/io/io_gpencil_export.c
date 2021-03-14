@@ -248,7 +248,7 @@ static bool wm_gpencil_export_svg_poll(bContext *C)
     return false;
   }
   Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
+  if ((ob == NULL) || (ob->type != OB_GPENCIL) || (ob->mode != OB_MODE_OBJECT)) {
     return false;
   }
 
@@ -436,7 +436,7 @@ static bool wm_gpencil_export_pdf_poll(bContext *C)
     return false;
   }
   Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
+  if ((ob == NULL) || (ob->type != OB_GPENCIL) || (ob->mode != OB_MODE_OBJECT)) {
     return false;
   }
 
