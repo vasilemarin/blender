@@ -100,13 +100,13 @@ void CryptomatteNode::input_operations_from_render_source(
     RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
     if (render_layer) {
       LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
-        blender::StringRef combined_name =
+        const std::string combined_name =
             blender::StringRef(view_layer->name,
                                strnlen(view_layer->name, sizeof(view_layer->name))) +
             "." +
             blender::StringRef(render_pass->name,
                                strnlen(render_pass->name, sizeof(render_pass->name)));
-        if (combined_name.startswith(prefix)) {
+        if (blender::StringRef(combined_name).startswith(prefix)) {
           RenderLayersProg *op = new RenderLayersProg(
               render_pass->name, COM_DT_COLOR, render_pass->channels);
           op->setScene(scene);
@@ -161,14 +161,14 @@ void CryptomatteNode::input_operations_from_image_source(
     const std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
     LISTBASE_FOREACH (RenderLayer *, render_layer, &image->rr->layers) {
       LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
-        blender::StringRef combined_name =
+        const std::string combined_name =
             blender::StringRef(render_layer->name,
                                strnlen(render_layer->name, sizeof(render_layer->name))) +
             "." +
             blender::StringRef(render_pass->name,
                                strnlen(render_pass->name, sizeof(render_pass->name)));
 
-        if (combined_name.startswith(prefix)) {
+        if (blender::StringRef(combined_name).startswith(prefix)) {
           MultilayerColorOperation *op = new MultilayerColorOperation(
               render_layer, render_pass, view);
           op->setImage(image);
