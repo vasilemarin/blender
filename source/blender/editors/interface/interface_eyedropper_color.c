@@ -382,7 +382,12 @@ static void eyedropper_color_sample(bContext *C, Eyedropper *eye, int mx, int my
 {
   /* Accumulate color. */
   float col[3];
-  if (!eyedropper_cryptomatte_sample_fl(C, eye, mx, my, col)) {
+  if (eye->crypto_node) {
+    if (!eyedropper_cryptomatte_sample_fl(C, eye, mx, my, col)) {
+      return;
+    }
+  }
+  else {
     eyedropper_color_sample_fl(C, mx, my, col);
   }
 
