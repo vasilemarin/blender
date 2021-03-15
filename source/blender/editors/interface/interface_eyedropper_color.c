@@ -157,9 +157,14 @@ static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *render_lay
     return false;
   }
 
-  const char *render_pass_name_prefix = prefix + render_layer_name_len + 1;
+  /* RenderResult from images can have no render layer name. */
+  const char *render_pass_name_prefix = render_layer_name_len ?
+                                            prefix + 1 + render_layer_name_len :
+                                            prefix;
+
   LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
-    if (STRPREFIX(render_pass->name, render_pass_name_prefix)) {
+    if (STRPREFIX(render_pass->name, render_pass_name_prefix) &&
+        !STREQLEN(render_pass->name, render_pass_name_prefix, sizeof(render_pass->name))) {
       BLI_assert(render_pass->channels == 4);
       const int x = (int)(fpos[0] * render_pass->rectx);
       const int y = (int)(fpos[1] * render_pass->recty);

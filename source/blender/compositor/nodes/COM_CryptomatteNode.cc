@@ -82,6 +82,22 @@ static std::string prefix_from_node(const bNode &node)
   return std::string(prefix, BLI_strnlen(prefix, sizeof(prefix)));
 }
 
+static std::string combined_layer_pass_name(RenderLayer *render_layer, RenderPass *render_pass)
+{
+  if (render_layer->name[0] == '\0') {
+    return std::string(render_pass->name,
+                       BLI_strnlen(render_pass->name, sizeof(render_pass->name)));
+  }
+
+  std::string combined_name =
+      blender::StringRef(render_layer->name,
+                         BLI_strnlen(render_layer->name, sizeof(render_layer->name))) +
+      "." +
+      blender::StringRef(render_pass->name,
+                         BLI_strnlen(render_pass->name, sizeof(render_pass->name)));
+  return combined_name;
+}
+
 void CryptomatteNode::input_operations_from_render_source(
     const CompositorContext &context,
     const bNode &node,
@@ -106,12 +122,7 @@ void CryptomatteNode::input_operations_from_render_source(
     RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
     if (render_layer) {
       LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
-        const std::string combined_name =
-            blender::StringRef(view_layer->name,
-                               strnlen(view_layer->name, sizeof(view_layer->name))) +
-            "." +
-            blender::StringRef(render_pass->name,
-                               strnlen(render_pass->name, sizeof(render_pass->name)));
+        const std::string combined_name = combined_layer_pass_name(render_layer, render_pass);
         if (blender::StringRef(combined_name).startswith(prefix)) {
           RenderLayersProg *op = new RenderLayersProg(
               render_pass->name, COM_DT_COLOR, render_pass->channels);
@@ -167,13 +178,7 @@ void CryptomatteNode::input_operations_from_image_source(
     const std::string prefix = prefix_from_node(node);
     LISTBASE_FOREACH (RenderLayer *, render_layer, &image->rr->layers) {
       LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
-        const std::string combined_name =
-            blender::StringRef(render_layer->name,
-                               strnlen(render_layer->name, sizeof(render_layer->name))) +
-            "." +
-            blender::StringRef(render_pass->name,
-                               strnlen(render_pass->name, sizeof(render_pass->name)));
-
+        const std::string combined_name = combined_layer_pass_name(render_layer, render_pass);
         if (blender::StringRef(combined_name).startswith(prefix)) {
           MultilayerColorOperation *op = new MultilayerColorOperation(
               render_layer, render_pass, view);
