@@ -229,7 +229,10 @@ static bool eyedropper_cryptomatte_sample_fl(
   }
 
   bool success = false;
-  const char *prefix = ntreeCompositCryptomatteLayerPrefix(node);
+  /* TODO(jbakker): Migrate this file to cc and use std::string as return param. */
+  char prefix[MAX_NAME + 1];
+  ntreeCompositCryptomatteLayerPrefix(node, prefix, sizeof(prefix) - 1);
+  prefix[MAX_NAME] = '\0';
 
   if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
     Scene *scene = (Scene *)node->id;

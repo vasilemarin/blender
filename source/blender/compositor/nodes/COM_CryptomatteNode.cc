@@ -75,6 +75,12 @@ void CryptomatteBaseNode::convertToOperations(NodeConverter &converter,
 
 /** \name Cryptomatte V2
  * \{ */
+static std::string prefix_from_node(const bNode &node)
+{
+  char prefix[MAX_NAME];
+  ntreeCompositCryptomatteLayerPrefix(&node, prefix, sizeof(prefix));
+  return std::string(prefix, BLI_strnlen(prefix, sizeof(prefix)));
+}
 
 void CryptomatteNode::input_operations_from_render_source(
     const CompositorContext &context,
@@ -95,7 +101,7 @@ void CryptomatteNode::input_operations_from_render_source(
   }
 
   const short cryptomatte_layer_id = 0;
-  const std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
+  const std::string prefix = prefix_from_node(node);
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
     RenderLayer *render_layer = RE_GetRenderLayer(render_result, view_layer->name);
     if (render_layer) {
@@ -158,7 +164,7 @@ void CryptomatteNode::input_operations_from_image_source(
       }
     }
 
-    const std::string prefix = ntreeCompositCryptomatteLayerPrefix(&node);
+    const std::string prefix = prefix_from_node(node);
     LISTBASE_FOREACH (RenderLayer *, render_layer, &image->rr->layers) {
       LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
         const std::string combined_name =

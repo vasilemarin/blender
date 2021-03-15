@@ -1288,7 +1288,8 @@ void ntreeCompositCryptomatteSyncFromAdd(bNode *node);
 void ntreeCompositCryptomatteSyncFromRemove(bNode *node);
 bNodeSocket *ntreeCompositCryptomatteAddSocket(bNodeTree *ntree, bNode *node);
 int ntreeCompositCryptomatteRemoveSocket(bNodeTree *ntree, bNode *node);
-const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node);
+void ntreeCompositCryptomatteLayerPrefix(const bNode *node, char *r_prefix, size_t prefix_len);
+
 /* Update the runtime layer names with the cryptomatte layer names of the references
  * render layer or image. */
 void ntreeCompositCryptomatteUpdateLayerNames(bNode *node);

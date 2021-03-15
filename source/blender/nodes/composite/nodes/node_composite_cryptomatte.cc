@@ -190,31 +190,30 @@ void ntreeCompositCryptomatteUpdateLayerNames(bNode *node)
   }
 }
 
-const char *ntreeCompositCryptomatteLayerPrefix(const bNode *node)
+void ntreeCompositCryptomatteLayerPrefix(const bNode *node, char *r_prefix, size_t prefix_len)
 {
   BLI_assert(node->type == CMP_NODE_CRYPTOMATTE);
   NodeCryptomatte *node_cryptomatte = (NodeCryptomatte *)node->storage;
   blender::bke::cryptomatte::CryptomatteSessionPtr session = cryptomatte_init_from_node(
       *node, 0, false);
-  std::optional<std::string> first_layer_name = std::nullopt;
+  std::string first_layer_name;
 
   if (session) {
     for (blender::StringRef layer_name :
          blender::bke::cryptomatte::BKE_cryptomatte_layer_names_get(*session)) {
-      if (!first_layer_name.has_value()) {
+      if (first_layer_name.empty()) {
         first_layer_name = layer_name;
       }
 
       if (layer_name == node_cryptomatte->layer_name) {
-        return node_cryptomatte->layer_name;
+        BLI_strncpy(r_prefix, node_cryptomatte->layer_name, prefix_len);
+        return;
       }
     }
   }
 
-  if (!first_layer_name.has_value()) {
-    return "";
-  }
-  return first_layer_name.value().c_str();
+  const char *cstr = first_layer_name.c_str();
+  BLI_strncpy(r_prefix, cstr, prefix_len);
 }
 
 static void node_init_cryptomatte(bNodeTree *UNUSED(ntree), bNode *node)
