@@ -1572,6 +1572,8 @@ const char *nodeStaticSocketType(int type, int subtype)
           return "NodeSocketFloatAngle";
         case PROP_TIME:
           return "NodeSocketFloatTime";
+        case PROP_DISTANCE:
+          return "NodeSocketFloatDistance";
         case PROP_NONE:
         default:
           return "NodeSocketFloat";
@@ -1641,6 +1643,8 @@ const char *nodeStaticSocketInterfaceType(int type, int subtype)
           return "NodeSocketInterfaceFloatAngle";
         case PROP_TIME:
           return "NodeSocketInterfaceFloatTime";
+        case PROP_DISTANCE:
+          return "NodeSocketInterfaceFloatDistance";
         case PROP_NONE:
         default:
           return "NodeSocketInterfaceFloat";
@@ -4793,6 +4797,7 @@ static void registerGeometryNodes()
   register_node_type_geo_attribute_color_ramp();
   register_node_type_geo_attribute_combine_xyz();
   register_node_type_geo_attribute_compare();
+  register_node_type_geo_attribute_convert();
   register_node_type_geo_attribute_fill();
   register_node_type_geo_attribute_math();
   register_node_type_geo_attribute_mix();

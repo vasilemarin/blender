@@ -63,6 +63,8 @@
 
 #include "RE_pipeline.h"
 
+#include "RE_pipeline.h"
+
 #include "interface_eyedropper_intern.h"
 
 typedef struct Eyedropper {
@@ -191,9 +193,14 @@ static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *render_lay
     return false;
   }
 
-  const char *render_pass_name_prefix = prefix + render_layer_name_len + 1;
+  /* RenderResult from images can have no render layer name. */
+  const char *render_pass_name_prefix = render_layer_name_len ?
+                                            prefix + 1 + render_layer_name_len :
+                                            prefix;
+
   LISTBASE_FOREACH (RenderPass *, render_pass, &render_layer->passes) {
-    if (STRPREFIX(render_pass->name, render_pass_name_prefix)) {
+    if (STRPREFIX(render_pass->name, render_pass_name_prefix) &&
+        !STREQLEN(render_pass->name, render_pass_name_prefix, sizeof(render_pass->name))) {
       BLI_assert(render_pass->channels == 4);
       const int x = (int)(fpos[0] * render_pass->rectx);
       const int y = (int)(fpos[1] * render_pass->recty);
@@ -263,7 +270,10 @@ static bool eyedropper_cryptomatte_sample_fl(
   }
 
   bool success = false;
-  const char *prefix = ntreeCompositCryptomatteLayerPrefix(node);
+  /* TODO(jbakker): Migrate this file to cc and use std::string as return param. */
+  char prefix[MAX_NAME + 1];
+  ntreeCompositCryptomatteLayerPrefix(node, prefix, sizeof(prefix) - 1);
+  prefix[MAX_NAME] = '\0';
 
   if (node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER) {
     Scene *scene = (Scene *)node->id;
@@ -413,7 +423,12 @@ static void eyedropper_color_sample(bContext *C, Eyedropper *eye, int mx, int my
 {
   /* Accumulate color. */
   float col[3];
-  if (!eyedropper_cryptomatte_sample_fl(C, eye, mx, my, col)) {
+  if (eye->crypto_node) {
+    if (!eyedropper_cryptomatte_sample_fl(C, eye, mx, my, col)) {
+      return;
+    }
+  }
+  else {
     eyedropper_color_sample_fl(C, mx, my, col);
   }
 
