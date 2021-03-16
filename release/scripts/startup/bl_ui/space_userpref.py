@@ -655,10 +655,6 @@ class USERPREF_PT_system_video_sequencer(SystemPanel, CenterAlignMixIn, Panel):
         col.prop(system, "sequencer_disk_cache_size_limit", text="Cache Limit")
         col.prop(system, "sequencer_disk_cache_compression", text="Compression")
 
-        layout.separator()
-
-        layout.prop(system, "sequencer_proxy_setup")
-
 
 # -----------------------------------------------------------------------------
 # Viewport Panels
