@@ -398,6 +398,10 @@ static int seq_proxy_context_count(Sequence *seq, Scene *scene)
 
 static bool seq_proxy_need_rebuild(Sequence *seq, struct anim *anim)
 {
+  if ((seq->strip->proxy->build_flags & SEQ_PROXY_SKIP_EXISTING) == 0) {
+    return true;
+  }
+
   IMB_Proxy_Size required_proxies = seq->strip->proxy->build_size_flags;
   IMB_Proxy_Size built_proxies = IMB_anim_proxy_get_existing(anim);
   return (required_proxies & built_proxies) != required_proxies;
