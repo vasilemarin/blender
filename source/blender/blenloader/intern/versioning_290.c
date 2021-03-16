@@ -796,6 +796,26 @@ static void version_node_join_geometry_for_multi_input_socket(bNodeTree *ntree)
   }
 }
 
+static ARegion *do_versions_add_region_if_not_found(ListBase *regionbase,
+                                                    int region_type,
+                                                    const char *name,
+                                                    int link_after_region_type)
+{
+  ARegion *link_after_region = NULL;
+  LISTBASE_FOREACH (ARegion *, region, regionbase) {
+    if (region->regiontype == region_type) {
+      return NULL;
+    }
+    if (region->regiontype == link_after_region_type) {
+      link_after_region = region;
+    }
+  }
+  ARegion *new_region = MEM_callocN(sizeof(ARegion), name);
+  new_region->regiontype = region_type;
+  BLI_insertlinkafter(regionbase, link_after_region, new_region);
+  return new_region;
+}
+
 /* NOLINTNEXTLINE: readability-function-size */
 void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
 {
@@ -1462,14 +1482,13 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
       LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
         if (scene->nodetree) {
           LISTBASE_FOREACH (bNode *, node, &scene->nodetree->nodes) {
-            if (node->type == CMP_NODE_CRYPTOMATTE) {
+            if (node->type == CMP_NODE_CRYPTOMATTE_LEGACY) {
               NodeCryptomatte *storage = (NodeCryptomatte *)node->storage;
               char *matte_id = storage->matte_id;
               if (matte_id == NULL || strlen(storage->matte_id) == 0) {
                 continue;
               }
               BKE_cryptomatte_matte_id_to_entries(storage, storage->matte_id);
-              MEM_SAFE_FREE(storage->matte_id);
             }
           }
         }
@@ -1789,6 +1808,39 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
     FOREACH_NODETREE_END;
   }
 
+  if (!MAIN_VERSION_ATLEAST(bmain, 293, 10)) {
+    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+      if (ntree->type == NTREE_GEOMETRY) {
+        version_node_socket_name(ntree, GEO_NODE_ATTRIBUTE_PROXIMITY, "Location", "Position");
+      }
+    }
+    FOREACH_NODETREE_END;
+
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      /* Fix old scene with too many samples that were not being used.
+       * Now they are properly used and might produce a huge slowdown.
+       * So we clamp to what the old max actual was. */
+      if (scene->eevee.volumetric_shadow_samples > 32) {
+        scene->eevee.volumetric_shadow_samples = 32;
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_ATLEAST(bmain, 293, 11)) {
+    LISTBASE_FOREACH (bNodeTree *, ntree, &bmain->nodetrees) {
+      if (ntree->type == NTREE_GEOMETRY) {
+        LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+          if (STREQ(node->idname, "GeometryNodeSubdivisionSurfaceSimple")) {
+            STRNCPY(node->idname, "GeometryNodeSubdivide");
+          }
+          if (STREQ(node->idname, "GeometryNodeSubdivisionSurface")) {
+            STRNCPY(node->idname, "GeometryNodeSubdivideSmooth");
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Versioning code until next subversion bump goes here.
    *
@@ -1801,11 +1853,21 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
   {
     /* Keep this block, even when empty. */
 
-    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
-      if (ntree->type == NTREE_GEOMETRY) {
-        version_node_socket_name(ntree, GEO_NODE_ATTRIBUTE_PROXIMITY, "Location", "Position");
+    LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+      LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+        LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
+          if (sl->spacetype == SPACE_SPREADSHEET) {
+            ListBase *regionbase = (sl == area->spacedata.first) ? &area->regionbase :
+                                                                   &sl->regionbase;
+            ARegion *new_footer = do_versions_add_region_if_not_found(
+                regionbase, RGN_TYPE_FOOTER, "footer for spreadsheet", RGN_TYPE_HEADER);
+            if (new_footer != NULL) {
+              new_footer->alignment = (U.uiflag & USER_HEADER_BOTTOM) ? RGN_ALIGN_TOP :
+                                                                        RGN_ALIGN_BOTTOM;
+            }
+          }
+        }
       }
     }
-    FOREACH_NODETREE_END;
   }
 }

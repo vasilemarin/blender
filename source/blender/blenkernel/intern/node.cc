@@ -538,20 +538,14 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
         }
         BLO_write_struct_by_name(writer, node->typeinfo->storagename, node->storage);
       }
-      else if ((ntree->type == NTREE_COMPOSIT) && (node->type == CMP_NODE_CRYPTOMATTE)) {
+      else if ((ntree->type == NTREE_COMPOSIT) &&
+               (ELEM(node->type, CMP_NODE_CRYPTOMATTE, CMP_NODE_CRYPTOMATTE_LEGACY))) {
         NodeCryptomatte *nc = (NodeCryptomatte *)node->storage;
-        /* Update the matte_id so the files can be opened in versions that don't
-         * use `CryptomatteEntry`. */
-        MEM_SAFE_FREE(nc->matte_id);
-        nc->matte_id = BKE_cryptomatte_entries_to_matte_id(nc);
-        if (nc->matte_id) {
-          BLO_write_string(writer, nc->matte_id);
-        }
+        BLO_write_string(writer, nc->matte_id);
         LISTBASE_FOREACH (CryptomatteEntry *, entry, &nc->entries) {
           BLO_write_struct(writer, CryptomatteEntry, entry);
         }
         BLO_write_struct_by_name(writer, node->typeinfo->storagename, node->storage);
-        MEM_SAFE_FREE(nc->matte_id);
       }
       else if (node->type == FN_NODE_INPUT_STRING) {
         NodeInputString *storage = (NodeInputString *)node->storage;
@@ -710,10 +704,12 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
           iuser->scene = nullptr;
           break;
         }
+        case CMP_NODE_CRYPTOMATTE_LEGACY:
         case CMP_NODE_CRYPTOMATTE: {
           NodeCryptomatte *nc = (NodeCryptomatte *)node->storage;
           BLO_read_data_address(reader, &nc->matte_id);
           BLO_read_list(reader, &nc->entries);
+          BLI_listbase_clear(&nc->runtime.layers);
           break;
         }
         case TEX_NODE_IMAGE: {
@@ -910,7 +906,8 @@ void ntreeBlendReadExpand(BlendExpander *expander, bNodeTree *ntree)
   }
 
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    if (node->id && node->type != CMP_NODE_R_LAYERS) {
+    if (node->id && !(node->type == CMP_NODE_R_LAYERS) &&
+        !(node->type == CMP_NODE_CRYPTOMATTE && node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER)) {
       BLO_expand(expander, node->id);
     }
 
@@ -1575,6 +1572,8 @@ const char *nodeStaticSocketType(int type, int subtype)
           return "NodeSocketFloatAngle";
         case PROP_TIME:
           return "NodeSocketFloatTime";
+        case PROP_DISTANCE:
+          return "NodeSocketFloatDistance";
         case PROP_NONE:
         default:
           return "NodeSocketFloat";
@@ -1644,6 +1643,8 @@ const char *nodeStaticSocketInterfaceType(int type, int subtype)
           return "NodeSocketInterfaceFloatAngle";
         case PROP_TIME:
           return "NodeSocketInterfaceFloatTime";
+        case PROP_DISTANCE:
+          return "NodeSocketInterfaceFloatDistance";
         case PROP_NONE:
         default:
           return "NodeSocketInterfaceFloat";
@@ -4482,18 +4483,18 @@ void node_type_group_update(struct bNodeType *ntype,
 }
 
 void node_type_exec(struct bNodeType *ntype,
-                    NodeInitExecFunction initexecfunc,
-                    NodeFreeExecFunction freeexecfunc,
-                    NodeExecFunction execfunc)
+                    NodeInitExecFunction init_exec_fn,
+                    NodeFreeExecFunction free_exec_fn,
+                    NodeExecFunction exec_fn)
 {
-  ntype->initexecfunc = initexecfunc;
-  ntype->freeexecfunc = freeexecfunc;
-  ntype->execfunc = execfunc;
+  ntype->init_exec_fn = init_exec_fn;
+  ntype->free_exec_fn = free_exec_fn;
+  ntype->exec_fn = exec_fn;
 }
 
-void node_type_gpu(struct bNodeType *ntype, NodeGPUExecFunction gpufunc)
+void node_type_gpu(struct bNodeType *ntype, NodeGPUExecFunction gpu_fn)
 {
-  ntype->gpufunc = gpufunc;
+  ntype->gpu_fn = gpu_fn;
 }
 
 void node_type_internal_links(bNodeType *ntype,
@@ -4610,6 +4611,7 @@ static void registerCompositNodes()
   register_node_type_cmp_keyingscreen();
   register_node_type_cmp_keying();
   register_node_type_cmp_cryptomatte();
+  register_node_type_cmp_cryptomatte_legacy();
 
   register_node_type_cmp_translate();
   register_node_type_cmp_rotate();
@@ -4795,6 +4797,7 @@ static void registerGeometryNodes()
   register_node_type_geo_attribute_color_ramp();
   register_node_type_geo_attribute_combine_xyz();
   register_node_type_geo_attribute_compare();
+  register_node_type_geo_attribute_convert();
   register_node_type_geo_attribute_fill();
   register_node_type_geo_attribute_math();
   register_node_type_geo_attribute_mix();
@@ -4802,6 +4805,7 @@ static void registerGeometryNodes()
   register_node_type_geo_attribute_randomize();
   register_node_type_geo_attribute_separate_xyz();
   register_node_type_geo_attribute_vector_math();
+  register_node_type_geo_attribute_remove();
   register_node_type_geo_boolean();
   register_node_type_geo_collection_info();
   register_node_type_geo_edge_split();
@@ -4816,8 +4820,8 @@ static void registerGeometryNodes()
   register_node_type_geo_point_translate();
   register_node_type_geo_points_to_volume();
   register_node_type_geo_sample_texture();
-  register_node_type_geo_subdivision_surface();
-  register_node_type_geo_subdivision_surface_simple();
+  register_node_type_geo_subdivide_smooth();
+  register_node_type_geo_subdivide();
   register_node_type_geo_transform();
   register_node_type_geo_triangulate();
   register_node_type_geo_volume_to_mesh();

@@ -47,6 +47,7 @@ struct BlendLibReader;
 struct BlendWriter;
 struct ColorManagedDisplaySettings;
 struct ColorManagedViewSettings;
+struct CryptomatteSession;
 struct FreestyleLineStyle;
 struct GPUMaterial;
 struct GPUNodeStack;
@@ -301,11 +302,11 @@ typedef struct bNodeType {
   void (*free_self)(struct bNodeType *ntype);
 
   /* **** execution callbacks **** */
-  NodeInitExecFunction initexecfunc;
-  NodeFreeExecFunction freeexecfunc;
-  NodeExecFunction execfunc;
+  NodeInitExecFunction init_exec_fn;
+  NodeFreeExecFunction free_exec_fn;
+  NodeExecFunction exec_fn;
   /* gpu */
-  NodeGPUExecFunction gpufunc;
+  NodeGPUExecFunction gpu_fn;
 
   /* Expands the bNode into nodes in a multi-function network, which will be evaluated later on. */
   NodeExpandInMFNetworkFunction expand_in_mf_network;
@@ -829,10 +830,10 @@ void node_type_group_update(struct bNodeType *ntype,
                                                       struct bNode *node));
 
 void node_type_exec(struct bNodeType *ntype,
-                    NodeInitExecFunction initexecfunc,
-                    NodeFreeExecFunction freeexecfunc,
-                    NodeExecFunction execfunc);
-void node_type_gpu(struct bNodeType *ntype, NodeGPUExecFunction gpufunc);
+                    NodeInitExecFunction init_exec_fn,
+                    NodeFreeExecFunction free_exec_fn,
+                    NodeExecFunction exec_fn);
+void node_type_gpu(struct bNodeType *ntype, NodeGPUExecFunction gpu_fn);
 void node_type_internal_links(struct bNodeType *ntype,
                               void (*update_internal_links)(struct bNodeTree *, struct bNode *));
 
@@ -1204,9 +1205,10 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 #define CMP_NODE_PLANETRACKDEFORM 320
 #define CMP_NODE_CORNERPIN 321
 #define CMP_NODE_SWITCH_VIEW 322
-#define CMP_NODE_CRYPTOMATTE 323
+#define CMP_NODE_CRYPTOMATTE_LEGACY 323
 #define CMP_NODE_DENOISE 324
 #define CMP_NODE_EXPOSURE 325
+#define CMP_NODE_CRYPTOMATTE 326
 
 /* channel toggles */
 #define CMP_CHAN_RGB 1
@@ -1235,6 +1237,10 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 #define CMP_TRACKPOS_RELATIVE_START 1
 #define CMP_TRACKPOS_RELATIVE_FRAME 2
 #define CMP_TRACKPOS_ABSOLUTE_FRAME 3
+
+/* Cryptomatte source. */
+#define CMP_CRYPTOMATTE_SRC_RENDER 0
+#define CMP_CRYPTOMATTE_SRC_IMAGE 1
 
 /* API */
 void ntreeCompositExecTree(struct Scene *scene,
@@ -1278,11 +1284,15 @@ void ntreeCompositOutputFileUniqueLayer(struct ListBase *list,
 void ntreeCompositColorBalanceSyncFromLGG(bNodeTree *ntree, bNode *node);
 void ntreeCompositColorBalanceSyncFromCDL(bNodeTree *ntree, bNode *node);
 
-void ntreeCompositCryptomatteSyncFromAdd(bNodeTree *ntree, bNode *node);
-void ntreeCompositCryptomatteSyncFromRemove(bNodeTree *ntree, bNode *node);
-struct bNodeSocket *ntreeCompositCryptomatteAddSocket(struct bNodeTree *ntree, struct bNode *node);
-int ntreeCompositCryptomatteRemoveSocket(struct bNodeTree *ntree, struct bNode *node);
+void ntreeCompositCryptomatteSyncFromAdd(bNode *node);
+void ntreeCompositCryptomatteSyncFromRemove(bNode *node);
+bNodeSocket *ntreeCompositCryptomatteAddSocket(bNodeTree *ntree, bNode *node);
+int ntreeCompositCryptomatteRemoveSocket(bNodeTree *ntree, bNode *node);
+void ntreeCompositCryptomatteLayerPrefix(const bNode *node, char *r_prefix, size_t prefix_len);
 
+/* Update the runtime layer names with the cryptomatte layer names of the references
+ * render layer or image. */
+void ntreeCompositCryptomatteUpdateLayerNames(bNode *node);
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1348,7 +1358,7 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define GEO_NODE_BOOLEAN 1003
 #define GEO_NODE_POINT_DISTRIBUTE 1004
 #define GEO_NODE_POINT_INSTANCE 1005
-#define GEO_NODE_SUBDIVISION_SURFACE 1006
+#define GEO_NODE_SUBDIVIDE_SMOOTH 1006
 #define GEO_NODE_OBJECT_INFO 1007
 #define GEO_NODE_ATTRIBUTE_RANDOMIZE 1008
 #define GEO_NODE_ATTRIBUTE_MATH 1009
@@ -1371,7 +1381,9 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define GEO_NODE_VOLUME_TO_MESH 1026
 #define GEO_NODE_ATTRIBUTE_COMBINE_XYZ 1027
 #define GEO_NODE_ATTRIBUTE_SEPARATE_XYZ 1028
-#define GEO_NODE_SUBDIVISION_SURFACE_SIMPLE 1029
+#define GEO_NODE_SUBDIVIDE 1029
+#define GEO_NODE_ATTRIBUTE_REMOVE 1030
+#define GEO_NODE_ATTRIBUTE_CONVERT 1031
 
 /** \} */
 
