@@ -27,6 +27,7 @@
 #include "BLI_endian_switch.h"
 #include "BLI_fileops.h"
 #include "BLI_ghash.h"
+#include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 #include "BLI_threads.h"
@@ -529,9 +530,15 @@ static struct proxy_output_ctx *alloc_proxy_output_ffmpeg(
   rv->c->time_base.num = 1;
   rv->st->time_base = rv->c->time_base;
 
+  /* This range matches eFFMpegCrf. Crf_range_min corresponds to lowest quality, crf_range_max to
+   * highest quality. */
+  const int crf_range_min = 32;
+  const int crf_range_max = 17;
+  int crf = round_fl_to_int((quality / 100.0f) * (crf_range_max - crf_range_min) + crf_range_min);
+
   AVDictionary *codec_opts = NULL;
   /* High quality preset value. */
-  av_dict_set_int(&codec_opts, "crf", 20, 0);
+  av_dict_set_int(&codec_opts, "crf", crf, 0);
   /* Prefer smaller filesize. */
   av_dict_set(&codec_opts, "preset", "slow", 0);
   /* Thread count. */
