@@ -92,18 +92,7 @@ typedef struct Eyedropper {
 static void eyedropper_draw_cb(const wmWindow *window, void *arg)
 {
   Eyedropper *eye = arg;
-  if (eye->sample_text[0] == '\0') {
-    return;
-  }
-
-  const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
-  int x = window->eventstate->x;
-  int y = window->eventstate->y;
-  y += U.widget_unit;
-  const float col_fg[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-  const float col_bg[4] = {0.0f, 0.0f, 0.0f, 0.2f};
-
-  UI_fontstyle_draw_simple_backdrop(fstyle, x, y, eye->sample_text, col_fg, col_bg);
+  eyedropper_draw_cursor_text_window(window, eye->sample_text);
 }
 
 static bool eyedropper_init(bContext *C, wmOperator *op)
