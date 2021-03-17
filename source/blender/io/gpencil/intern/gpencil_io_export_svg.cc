@@ -74,19 +74,19 @@ GpencilExporterSVG::GpencilExporterSVG(const char *filename, const struct Gpenci
   invert_axis_[1] = true;
 }
 
-bool GpencilExporterSVG::add_newpage(void)
+bool GpencilExporterSVG::add_newpage()
 {
   create_document_header();
   return true;
 }
 
-bool GpencilExporterSVG::add_body(void)
+bool GpencilExporterSVG::add_body()
 {
   export_gpencil_layers();
   return true;
 }
 
-bool GpencilExporterSVG::write(void)
+bool GpencilExporterSVG::write()
 {
   bool result = true;
 /* Support unicode character paths on Windows. */
@@ -107,7 +107,7 @@ bool GpencilExporterSVG::write(void)
 }
 
 /* Create document header and main svg node. */
-void GpencilExporterSVG::create_document_header(void)
+void GpencilExporterSVG::create_document_header()
 {
   /* Add a custom document declaration node. */
   pugi::xml_node decl = main_doc_.prepend_child(pugi::node_declaration);
@@ -142,7 +142,7 @@ void GpencilExporterSVG::create_document_header(void)
 }
 
 /* Main layer loop. */
-void GpencilExporterSVG::export_gpencil_layers(void)
+void GpencilExporterSVG::export_gpencil_layers()
 {
   const bool is_clipping = is_camera_mode() && (params_.flag & GP_EXPORT_CLIP_CAMERA) != 0;
 

@@ -65,7 +65,7 @@ GpencilImporter::GpencilImporter(const struct GpencilIOParams *iparams) : Gpenci
   /* Nothing to do yet */
 }
 
-Object *GpencilImporter::create_object(void)
+Object *GpencilImporter::create_object()
 {
   const float *cur = scene_->cursor.location;
   ushort local_view_bits = (params_.v3d && params_.v3d->localvd) ? params_.v3d->local_view_uuid :

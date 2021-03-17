@@ -81,23 +81,23 @@ GpencilExporterPDF::GpencilExporterPDF(const char *filename, const struct Gpenci
   gstate_ = nullptr;
 }
 
-bool GpencilExporterPDF::new_document(void)
+bool GpencilExporterPDF::new_document()
 {
   return create_document();
 }
 
-bool GpencilExporterPDF::add_newpage(void)
+bool GpencilExporterPDF::add_newpage()
 {
   return add_page();
 }
 
-bool GpencilExporterPDF::add_body(void)
+bool GpencilExporterPDF::add_body()
 {
   export_gpencil_layers();
   return true;
 }
 
-bool GpencilExporterPDF::write(void)
+bool GpencilExporterPDF::write()
 {
   /* Support unicode character paths on Windows. */
   HPDF_STATUS res = 0;
@@ -119,7 +119,7 @@ bool GpencilExporterPDF::write(void)
 }
 
 /* Create pdf document. */
-bool GpencilExporterPDF::create_document(void)
+bool GpencilExporterPDF::create_document()
 {
   pdf_ = HPDF_New(error_handler, nullptr);
   if (!pdf_) {
@@ -130,7 +130,7 @@ bool GpencilExporterPDF::create_document(void)
 }
 
 /* Add page. */
-bool GpencilExporterPDF::add_page(void)
+bool GpencilExporterPDF::add_page()
 {
   /* Add a new page object. */
   page_ = HPDF_AddPage(pdf_);
@@ -146,7 +146,7 @@ bool GpencilExporterPDF::add_page(void)
 }
 
 /* Main layer loop. */
-void GpencilExporterPDF::export_gpencil_layers(void)
+void GpencilExporterPDF::export_gpencil_layers()
 {
   /* If is doing a set of frames, the list of objects can change for each frame. */
   if (params_.frame_mode != GP_EXPORT_FRAME_ACTIVE) {

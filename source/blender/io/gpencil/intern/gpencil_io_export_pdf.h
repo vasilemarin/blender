@@ -41,10 +41,10 @@ class GpencilExporterPDF : public GpencilExporter {
 
  public:
   GpencilExporterPDF(const char *filename, const struct GpencilIOParams *iparams);
-  bool new_document(void);
-  bool add_newpage(void);
-  bool add_body(void);
-  bool write(void);
+  bool new_document();
+  bool add_newpage();
+  bool add_body();
+  bool write();
 
  protected:
  private:
@@ -55,9 +55,9 @@ class GpencilExporterPDF : public GpencilExporter {
   /* State. */
   HPDF_ExtGState gstate_;
 
-  bool create_document(void);
-  bool add_page(void);
-  void export_gpencil_layers(void);
+  bool create_document();
+  bool add_page();
+  void export_gpencil_layers();
 
   void export_stroke_to_point(bGPDlayer *gpl, bGPDstroke *gps);
   void export_stroke_to_polyline(bGPDlayer *gpl,

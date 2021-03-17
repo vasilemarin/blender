@@ -57,7 +57,7 @@ GpencilImporterSVG::GpencilImporterSVG(const char *filename, const struct Gpenci
   filename_set(filename);
 }
 
-bool GpencilImporterSVG::read(void)
+bool GpencilImporterSVG::read()
 {
   bool result = true;
   NSVGimage *svg_data = nullptr;

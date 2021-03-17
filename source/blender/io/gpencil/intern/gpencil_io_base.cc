@@ -151,7 +151,7 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
 }
 
 /** Create a list of selected objects sorted from back to front */
-void GpencilIO::create_object_list(void)
+void GpencilIO::create_object_list()
 {
   ViewLayer *view_layer = CTX_data_view_layer(params_.C);
 
@@ -403,33 +403,33 @@ void GpencilIO::gps_current_color_set(struct Object *ob, struct bGPDstroke *gps)
   interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
 }
 
-struct MaterialGPencilStyle *GpencilIO::gp_style_current_get(void)
+struct MaterialGPencilStyle *GpencilIO::gp_style_current_get()
 {
   return gp_style_;
 }
 
-bool GpencilIO::material_is_stroke(void)
+bool GpencilIO::material_is_stroke()
 {
   return is_stroke_;
 }
 
-bool GpencilIO::material_is_fill(void)
+bool GpencilIO::material_is_fill()
 {
   return is_fill_;
 }
 
-float GpencilIO::stroke_average_opacity_get(void)
+float GpencilIO::stroke_average_opacity_get()
 {
   return avg_opacity_;
 }
 
-bool GpencilIO::is_camera_mode(void)
+bool GpencilIO::is_camera_mode()
 {
   return is_camera_;
 }
 
 /* Calc selected strokes boundbox. */
-void GpencilIO::selected_objects_boundbox_set(void)
+void GpencilIO::selected_objects_boundbox_set()
 {
   const float gap = 10.0f;
   const bGPDspoint *pt;

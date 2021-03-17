@@ -39,7 +39,7 @@ class GpencilImporterSVG : public GpencilImporter {
  public:
   GpencilImporterSVG(const char *filename, const struct GpencilIOParams *iparams);
 
-  bool read(void);
+  bool read();
 
  protected:
  private:

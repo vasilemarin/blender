@@ -39,9 +39,9 @@ class GpencilExporterSVG : public GpencilExporter {
 
  public:
   GpencilExporterSVG(const char *filename, const struct GpencilIOParams *iparams);
-  bool add_newpage(void);
-  bool add_body(void);
-  bool write(void);
+  bool add_newpage();
+  bool add_body();
+  bool write();
 
  protected:
   static void add_rect(pugi::xml_node node,
@@ -66,8 +66,8 @@ class GpencilExporterSVG : public GpencilExporter {
   pugi::xml_node main_node_;
   /** Frame node  */
   pugi::xml_node frame_node_;
-  void create_document_header(void);
-  void export_gpencil_layers(void);
+  void create_document_header();
+  void export_gpencil_layers();
 
   void export_stroke_to_point(struct bGPDlayer *gpl,
                               struct bGPDstroke *gps,
