@@ -59,6 +59,14 @@
 
 #include "gpencil_io.h"
 
+/* Definition of enum elements to export. */
+static const EnumPropertyItem gpencil_export_select_items[] = {
+    {GP_EXPORT_ACTIVE, "ACTIVE", 0, "Active", "Include only active object"},
+    {GP_EXPORT_SELECTED, "SELECTED", 0, "Selected", "Include selected objects"},
+    {GP_EXPORT_VISIBLE, "VISIBLE", 0, "Visible", "Include visible objects"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfptr)
 {
   uiLayout *box, *row, *col;
@@ -92,12 +100,6 @@ static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *
 
 static void gpencil_export_common_props_svg(wmOperatorType *ot)
 {
-  static const EnumPropertyItem gpencil_export_select_items[] = {
-      {GP_EXPORT_ACTIVE, "ACTIVE", 0, "Active", "Include only active object"},
-      {GP_EXPORT_SELECTED, "SELECTED", 0, "Selected", "Include selected objects"},
-      {GP_EXPORT_VISIBLE, "VISIBLE", 0, "Visible", "Include visible objects"},
-      {0, NULL, 0, NULL, NULL},
-  };
   RNA_def_boolean(ot->srna, "use_fill", true, "Fill", "Export filled areas");
   RNA_def_boolean(ot->srna,
                   "use_normalized_thickness",
@@ -341,11 +343,6 @@ static int wm_gpencil_export_pdf_exec(bContext *C, wmOperator *op)
   SET_FLAG_FROM_TEST(flag, use_fill, GP_EXPORT_FILL);
   SET_FLAG_FROM_TEST(flag, use_norm_thickness, GP_EXPORT_NORM_THICKNESS);
 
-  const float paper[2] = {
-      scene->r.xsch * (scene->r.size / 100.0f),
-      scene->r.ysch * (scene->r.size / 100.0f),
-  };
-
   struct GpencilIOParams params = {.C = C,
                                    .region = region,
                                    .v3d = v3d,
@@ -442,12 +439,6 @@ void WM_OT_gpencil_export_pdf(wmOperatorType *ot)
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 
-  static const EnumPropertyItem gpencil_export_select_items[] = {
-      {GP_EXPORT_ACTIVE, "ACTIVE", 0, "Active", "Include only active object"},
-      {GP_EXPORT_SELECTED, "SELECTED", 0, "Selected", "Include selected objects"},
-      {GP_EXPORT_VISIBLE, "VISIBLE", 0, "Visible", "Include visible objects"},
-      {0, NULL, 0, NULL, NULL},
-  };
   static const EnumPropertyItem gpencil_export_frame_items[] = {
       {GP_EXPORT_FRAME_ACTIVE, "ACTIVE", 0, "Active", "Include only active frame"},
       {GP_EXPORT_FRAME_SELECTED, "SELECTED", 0, "Selected", "Include selected frames"},
