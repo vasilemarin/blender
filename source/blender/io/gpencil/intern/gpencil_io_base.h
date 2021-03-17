@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "BLI_float2.hh"
 #include "BLI_vector.hh"
 
 #include "gpencil_io.h"
@@ -80,7 +81,7 @@ class GpencilIO {
   float camera_ratio_;
   rctf camera_rect_;
 
-  float offset_[2];
+  float2 offset_;
 
   int cfra_;
   bool object_created_;
