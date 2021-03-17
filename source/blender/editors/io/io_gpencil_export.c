@@ -78,7 +78,6 @@ static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfp
 #ifdef WITH_PUGIXML
 static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *op)
 {
-
   char filepath[FILE_MAX];
   RNA_string_get(op->ptr, "filepath", filepath);
 
@@ -242,18 +241,7 @@ static void wm_gpencil_export_svg_draw(bContext *UNUSED(C), wmOperator *op)
 
 static bool wm_gpencil_export_svg_poll(bContext *C)
 {
-  if (CTX_wm_window(C) == NULL) {
-    return false;
-  }
-  Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL) || (ob->mode != OB_MODE_OBJECT)) {
-    return false;
-  }
-
-  bGPdata *gpd = (bGPdata *)ob->data;
-  bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
-
-  if (gpl == NULL) {
+  if ((CTX_wm_window(C) == NULL) || (CTX_data_mode_enum(C) != CTX_MODE_OBJECT)) {
     return false;
   }
 
@@ -428,18 +416,7 @@ static void wm_gpencil_export_pdf_draw(bContext *C, wmOperator *op)
 
 static bool wm_gpencil_export_pdf_poll(bContext *C)
 {
-  if (CTX_wm_window(C) == NULL) {
-    return false;
-  }
-  Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL) || (ob->mode != OB_MODE_OBJECT)) {
-    return false;
-  }
-
-  bGPdata *gpd = (bGPdata *)ob->data;
-  bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
-
-  if (gpl == NULL) {
+  if ((CTX_wm_window(C) == NULL) || (CTX_data_mode_enum(C) != CTX_MODE_OBJECT)) {
     return false;
   }
 
