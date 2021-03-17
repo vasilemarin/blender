@@ -129,15 +129,15 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
                                  true);
     is_camera_ = true;
     camera_ratio_ = render_x_ / (camera_rect_.xmax - camera_rect_.xmin);
-    offset_[0] = camera_rect_.xmin;
-    offset_[1] = camera_rect_.ymin;
+    offset_.x = camera_rect_.xmin;
+    offset_.y = camera_rect_.ymin;
   }
   else {
     is_camera_ = false;
     /* Calc selected object boundbox. Need set initial value to some variables. */
     camera_ratio_ = 1.0f;
-    offset_[0] = 0.0f;
-    offset_[1] = 0.0f;
+    offset_.x = 0.0f;
+    offset_.y = 0.0f;
 
     selected_objects_boundbox_set();
     rctf boundbox;
@@ -145,8 +145,8 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
 
     render_x_ = boundbox.xmax - boundbox.xmin;
     render_y_ = boundbox.ymax - boundbox.ymin;
-    offset_[0] = boundbox.xmin;
-    offset_[1] = boundbox.ymin;
+    offset_.x = boundbox.xmin;
+    offset_.y = boundbox.ymin;
   }
 }
 
@@ -229,7 +229,7 @@ bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2
         r_co[1] = winy_ - r_co[1];
       }
       /* Apply offset and scale. */
-      sub_v2_v2(r_co, offset_);
+      sub_v2_v2(r_co, &offset_.x);
       mul_v2_fl(r_co, camera_ratio_);
 
       return true;
