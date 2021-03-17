@@ -144,7 +144,7 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
 
   /* Do Import. */
   WM_cursor_wait(1);
-  bool done = gpencil_io_import(filename, &params);
+  const bool done = gpencil_io_import(filename, &params);
   WM_cursor_wait(0);
 
   if (!done) {

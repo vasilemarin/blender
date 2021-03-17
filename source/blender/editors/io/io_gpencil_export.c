@@ -128,10 +128,8 @@ static void gpencil_export_common_props_svg(wmOperatorType *ot)
       100.0f);
 }
 
-static int wm_gpencil_export_svg_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int wm_gpencil_export_svg_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  UNUSED_VARS(event);
-
   if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
     Main *bmain = CTX_data_main(C);
     char filepath[FILE_MAX];
@@ -201,7 +199,7 @@ static int wm_gpencil_export_svg_exec(bContext *C, wmOperator *op)
 
   /* Do export. */
   WM_cursor_wait(true);
-  bool done = gpencil_io_export(filename, &params);
+  const bool done = gpencil_io_export(filename, &params);
   WM_cursor_wait(false);
 
   if (!done) {
@@ -343,9 +341,10 @@ static int wm_gpencil_export_pdf_exec(bContext *C, wmOperator *op)
   SET_FLAG_FROM_TEST(flag, use_fill, GP_EXPORT_FILL);
   SET_FLAG_FROM_TEST(flag, use_norm_thickness, GP_EXPORT_NORM_THICKNESS);
 
-  float paper[2];
-  paper[0] = scene->r.xsch * (scene->r.size / 100.0f);
-  paper[1] = scene->r.ysch * (scene->r.size / 100.0f);
+  const float paper[2] = {
+      scene->r.xsch * (scene->r.size / 100.0f),
+      scene->r.ysch * (scene->r.size / 100.0f),
+  };
 
   struct GpencilIOParams params = {.C = C,
                                    .region = region,
@@ -364,7 +363,7 @@ static int wm_gpencil_export_pdf_exec(bContext *C, wmOperator *op)
 
   /* Do export. */
   WM_cursor_wait(true);
-  bool done = gpencil_io_export(filename, &params);
+  const bool done = gpencil_io_export(filename, &params);
   WM_cursor_wait(false);
 
   if (!done) {
