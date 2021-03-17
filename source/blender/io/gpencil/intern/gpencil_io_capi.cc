@@ -171,13 +171,9 @@ static bool gpencil_io_export_frame_svg(GpencilExporterSVG *exporter,
 /* Main import entry point function. */
 bool gpencil_io_import(const char *filename, GpencilIOParams *iparams)
 {
-  bool done = false;
-
   GpencilImporterSVG importer = GpencilImporterSVG(filename, iparams);
 
-  done |= gpencil_io_import_frame(&importer, iparams);
-
-  return done;
+  return gpencil_io_import_frame(&importer, iparams);
 }
 
 /* Main export entry point function. */
@@ -189,22 +185,18 @@ bool gpencil_io_export(const char *filename, GpencilIOParams *iparams)
 
   UNUSED_VARS(depsgraph_, scene_, ob);
 
-  bool done = false;
-
   switch (iparams->mode) {
 #ifdef WITH_PUGIXML
     case GP_EXPORT_TO_SVG: {
-      /* Prepare document. */
       GpencilExporterSVG exporter = GpencilExporterSVG(filename, iparams);
-
-      done |= gpencil_io_export_frame_svg(&exporter, iparams, true, true, true);
+      return gpencil_io_export_frame_svg(&exporter, iparams, true, true, true);
       break;
     }
 #endif
 #ifdef WITH_HARU
     case GP_EXPORT_TO_PDF: {
       GpencilExporterPDF exporter = GpencilExporterPDF(filename, iparams);
-      done |= gpencil_io_export_pdf(depsgraph_, scene_, ob, &exporter, iparams);
+      return gpencil_io_export_pdf(depsgraph_, scene_, ob, &exporter, iparams);
       break;
     }
 #endif
@@ -212,5 +204,5 @@ bool gpencil_io_export(const char *filename, GpencilIOParams *iparams)
     default:
       break;
   }
-  return done;
+  return false;
 }
