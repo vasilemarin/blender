@@ -97,8 +97,6 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  /* For some reason the region cannot be retrieved from the context.
-   * If a better solution is found in the future, remove this function. */
   ARegion *region = get_invoke_region(C);
   if (region == NULL) {
     BKE_report(op->reports, RPT_ERROR, "Unable to find valid 3D View area");
