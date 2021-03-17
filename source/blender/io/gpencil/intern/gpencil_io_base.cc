@@ -177,7 +177,7 @@ void GpencilIO::create_object_list()
     if (is_camera_) {
       float camera_z = dot_v3v3(camera_z_axis, object->obmat[3]);
       ObjectZ obz = {camera_z, object};
-      ob_list_.push_back(obz);
+      ob_list_.append(obz);
     }
     else {
       float zdepth = 0;
@@ -189,7 +189,7 @@ void GpencilIO::create_object_list()
           zdepth = -dot_v3v3(rv3d_->viewinv[2], object->obmat[3]);
         }
         ObjectZ obz = {zdepth * -1.0f, object};
-        ob_list_.push_back(obz);
+        ob_list_.append(obz);
       }
     }
   }
@@ -325,10 +325,9 @@ bool GpencilIO::is_stroke_thickness_constant(struct bGPDstroke *gps)
 /** Get radius of point. */
 float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, struct bGPDstroke *gps)
 {
-  bGPDspoint *pt = nullptr;
   float v1[2], screen_co[2], screen_ex[2];
 
-  pt = &gps->points[0];
+  bGPDspoint *pt = &gps->points[0];
   gpencil_3d_point_to_2D(&pt->x, screen_co);
 
   /* Radius. */

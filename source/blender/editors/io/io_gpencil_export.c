@@ -67,6 +67,33 @@ static const EnumPropertyItem gpencil_export_select_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+/* Common props for exporting. */
+static void gpencil_export_common_props_definition(wmOperatorType *ot)
+{
+  RNA_def_boolean(ot->srna, "use_fill", true, "Fill", "Export filled areas");
+  RNA_def_enum(ot->srna,
+               "selected_object_type",
+               gpencil_export_select_items,
+               GP_EXPORT_SELECTED,
+               "Object",
+               "Objects included in the export");
+  RNA_def_float(
+      ot->srna,
+      "stroke_sample",
+      0.0f,
+      0.0f,
+      100.0f,
+      "Sampling",
+      "Precision of sampling stroke, low values gets more precise result, zero to disable",
+      0.0f,
+      100.0f);
+  RNA_def_boolean(ot->srna,
+                  "use_normalized_thickness",
+                  false,
+                  "Normalize",
+                  "Export strokes with constant thickness along the stroke");
+}
+
 static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfptr)
 {
   uiLayout *box, *row, *col;
@@ -100,34 +127,12 @@ static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *
 
 static void gpencil_export_common_props_svg(wmOperatorType *ot)
 {
-  RNA_def_boolean(ot->srna, "use_fill", true, "Fill", "Export filled areas");
-  RNA_def_boolean(ot->srna,
-                  "use_normalized_thickness",
-                  false,
-                  "Normalize",
-                  "Export strokes with constant thickness along the stroke");
-  ot->prop = RNA_def_enum(ot->srna,
-                          "selected_object_type",
-                          gpencil_export_select_items,
-                          GP_EXPORT_SELECTED,
-                          "Object",
-                          "Objects included in the export");
-
+  gpencil_export_common_props_definition(ot);
   RNA_def_boolean(ot->srna,
                   "use_clip_camera",
                   false,
                   "Clip Camera",
                   "Clip drawings to camera size when export in camera view");
-  RNA_def_float(
-      ot->srna,
-      "stroke_sample",
-      0.0f,
-      0.0f,
-      100.0f,
-      "Sampling",
-      "Precision of sampling stroke, low values gets more precise result, zero to disable",
-      0.0f,
-      100.0f);
 }
 
 static int wm_gpencil_export_svg_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
@@ -445,29 +450,7 @@ void WM_OT_gpencil_export_pdf(wmOperatorType *ot)
       {0, NULL, 0, NULL, NULL},
   };
 
-  RNA_def_boolean(ot->srna, "use_fill", true, "Fill", "Export filled areas");
-  RNA_def_boolean(ot->srna,
-                  "use_normalized_thickness",
-                  false,
-                  "Normalize",
-                  "Export strokes with constant thickness along the stroke");
-  ot->prop = RNA_def_enum(ot->srna,
-                          "selected_object_type",
-                          gpencil_export_select_items,
-                          GP_EXPORT_SELECTED,
-                          "Object",
-                          "Objects included in the export");
-
-  RNA_def_float(
-      ot->srna,
-      "stroke_sample",
-      0.0f,
-      0.0f,
-      100.0f,
-      "Sampling",
-      "Precision of sampling stroke, low values gets more precise result, zero to disable",
-      0.0f,
-      100.0f);
+  gpencil_export_common_props_definition(ot);
   ot->prop = RNA_def_enum(ot->srna,
                           "frame_mode",
                           gpencil_export_frame_items,

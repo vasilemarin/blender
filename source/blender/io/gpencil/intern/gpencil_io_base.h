@@ -24,6 +24,8 @@
 #include <string>
 #include <vector>
 
+#include "BLI_vector.hh"
+
 #include "gpencil_io.h"
 
 struct ARegion;
@@ -38,6 +40,8 @@ struct bGPDlayer;
 struct bGPDframe;
 struct bGPDstroke;
 struct MaterialGPencilStyle;
+
+using blender::Vector;
 
 namespace blender::io::gpencil {
 
@@ -62,7 +66,7 @@ class GpencilIO {
   };
 
   /** List of included objects. */
-  std::vector<ObjectZ> ob_list_;
+  blender::Vector<ObjectZ> ob_list_;
 
   /* Data for easy access. */
   struct Depsgraph *depsgraph_;
