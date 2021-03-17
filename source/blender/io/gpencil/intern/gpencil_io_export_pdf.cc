@@ -254,11 +254,9 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
   const bool is_thickness_const = is_stroke_thickness_constant(gps);
   const bool cyclic = ((gps->flag & GP_STROKE_CYCLIC) != 0);
 
-  bGPDspoint *pt = &gps->points[0];
-  float avg_pressure = pt->pressure;
-  if (!is_thickness_const) {
-    avg_pressure = stroke_average_pressure_get(gps);
-  }
+  /* For constant thickness, use first point pressure. */
+  const float avg_pressure = is_thickness_const ? gps->points[0].pressure :
+                                                  stroke_average_pressure_get(gps);
 
   /* Get the thickness in pixels using a simple 1 point stroke. */
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false);
@@ -269,7 +267,7 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
   copy_v3_v3(&pt_dst->x, &pt_src->x);
   pt_dst->pressure = avg_pressure;
 
-  float radius = stroke_point_radius_get(gpl, gps_temp);
+  const float radius = stroke_point_radius_get(gpl, gps_temp);
 
   BKE_gpencil_free_stroke(gps_temp);
 
@@ -281,8 +279,8 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
   }
 
   /* Loop all points. */
-  for (int32_t i = 0; i < gps->totpoints; i++) {
-    pt = &gps->points[i];
+  for (const int i : IndexRange(gps->totpoints)) {
+    bGPDspoint *pt = &gps->points[i];
     float screen_co[2];
     HPDF_STATUS err;
     gpencil_3d_point_to_2D(&pt->x, screen_co);

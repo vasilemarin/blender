@@ -222,8 +222,8 @@ void GpencilExporterSVG::export_gpencil_layers()
           export_stroke_to_point(gpl, gps_duplicate, node_gpl);
         }
         else {
-          bool is_normalized = ((params_.flag & GP_EXPORT_NORM_THICKNESS) != 0) ||
-                               is_stroke_thickness_constant(gps);
+          const bool is_normalized = ((params_.flag & GP_EXPORT_NORM_THICKNESS) != 0) ||
+                                     is_stroke_thickness_constant(gps);
 
           /* Fill. */
           if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
@@ -348,11 +348,9 @@ void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
   const bool is_thickness_const = is_stroke_thickness_constant(gps);
   const bool cyclic = ((gps->flag & GP_STROKE_CYCLIC) != 0);
 
-  bGPDspoint *pt = &gps->points[0];
-  float avg_pressure = pt->pressure;
-  if (!is_thickness_const) {
-    avg_pressure = stroke_average_pressure_get(gps);
-  }
+  /* For constant thickness, use first point pressure. */
+  const float avg_pressure = (is_thickness_const) ? gps->points[0].pressure :
+                                                    stroke_average_pressure_get(gps);
 
   /* Get the thickness in pixels using a simple 1 point stroke. */
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false);
@@ -363,7 +361,7 @@ void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
   copy_v3_v3(&pt_dst->x, &pt_src->x);
   pt_dst->pressure = avg_pressure;
 
-  float radius = stroke_point_radius_get(gpl, gps_temp);
+  const float radius = stroke_point_radius_get(gpl, gps_temp);
 
   BKE_gpencil_free_stroke(gps_temp);
 
@@ -376,11 +374,11 @@ void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
   }
 
   std::string txt;
-  for (int32_t i = 0; i < gps->totpoints; i++) {
+  for (const int i : IndexRange(gps->totpoints)) {
     if (i > 0) {
       txt.append(" ");
     }
-    pt = &gps->points[i];
+    bGPDspoint *pt = &gps->points[i];
     float screen_co[2];
     gpencil_3d_point_to_2D(&pt->x, screen_co);
     txt.append(std::to_string(screen_co[0]) + "," + std::to_string(screen_co[1]));
