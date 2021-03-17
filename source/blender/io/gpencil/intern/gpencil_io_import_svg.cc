@@ -26,6 +26,9 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_float3.hh"
+#include "BLI_span.hh"
+
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_geom.h"
 
@@ -47,6 +50,8 @@
 #define NANOSVG_IMPLEMENTATION
 
 #include "nanosvg/nanosvg.h"
+
+using blender::MutableSpan;
 
 namespace blender::io::gpencil {
 
@@ -84,7 +89,7 @@ bool GpencilImporterSVG::read()
 
   /* Grease pencil is rotated 90 degrees in X axis by default. */
   float matrix[4][4];
-  float scale[3] = {params_.scale, params_.scale, params_.scale};
+  const float3 scale = float3(params_.scale);
   unit_m4(matrix);
   rotate_m4(matrix, 'X', DEG2RADF(-90.0f));
   rescale_m4(matrix, scale);
@@ -150,10 +155,8 @@ bool GpencilImporterSVG::read()
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd_->layers) {
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        int i;
-        bGPDspoint *pt;
-        for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-          sub_v3_v3(&pt->x, gp_center);
+        for (bGPDspoint &pt : MutableSpan(gps->points, gps->totpoints)) {
+          sub_v3_v3(&pt.x, gp_center);
         }
       }
     }

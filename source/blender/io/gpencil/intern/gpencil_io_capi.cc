@@ -118,8 +118,8 @@ static bool gpencil_io_export_pdf(Depsgraph *depsgraph,
 
   const bool use_frame_selected = (iparams->frame_mode == GP_EXPORT_FRAME_SELECTED);
   if (!use_frame_selected) {
-    result |= exporter->add_newpage();
-    result |= exporter->add_body();
+    exporter->add_newpage();
+    exporter->add_body();
     result = exporter->write();
   }
   else {
@@ -131,8 +131,8 @@ static bool gpencil_io_export_pdf(Depsgraph *depsgraph,
       CFRA = i;
       BKE_scene_graph_update_for_newframe(depsgraph);
       exporter->frame_number_set(i);
-      result |= exporter->add_newpage();
-      result |= exporter->add_body();
+      exporter->add_newpage();
+      exporter->add_body();
     }
     result = exporter->write();
     /* Back to original frame. */
