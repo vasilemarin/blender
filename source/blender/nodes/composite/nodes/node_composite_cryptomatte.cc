@@ -207,6 +207,7 @@ void ntreeCompositCryptomatteLayerPrefix(const bNode *node, char *r_prefix, size
 
       if (layer_name == node_cryptomatte->layer_name) {
         BLI_strncpy(r_prefix, node_cryptomatte->layer_name, prefix_len);
+        return;
       }
     }
   }
