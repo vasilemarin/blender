@@ -285,43 +285,6 @@ void GpencilIO::gpencil_3d_point_to_2D(const float co[3], float r_co[2])
   }
 }
 
-/** Get average pressure. */
-float GpencilIO::stroke_average_pressure_get(struct bGPDstroke *gps)
-{
-  bGPDspoint *pt = nullptr;
-
-  if (gps->totpoints == 1) {
-    pt = &gps->points[0];
-    return pt->pressure;
-  }
-
-  float tot = 0.0f;
-  for (const bGPDspoint &pt : Span(gps->points, gps->totpoints)) {
-    tot += pt.pressure;
-  }
-
-  return tot / (float)gps->totpoints;
-}
-
-/** Check if the thickness of the stroke is constant. */
-bool GpencilIO::is_stroke_thickness_constant(struct bGPDstroke *gps)
-{
-  if (gps->totpoints == 1) {
-    return true;
-  }
-
-  bGPDspoint *pt_first = &gps->points[0];
-  float prv_pressure = pt_first->pressure;
-
-  for (const bGPDspoint &pt : Span(gps->points, gps->totpoints)) {
-    if (pt.pressure != prv_pressure) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 /** Get radius of point. */
 float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, struct bGPDstroke *gps)
 {

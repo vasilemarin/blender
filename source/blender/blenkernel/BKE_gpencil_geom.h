@@ -188,6 +188,8 @@ struct bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *r
                                                           struct bGPDstroke *gps,
                                                           int subdivisions,
                                                           float diff_mat[4][4]);
+float BKE_gpencil_stroke_average_pressure_get(struct bGPDstroke *gps);
+bool BKE_gpencil_stroke_is_thickness_constant(struct bGPDstroke *gps);
 #ifdef __cplusplus
 }
 #endif

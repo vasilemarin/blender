@@ -3575,8 +3575,10 @@ static int generate_arc_from_point_to_point(ListBase *list,
   return 0;
 }
 
-static int generate_semi_circle_from_point_to_point(
-    ListBase *list, tPerimeterPoint *from, tPerimeterPoint *to, int subdivisions)
+static int generate_semi_circle_from_point_to_point(ListBase *list,
+                                                    tPerimeterPoint *from,
+                                                    tPerimeterPoint *to,
+                                                    int subdivisions)
 {
   int num_points = (1 << (subdivisions + 1)) + 1;
   float center_pt[3];
@@ -3649,8 +3651,7 @@ static int generate_perimeter_cap(const float point[4],
 
   int num_points = 0;
   if (cap_type == GP_STROKE_CAP_ROUND) {
-    num_points += generate_semi_circle_from_point_to_point(
-        list, p_pt, p_pt_inv, subdivisions);
+    num_points += generate_semi_circle_from_point_to_point(list, p_pt, p_pt_inv, subdivisions);
   }
 
   return num_points + 2;
@@ -3712,12 +3713,8 @@ static ListBase *gpencil_stroke_perimeter_ex(const bGPdata *gpd,
   }
 
   /* generate points for start cap */
-  num_perimeter_points += generate_perimeter_cap(first_pt,
-                                                 first_next_pt,
-                                                 first_radius,
-                                                 perimeter_right_side,
-                                                 subdivisions,
-                                                 gps->caps[0]);
+  num_perimeter_points += generate_perimeter_cap(
+      first_pt, first_next_pt, first_radius, perimeter_right_side, subdivisions, gps->caps[0]);
 
   /* generate perimeter points  */
   float curr_pt[3], next_pt[3], prev_pt[3];
@@ -3976,5 +3973,43 @@ bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *rv3d,
   BKE_gpencil_free_stroke(gps_temp);
 
   return perimeter_stroke;
+}
+
+/** Get average pressure. */
+float BKE_gpencil_stroke_average_pressure_get(struct bGPDstroke *gps)
+{
+
+  if (gps->totpoints == 1) {
+    return gps->points[0].pressure;
+  }
+
+  const bGPDspoint *pt;
+  int i;
+  float tot = 0.0f;
+  for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+    tot += pt->pressure;
+  }
+
+  return tot / (float)gps->totpoints;
+}
+
+/** Check if the thickness of the stroke is constant. */
+bool BKE_gpencil_stroke_is_thickness_constant(struct bGPDstroke *gps)
+{
+  if (gps->totpoints == 1) {
+    return true;
+  }
+
+  const bGPDspoint *pt;
+  int i;
+
+  float prv_pressure = gps->points[0].pressure;
+  for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+    if (pt->pressure != prv_pressure) {
+      return false;
+    }
+  }
+
+  return true;
 }
 /** \} */

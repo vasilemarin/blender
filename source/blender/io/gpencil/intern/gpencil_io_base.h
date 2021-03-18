@@ -89,8 +89,6 @@ class GpencilIO {
   float stroke_color_[4], fill_color_[4];
 
   static std::string rgb_to_hexstr(float color[3]);
-  static float stroke_average_pressure_get(struct bGPDstroke *gps);
-  static bool is_stroke_thickness_constant(struct bGPDstroke *gps);
 
   /* Geometry functions. */
   bool gpencil_3d_point_to_screen_space(const float co[3], float r_co[2]);
