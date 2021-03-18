@@ -358,15 +358,6 @@ std::string GpencilIO::rgb_to_hexstr(float color[3])
   return hexstr;
 }
 
-/** Convert a color to grayscale. */
-void GpencilIO::rgb_to_grayscale(float color[3])
-{
-  float grayscale = ((0.3f * color[0]) + (0.59f * color[1]) + (0.11f * color[2]));
-  color[0] = grayscale;
-  color[1] = grayscale;
-  color[2] = grayscale;
-}
-
 void GpencilIO::gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl)
 {
   BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob, gpl, diff_mat_);

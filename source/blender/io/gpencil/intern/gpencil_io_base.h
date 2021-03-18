@@ -89,7 +89,6 @@ class GpencilIO {
   float stroke_color_[4], fill_color_[4];
 
   static std::string rgb_to_hexstr(float color[3]);
-  static void rgb_to_grayscale(float color[3]);
   static float stroke_average_pressure_get(struct bGPDstroke *gps);
   static bool is_stroke_thickness_constant(struct bGPDstroke *gps);
 
