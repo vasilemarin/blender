@@ -57,12 +57,6 @@ USDPrimReader *create_reader(const pxr::UsdStageRefPtr &stage,
                              ImportSettings &settings);
 USDPrimReader *create_fake_reader(class USDStageReader *archive, const pxr::UsdPrim &prim);
 
-template<typename T>
-T usd_define_or_over(pxr::UsdStageRefPtr stage, pxr::SdfPath path, bool as_overs = false)
-{
-  return (as_overs) ? T(stage->OverridePrim(path)) : T::Define(stage, path);
-}
-
 void localize(bNodeTree *localtree, bNodeTree *ntree);
 
 void ntree_shader_groups_expand_inputs(bNodeTree *localtree);

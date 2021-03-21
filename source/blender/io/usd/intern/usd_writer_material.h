@@ -42,6 +42,12 @@ struct bNodeTree;
 
 namespace blender::io::usd {
 
+template<typename T>
+T usd_define_or_over(pxr::UsdStageRefPtr stage, pxr::SdfPath path, bool as_overs = false)
+{
+  return (as_overs) ? T(stage->OverridePrim(path)) : T::Define(stage, path);
+}
+
 void create_usd_preview_surface_material(USDExporterContext const &usd_export_context_,
                                          Material *material,
                                          pxr::UsdShadeMaterial &usd_material);
