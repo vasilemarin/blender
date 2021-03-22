@@ -90,7 +90,6 @@ static int wm_gpencil_import_svg_invoke(bContext *C, wmOperator *op, const wmEve
 static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
-  Object *ob = CTX_data_active_object(C);
 
   if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
     BKE_report(op->reports, RPT_ERROR, "No filename given");
@@ -109,18 +108,6 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
 
   /* Set flags. */
   int flag = 0;
-  /* If active object is not a editable grease pencil, set to NULL to create a new object. */
-  eGP_TargetObjectMode target = RNA_enum_get(op->ptr, "target");
-  ob = (target == GP_TARGET_OB_SELECTED) ? CTX_data_active_object(C) : NULL;
-
-  if (ob != NULL) {
-    if (ob->type != OB_GPENCIL) {
-      ob = NULL;
-    }
-    else if (BKE_object_obdata_is_libdata(ob)) {
-      ob = NULL;
-    }
-  }
 
   const int resolution = RNA_int_get(op->ptr, "resolution");
   const float scale = RNA_float_get(op->ptr, "scale");
@@ -129,7 +116,7 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
       .C = C,
       .region = region,
       .v3d = v3d,
-      .ob = ob,
+      .ob = NULL,
       .mode = GP_IMPORT_FROM_SVG,
       .frame_start = CFRA,
       .frame_end = CFRA,
@@ -166,7 +153,6 @@ static void ui_gpencil_import_svg_settings(uiLayout *layout, PointerRNA *imfptr)
   uiItemL(row, IFACE_("Import Options"), ICON_SCENE_DATA);
 
   col = uiLayoutColumn(box, false);
-  uiItemR(col, imfptr, "target", 0, NULL, ICON_NONE);
   uiItemR(col, imfptr, "resolution", 0, NULL, ICON_NONE);
   uiItemR(col, imfptr, "scale", 0, NULL, ICON_NONE);
 }
@@ -218,14 +204,6 @@ void WM_OT_gpencil_import_svg(wmOperatorType *ot)
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_DEFAULT);
 
-  prop = RNA_def_enum(ot->srna,
-                      "target",
-                      target_object_modes,
-                      GP_TARGET_OB_NEW,
-                      "Target Object",
-                      "Target grease pencil object");
-
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   RNA_def_int(ot->srna,
               "resolution",
               10,
