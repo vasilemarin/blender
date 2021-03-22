@@ -33,6 +33,9 @@ add_definitions(-DPXR_STATIC)
 # USD headers use deprecated TBB headers, silence warning.
 add_definitions(-DTBB_SUPPRESS_DEPRECATED_MESSAGES=1)
 
+# Python is always required
+add_definitions(-DWITH_PYTHON)
+
 set(INC
   .
   ../common
@@ -44,6 +47,7 @@ set(INC
   ../../editors/include
   ../../makesdna
   ../../makesrna
+  ../../python
   ../../windowmanager
   ../../../../intern/guardedalloc
   ../../../../intern/utfconv
@@ -54,6 +58,7 @@ set(INC_SYS
   ${USD_INCLUDE_DIRS}
   ${BOOST_INCLUDE_DIR}
   ${TBB_INCLUDE_DIR}
+  ${PYTHON_INCLUDE_DIRS}
 )
 
 set(SRC
@@ -72,7 +77,9 @@ set(SRC
   intern/usd_reader_stage.cc
   intern/usd_reader_volume.cc
   intern/usd_reader_xform.cc
-  
+
+  intern/usd_umm.cc
+
   intern/usd_writer_abstract.cc
   intern/usd_writer_camera.cc
   intern/usd_writer_curve.cc
@@ -88,6 +95,8 @@ set(SRC
   intern/usd_exporter_context.h
   intern/usd_hierarchy_iterator.h
   
+  intern/usd_umm.h
+
   intern/usd_reader_camera.h
   intern/usd_reader_curve.h
   intern/usd_reader_geom.h
@@ -121,6 +130,8 @@ set(LIB
 
 list(APPEND LIB
   ${BOOST_LIBRARIES}
+  ${PYTHON_LINKFLAGS}
+  ${PYTHON_LIBRARIES}
 )
 
 list(APPEND LIB

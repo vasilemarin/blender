@@ -113,7 +113,7 @@ static void link_nodes(
 static pxr::UsdShadeShader get_source_shader(const pxr::UsdShadeConnectableAPI &source,
                                              pxr::TfToken in_shader_id)
 {
-  if (source && source.IsShader()) {
+  if (source && source.GetPrim().IsA<pxr::UsdShadeShader>()) {
     pxr::UsdShadeShader source_shader(source.GetPrim());
     if (source_shader) {
       pxr::TfToken shader_id;
@@ -189,7 +189,7 @@ void compute_node_loc(
 }  // namespace
 
 USDMaterialReader::USDMaterialReader(const USDImportParams &params, Main *bmain)
-    : params_(params), bmain_(bmain)
+    : params_(params), bmain_(bmain), umm_(params, bmain)
 {
 }
 
@@ -204,9 +204,12 @@ Material *USDMaterialReader::add_material(const pxr::UsdShadeMaterial &usd_mater
   /* Create the material. */
   Material *mtl = BKE_material_add(bmain_, mtl_name.c_str());
 
-  /* Optionally, create shader nodes to represent a UsdPreviewSurface. */
-  if (params_.import_usd_preview) {
+  /* Optionally, import shader nodes. */
+  if (params_.import_shaders_mode == USD_IMPORT_USD_PREVIEW_SURFACE) {
     import_usd_preview(mtl, usd_material);
+  }
+  else if (params_.import_shaders_mode == USD_IMPORT_MDL) {
+    umm_.map_mdl(mtl, usd_material);
   }
 
   return mtl;
@@ -357,7 +360,7 @@ void USDMaterialReader::set_node_input(const pxr::UsdShadeInput &usd_input,
 
     usd_input.GetConnectedSource(&source, &source_name, &source_type);
 
-    if (!(source && source.IsShader())) {
+    if (!(source && source.GetPrim().IsA<pxr::UsdShadeShader>())) {
       return;
     }
 
