@@ -59,7 +59,6 @@ class GpencilExporterPDF : public GpencilExporter {
   bool add_page();
   void export_gpencil_layers();
 
-  void export_stroke_to_point(bGPDlayer *gpl, bGPDstroke *gps);
   void export_stroke_to_polyline(bGPDlayer *gpl,
                                  bGPDstroke *gps,
                                  const bool is_fill,

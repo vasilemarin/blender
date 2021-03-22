@@ -174,7 +174,7 @@ void GpencilExporterPDF::export_gpencil_layers()
       }
 
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        if (gps->totpoints == 0) {
+        if (gps->totpoints < 2) {
           continue;
         }
         if (!ED_gpencil_stroke_material_visible(ob, gpl, gps)) {
@@ -189,57 +189,35 @@ void GpencilExporterPDF::export_gpencil_layers()
         /* Apply object scale to thickness. */
         gps_duplicate->thickness *= mat4_to_scale(ob->obmat);
         CLAMP_MIN(gps_duplicate->thickness, 1.0f);
-        if (gps_duplicate->totpoints == 1) {
-          export_stroke_to_point(gpl, gps_duplicate);
+        /* Fill. */
+        if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
+          /* Fill is exported as polygon for fill and stroke in a different shape. */
+          export_stroke_to_polyline(gpl, gps_duplicate, true, false);
         }
-        else {
-          /* Fill. */
-          if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
-            /* Fill is exported as polygon for fill and stroke in a different shape. */
-            export_stroke_to_polyline(gpl, gps_duplicate, true, false);
+
+        /* Stroke. */
+        if (material_is_stroke()) {
+          if (is_normalized) {
+            export_stroke_to_polyline(gpl, gps_duplicate, false, true);
           }
+          else {
+            bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
+                rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
 
-          /* Stroke. */
-          if (material_is_stroke()) {
-            if (is_normalized) {
-              export_stroke_to_polyline(gpl, gps_duplicate, false, true);
+            /* Sample stroke. */
+            if (params_.stroke_sample > 0.0f) {
+              BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false);
             }
-            else {
-              bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-                  rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
 
-              /* Sample stroke. */
-              if (params_.stroke_sample > 0.0f) {
-                BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false);
-              }
+            export_stroke_to_polyline(gpl, gps_perimeter, false, false);
 
-              export_stroke_to_polyline(gpl, gps_perimeter, false, false);
-
-              BKE_gpencil_free_stroke(gps_perimeter);
-            }
+            BKE_gpencil_free_stroke(gps_perimeter);
           }
         }
         BKE_gpencil_free_stroke(gps_duplicate);
       }
     }
   }
-}
-
-/**
- * Export a point
- */
-void GpencilExporterPDF::export_stroke_to_point(bGPDlayer *gpl, bGPDstroke *gps)
-{
-  BLI_assert(gps->totpoints == 1);
-  float screen_co[2];
-
-  bGPDspoint *pt = &gps->points[0];
-  gpencil_3d_point_to_2D(&pt->x, screen_co);
-  /* Radius. */
-  float radius = stroke_point_radius_get(gpl, gps);
-
-  HPDF_Page_Circle(page_, screen_co[0], screen_co[1], radius);
-  HPDF_Page_ClosePathFillStroke(page_);
 }
 
 /**

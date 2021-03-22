@@ -69,10 +69,6 @@ class GpencilExporterSVG : public GpencilExporter {
   void create_document_header();
   void export_gpencil_layers();
 
-  void export_stroke_to_point(struct bGPDlayer *gpl,
-                              struct bGPDstroke *gps,
-                              pugi::xml_node node_gpl);
-
   void export_stroke_to_path(struct bGPDlayer *gpl,
                              struct bGPDstroke *gps,
                              pugi::xml_node node_gpl,

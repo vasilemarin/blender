@@ -200,7 +200,7 @@ void GpencilExporterSVG::export_gpencil_layers()
       node_gpl.append_attribute("id").set_value(gpl->info);
 
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        if (gps->totpoints == 0) {
+        if (gps->totpoints < 2) {
           continue;
         }
         if (!ED_gpencil_stroke_material_visible(ob, gpl, gps)) {
@@ -218,38 +218,33 @@ void GpencilExporterSVG::export_gpencil_layers()
         gps_duplicate->thickness *= mat4_to_scale(ob->obmat);
         CLAMP_MIN(gps_duplicate->thickness, 1.0f);
 
-        if (gps_duplicate->totpoints == 1) {
-          export_stroke_to_point(gpl, gps_duplicate, node_gpl);
+        const bool is_normalized = ((params_.flag & GP_EXPORT_NORM_THICKNESS) != 0) ||
+                                   BKE_gpencil_stroke_is_thickness_constant(gps);
+
+        /* Fill. */
+        if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
+          /* Fill is always exported as polygon because the stroke of the fill is done
+           * in a different SVG command. */
+          export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, true);
         }
-        else {
-          const bool is_normalized = ((params_.flag & GP_EXPORT_NORM_THICKNESS) != 0) ||
-                                     BKE_gpencil_stroke_is_thickness_constant(gps);
 
-          /* Fill. */
-          if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
-            /* Fill is always exported as polygon because the stroke of the fill is done
-             * in a different SVG command. */
-            export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, true);
+        /* Stroke. */
+        if (material_is_stroke()) {
+          if (is_normalized) {
+            export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, false);
           }
+          else {
+            bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
+                rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
 
-          /* Stroke. */
-          if (material_is_stroke()) {
-            if (is_normalized) {
-              export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, false);
+            /* Sample stroke. */
+            if (params_.stroke_sample > 0.0f) {
+              BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false);
             }
-            else {
-              bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-                  rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
 
-              /* Sample stroke. */
-              if (params_.stroke_sample > 0.0f) {
-                BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false);
-              }
+            export_stroke_to_path(gpl, gps_perimeter, node_gpl, false);
 
-              export_stroke_to_path(gpl, gps_perimeter, node_gpl, false);
-
-              BKE_gpencil_free_stroke(gps_perimeter);
-            }
+            BKE_gpencil_free_stroke(gps_perimeter);
           }
         }
 
@@ -257,32 +252,6 @@ void GpencilExporterSVG::export_gpencil_layers()
       }
     }
   }
-}
-
-/**
- * Export a point
- * \param node_gpl: Node of the layer.
- */
-void GpencilExporterSVG::export_stroke_to_point(struct bGPDlayer *gpl,
-                                                struct bGPDstroke *gps,
-                                                pugi::xml_node node_gpl)
-{
-  BLI_assert(gps->totpoints == 1);
-  float screen_co[2];
-
-  pugi::xml_node node_gps = node_gpl.append_child("circle");
-
-  color_string_set(gpl, gps, node_gps, false);
-
-  bGPDspoint *pt = &gps->points[0];
-  gpencil_3d_point_to_2D(&pt->x, screen_co);
-
-  node_gps.append_attribute("cx").set_value(screen_co[0]);
-  node_gps.append_attribute("cy").set_value(screen_co[1]);
-
-  /* Radius. */
-  float radius = stroke_point_radius_get(gpl, gps);
-  node_gps.append_attribute("r").set_value(radius);
 }
 
 /**
