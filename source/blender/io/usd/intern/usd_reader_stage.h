@@ -16,13 +16,7 @@
  * The Original Code is Copyright (C) 2016 Kévin Dietrich.
  * All rights reserved.
  */
-
-/** \file
- * \ingroup busd
- */
-
-#ifndef __USD_READER_ARCHIVE_H__
-#define __USD_READER_ARCHIVE_H__
+#pragma once
 
 struct Main;
 struct Scene;
@@ -40,67 +34,75 @@ struct ImportSettings;
 
 namespace blender::io::usd {
 
-/* Wrappers around input and output archives. The goal is to be able to use
- * streams so that unicode paths work on Windows (T49112), and to make sure that
- * the stream objects remain valid as long as the archives are open.
- */
+typedef std::map<pxr::SdfPath, std::vector<USDPrimReader *>> ProtoReaderMap;
 
 class USDStageReader {
- public:
-  typedef std::map<pxr::SdfPath, std::vector<USDPrimReader *>> ProtoReaderMap;
 
  protected:
-  pxr::UsdStageRefPtr m_stage;
-  USDImportParams m_params;
-  ImportSettings m_settings;
+  pxr::UsdStageRefPtr stage_;
+  USDImportParams params_;
+  ImportSettings settings_;
 
-  std::vector<USDPrimReader *> m_readers;
+  std::vector<USDPrimReader *> readers_;
 
   // Readers for scenegraph instance prototypes.
-  ProtoReaderMap m_proto_readers;
+  ProtoReaderMap proto_readers_;
 
  public:
   USDStageReader(struct Main *bmain, const char *filename);
   ~USDStageReader();
 
-  std::vector<USDPrimReader *> collect_readers(struct Main *bmain,
-                                               const USDImportParams &params,
-                                               ImportSettings &settings);
+  static USDPrimReader *create_reader(const pxr::UsdPrim &prim,
+                                      const USDImportParams &params,
+                                      const ImportSettings &settings);
+
+  // This version of create_reader() does not filter by primitive type.  I.e.,
+  // it will convert any prim to a reader, if possible, regardless of the
+  // primitive types specified by the user in the import options.
+  static USDPrimReader *create_reader(const USDStageReader *archive, const pxr::UsdPrim &prim);
+
+  void collect_readers(struct Main *bmain,
+                       const USDImportParams &params,
+                       const ImportSettings &settings);
 
   bool valid() const;
 
   pxr::UsdStageRefPtr stage()
   {
-    return m_stage;
+    return stage_;
   }
-  USDImportParams &params()
+  const USDImportParams &params() const
   {
-    return m_params;
-  }
-  ImportSettings &settings()
-  {
-    return m_settings;
+    return params_;
   }
 
-  void params(USDImportParams &a_params)
+  const ImportSettings &settings() const
   {
-    m_params = a_params;
-  }
-  void settings(ImportSettings &a_settings)
-  {
-    m_settings = a_settings;
+    return settings_;
   }
 
-  void clear_readers();
+  void params(const USDImportParams &a_params)
+  {
+    params_ = a_params;
+  }
+  void settings(const ImportSettings &a_settings)
+  {
+    settings_ = a_settings;
+  }
 
-  void clear_proto_readers(bool decref);
+  void clear_readers(bool decref = true);
+
+  void clear_proto_readers(bool decref = true);
 
   const ProtoReaderMap &proto_readers() const
   {
-    return m_proto_readers;
+    return proto_readers_;
+  };
+
+  const std::vector<USDPrimReader *> &readers() const
+  {
+    return readers_;
   };
 };
 
 };  // namespace blender::io::usd
-
-#endif /* __USD_READER_ARCHIVE_H__ */

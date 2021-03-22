@@ -46,20 +46,25 @@ extern "C" {
 #include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/camera.h>
 
-void USDCameraReader::createObject(Main *bmain, double motionSampleTime)
-{
-  WM_reportf(RPT_WARNING, "Creating blender camera for prim: %s", m_prim.GetPath().GetText());
-  Camera *bcam = static_cast<Camera *>(BKE_camera_add(bmain, m_name.c_str()));
+namespace blender::io::usd {
 
-  m_object = BKE_object_add_only_object(bmain, OB_CAMERA, m_name.c_str());
-  m_object->data = bcam;
+void USDCameraReader::create_object(Main *bmain, double motionSampleTime)
+{
+  Camera *bcam = static_cast<Camera *>(BKE_camera_add(bmain, name_.c_str()));
+
+  object_ = BKE_object_add_only_object(bmain, OB_CAMERA, name_.c_str());
+  object_->data = bcam;
 }
 
-void USDCameraReader::readObjectData(Main *bmain, double motionSampleTime)
+void USDCameraReader::read_object_data(Main *bmain, double motionSampleTime)
 {
-  Camera *bcam = (Camera *)m_object->data;
+  Camera *bcam = (Camera *)object_->data;
 
-  pxr::UsdGeomCamera cam_prim = pxr::UsdGeomCamera::Get(m_stage, m_prim.GetPath());
+  pxr::UsdGeomCamera cam_prim(prim_);
+
+  if (!cam_prim) {
+    return;
+  }
 
   pxr::VtValue val;
   cam_prim.GetFocalLengthAttr().Get(&val, motionSampleTime);
@@ -81,6 +86,7 @@ void USDCameraReader::readObjectData(Main *bmain, double motionSampleTime)
   cam_prim.GetHorizontalApertureAttr().Get(&horAp, motionSampleTime);
 
   bcam->lens = val.Get<float>();
+  // TODO(makowalski)
   // bcam->sensor_x = 0.0f;
   // bcam->sensor_y = 0.0f;
   bcam->shiftx = verApOffset.Get<float>();
@@ -100,5 +106,7 @@ void USDCameraReader::readObjectData(Main *bmain, double motionSampleTime)
     bcam->ortho_scale = max_ff(verAp.Get<float>(), horAp.Get<float>());
   }
 
-  USDXformReader::readObjectData(bmain, motionSampleTime);
+  USDXformReader::read_object_data(bmain, motionSampleTime);
 }
+
+}  // namespace blender::io::usd

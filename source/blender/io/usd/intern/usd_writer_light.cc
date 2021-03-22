@@ -18,7 +18,6 @@
  */
 #include "usd_writer_light.h"
 #include "usd_hierarchy_iterator.h"
-#include "usd_util.h"
 
 #include <pxr/usd/usdLux/diskLight.h>
 #include <pxr/usd/usdLux/distantLight.h>

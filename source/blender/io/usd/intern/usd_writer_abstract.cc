@@ -20,8 +20,6 @@
 #include "usd_hierarchy_iterator.h"
 #include "usd_writer_material.h"
 
-#include "usd_util.h"
-
 #include <pxr/base/tf/stringUtils.h>
 
 #include "BLI_assert.h"

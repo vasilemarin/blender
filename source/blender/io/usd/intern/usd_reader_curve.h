@@ -13,13 +13,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
-/** \file
- * \ingroup busd
- */
-
-#ifndef __USD_READER_CURVES_H__
-#define __USD_READER_CURVES_H__
+#pragma once
 
 #include "usd.h"
 #include "usd_reader_geom.h"
@@ -28,19 +22,28 @@
 
 struct Curve;
 
+namespace blender::io::usd {
+
 class USDCurvesReader : public USDGeomReader {
+ protected:
+  pxr::UsdGeomBasisCurves curve_prim_;
+  Curve *curve_;
 
  public:
-  USDCurvesReader(pxr::UsdStageRefPtr stage,
-                  const pxr::UsdPrim &object,
+  USDCurvesReader(const pxr::UsdPrim &prim,
                   const USDImportParams &import_params,
-                  ImportSettings &settings)
-      : USDGeomReader(stage, object, import_params, settings)
+                  const ImportSettings &settings)
+      : USDGeomReader(prim, import_params, settings), curve_prim_(prim), curve_(nullptr)
   {
   }
 
-  void createObject(Main *bmain, double motionSampleTime) override;
-  void readObjectData(Main *bmain, double motionSampleTime) override;
+  bool valid() const override
+  {
+    return static_cast<bool>(curve_prim_);
+  }
+
+  void create_object(Main *bmain, double motionSampleTime) override;
+  void read_object_data(Main *bmain, double motionSampleTime) override;
 
   void read_curve_sample(Curve *cu, double motionSampleTime);
 
@@ -49,10 +52,6 @@ class USDCurvesReader : public USDGeomReader {
                   int read_flag,
                   float vel_scale,
                   const char **err_str) override;
-
- protected:
-  pxr::UsdGeomBasisCurves curve_prim;
-  Curve *m_curve;
 };
 
-#endif /* __USD_READER_CURVES_H__ */
+}  // namespace blender::io::usd

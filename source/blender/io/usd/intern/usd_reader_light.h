@@ -13,30 +13,26 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
-/** \file
- * \ingroup busd
- */
-
-#ifndef __USD_READER_LIGHT_H__
-#define __USD_READER_LIGHT_H__
+#pragma once
 
 #include "usd.h"
 #include "usd_reader_xform.h"
 
+namespace blender::io::usd {
+
 class USDLightReader : public USDXformReader {
 
  public:
-  USDLightReader(pxr::UsdStageRefPtr stage,
-                 const pxr::UsdPrim &object,
+  USDLightReader(const pxr::UsdPrim &prim,
                  const USDImportParams &import_params,
-                 ImportSettings &settings)
-      : USDXformReader(stage, object, import_params, settings)
+                 const ImportSettings &settings)
+      : USDXformReader(prim, import_params, settings)
   {
   }
 
-  void createObject(Main *bmain, double motionSampleTime) override;
-  void readObjectData(Main *bmain, double motionSampleTime) override;
+  void create_object(Main *bmain, double motionSampleTime) override;
+
+  void read_object_data(Main *bmain, double motionSampleTime) override;
 };
 
-#endif /* __USD_READER_LIGHT_H__ */
+}  // namespace blender::io::usd

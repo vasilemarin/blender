@@ -13,30 +13,25 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
-/** \file
- * \ingroup busd
- */
-
-#ifndef __USD_READER_XFORM_H__
-#define __USD_READER_XFORM_H__
+#pragma once
 
 #include "usd.h"
 #include "usd_reader_prim.h"
 
+namespace blender::io::usd {
+
 class USDXformReader : public USDPrimReader {
 
  public:
-  USDXformReader(pxr::UsdStageRefPtr stage,
-                 const pxr::UsdPrim &object,
+  USDXformReader(const pxr::UsdPrim &prim,
                  const USDImportParams &import_params,
-                 ImportSettings &settings)
-      : USDPrimReader(stage, object, import_params, settings)
+                 const ImportSettings &settings)
+      : USDPrimReader(prim, import_params, settings)
   {
   }
 
-  void createObject(Main *bmain, double motionSampleTime) override;
-  void readObjectData(Main *bmain, double motionSampleTime) override;
+  void create_object(Main *bmain, double motionSampleTime) override;
+  void read_object_data(Main *bmain, double motionSampleTime) override;
 
   void read_matrix(float r_mat[4][4], const float time, const float scale, bool &is_constant);
 
@@ -45,4 +40,4 @@ class USDXformReader : public USDPrimReader {
   bool is_root_xform_object() const;
 };
 
-#endif /* __USD_READER_XFORM_H__ */
+}  // namespace blender::io::usd

@@ -13,13 +13,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
-/** \file
- * \ingroup busd
- */
-
-#ifndef __USD_READER_OBJECT_H__
-#define __USD_READER_OBJECT_H__
+#pragma once
 
 #include "usd.h"
 
@@ -39,6 +33,8 @@ struct CacheFile;
 struct Main;
 struct Mesh;
 struct Object;
+
+namespace blender::io::usd {
 
 struct ImportSettings {
   bool do_convert_mat;
@@ -85,155 +81,52 @@ struct ImportSettings {
 class USDPrimReader {
 
  protected:
-  std::string m_name;
-  std::string m_prim_path;
-  Object *m_object;
-  pxr::UsdPrim m_prim;
-  pxr::UsdStageRefPtr m_stage;
-  const USDImportParams &m_import_params;
-  USDPrimReader *m_parent_reader;
-
-  ImportSettings *m_settings;
-
-  int m_refcount;
+  std::string name_;
+  std::string prim_path_;
+  Object *object_;
+  pxr::UsdPrim prim_;
+  const USDImportParams &import_params_;
+  USDPrimReader *parent_reader_;
+  const ImportSettings *settings_;
+  int refcount_;
 
  public:
-  // USDPrimReader(pxr::UsdPrim* prim, ImportSettings &settings);
-  USDPrimReader(pxr::UsdStageRefPtr stage,
-                const pxr::UsdPrim &object,
+  USDPrimReader(const pxr::UsdPrim &prim,
                 const USDImportParams &import_params,
-                ImportSettings &settings);
+                const ImportSettings &settings);
   virtual ~USDPrimReader();
 
   const pxr::UsdPrim &prim() const;
 
   virtual bool valid() const;
 
-  virtual void createObject(Main *bmain, double motionSampleTime);
-  virtual void readObjectData(Main *bmain, double motionSampleTime);
+  virtual void create_object(Main *bmain, double motionSampleTime) = 0;
+  virtual void read_object_data(Main *bmain, double motionSampleTime){};
 
   Object *object() const;
   void object(Object *ob);
 
   USDPrimReader *parent() const
   {
-    return m_parent_reader;
+    return parent_reader_;
   }
   void parent(USDPrimReader *parent)
   {
-    m_parent_reader = parent;
+    parent_reader_ = parent;
   }
 
   int refcount() const;
   void incref();
   void decref();
 
-  virtual void addCacheModifier();
-
   const std::string &name() const
   {
-    return m_name;
+    return name_;
   }
   const std::string &prim_path() const
   {
-    return m_prim_path;
+    return prim_path_;
   }
 };
 
-// template<typename Schema> static bool has_animations(Schema &schema, ImportSettings *settings)
-// {
-//   return settings->is_sequence || !schema.isConstant();
-// }
-
-// class USDObjectReader {
-//  protected:
-//   std::string m_name;
-//   std::string m_object_name;
-//   std::string m_data_name;
-//   Object *m_object;
-//   pxr::UsdPrim m_iobject;
-
-//   ImportSettings *m_settings;
-
-//   chrono_t m_min_time;
-//   chrono_t m_max_time;
-
-//   /* Use reference counting since the same reader may be used by multiple
-//    * modifiers and/or constraints. */
-//   int m_refcount;
-
-//   bool m_inherits_xform;
-
-//  public:
-//   USDObjectReader *parent_reader;
-
-//  public:
-//   explicit USDObjectReader(const pxr::UsdPrim &object, ImportSettings &settings);
-
-//   virtual ~USDObjectReader();
-
-//   const Alembic::USD::IObject &iobject() const;
-
-//   typedef std::vector<USDObjectReader *> ptr_vector;
-
-//   /**
-//    * Returns the transform of this object. This can be the Alembic object
-//    * itself (in case of an Empty) or it can be the parent Alembic object.
-//    */
-//   virtual Alembic::USDGeom::IXform xform();
-
-//   Object *object() const;
-//   void object(Object *ob);
-
-//   const std::string &name() const
-//   {
-//     return m_name;
-//   }
-//   const std::string &object_name() const
-//   {
-//     return m_object_name;
-//   }
-//   const std::string &data_name() const
-//   {
-//     return m_data_name;
-//   }
-//   bool inherits_xform() const
-//   {
-//     return m_inherits_xform;
-//   }
-
-//   virtual bool valid() const = 0;
-//   virtual bool accepts_object_type(const Alembic::USDCoreAbstract::ObjectHeader &alembic_header,
-//                                    const Object *const ob,
-//                                    const char **err_str) const = 0;
-
-//   virtual void readObjectData(Main *bmain, const Alembic::USD::ISampleSelector &sample_sel) = 0;
-
-//   virtual struct Mesh *read_mesh(struct Mesh *mesh,
-//                                  const Alembic::USD::ISampleSelector &sample_sel,
-//                                  int read_flag,
-//                                  const char **err_str);
-//   virtual bool topology_changed(Mesh *existing_mesh,
-//                                 const Alembic::USD::ISampleSelector &sample_sel);
-
-//   /** Reads the object matrix and sets up an object transform if animated. */
-//   void setupObjectTransform(const float time);
-
-//   void addCacheModifier();
-
-//   chrono_t minTime() const;
-//   chrono_t maxTime() const;
-
-//   int refcount() const;
-//   void incref();
-//   void decref();
-
-//   void read_matrix(float r_mat[4][4], const float time, const float scale, bool &is_constant);
-
-//  protected:
-//   void determine_inherits_xform();
-// };
-
-// Imath::M44d get_matrix(const Alembic::USDGeom::IXformSchema &schema, const float time);
-
-#endif /* __USD_READER_OBJECT_H__ */
+}  // namespace blender::io::usd

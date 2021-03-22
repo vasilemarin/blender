@@ -20,56 +20,108 @@
 #include "usd_reader_stage.h"
 #include "usd_reader_camera.h"
 #include "usd_reader_curve.h"
+#include "usd_reader_instance.h"
+#include "usd_reader_light.h"
 #include "usd_reader_mesh.h"
+#include "usd_reader_nurbs.h"
 #include "usd_reader_prim.h"
+#include "usd_reader_volume.h"
 #include "usd_reader_xform.h"
 
-#include "usd_util.h"
+#include <pxr/pxr.h>
+#include <pxr/usd/usdGeom/camera.h>
+#include <pxr/usd/usdGeom/curves.h>
+#include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/nurbsCurves.h>
+#include <pxr/usd/usdGeom/scope.h>
+#include <pxr/usd/usdLux/light.h>
 
-extern "C" {
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
-#include "DEG_depsgraph_query.h"
-
-#include "DNA_node_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_world_types.h"
-
-#include "BKE_blender_version.h"
-#include "BKE_context.h"
-#include "BKE_global.h"
-#include "BKE_main.h"
-#include "BKE_node.h"
-#include "BKE_scene.h"
-#include "BKE_world.h"
-
-#include "BLI_fileops.h"
-#include "BLI_path_util.h"
-#include "BLI_string.h"
-
-#include "WM_api.h"
-#include "WM_types.h"
-}
 #include <iostream>
 
 namespace blender::io::usd {
 
 USDStageReader::USDStageReader(struct Main *bmain, const char *filename)
 {
-  m_stage = pxr::UsdStage::Open(filename);
+  stage_ = pxr::UsdStage::Open(filename);
 }
 
 USDStageReader::~USDStageReader()
 {
-  clear_readers();
+  clear_readers(true);
+  clear_proto_readers(true);
 
-  m_stage->Unload();
+  if (stage_) {
+    stage_->Unload();
+  }
 }
 
 bool USDStageReader::valid() const
 {
-  // TODO: Implement
-  return true;
+  return stage_;
+}
+
+USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
+                                             const USDImportParams &params,
+                                             const ImportSettings &settings)
+{
+  USDPrimReader *reader = nullptr;
+
+  if (params.use_instancing && prim.IsInstance()) {
+    reader = new USDInstanceReader(prim, params, settings);
+  }
+  else if (params.import_cameras && prim.IsA<pxr::UsdGeomCamera>()) {
+    reader = new USDCameraReader(prim, params, settings);
+  }
+  else if (params.import_curves && prim.IsA<pxr::UsdGeomBasisCurves>()) {
+    reader = new USDCurvesReader(prim, params, settings);
+  }
+  else if (params.import_curves && prim.IsA<pxr::UsdGeomNurbsCurves>()) {
+    reader = new USDNurbsReader(prim, params, settings);
+  }
+  else if (params.import_meshes && prim.IsA<pxr::UsdGeomMesh>()) {
+    reader = new USDMeshReader(prim, params, settings);
+  }
+  else if (params.import_lights && prim.IsA<pxr::UsdLuxLight>()) {
+    reader = new USDLightReader(prim, params, settings);
+  }
+  else if (params.import_volumes && prim.IsA<pxr::UsdVolVolume>()) {
+    reader = new USDVolumeReader(prim, params, settings);
+  }
+  else if (prim.IsA<pxr::UsdGeomImageable>()) {
+    reader = new USDXformReader(prim, params, settings);
+  }
+
+  return reader;
+}
+
+// TODO(makowalski): The handle does not have the proper import params or settings
+USDPrimReader *USDStageReader::create_reader(const USDStageReader *archive,
+                                             const pxr::UsdPrim &prim)
+{
+  USDPrimReader *reader = nullptr;
+
+  if (prim.IsA<pxr::UsdGeomCamera>()) {
+    reader = new USDCameraReader(prim, archive->params(), archive->settings());
+  }
+  else if (prim.IsA<pxr::UsdGeomBasisCurves>()) {
+    reader = new USDCurvesReader(prim, archive->params(), archive->settings());
+  }
+  else if (prim.IsA<pxr::UsdGeomNurbsCurves>()) {
+    reader = new USDNurbsReader(prim, archive->params(), archive->settings());
+  }
+  else if (prim.IsA<pxr::UsdGeomMesh>()) {
+    reader = new USDMeshReader(prim, archive->params(), archive->settings());
+  }
+  else if (prim.IsA<pxr::UsdLuxLight>()) {
+    reader = new USDLightReader(prim, archive->params(), archive->settings());
+  }
+  else if (prim.IsA<pxr::UsdVolVolume>()) {
+    reader = new USDVolumeReader(prim, archive->params(), archive->settings());
+  }
+  else if (prim.IsA<pxr::UsdGeomImageable>()) {
+    reader = new USDXformReader(prim, archive->params(), archive->settings());
+  }
+  return reader;
 }
 
 /* Returns true if the given prim should be excluded from the
@@ -119,7 +171,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
                                   pxr::UsdPrim prim,
                                   USDPrimReader *parent_reader,
                                   std::vector<USDPrimReader *> &readers,
-                                  ImportSettings &settings)
+                                  const ImportSettings &settings)
 {
   if (prim.IsA<pxr::UsdGeomImageable>()) {
     pxr::UsdGeomImageable imageable(prim);
@@ -139,12 +191,12 @@ static USDPrimReader *_handlePrim(Main *bmain,
   // or the root prims of scenegraph 'master' prototypes
   // from being added.
   if (!(prim.IsPseudoRoot() || prim.IsMaster())) {
-    reader = blender::io::usd::create_reader(stage, prim, params, settings);
+    reader = USDStageReader::create_reader(prim, params, settings);
     if (reader == NULL)
       return NULL;
 
     reader->parent(parent_reader);
-    reader->createObject(bmain, 0.0);
+    reader->create_object(bmain, 0.0);
 
     readers.push_back(reader);
     reader->incref();
@@ -165,28 +217,29 @@ static USDPrimReader *_handlePrim(Main *bmain,
   return reader;
 }
 
-std::vector<USDPrimReader *> USDStageReader::collect_readers(Main *bmain,
-                                                             const USDImportParams &params,
-                                                             ImportSettings &settings)
+void USDStageReader::collect_readers(Main *bmain,
+                                     const USDImportParams &params,
+                                     const ImportSettings &settings)
 {
-  m_params = params;
-  m_settings = settings;
+  params_ = params;
+  settings_ = settings;
 
-  clear_readers();
+  clear_readers(true);
+  clear_proto_readers(true);
 
   // Iterate through stage
-  pxr::UsdPrim root = m_stage->GetPseudoRoot();
+  pxr::UsdPrim root = stage_->GetPseudoRoot();
 
   std::string prim_path_mask(params.prim_path_mask);
 
   if (prim_path_mask.size() > 0) {
     std::cout << prim_path_mask << '\n';
     pxr::SdfPath path = pxr::SdfPath(prim_path_mask);
-    pxr::UsdPrim prim = m_stage->GetPrimAtPath(path.StripAllVariantSelections());
+    pxr::UsdPrim prim = stage_->GetPrimAtPath(path.StripAllVariantSelections());
     if (prim.IsValid()) {
       root = prim;
       if (path.ContainsPrimVariantSelection()) {
-        // TODO: This will not work properly with setting variants on child prims
+        // TODO(makowalski): This will not work properly with setting variants on child prims
         while (path.ContainsPrimVariantSelection()) {
           std::pair<std::string, std::string> variantSelection = path.GetVariantSelection();
           root.GetVariantSet(variantSelection.first).SetVariantSelection(variantSelection.second);
@@ -196,38 +249,43 @@ std::vector<USDPrimReader *> USDStageReader::collect_readers(Main *bmain,
     }
   }
 
-  m_stage->SetInterpolationType(pxr::UsdInterpolationType::UsdInterpolationTypeHeld);
-  _handlePrim(bmain, m_stage, params, root, NULL, m_readers, settings);
+  stage_->SetInterpolationType(pxr::UsdInterpolationType::UsdInterpolationTypeHeld);
+  _handlePrim(bmain, stage_, params, root, NULL, readers_, settings);
 
   if (params.use_instancing) {
     // Collect the scenegraph instance prototypes.
-    std::vector<pxr::UsdPrim> protos = m_stage->GetMasters();
+    std::vector<pxr::UsdPrim> protos = stage_->GetMasters();
 
     for (const pxr::UsdPrim &proto_prim : protos) {
       std::vector<USDPrimReader *> proto_readers;
-      _handlePrim(bmain, m_stage, params, proto_prim, NULL, proto_readers, settings);
-      m_proto_readers.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
+      _handlePrim(bmain, stage_, params, proto_prim, NULL, proto_readers, settings);
+      proto_readers_.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
     }
   }
-
-  return m_readers;
 }
 
-void USDStageReader::clear_readers()
+void USDStageReader::clear_readers(bool decref)
 {
-  std::vector<USDPrimReader *>::iterator iter;
-  for (iter = m_readers.begin(); iter != m_readers.end(); ++iter) {
-    if (((USDPrimReader *)*iter)->refcount() == 0) {
-      delete *iter;
+  for (USDPrimReader *reader : readers_) {
+    if (!reader) {
+      continue;
+    }
+
+    if (decref) {
+      reader->decref();
+    }
+
+    if (reader->refcount() == 0) {
+      delete reader;
     }
   }
 
-  m_readers.clear();
+  readers_.clear();
 }
 
 void USDStageReader::clear_proto_readers(bool decref)
 {
-  for (auto &pair : m_proto_readers) {
+  for (auto &pair : proto_readers_) {
 
     for (USDPrimReader *reader : pair.second) {
 
@@ -247,7 +305,7 @@ void USDStageReader::clear_proto_readers(bool decref)
     pair.second.clear();
   }
 
-  m_proto_readers.clear();
+  proto_readers_.clear();
 }
 
 }  // Namespace blender::io::usd

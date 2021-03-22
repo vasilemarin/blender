@@ -17,7 +17,6 @@
  * All rights reserved.
  */
 #include "usd_writer_material.h"
-#include "usd_util.h"
 
 extern "C" {
 #include "BKE_animsys.h"

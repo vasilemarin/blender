@@ -101,7 +101,6 @@ struct USDExportParams {
 
 struct USDImportParams {
   float scale;
-  float vel_scale;
   bool is_sequence;
   bool set_frame_range;
   int sequence_len;

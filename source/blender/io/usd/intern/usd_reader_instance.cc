@@ -26,36 +26,35 @@
 
 namespace blender::io::usd {
 
-USDInstanceReader::USDInstanceReader(pxr::UsdStageRefPtr stage,
-                                     const pxr::UsdPrim &object,
+USDInstanceReader::USDInstanceReader(const pxr::UsdPrim &prim,
                                      const USDImportParams &import_params,
-                                     ImportSettings &settings)
-    : USDXformReader(stage, object, import_params, settings)
+                                     const ImportSettings &settings)
+    : USDXformReader(prim, import_params, settings)
 {
 }
 
 bool USDInstanceReader::valid() const
 {
-  return m_prim.IsValid() && m_prim.IsInstance();
+  return prim_.IsValid() && prim_.IsInstance();
 }
 
-void USDInstanceReader::createObject(Main *bmain, double motionSampleTime)
+void USDInstanceReader::create_object(Main *bmain, double motionSampleTime)
 {
-  this->m_object = BKE_object_add_only_object(bmain, OB_EMPTY, m_name.c_str());
-  this->m_object->data = nullptr;
-  this->m_object->transflag |= OB_DUPLICOLLECTION;
+  this->object_ = BKE_object_add_only_object(bmain, OB_EMPTY, name_.c_str());
+  this->object_->data = nullptr;
+  this->object_->transflag |= OB_DUPLICOLLECTION;
 }
 
 void USDInstanceReader::set_instance_collection(Collection *coll)
 {
-  if (this->m_object) {
-    this->m_object->instance_collection = coll;
+  if (this->object_) {
+    this->object_->instance_collection = coll;
   }
 }
 
 pxr::SdfPath USDInstanceReader::proto_path() const
 {
-  if (pxr::UsdPrim master = m_prim.GetMaster()) {
+  if (pxr::UsdPrim master = prim_.GetMaster()) {
     return master.GetPath();
   }
 

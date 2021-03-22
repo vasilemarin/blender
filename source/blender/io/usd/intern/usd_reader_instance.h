@@ -31,14 +31,13 @@ namespace blender::io::usd {
 class USDInstanceReader : public USDXformReader {
 
  public:
-  USDInstanceReader(pxr::UsdStageRefPtr stage,
-                    const pxr::UsdPrim &object,
+  USDInstanceReader(const pxr::UsdPrim &prim,
                     const USDImportParams &import_params,
-                    ImportSettings &settings);
+                    const ImportSettings &settings);
 
   bool valid() const override;
 
-  void createObject(Main *bmain, double motionSampleTime) override;
+  void create_object(Main *bmain, double motionSampleTime) override;
 
   void set_instance_collection(Collection *coll);
 

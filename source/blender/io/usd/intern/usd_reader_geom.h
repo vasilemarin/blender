@@ -13,34 +13,27 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
-/** \file
- * \ingroup busd
- */
-
-#ifndef __USD_READER_GEOM_H__
-#define __USD_READER_GEOM_H__
+#pragma once
 
 #include "usd.h"
 #include "usd_reader_xform.h"
 
 struct Mesh;
 
+namespace blender::io::usd {
+
 class USDGeomReader : public USDXformReader {
 
  public:
-  USDGeomReader(pxr::UsdStageRefPtr stage,
-                const pxr::UsdPrim &object,
+  USDGeomReader(const pxr::UsdPrim &prim,
                 const USDImportParams &import_params,
-                ImportSettings &settings)
-      : USDXformReader(stage, object, import_params, settings)
+                const ImportSettings &settings)
+      : USDXformReader(prim, import_params, settings)
   {
   }
 
-  bool valid() const override;
-
-  virtual void createObject(Main *bmain, double motionSampleTime) override;
-  virtual void readObjectData(Main *bmain, double motionSampleTime) override;
+  virtual void create_object(Main *bmain, double motionSampleTime) override;
+  virtual void read_object_data(Main *bmain, double motionSampleTime) override;
 
   virtual Mesh *read_mesh(struct Mesh *existing_mesh,
                           double motionSampleTime,
@@ -48,10 +41,10 @@ class USDGeomReader : public USDXformReader {
                           float vel_scale,
                           const char **err_str);
 
-  void addCacheModifier() override;
-  void addSubdivModifier();
+  void add_cache_modifier();
+  void add_subdiv_modifier();
 
   bool topology_changed(Mesh *existing_mesh, double motionSampleTime);
 };
 
-#endif /* __USD_READER_GEOM_H__ */
+}  // namespace blender::io::usd

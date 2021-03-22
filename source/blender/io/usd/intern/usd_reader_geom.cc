@@ -59,14 +59,10 @@ extern "C" {
 #include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/mesh.h>
 
-void USDGeomReader::createObject(Main *bmain, double motionSampleTime)
-{
-}
+namespace blender::io::usd {
 
-bool USDGeomReader::valid() const
+void USDGeomReader::create_object(Main *bmain, double motionSampleTime)
 {
-  return true;
-  // return m_schema.valid();
 }
 
 bool USDGeomReader::topology_changed(Mesh *existing_mesh, double motionSampleTime)
@@ -74,7 +70,7 @@ bool USDGeomReader::topology_changed(Mesh *existing_mesh, double motionSampleTim
   return true;
 }
 
-void USDGeomReader::readObjectData(Main *bmain, double motionSampleTime)
+void USDGeomReader::read_object_data(Main *bmain, double motionSampleTime)
 {
 }
 
@@ -87,25 +83,24 @@ Mesh *USDGeomReader::read_mesh(struct Mesh *existing_mesh,
   return nullptr;
 }
 
-void USDGeomReader::addCacheModifier()
+void USDGeomReader::add_cache_modifier()
 {
   ModifierData *md = BKE_modifier_new(eModifierType_MeshSequenceCache);
-  BLI_addtail(&m_object->modifiers, md);
+  BLI_addtail(&object_->modifiers, md);
 
   MeshSeqCacheModifierData *mcmd = reinterpret_cast<MeshSeqCacheModifierData *>(md);
 
-  mcmd->cache_file = m_settings->cache_file;
+  mcmd->cache_file = settings_->cache_file;
   id_us_plus(&mcmd->cache_file->id);
-  mcmd->read_flag = m_import_params.global_read_flag;
-  // mcmd->vel_fac = m_settings->vel_scale;
+  mcmd->read_flag = import_params_.global_read_flag;
 
-  BLI_strncpy(mcmd->object_path, m_prim.GetPath().GetString().c_str(), FILE_MAX);
+  BLI_strncpy(mcmd->object_path, prim_.GetPath().GetString().c_str(), FILE_MAX);
 }
 
-void USDGeomReader::addSubdivModifier()
+void USDGeomReader::add_subdiv_modifier()
 {
   ModifierData *md = BKE_modifier_new(eModifierType_Subsurf);
-  BLI_addtail(&m_object->modifiers, md);
-
-  // SubsurfModifierData *subd = reinterpret_cast<SubsurfModifierData *>(md);
+  BLI_addtail(&object_->modifiers, md);
 }
+
+}  // namespace blender::io::usd

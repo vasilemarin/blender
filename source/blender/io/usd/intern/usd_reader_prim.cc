@@ -36,23 +36,20 @@ extern "C" {
 #include "WM_types.h"
 }
 
-USDPrimReader::USDPrimReader(pxr::UsdStageRefPtr stage,
-                             const pxr::UsdPrim &object,
+namespace blender::io::usd {
+
+USDPrimReader::USDPrimReader(const pxr::UsdPrim &prim,
                              const USDImportParams &import_params,
-                             ImportSettings &settings)
-    : m_name(object.GetName().GetString()),
-      m_prim_path(object.GetPrimPath().GetString()),
-      m_object(nullptr),
-      m_prim(object),
-      m_stage(stage),
-      m_import_params(import_params),
-      m_parent_reader(nullptr),
-      m_settings(&settings),
-      m_refcount(0)
+                             const ImportSettings &settings)
+    : name_(prim.GetName().GetString()),
+      prim_path_(prim.GetPrimPath().GetString()),
+      object_(nullptr),
+      prim_(prim),
+      import_params_(import_params),
+      parent_reader_(nullptr),
+      settings_(&settings),
+      refcount_(0)
 {
-  //@TODO(bjs): This should be handled better
-  if (m_name == "/")
-    m_name = "root";
 }
 
 USDPrimReader::~USDPrimReader()
@@ -61,55 +58,38 @@ USDPrimReader::~USDPrimReader()
 
 const pxr::UsdPrim &USDPrimReader::prim() const
 {
-  return m_prim;
+  return prim_;
 }
 
 Object *USDPrimReader::object() const
 {
-  return m_object;
+  return object_;
 }
 
 void USDPrimReader::object(Object *ob)
 {
-  m_object = ob;
+  object_ = ob;
 }
 
 bool USDPrimReader::valid() const
 {
-  return m_prim.IsValid();
-}
-
-void USDPrimReader::createObject(Main *bmain, double motionSampleTime)
-{
-  WM_reportf(RPT_WARNING, "Creating blender object for prim: %s", m_prim.GetPath().GetText());
-  m_object = BKE_object_add_only_object(bmain, OB_EMPTY, m_name.c_str());
-  m_object->empty_drawsize = 0.1f;
-  m_object->data = NULL;
-}
-
-void USDPrimReader::readObjectData(Main *bmain, double motionSampleTime)
-{
-  WM_reportf(RPT_WARNING, "Reading prim data: %s", m_prim.GetPath().GetText());
-  // m_object = BKE_object_add_only_object(bmain, OB_EMPTY, m_prim_path.c_str());
-  // m_object->data = NULL;
-}
-
-void USDPrimReader::addCacheModifier()
-{
+  return prim_.IsValid();
 }
 
 int USDPrimReader::refcount() const
 {
-  return m_refcount;
+  return refcount_;
 }
 
 void USDPrimReader::incref()
 {
-  m_refcount++;
+  refcount_++;
 }
 
 void USDPrimReader::decref()
 {
-  m_refcount--;
-  BLI_assert(m_refcount >= 0);
+  refcount_--;
+  BLI_assert(refcount_ >= 0);
 }
+
+}  // namespace blender::io::usd
