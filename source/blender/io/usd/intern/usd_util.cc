@@ -153,5 +153,4 @@ USDPrimReader *create_fake_reader(USDStageReader *archive, const pxr::UsdPrim &p
   return reader;
 }
 
-
 }  // Namespace blender::io::usd

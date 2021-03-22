@@ -121,7 +121,7 @@ static const pxr::TfToken vector("vector", pxr::TfToken::Immortal);
 namespace blender::io::usd {
 
 /* ===== Functions copied from inacessible source file
-  * blender/nodes/shader/node_shader_tree.c */
+ * blender/nodes/shader/node_shader_tree.c */
 
 static void localize(bNodeTree *localtree, bNodeTree *UNUSED(ntree))
 {
@@ -139,19 +139,19 @@ static void localize(bNodeTree *localtree, bNodeTree *UNUSED(ntree))
 }
 
 /* Find an output node of the shader tree.
-  *
-  * NOTE: it will only return output which is NOT in the group, which isn't how
-  * render engines works but it's how the GPU shader compilation works. This we
-  * can change in the future and make it a generic function, but for now it stays
-  * private here.
-  */
+ *
+ * NOTE: it will only return output which is NOT in the group, which isn't how
+ * render engines works but it's how the GPU shader compilation works. This we
+ * can change in the future and make it a generic function, but for now it stays
+ * private here.
+ */
 static bNode *ntreeShaderOutputNode(bNodeTree *ntree, int target)
 {
   /* Make sure we only have single node tagged as output. */
   ntreeSetOutput(ntree);
 
   /* Find output node that matches type and target. If there are
-    * multiple, we prefer exact target match and active nodes. */
+   * multiple, we prefer exact target match and active nodes. */
   bNode *output_node = NULL;
 
   for (bNode *node = (bNode *)ntree->nodes.first; node; node = node->next) {
@@ -209,7 +209,9 @@ static bNodeSocket *ntree_shader_node_find_output(bNode *node, const char *ident
 }
 
 /* Return true on success. */
-static bool ntree_shader_expand_socket_default(bNodeTree *localtree, bNode *node, bNodeSocket *socket)
+static bool ntree_shader_expand_socket_default(bNodeTree *localtree,
+                                               bNode *node,
+                                               bNodeSocket *socket)
 {
   bNode *value_node;
   bNodeSocket *value_socket;
@@ -219,42 +221,42 @@ static bool ntree_shader_expand_socket_default(bNodeTree *localtree, bNode *node
   bNodeSocketValueInt *src_int;
 
   switch (socket->type) {
-  case SOCK_VECTOR:
-    value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_RGB);
-    value_socket = ntree_shader_node_find_output(value_node, "Color");
-    BLI_assert(value_socket != NULL);
-    src_vector = (bNodeSocketValueVector *)socket->default_value;
-    dst_rgba = (bNodeSocketValueRGBA *)value_socket->default_value;
-    copy_v3_v3(dst_rgba->value, src_vector->value);
-    dst_rgba->value[3] = 1.0f; /* should never be read */
-    break;
-  case SOCK_RGBA:
-    value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_RGB);
-    value_socket = ntree_shader_node_find_output(value_node, "Color");
-    BLI_assert(value_socket != NULL);
-    src_rgba = (bNodeSocketValueRGBA *)socket->default_value;
-    dst_rgba = (bNodeSocketValueRGBA *)value_socket->default_value;
-    copy_v4_v4(dst_rgba->value, src_rgba->value);
-    break;
-  case SOCK_INT:
-    /* HACK: Support as float. */
-    value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_VALUE);
-    value_socket = ntree_shader_node_find_output(value_node, "Value");
-    BLI_assert(value_socket != NULL);
-    src_int = (bNodeSocketValueInt *)socket->default_value;
-    dst_float = (bNodeSocketValueFloat *)value_socket->default_value;
-    dst_float->value = (float)(src_int->value);
-    break;
-  case SOCK_FLOAT:
-    value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_VALUE);
-    value_socket = ntree_shader_node_find_output(value_node, "Value");
-    BLI_assert(value_socket != NULL);
-    src_float = (bNodeSocketValueFloat *)socket->default_value;
-    dst_float = (bNodeSocketValueFloat *)value_socket->default_value;
-    dst_float->value = src_float->value;
-    break;
-  default:
-    return false;
+    case SOCK_VECTOR:
+      value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_RGB);
+      value_socket = ntree_shader_node_find_output(value_node, "Color");
+      BLI_assert(value_socket != NULL);
+      src_vector = (bNodeSocketValueVector *)socket->default_value;
+      dst_rgba = (bNodeSocketValueRGBA *)value_socket->default_value;
+      copy_v3_v3(dst_rgba->value, src_vector->value);
+      dst_rgba->value[3] = 1.0f; /* should never be read */
+      break;
+    case SOCK_RGBA:
+      value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_RGB);
+      value_socket = ntree_shader_node_find_output(value_node, "Color");
+      BLI_assert(value_socket != NULL);
+      src_rgba = (bNodeSocketValueRGBA *)socket->default_value;
+      dst_rgba = (bNodeSocketValueRGBA *)value_socket->default_value;
+      copy_v4_v4(dst_rgba->value, src_rgba->value);
+      break;
+    case SOCK_INT:
+      /* HACK: Support as float. */
+      value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_VALUE);
+      value_socket = ntree_shader_node_find_output(value_node, "Value");
+      BLI_assert(value_socket != NULL);
+      src_int = (bNodeSocketValueInt *)socket->default_value;
+      dst_float = (bNodeSocketValueFloat *)value_socket->default_value;
+      dst_float->value = (float)(src_int->value);
+      break;
+    case SOCK_FLOAT:
+      value_node = nodeAddStaticNode(NULL, localtree, SH_NODE_VALUE);
+      value_socket = ntree_shader_node_find_output(value_node, "Value");
+      BLI_assert(value_socket != NULL);
+      src_float = (bNodeSocketValueFloat *)socket->default_value;
+      dst_float = (bNodeSocketValueFloat *)value_socket->default_value;
+      dst_float->value = src_float->value;
+      break;
+    default:
+      return false;
   }
   nodeAddLink(localtree, value_node, value_socket, node, socket);
   return true;
@@ -287,12 +289,12 @@ static void ntree_shader_unlink_hidden_value_sockets(bNode *group_node, bNodeSoc
 }
 
 /* Node groups once expanded looses their input sockets values.
-  * To fix this, link value/rgba nodes into the sockets and copy the group sockets values. */
+ * To fix this, link value/rgba nodes into the sockets and copy the group sockets values. */
 static void ntree_shader_groups_expand_inputs(bNodeTree *localtree)
 {
   bool link_added = false;
 
-  LISTBASE_FOREACH(bNode *, node, &localtree->nodes) {
+  LISTBASE_FOREACH (bNode *, node, &localtree->nodes) {
     const bool is_group = ELEM(node->type, NODE_GROUP, NODE_CUSTOM_GROUP) && (node->id != NULL);
     const bool is_group_output = node->type == NODE_GROUP_OUTPUT && (node->flag & NODE_DO_OUTPUT);
 
@@ -302,15 +304,15 @@ static void ntree_shader_groups_expand_inputs(bNodeTree *localtree)
     }
 
     if (is_group || is_group_output) {
-      LISTBASE_FOREACH(bNodeSocket *, socket, &node->inputs) {
+      LISTBASE_FOREACH (bNodeSocket *, socket, &node->inputs) {
         if (socket->link != NULL) {
           bNodeLink *link = socket->link;
           /* Fix the case where the socket is actually converting the data. (see T71374)
-            * We only do the case of lossy conversion to float.*/
+           * We only do the case of lossy conversion to float.*/
           if ((socket->type == SOCK_FLOAT) && (link->fromsock->type != link->tosock->type)) {
             bNode *tmp = nodeAddStaticNode(NULL, localtree, SH_NODE_RGBTOBW);
             nodeAddLink(
-              localtree, link->fromnode, link->fromsock, tmp, (bNodeSocket *)tmp->inputs.first);
+                localtree, link->fromnode, link->fromsock, tmp, (bNodeSocket *)tmp->inputs.first);
             nodeAddLink(localtree, tmp, (bNodeSocket *)tmp->outputs.first, node, socket);
           }
           continue;
@@ -318,7 +320,7 @@ static void ntree_shader_groups_expand_inputs(bNodeTree *localtree)
 
         if (is_group) {
           /* Detect the case where an input is plugged into a hidden value socket.
-            * In this case we should just remove the link to trigger the socket default override. */
+           * In this case we should just remove the link to trigger the socket default override. */
           ntree_shader_unlink_hidden_value_sockets(node, socket);
         }
 
@@ -347,8 +349,8 @@ static void flatten_group_do(bNodeTree *ntree, bNode *gnode)
   for (node = (bNode *)ngroup->nodes.first; node; node = nextnode) {
     nextnode = node->next;
     /* Remove interface nodes.
-      * This also removes remaining links to and from interface nodes.
-      * We must delay removal since sockets will reference this node. see: T52092 */
+     * This also removes remaining links to and from interface nodes.
+     * We must delay removal since sockets will reference this node. see: T52092 */
     if (ELEM(node->type, NODE_GROUP_INPUT, NODE_GROUP_OUTPUT)) {
       BLI_linklist_prepend(&group_interface_nodes, node);
     }
@@ -380,7 +382,7 @@ static void flatten_group_do(bNodeTree *ntree, bNode *gnode)
         const char *identifier = link->fromsock->identifier;
         /* find external links to this input */
         for (tlink = (bNodeLink *)ntree->links.first; tlink != glinks_first->next;
-          tlink = tlink->next) {
+             tlink = tlink->next) {
           if (tlink->tonode == gnode && STREQ(tlink->tosock->identifier, identifier)) {
             nodeAddLink(ntree, tlink->fromnode, tlink->fromsock, link->tonode, link->tosock);
           }
@@ -391,7 +393,7 @@ static void flatten_group_do(bNodeTree *ntree, bNode *gnode)
     glinks_last = (bNodeLink *)ntree->links.last;
     /* output links */
     for (tlink = (bNodeLink *)ntree->links.first; tlink != glinks_first->next;
-      tlink = tlink->next) {
+         tlink = tlink->next) {
       if (tlink->fromnode == gnode) {
         const char *identifier = tlink->fromsock->identifier;
         /* find internal links to this output */
@@ -419,7 +421,7 @@ static void flatten_group_do(bNodeTree *ntree, bNode *gnode)
 static void ntree_shader_groups_flatten(bNodeTree *localtree)
 {
   /* This is effectively recursive as the flattened groups will add
-    * nodes at the end of the list, which will also get evaluated. */
+   * nodes at the end of the list, which will also get evaluated. */
   for (bNode *node = (bNode *)localtree->nodes.first, *node_next; node; node = node_next) {
     if (ELEM(node->type, NODE_GROUP, NODE_CUSTOM_GROUP) && node->id != NULL) {
       flatten_group_do(localtree, node);
@@ -471,9 +473,6 @@ static std::string get_node_tex_image_filepath(bNode *node)
 
   return std::string(filepath);
 }
-
-
-
 
 static const int HD_CYCLES_CURVE_EXPORT_RES = 256;
 
