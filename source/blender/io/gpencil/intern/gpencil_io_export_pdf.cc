@@ -177,7 +177,7 @@ void GpencilExporterPDF::export_gpencil_layers()
         if (gps->totpoints < 2) {
           continue;
         }
-        if (!ED_gpencil_stroke_material_visible(ob, gpl, gps)) {
+        if (!ED_gpencil_stroke_material_visible(ob, gps)) {
           continue;
         }
         /* Duplicate the stroke to apply any layer thickness change. */
@@ -229,12 +229,8 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
                                                    const bool do_fill,
                                                    const bool normalize)
 {
-  const bool is_thickness_const = BKE_gpencil_stroke_is_thickness_constant(gps);
   const bool cyclic = ((gps->flag & GP_STROKE_CYCLIC) != 0);
-
-  /* For constant thickness, use first point pressure. */
-  const float avg_pressure = is_thickness_const ? gps->points[0].pressure :
-                                                  BKE_gpencil_stroke_average_pressure_get(gps);
+  const float avg_pressure = BKE_gpencil_stroke_average_pressure_get(gps);
 
   /* Get the thickness in pixels using a simple 1 point stroke. */
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false);
@@ -260,13 +256,12 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
   for (const int i : IndexRange(gps->totpoints)) {
     bGPDspoint *pt = &gps->points[i];
     float screen_co[2];
-    HPDF_STATUS err;
     gpencil_3d_point_to_2D(&pt->x, screen_co);
     if (i == 0) {
-      err = HPDF_Page_MoveTo(page_, screen_co[0], screen_co[1]);
+      HPDF_Page_MoveTo(page_, screen_co[0], screen_co[1]);
     }
     else {
-      err = HPDF_Page_LineTo(page_, screen_co[0], screen_co[1]);
+      HPDF_Page_LineTo(page_, screen_co[0], screen_co[1]);
     }
   }
   /* Close cyclic */

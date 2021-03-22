@@ -125,16 +125,6 @@ static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *
   return false;
 }
 
-static void gpencil_export_common_props_svg(wmOperatorType *ot)
-{
-  gpencil_export_common_props_definition(ot);
-  RNA_def_boolean(ot->srna,
-                  "use_clip_camera",
-                  false,
-                  "Clip Camera",
-                  "Clip drawings to camera size when export in camera view");
-}
-
 static int wm_gpencil_export_svg_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
   if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
@@ -273,7 +263,13 @@ void WM_OT_gpencil_export_svg(wmOperatorType *ot)
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 
-  gpencil_export_common_props_svg(ot);
+  gpencil_export_common_props_definition(ot);
+
+  RNA_def_boolean(ot->srna,
+                  "use_clip_camera",
+                  false,
+                  "Clip Camera",
+                  "Clip drawings to camera size when export in camera view");
 }
 #endif
 
@@ -294,10 +290,8 @@ static bool wm_gpencil_export_pdf_common_check(bContext *UNUSED(C), wmOperator *
   return false;
 }
 
-static int wm_gpencil_export_pdf_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int wm_gpencil_export_pdf_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  UNUSED_VARS(event);
-
   if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
     Main *bmain = CTX_data_main(C);
     char filepath[FILE_MAX];
@@ -406,7 +400,7 @@ static void ui_gpencil_export_pdf_settings(uiLayout *layout, PointerRNA *imfptr)
   uiItemR(sub, imfptr, "use_normalized_thickness", 0, NULL, ICON_NONE);
 }
 
-static void wm_gpencil_export_pdf_draw(bContext *C, wmOperator *op)
+static void wm_gpencil_export_pdf_draw(bContext *UNUSED(C), wmOperator *op)
 {
   PointerRNA ptr;
 

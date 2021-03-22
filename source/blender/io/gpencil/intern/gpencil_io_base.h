@@ -49,7 +49,7 @@ namespace blender::io::gpencil {
 class GpencilIO {
 
  public:
-  GpencilIO(const struct GpencilIOParams *iparams);
+  GpencilIO(const GpencilIOParams *iparams);
 
   void frame_number_set(const int value);
 
@@ -109,7 +109,7 @@ class GpencilIO {
   void gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl);
   void gps_current_color_set(struct Object *ob, struct bGPDstroke *gps);
 
-  void selected_objects_boundbox_set();
+  void selected_objects_boundbox_calc();
   void selected_objects_boundbox_get(rctf *boundbox);
   void filename_set(const char *filename);
 

@@ -60,7 +60,7 @@ using blender::Span;
 namespace blender::io::gpencil {
 
 /* Constructor. */
-GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
+GpencilIO::GpencilIO(const GpencilIOParams *iparams)
 {
   params_.frame_start = iparams->frame_start;
   params_.frame_end = iparams->frame_end;
@@ -139,7 +139,7 @@ GpencilIO::GpencilIO(const struct GpencilIOParams *iparams)
     offset_.x = 0.0f;
     offset_.y = 0.0f;
 
-    selected_objects_boundbox_set();
+    selected_objects_boundbox_calc();
     rctf boundbox;
     selected_objects_boundbox_get(&boundbox);
 
@@ -382,7 +382,7 @@ bool GpencilIO::is_camera_mode()
 }
 
 /* Calc selected strokes boundbox. */
-void GpencilIO::selected_objects_boundbox_set()
+void GpencilIO::selected_objects_boundbox_calc()
 {
   const float gap = 10.0f;
   const bGPDspoint *pt;

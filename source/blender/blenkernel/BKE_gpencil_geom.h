@@ -27,9 +27,6 @@
 extern "C" {
 #endif
 
-struct ARegion;
-struct bContext;
-struct BoundBox;
 struct Depsgraph;
 struct Main;
 struct Object;
@@ -186,10 +183,10 @@ struct bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *r
                                                           struct bGPdata *gpd,
                                                           const struct bGPDlayer *gpl,
                                                           struct bGPDstroke *gps,
-                                                          int subdivisions,
-                                                          float diff_mat[4][4]);
+                                                          const int subdivisions,
+                                                          const float diff_mat[4][4]);
 float BKE_gpencil_stroke_average_pressure_get(struct bGPDstroke *gps);
-bool BKE_gpencil_stroke_is_thickness_constant(struct bGPDstroke *gps);
+bool BKE_gpencil_stroke_is_pressure_constant(struct bGPDstroke *gps);
 #ifdef __cplusplus
 }
 #endif

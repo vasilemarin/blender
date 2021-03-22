@@ -63,7 +63,7 @@
 #include "gpencil_io.h"
 
 /* <-------- SVG single frame import. --------> */
-bool wm_gpencil_import_svg_common_check(bContext *UNUSED(C), wmOperator *op)
+static bool wm_gpencil_import_svg_common_check(bContext *UNUSED(C), wmOperator *op)
 {
 
   char filepath[FILE_MAX];
@@ -78,10 +78,8 @@ bool wm_gpencil_import_svg_common_check(bContext *UNUSED(C), wmOperator *op)
   return false;
 }
 
-static int wm_gpencil_import_svg_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int wm_gpencil_import_svg_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  UNUSED_VARS(event);
-
   WM_event_add_fileselect(C, op);
 
   return OPERATOR_RUNNING_MODAL;
@@ -178,14 +176,6 @@ static bool wm_gpencil_import_svg_poll(bContext *C)
 
 void WM_OT_gpencil_import_svg(wmOperatorType *ot)
 {
-  PropertyRNA *prop;
-
-  static const EnumPropertyItem target_object_modes[] = {
-      {GP_TARGET_OB_NEW, "NEW", 0, "New Object", ""},
-      {GP_TARGET_OB_SELECTED, "ACTIVE", 0, "Active Object", ""},
-      {0, NULL, 0, NULL, NULL},
-  };
-
   ot->name = "Import SVG";
   ot->description = "Import SVG into grease pencil";
   ot->idname = "WM_OT_gpencil_import_svg";
