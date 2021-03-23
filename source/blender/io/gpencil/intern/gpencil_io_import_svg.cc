@@ -75,7 +75,6 @@ bool GpencilImporterSVG::read()
   /* Create grease pencil object. */
   if (params_.ob == nullptr) {
     params_.ob = create_object();
-    object_created_ = true;
   }
   if (params_.ob == nullptr) {
     std::cout << "Unable to create new object.\n";

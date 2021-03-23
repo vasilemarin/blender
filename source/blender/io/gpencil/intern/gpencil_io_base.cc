@@ -110,7 +110,6 @@ GpencilIO::GpencilIO(const GpencilIOParams *iparams)
 
   /* Load list of selected objects. */
   create_object_list();
-  object_created_ = false;
 
   winx_ = params_.region->winx;
   winy_ = params_.region->winy;

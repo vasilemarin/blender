@@ -84,7 +84,6 @@ class GpencilIO {
   float2 offset_;
 
   int cfra_;
-  bool object_created_;
 
   float stroke_color_[4], fill_color_[4];
 
