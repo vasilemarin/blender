@@ -20,13 +20,8 @@
 /** \file
  * \ingroup bgpencil
  */
-#include <iostream>
-#include <list>
-#include <string>
 
-#include "MEM_guardedalloc.h"
-
-#include "BLI_math.h"
+#include "BLI_math_vector.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
@@ -45,14 +40,13 @@
 #include "DEG_depsgraph_query.h"
 
 #include "ED_gpencil.h"
+#include "ED_view3d.h"
 
 #ifdef WIN32
 #  include "utfconv.h"
 #endif
 
 #include "UI_view2d.h"
-
-#include "ED_view3d.h"
 
 #include "gpencil_io.h"
 #include "gpencil_io_export_svg.h"

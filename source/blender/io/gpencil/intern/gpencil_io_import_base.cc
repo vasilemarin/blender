@@ -32,7 +32,6 @@
 #include "BKE_material.h"
 
 #include "ED_gpencil.h"
-#include "ED_view3d.h"
 
 #include "gpencil_io_import_base.h"
 

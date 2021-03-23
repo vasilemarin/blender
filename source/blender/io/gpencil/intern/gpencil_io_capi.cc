@@ -24,10 +24,6 @@
 #include <stdio.h>
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
-#include "BLI_path_util.h"
-#include "BLI_string.h"
-#include "BLI_utildefines.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_screen_types.h"
@@ -37,8 +33,6 @@
 #include "BKE_gpencil.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
-
-#include "ED_markers.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"

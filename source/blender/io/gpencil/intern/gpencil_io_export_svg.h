@@ -23,8 +23,6 @@
  */
 #include "BLI_path_util.h"
 
-#include "DNA_material_types.h"
-
 #include "gpencil_io_export_base.h"
 #include "pugixml.hpp"
 

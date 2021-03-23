@@ -22,8 +22,6 @@
  * \ingroup bgpencil
  */
 
-#include "DNA_material_types.h"
-
 #include "gpencil_io_export_base.h"
 #include "hpdf.h"
 

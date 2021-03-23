@@ -20,13 +20,7 @@
 /** \file
  * \ingroup bgpencil
  */
-#include <iostream>
-#include <list>
-#include <string>
 
-#include "MEM_guardedalloc.h"
-
-#include "BLI_blenlib.h"
 #include "BLI_float3.hh"
 #include "BLI_math.h"
 #include "BLI_span.hh"
@@ -199,29 +193,28 @@ void GpencilImporterSVG::create_stroke(bGPdata *gpd,
   for (int i = 0; i < path->npts - 1; i += 3) {
     float *p = &path->pts[i * 2];
     float a = 0.0f;
-    for (int v = 0; v < edges; v++) {
-      bGPDspoint *pt = &gps->points[start_index];
-      pt->strength = shape->opacity;
-      pt->pressure = 1.0f;
-      pt->z = 0.0f;
+    for (bGPDspoint &pt : MutableSpan(gps->points, gps->totpoints)) {
+      pt.strength = shape->opacity;
+      pt.pressure = 1.0f;
+      pt.z = 0.0f;
       /* TODO: (antoniov) Can be improved loading curve data instead of loading strokes. */
-      interp_v2_v2v2v2v2_cubic(&pt->x, &p[0], &p[2], &p[4], &p[6], a);
+      interp_v2_v2v2v2v2_cubic(&pt.x, &p[0], &p[2], &p[4], &p[6], a);
 
       /* Scale from milimeters. */
-      mul_v3_fl(&pt->x, 0.001f);
-      mul_m4_v3(matrix, &pt->x);
+      mul_v3_fl(&pt.x, 0.001f);
+      mul_m4_v3(matrix, &pt.x);
 
       /* Apply color to vertex color. */
       if (is_fill) {
         NSVGpaint fill = shape->fill;
-        convert_color(fill.color, pt->vert_color);
+        convert_color(fill.color, pt.vert_color);
       }
       if (is_stroke) {
         NSVGpaint stroke = shape->stroke;
-        convert_color(stroke.color, pt->vert_color);
-        gps->fill_opacity_fac = pt->vert_color[3];
+        convert_color(stroke.color, pt.vert_color);
+        gps->fill_opacity_fac = pt.vert_color[3];
       }
-      pt->vert_color[3] = 1.0f;
+      pt.vert_color[3] = 1.0f;
 
       a += step;
       start_index++;
