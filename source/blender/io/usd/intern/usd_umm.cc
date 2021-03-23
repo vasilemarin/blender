@@ -156,6 +156,7 @@ static bool get_float_data(PyObject *tup, float &r_data)
 
   if (second && PyFloat_Check(second)) {
     r_data = static_cast<float>(PyFloat_AsDouble(second));
+    return true;
   }
 
   return false;
