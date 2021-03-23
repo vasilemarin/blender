@@ -327,17 +327,12 @@ void GpencilIO::gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl)
   mul_m4_m4m4(diff_mat_, diff_mat_, gpl->layer_invmat);
 }
 
-void GpencilIO::gps_current_color_set(struct Object *ob, struct bGPDstroke *gps)
+void GpencilIO::gps_material_data_prepare(struct Object *ob, struct bGPDstroke *gps)
 {
-  gp_style_ = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
-
-  is_stroke_ = ((gp_style_->flag & GP_MATERIAL_STROKE_SHOW) &&
-                (gp_style_->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
-  is_fill_ = ((gp_style_->flag & GP_MATERIAL_FILL_SHOW) &&
-              (gp_style_->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+  MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
 
   /* Stroke color. */
-  copy_v4_v4(stroke_color_, gp_style_->stroke_rgba);
+  copy_v4_v4(stroke_color_, gp_style->stroke_rgba);
   avg_opacity_ = 0;
   /* Get average vertex color and apply. */
   float avg_color[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -351,24 +346,9 @@ void GpencilIO::gps_current_color_set(struct Object *ob, struct bGPDstroke *gps)
   avg_opacity_ /= (float)gps->totpoints;
 
   /* Fill color. */
-  copy_v4_v4(fill_color_, gp_style_->fill_rgba);
+  copy_v4_v4(fill_color_, gp_style->fill_rgba);
   /* Apply vertex color for fill. */
   interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
-}
-
-struct MaterialGPencilStyle *GpencilIO::gp_style_current_get()
-{
-  return gp_style_;
-}
-
-bool GpencilIO::material_is_stroke()
-{
-  return is_stroke_;
-}
-
-bool GpencilIO::material_is_fill()
-{
-  return is_fill_;
 }
 
 float GpencilIO::stroke_average_opacity_get()

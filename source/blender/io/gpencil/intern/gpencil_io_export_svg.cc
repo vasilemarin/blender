@@ -210,7 +210,15 @@ void GpencilExporterSVG::export_gpencil_layers()
         /* Duplicate the stroke to apply any layer thickness change. */
         bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false);
 
-        gps_current_color_set(ob, gps_duplicate);
+        MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob,
+                                                                       gps_duplicate->mat_nr + 1);
+
+        const bool is_stroke = ((gp_style->flag & GP_MATERIAL_STROKE_SHOW) &&
+                                (gp_style->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+        const bool is_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
+                              (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+
+        gps_material_data_prepare(ob, gps_duplicate);
 
         /* Apply layer thickness change. */
         gps_duplicate->thickness += gpl->line_change;
@@ -222,16 +230,16 @@ void GpencilExporterSVG::export_gpencil_layers()
                                    BKE_gpencil_stroke_is_pressure_constant(gps);
 
         /* Fill. */
-        if ((material_is_fill()) && (params_.flag & GP_EXPORT_FILL)) {
+        if ((is_fill) && (params_.flag & GP_EXPORT_FILL)) {
           /* Fill is always exported as polygon because the stroke of the fill is done
            * in a different SVG command. */
-          export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, true);
+          export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, is_stroke, true);
         }
 
         /* Stroke. */
-        if (material_is_stroke()) {
+        if (is_stroke) {
           if (is_normalized) {
-            export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, false);
+            export_stroke_to_polyline(gpl, gps_duplicate, node_gpl, is_stroke, false);
           }
           else {
             bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
@@ -312,6 +320,7 @@ void GpencilExporterSVG::export_stroke_to_path(struct bGPDlayer *gpl,
 void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
                                                    struct bGPDstroke *gps,
                                                    pugi::xml_node node_gpl,
+                                                   const bool is_stroke,
                                                    const bool do_fill)
 {
   const bool cyclic = ((gps->flag & GP_STROKE_CYCLIC) != 0);
@@ -334,7 +343,7 @@ void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
 
   color_string_set(gpl, gps, node_gps, do_fill);
 
-  if (material_is_stroke() && !do_fill) {
+  if (is_stroke && !do_fill) {
     node_gps.append_attribute("stroke-width").set_value((radius * 2.0f) - gpl->line_change);
   }
 

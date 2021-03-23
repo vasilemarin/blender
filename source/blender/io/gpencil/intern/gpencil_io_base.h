@@ -98,25 +98,18 @@ class GpencilIO {
   float stroke_point_radius_get(struct bGPDlayer *gpl, struct bGPDstroke *gps);
   void create_object_list();
 
-  struct MaterialGPencilStyle *gp_style_current_get();
-  bool material_is_stroke();
-  bool material_is_fill();
-
   bool is_camera_mode();
 
   float stroke_average_opacity_get();
 
   void gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl);
-  void gps_current_color_set(struct Object *ob, struct bGPDstroke *gps);
+  void gps_material_data_prepare(struct Object *ob, struct bGPDstroke *gps);
 
   void selected_objects_boundbox_calc();
   void selected_objects_boundbox_get(rctf *boundbox);
   void filename_set(const char *filename);
 
  private:
-  struct MaterialGPencilStyle *gp_style_;
-  bool is_stroke_;
-  bool is_fill_;
   float avg_opacity_;
   bool is_camera_;
   rctf select_boundbox_;

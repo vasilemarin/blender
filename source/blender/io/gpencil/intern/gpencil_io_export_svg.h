@@ -77,6 +77,7 @@ class GpencilExporterSVG : public GpencilExporter {
   void export_stroke_to_polyline(struct bGPDlayer *gpl,
                                  struct bGPDstroke *gps,
                                  pugi::xml_node node_gpl,
+                                 const bool is_stroke,
                                  const bool is_fill);
 
   void color_string_set(struct bGPDlayer *gpl,

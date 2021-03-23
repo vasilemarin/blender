@@ -61,7 +61,8 @@ class GpencilExporterPDF : public GpencilExporter {
 
   void export_stroke_to_polyline(bGPDlayer *gpl,
                                  bGPDstroke *gps,
-                                 const bool is_fill,
+                                 const bool is_stroke,
+                                 const bool do_fill,
                                  const bool normalize);
   void color_set(bGPDlayer *gpl, const bool do_fill);
 };
