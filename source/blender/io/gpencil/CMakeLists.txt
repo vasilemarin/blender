@@ -55,7 +55,6 @@ set(SRC
  intern/gpencil_io_import_svg.cc
 
  intern/gpencil_io_export_base.h
- intern/gpencil_io_export_base.cc
 )
 
 set(LIB
