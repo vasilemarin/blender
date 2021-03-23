@@ -21,7 +21,6 @@
 /** \file
  * \ingroup bgpencil
  */
-#include "BLI_path_util.h"
 
 #include "DNA_material_types.h"
 

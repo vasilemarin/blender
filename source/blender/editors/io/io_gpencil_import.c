@@ -21,14 +21,14 @@
  * \ingroup editor/io
  */
 
+#include "BLI_path_util.h"
+
 #include "DNA_gpencil_types.h"
 #include "DNA_space_types.h"
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_report.h"
-
-#include "BLI_path_util.h"
 
 #include "BLT_translation.h"
 
@@ -98,7 +98,7 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
   const int resolution = RNA_int_get(op->ptr, "resolution");
   const float scale = RNA_float_get(op->ptr, "scale");
 
-  struct GpencilIOParams params = {
+  GpencilIOParams params = {
       .C = C,
       .region = region,
       .v3d = v3d,
@@ -129,25 +129,16 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
 
 static void ui_gpencil_import_svg_settings(uiLayout *layout, PointerRNA *imfptr)
 {
-  uiLayout *box, *row, *col;
-
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
-
-  box = uiLayoutBox(layout);
-  row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Import Options"), ICON_SCENE_DATA);
-
-  col = uiLayoutColumn(box, false);
+  uiLayout *col = uiLayoutColumn(layout, false);
   uiItemR(col, imfptr, "resolution", 0, NULL, ICON_NONE);
   uiItemR(col, imfptr, "scale", 0, NULL, ICON_NONE);
 }
 
 static void wm_gpencil_import_svg_draw(bContext *UNUSED(C), wmOperator *op)
 {
-
   PointerRNA ptr;
-
   RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
 
   ui_gpencil_import_svg_settings(op->layout, &ptr);

@@ -21,6 +21,9 @@
  * \ingroup editor/io
  */
 
+#include "BLI_path_util.h"
+#include "BLI_string.h"
+
 #include "DNA_gpencil_types.h"
 #include "DNA_space_types.h"
 
@@ -28,9 +31,6 @@
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
-
-#include "BLI_path_util.h"
-#include "BLI_string.h"
 
 #include "BLT_translation.h"
 
@@ -51,49 +51,47 @@
 #include "gpencil_io.h"
 
 /* Definition of enum elements to export. */
-static const EnumPropertyItem gpencil_export_select_items[] = {
-    {GP_EXPORT_ACTIVE, "ACTIVE", 0, "Active", "Include only active object"},
-    {GP_EXPORT_SELECTED, "SELECTED", 0, "Selected", "Include selected objects"},
-    {GP_EXPORT_VISIBLE, "VISIBLE", 0, "Visible", "Include visible objects"},
-    {0, NULL, 0, NULL, NULL},
-};
-
 /* Common props for exporting. */
 static void gpencil_export_common_props_definition(wmOperatorType *ot)
 {
+  static const EnumPropertyItem select_items[] = {
+      {GP_EXPORT_ACTIVE, "ACTIVE", 0, "Active", "Include only the active object"},
+      {GP_EXPORT_SELECTED, "SELECTED", 0, "Selected", "Include selected objects"},
+      {GP_EXPORT_VISIBLE, "VISIBLE", 0, "Visible", "Include all visible objects"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   RNA_def_boolean(ot->srna, "use_fill", true, "Fill", "Export filled areas");
   RNA_def_enum(ot->srna,
                "selected_object_type",
-               gpencil_export_select_items,
+               select_items,
                GP_EXPORT_SELECTED,
                "Object",
-               "Objects included in the export");
-  RNA_def_float(
-      ot->srna,
-      "stroke_sample",
-      0.0f,
-      0.0f,
-      100.0f,
-      "Sampling",
-      "Precision of sampling stroke, low values gets more precise result, zero to disable",
-      0.0f,
-      100.0f);
+               "Which objects to include in the export");
+  RNA_def_float(ot->srna,
+                "stroke_sample",
+                0.0f,
+                0.0f,
+                100.0f,
+                "Sampling",
+                "Precision of stroke sampling. Low values mean a more precise result, and zero "
+                "disables sampling",
+                0.0f,
+                100.0f);
   RNA_def_boolean(ot->srna,
                   "use_normalized_thickness",
                   false,
                   "Normalize",
-                  "Export strokes with constant thickness along the stroke");
+                  "Export strokes with constant thickness");
 }
 
 static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfptr)
 {
-  uiLayout *box, *row, *col;
+  uiLayout *box = uiLayoutBox(layout);
+  uiLayout *row = uiLayoutRow(box, false);
+  uiItemL(row, IFACE_("Export Options"), ICON_NONE);
 
-  box = uiLayoutBox(layout);
-  row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Export Options"), ICON_SCENE_DATA);
-
-  col = uiLayoutColumn(box, false);
+  uiLayout *col = uiLayoutColumn(box, false);
   uiItemR(col, imfptr, "stroke_sample", 0, NULL, ICON_NONE);
   uiItemR(col, imfptr, "use_fill", 0, NULL, ICON_NONE);
   uiItemR(col, imfptr, "use_normalized_thickness", 0, NULL, ICON_NONE);
@@ -175,20 +173,20 @@ static int wm_gpencil_export_svg_exec(bContext *C, wmOperator *op)
   SET_FLAG_FROM_TEST(flag, use_norm_thickness, GP_EXPORT_NORM_THICKNESS);
   SET_FLAG_FROM_TEST(flag, use_clip_camera, GP_EXPORT_CLIP_CAMERA);
 
-  struct GpencilIOParams params = {.C = C,
-                                   .region = region,
-                                   .v3d = v3d,
-                                   .ob = ob,
-                                   .mode = GP_EXPORT_TO_SVG,
-                                   .frame_start = CFRA,
-                                   .frame_end = CFRA,
-                                   .frame_cur = CFRA,
-                                   .flag = flag,
-                                   .scale = 1.0f,
-                                   .select_mode = select_mode,
-                                   .frame_mode = GP_EXPORT_FRAME_ACTIVE,
-                                   .stroke_sample = RNA_float_get(op->ptr, "stroke_sample"),
-                                   .resolution = 1.0f};
+  GpencilIOParams params = {.C = C,
+                            .region = region,
+                            .v3d = v3d,
+                            .ob = ob,
+                            .mode = GP_EXPORT_TO_SVG,
+                            .frame_start = CFRA,
+                            .frame_end = CFRA,
+                            .frame_cur = CFRA,
+                            .flag = flag,
+                            .scale = 1.0f,
+                            .select_mode = select_mode,
+                            .frame_mode = GP_EXPORT_FRAME_ACTIVE,
+                            .stroke_sample = RNA_float_get(op->ptr, "stroke_sample"),
+                            .resolution = 1.0f};
 
   /* Do export. */
   WM_cursor_wait(true);
@@ -212,7 +210,7 @@ static void ui_gpencil_export_svg_settings(uiLayout *layout, PointerRNA *imfptr)
   box = uiLayoutBox(layout);
 
   row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Scene Options"), ICON_SCENE_DATA);
+  uiItemL(row, IFACE_("Scene Options"), ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "selected_object_type", 0, NULL, ICON_NONE);
@@ -222,7 +220,6 @@ static void ui_gpencil_export_svg_settings(uiLayout *layout, PointerRNA *imfptr)
 
 static void wm_gpencil_export_svg_draw(bContext *UNUSED(C), wmOperator *op)
 {
-
   PointerRNA ptr;
 
   RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
@@ -325,20 +322,20 @@ static int wm_gpencil_export_pdf_exec(bContext *C, wmOperator *op)
   SET_FLAG_FROM_TEST(flag, use_fill, GP_EXPORT_FILL);
   SET_FLAG_FROM_TEST(flag, use_norm_thickness, GP_EXPORT_NORM_THICKNESS);
 
-  struct GpencilIOParams params = {.C = C,
-                                   .region = region,
-                                   .v3d = v3d,
-                                   .ob = ob,
-                                   .mode = GP_EXPORT_TO_PDF,
-                                   .frame_start = SFRA,
-                                   .frame_end = EFRA,
-                                   .frame_cur = CFRA,
-                                   .flag = flag,
-                                   .scale = 1.0f,
-                                   .select_mode = select_mode,
-                                   .frame_mode = frame_mode,
-                                   .stroke_sample = RNA_float_get(op->ptr, "stroke_sample"),
-                                   .resolution = 1.0f};
+  GpencilIOParams params = {.C = C,
+                            .region = region,
+                            .v3d = v3d,
+                            .ob = ob,
+                            .mode = GP_EXPORT_TO_PDF,
+                            .frame_start = SFRA,
+                            .frame_end = EFRA,
+                            .frame_cur = CFRA,
+                            .flag = flag,
+                            .scale = 1.0f,
+                            .select_mode = select_mode,
+                            .frame_mode = frame_mode,
+                            .stroke_sample = RNA_float_get(op->ptr, "stroke_sample"),
+                            .resolution = 1.0f};
 
   /* Do export. */
   WM_cursor_wait(true);
@@ -362,14 +359,14 @@ static void ui_gpencil_export_pdf_settings(uiLayout *layout, PointerRNA *imfptr)
   box = uiLayoutBox(layout);
 
   row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Scene Options"), ICON_SCENE_DATA);
+  uiItemL(row, IFACE_("Scene Options"), ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "selected_object_type", 0, NULL, ICON_NONE);
 
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Export Options"), ICON_SCENE_DATA);
+  uiItemL(row, IFACE_("Export Options"), ICON_NONE);
 
   col = uiLayoutColumn(box, false);
   sub = uiLayoutColumn(col, true);
@@ -433,6 +430,6 @@ void WM_OT_gpencil_export_pdf(wmOperatorType *ot)
                           gpencil_export_frame_items,
                           GP_EXPORT_ACTIVE,
                           "Frames",
-                          "Frames included in the export");
+                          "Which frames to include in the export");
 }
 #endif

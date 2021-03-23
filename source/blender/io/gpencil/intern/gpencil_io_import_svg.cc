@@ -26,16 +26,15 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_blenlib.h"
 #include "BLI_float3.hh"
+#include "BLI_math.h"
 #include "BLI_span.hh"
+
+#include "DNA_gpencil_types.h"
 
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_geom.h"
-
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
-
-#include "DNA_gpencil_types.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -56,7 +55,7 @@ using blender::MutableSpan;
 namespace blender::io::gpencil {
 
 /* Constructor. */
-GpencilImporterSVG::GpencilImporterSVG(const char *filename, const struct GpencilIOParams *iparams)
+GpencilImporterSVG::GpencilImporterSVG(const char *filename, const GpencilIOParams *iparams)
     : GpencilImporter(iparams)
 {
   filename_set(filename);
@@ -177,7 +176,7 @@ void GpencilImporterSVG::create_stroke(bGPdata *gpd,
   const int edges = params_.resolution;
   const float step = 1.0f / (float)(edges - 1);
 
-  int totpoints = (path->npts / 3) * params_.resolution;
+  const int totpoints = (path->npts / 3) * params_.resolution;
 
   bGPDstroke *gps = BKE_gpencil_stroke_new(mat_index, totpoints, 1.0f);
   BLI_addtail(&gpf->strokes, gps);
@@ -205,7 +204,7 @@ void GpencilImporterSVG::create_stroke(bGPdata *gpd,
       pt->strength = shape->opacity;
       pt->pressure = 1.0f;
       pt->z = 0.0f;
-      /* TODO: (antoniov) Can be improved loading curve data instead to load stroke. */
+      /* TODO: (antoniov) Can be improved loading curve data instead of loading strokes. */
       interp_v2_v2v2v2v2_cubic(&pt->x, &p[0], &p[2], &p[4], &p[6], a);
 
       /* Scale from milimeters. */

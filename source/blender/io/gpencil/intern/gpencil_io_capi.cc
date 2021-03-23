@@ -64,7 +64,7 @@ using blender::io::gpencil::GpencilExporterSVG;
 using blender::io::gpencil::GpencilImporterSVG;
 
 /* Check if frame is included. */
-static bool is_keyframe_included(bGPdata *gpd_, int32_t framenum, bool use_selected)
+static bool is_keyframe_included(bGPdata *gpd_, const int32_t framenum, const bool use_selected)
 {
   /* Check if exist a frame. */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd_->layers) {
@@ -83,11 +83,11 @@ static bool is_keyframe_included(bGPdata *gpd_, int32_t framenum, bool use_selec
 }
 
 /* Import frame. */
-static bool gpencil_io_import_frame(void *in_importer, const GpencilIOParams *iparams)
+static bool gpencil_io_import_frame(void *in_importer, const GpencilIOParams &iparams)
 {
 
   bool result = false;
-  switch (iparams->mode) {
+  switch (iparams.mode) {
     case GP_IMPORT_FROM_SVG: {
       GpencilImporterSVG *importer = (GpencilImporterSVG *)in_importer;
       result |= importer->read();
@@ -117,12 +117,7 @@ static bool gpencil_io_export_pdf(Depsgraph *depsgraph,
   result |= exporter->new_document();
 
   const bool use_frame_selected = (iparams->frame_mode == GP_EXPORT_FRAME_SELECTED);
-  if (!use_frame_selected) {
-    exporter->add_newpage();
-    exporter->add_body();
-    result = exporter->write();
-  }
-  else {
+  if (use_frame_selected) {
     for (int32_t i = iparams->frame_start; i < iparams->frame_end + 1; i++) {
       if (!is_keyframe_included(gpd_eval, i, use_frame_selected)) {
         continue;
@@ -139,6 +134,11 @@ static bool gpencil_io_export_pdf(Depsgraph *depsgraph,
     exporter->frame_number_set(iparams->frame_cur);
     CFRA = iparams->frame_cur;
     BKE_scene_graph_update_for_newframe(depsgraph);
+  }
+  else {
+    exporter->add_newpage();
+    exporter->add_body();
+    result = exporter->write();
   }
 
   return result;
@@ -173,7 +173,7 @@ bool gpencil_io_import(const char *filename, GpencilIOParams *iparams)
 {
   GpencilImporterSVG importer = GpencilImporterSVG(filename, iparams);
 
-  return gpencil_io_import_frame(&importer, iparams);
+  return gpencil_io_import_frame(&importer, *iparams);
 }
 
 /* Main export entry point function. */

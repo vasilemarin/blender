@@ -27,9 +27,10 @@
 #include "BLI_float2.hh"
 #include "BLI_vector.hh"
 
+#include "DNA_space_types.h" /* for FILE_MAX */
+
 #include "gpencil_io.h"
 
-struct ARegion;
 struct Depsgraph;
 struct Main;
 struct Object;
@@ -38,9 +39,7 @@ struct Scene;
 
 struct bGPdata;
 struct bGPDlayer;
-struct bGPDframe;
 struct bGPDstroke;
-struct MaterialGPencilStyle;
 
 using blender::Vector;
 
