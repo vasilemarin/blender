@@ -44,7 +44,6 @@ using blender::Vector;
 namespace blender::io::gpencil {
 
 class GpencilIO {
-
  public:
   GpencilIO(const GpencilIOParams *iparams);
 
