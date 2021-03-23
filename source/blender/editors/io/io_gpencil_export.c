@@ -61,7 +61,7 @@ static void gpencil_export_common_props_definition(wmOperatorType *ot)
       {0, NULL, 0, NULL, NULL},
   };
 
-  RNA_def_boolean(ot->srna, "use_fill", true, "Fill", "Export filled areas");
+  RNA_def_boolean(ot->srna, "use_fill", true, "Fill", "Export strokes with fill enabled");
   RNA_def_enum(ot->srna,
                "selected_object_type",
                select_items,
