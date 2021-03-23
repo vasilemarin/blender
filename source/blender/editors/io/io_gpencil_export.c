@@ -85,19 +85,6 @@ static void gpencil_export_common_props_definition(wmOperatorType *ot)
                   "Export strokes with constant thickness");
 }
 
-static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfptr)
-{
-  uiLayout *box = uiLayoutBox(layout);
-  uiLayout *row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Export Options"), ICON_NONE);
-
-  uiLayout *col = uiLayoutColumn(box, false);
-  uiItemR(col, imfptr, "stroke_sample", 0, NULL, ICON_NONE);
-  uiItemR(col, imfptr, "use_fill", 0, NULL, ICON_NONE);
-  uiItemR(col, imfptr, "use_normalized_thickness", 0, NULL, ICON_NONE);
-  uiItemR(col, imfptr, "use_clip_camera", 0, NULL, ICON_NONE);
-}
-
 static void set_export_filepath(bContext *C, wmOperator *op)
 {
   if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
@@ -215,7 +202,15 @@ static void ui_gpencil_export_svg_settings(uiLayout *layout, PointerRNA *imfptr)
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "selected_object_type", 0, NULL, ICON_NONE);
 
-  ui_gpencil_export_common_settings(layout, imfptr);
+  box = uiLayoutBox(layout);
+  row = uiLayoutRow(box, false);
+  uiItemL(row, IFACE_("Export Options"), ICON_NONE);
+
+  uiLayout *col = uiLayoutColumn(box, false);
+  uiItemR(col, imfptr, "stroke_sample", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "use_fill", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "use_normalized_thickness", 0, NULL, ICON_NONE);
+  uiItemR(col, imfptr, "use_clip_camera", 0, NULL, ICON_NONE);
 }
 
 static void wm_gpencil_export_svg_draw(bContext *UNUSED(C), wmOperator *op)
