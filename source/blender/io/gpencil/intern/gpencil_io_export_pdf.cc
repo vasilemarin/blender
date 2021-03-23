@@ -146,9 +146,7 @@ bool GpencilExporterPDF::add_page()
 void GpencilExporterPDF::export_gpencil_layers()
 {
   /* If is doing a set of frames, the list of objects can change for each frame. */
-  if (params_.frame_mode != GP_EXPORT_FRAME_ACTIVE) {
-    create_object_list();
-  }
+  create_object_list();
 
   const bool is_normalized = ((params_.flag & GP_EXPORT_NORM_THICKNESS) != 0);
 

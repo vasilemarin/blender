@@ -91,9 +91,6 @@ GpencilIO::GpencilIO(const GpencilIOParams *iparams)
     unit_m4(persmat_);
   }
 
-  /* Load list of selected objects. */
-  create_object_list();
-
   winx_ = params_.region->winx;
   winy_ = params_.region->winy;
 
