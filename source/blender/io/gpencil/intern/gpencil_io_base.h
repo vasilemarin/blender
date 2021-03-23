@@ -21,8 +21,6 @@
 /** \file
  * \ingroup bgpencil
  */
-#include <string>
-#include <vector>
 
 #include "BLI_float2.hh"
 #include "BLI_vector.hh"
