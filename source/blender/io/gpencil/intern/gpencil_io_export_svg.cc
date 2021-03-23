@@ -234,7 +234,7 @@ void GpencilExporterSVG::export_gpencil_layers()
           }
           else {
             bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-                rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
+                rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_.values);
 
             /* Sample stroke. */
             if (params_.stroke_sample > 0.0f) {
@@ -286,14 +286,13 @@ void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
   node_gps.append_attribute("stroke").set_value("none");
 
   std::string txt = "M";
-  for (int32_t i = 0; i < gps->totpoints; i++) {
+  for (const int i : IndexRange(gps->totpoints)) {
     if (i > 0) {
       txt.append("L");
     }
-    bGPDspoint *pt = &gps->points[i];
-    float screen_co[2];
-    gpencil_3d_point_to_2D(&pt->x, screen_co);
-    txt.append(std::to_string(screen_co[0]) + "," + std::to_string(screen_co[1]));
+    bGPDspoint &pt = gps->points[i];
+    const float2 screen_co = gpencil_3D_point_to_2D(&pt.x);
+    txt.append(std::to_string(screen_co.x) + "," + std::to_string(screen_co.y));
   }
   /* Close patch (cyclic)*/
   if (gps->flag & GP_STROKE_CYCLIC) {
@@ -344,9 +343,8 @@ void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,
       txt.append(" ");
     }
     bGPDspoint *pt = &gps->points[i];
-    float screen_co[2];
-    gpencil_3d_point_to_2D(&pt->x, screen_co);
-    txt.append(std::to_string(screen_co[0]) + "," + std::to_string(screen_co[1]));
+    const float2 screen_co = gpencil_3D_point_to_2D(&pt->x);
+    txt.append(std::to_string(screen_co.x) + "," + std::to_string(screen_co.y));
   }
 
   node_gps.append_attribute("points").set_value(txt.c_str());

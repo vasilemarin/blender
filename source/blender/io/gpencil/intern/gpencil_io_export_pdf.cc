@@ -198,7 +198,7 @@ void GpencilExporterPDF::export_gpencil_layers()
           }
           else {
             bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-                rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_);
+                rv3d_, gpd_, gpl, gps_duplicate, 3, diff_mat_.values);
 
             /* Sample stroke. */
             if (params_.stroke_sample > 0.0f) {
@@ -252,13 +252,12 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
   /* Loop all points. */
   for (const int i : IndexRange(gps->totpoints)) {
     bGPDspoint *pt = &gps->points[i];
-    float screen_co[2];
-    gpencil_3d_point_to_2D(&pt->x, screen_co);
+    const float2 screen_co = gpencil_3D_point_to_2D(&pt->x);
     if (i == 0) {
-      HPDF_Page_MoveTo(page_, screen_co[0], screen_co[1]);
+      HPDF_Page_MoveTo(page_, screen_co.x, screen_co.y);
     }
     else {
-      HPDF_Page_LineTo(page_, screen_co[0], screen_co[1]);
+      HPDF_Page_LineTo(page_, screen_co.x, screen_co.y);
     }
   }
   /* Close cyclic */

@@ -23,6 +23,8 @@
  */
 
 #include "BLI_float2.hh"
+#include "BLI_float3.hh"
+#include "BLI_float4x4.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_space_types.h" /* for FILE_MAX */
@@ -53,7 +55,7 @@ class GpencilIO {
   GpencilIOParams params_;
 
   bool invert_axis_[2];
-  float diff_mat_[4][4];
+  float4x4 diff_mat_;
   char filename_[FILE_MAX];
 
   /* Used for sorting objects. */
@@ -84,9 +86,9 @@ class GpencilIO {
   float stroke_color_[4], fill_color_[4];
 
   /* Geometry functions. */
-  bool gpencil_3d_point_to_screen_space(const float co[3], float r_co[2]);
-  void gpencil_3d_point_to_render_space(const float co[3], float r_co[2]);
-  void gpencil_3d_point_to_2D(const float co[3], float r_co[2]);
+  bool gpencil_3D_point_to_screen_space(const float3 co, float2 &r_co);
+  float2 gpencil_3D_point_to_render_space(const float3 co);
+  float2 gpencil_3D_point_to_2D(const float3 co);
 
   float stroke_point_radius_get(struct bGPDlayer *gpl, struct bGPDstroke *gps);
   void create_object_list();

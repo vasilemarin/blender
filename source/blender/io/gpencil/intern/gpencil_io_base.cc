@@ -23,7 +23,9 @@
  * \ingroup bgpencil
  */
 
+#include "BLI_float2.hh"
 #include "BLI_float3.hh"
+#include "BLI_float4x4.hh"
 #include "BLI_path_util.h"
 #include "BLI_span.hh"
 
@@ -131,8 +133,8 @@ void GpencilIO::create_object_list()
 {
   ViewLayer *view_layer = CTX_data_view_layer(params_.C);
 
-  float camera_z_axis[3];
-  copy_v2_v2(camera_z_axis, rv3d_->viewinv[2]);
+  float3 camera_z_axis;
+  copy_v3_v3(camera_z_axis, rv3d_->viewinv[2]);
   ob_list_.clear();
 
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
@@ -186,11 +188,10 @@ void GpencilIO::filename_set(const char *filename)
 }
 
 /** Convert to screenspace. */
-bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2])
+bool GpencilIO::gpencil_3D_point_to_screen_space(const float3 co, float2 &r_co)
 {
-  float parent_co[3];
-  mul_v3_m4v3(parent_co, diff_mat_, co);
-  float screen_co[2];
+  float3 parent_co = diff_mat_ * co;
+  float2 screen_co;
   eV3DProjTest test = (eV3DProjTest)(V3D_PROJ_RET_OK);
   if (ED_view3d_project_float_global(params_.region, parent_co, screen_co, test) ==
       V3D_PROJ_RET_OK) {
@@ -227,57 +228,57 @@ bool GpencilIO::gpencil_3d_point_to_screen_space(const float co[3], float r_co[2
 }
 
 /** Convert to render space. */
-void GpencilIO::gpencil_3d_point_to_render_space(const float co[3], float r_co[2])
+float2 GpencilIO::gpencil_3D_point_to_render_space(const float3 co)
 {
-  float parent_co[3];
-  mul_v3_m4v3(parent_co, diff_mat_, co);
+  float3 parent_co = diff_mat_ * co;
   mul_m4_v3(persmat_, parent_co);
 
-  parent_co[0] = parent_co[0] / max_ff(FLT_MIN, parent_co[2]);
-  parent_co[1] = parent_co[1] / max_ff(FLT_MIN, parent_co[2]);
+  parent_co.x = parent_co.x / max_ff(FLT_MIN, parent_co[2]);
+  parent_co.y = parent_co.y / max_ff(FLT_MIN, parent_co[2]);
 
-  r_co[0] = (parent_co[0] + 1.0f) / 2.0f * (float)render_x_;
-  r_co[1] = (parent_co[1] + 1.0f) / 2.0f * (float)render_y_;
+  float2 r_co;
+  r_co.x = (parent_co.x + 1.0f) / 2.0f * (float)render_x_;
+  r_co.y = (parent_co.y + 1.0f) / 2.0f * (float)render_y_;
 
   /* Invert X axis. */
   if (invert_axis_[0]) {
-    r_co[0] = (float)render_x_ - r_co[0];
+    r_co.x = (float)render_x_ - r_co.x;
   }
   /* Invert Y axis. */
   if (invert_axis_[1]) {
-    r_co[1] = (float)render_y_ - r_co[1];
+    r_co.y = (float)render_y_ - r_co.y;
   }
+
+  return r_co;
 }
 
 /** Convert to 2D. */
-void GpencilIO::gpencil_3d_point_to_2D(const float co[3], float r_co[2])
+float2 GpencilIO::gpencil_3D_point_to_2D(const float3 co)
 {
   const bool is_camera = (bool)(rv3d_->persp == RV3D_CAMOB);
   if (is_camera) {
-    gpencil_3d_point_to_render_space(co, r_co);
+    return gpencil_3D_point_to_render_space(co);
   }
-  else {
-    gpencil_3d_point_to_screen_space(co, r_co);
-  }
+  float2 result;
+  gpencil_3D_point_to_screen_space(co, result);
+  return result;
 }
 
 /** Get radius of point. */
 float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, bGPDstroke *gps)
 {
-  float v1[2], screen_co[2], screen_ex[2];
-
   bGPDspoint *pt = &gps->points[0];
-  gpencil_3d_point_to_2D(&pt->x, screen_co);
+  const float2 screen_co = gpencil_3D_point_to_2D(&pt->x);
 
   /* Radius. */
   bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-      rv3d_, gpd_, gpl, gps, 3, diff_mat_);
+      rv3d_, gpd_, gpl, gps, 3, diff_mat_.values);
 
   pt = &gps_perimeter->points[0];
-  gpencil_3d_point_to_2D(&pt->x, screen_ex);
+  const float2 screen_ex = gpencil_3D_point_to_2D(&pt->x);
 
-  sub_v2_v2v2(v1, screen_co, screen_ex);
-  float radius = len_v2(v1);
+  const float2 v1 = screen_co - screen_ex;
+  float radius = v1.length();
   BKE_gpencil_free_stroke(gps_perimeter);
 
   return MAX2(radius, 1.0f);
@@ -285,8 +286,8 @@ float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, bGPDstroke *gps)
 
 void GpencilIO::prepare_layer_export_matrix(Object *ob, bGPDlayer *gpl)
 {
-  BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob, gpl, diff_mat_);
-  mul_m4_m4m4(diff_mat_, diff_mat_, gpl->layer_invmat);
+  BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob, gpl, diff_mat_.values);
+  diff_mat_ = diff_mat_ * float4x4(gpl->layer_invmat);
 }
 
 void GpencilIO::prepare_stroke_export_colors(Object *ob, bGPDstroke *gps)
@@ -323,16 +324,13 @@ bool GpencilIO::is_camera_mode()
   return is_camera_;
 }
 
-/* Calc selected strokes boundbox. */
+/* Calculate selected strokes boundbox. */
 void GpencilIO::selected_objects_boundbox_calc()
 {
   const float gap = 10.0f;
-  const bGPDspoint *pt;
-  int32_t i;
 
-  float screen_co[2];
-  float r_min[2], r_max[2];
-  INIT_MINMAX2(r_min, r_max);
+  float2 min, max;
+  INIT_MINMAX2(min, max);
 
   for (ObjectZ &obz : ob_list_) {
     Object *ob = obz.ob;
@@ -344,7 +342,7 @@ void GpencilIO::selected_objects_boundbox_calc()
       if (gpl->flag & GP_LAYER_HIDE) {
         continue;
       }
-      BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob_eval, gpl, diff_mat_);
+      BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob_eval, gpl, diff_mat_.values);
 
       bGPDframe *gpf = gpl->actframe;
       if (gpf == nullptr) {
@@ -355,22 +353,21 @@ void GpencilIO::selected_objects_boundbox_calc()
         if (gps->totpoints == 0) {
           continue;
         }
-        for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-          /* Convert to 2D. */
-          gpencil_3d_point_to_2D(&pt->x, screen_co);
-          minmax_v2v2_v2(r_min, r_max, screen_co);
+        for (const bGPDspoint &pt : MutableSpan(gps->points, gps->totpoints)) {
+          const float2 screen_co = gpencil_3D_point_to_2D(&pt.x);
+          minmax_v2v2_v2(min, max, screen_co);
         }
       }
     }
   }
   /* Add small gap. */
-  add_v2_fl(r_min, gap * -1.0f);
-  add_v2_fl(r_max, gap);
+  add_v2_fl(min, gap * -1.0f);
+  add_v2_fl(max, gap);
 
-  select_boundbox_.xmin = r_min[0];
-  select_boundbox_.ymin = r_min[1];
-  select_boundbox_.xmax = r_max[0];
-  select_boundbox_.ymax = r_max[1];
+  select_boundbox_.xmin = min[0];
+  select_boundbox_.ymin = min[1];
+  select_boundbox_.xmax = max[0];
+  select_boundbox_.ymax = max[1];
 }
 
 void GpencilIO::selected_objects_boundbox_get(rctf *boundbox)
