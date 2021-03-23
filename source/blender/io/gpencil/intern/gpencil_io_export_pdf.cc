@@ -166,7 +166,7 @@ void GpencilExporterPDF::export_gpencil_layers()
       if (gpl->flag & GP_LAYER_HIDE) {
         continue;
       }
-      gpl_prepare_export_matrix(ob, gpl);
+      prepare_layer_export_matrix(ob, gpl);
 
       bGPDframe *gpf = gpl->actframe;
       if ((gpf == nullptr) || (gpf->strokes.first == nullptr)) {
@@ -189,7 +189,7 @@ void GpencilExporterPDF::export_gpencil_layers()
                                 (gp_style->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
         const bool is_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
                               (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
-        gps_prepare_export_colors(ob, gps_duplicate);
+        prepare_stroke_export_colors(ob, gps_duplicate);
 
         /* Apply layer thickness change. */
         gps_duplicate->thickness += gpl->line_change;

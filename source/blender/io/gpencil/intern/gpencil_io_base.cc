@@ -306,13 +306,13 @@ float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, struct bGPDstroke *gps)
   return MAX2(radius, 1.0f);
 }
 
-void GpencilIO::gpl_prepare_export_matrix(struct Object *ob, struct bGPDlayer *gpl)
+void GpencilIO::prepare_layer_export_matrix(struct Object *ob, struct bGPDlayer *gpl)
 {
   BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob, gpl, diff_mat_);
   mul_m4_m4m4(diff_mat_, diff_mat_, gpl->layer_invmat);
 }
 
-void GpencilIO::gps_prepare_export_colors(struct Object *ob, struct bGPDstroke *gps)
+void GpencilIO::prepare_stroke_export_colors(struct Object *ob, struct bGPDstroke *gps)
 {
   MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
 

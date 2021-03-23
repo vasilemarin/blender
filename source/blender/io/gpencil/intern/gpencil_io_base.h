@@ -99,8 +99,8 @@ class GpencilIO {
 
   float stroke_average_opacity_get();
 
-  void gpl_prepare_export_matrix(struct Object *ob, struct bGPDlayer *gpl);
-  void gps_prepare_export_colors(struct Object *ob, struct bGPDstroke *gps);
+  void prepare_layer_export_matrix(struct Object *ob, struct bGPDlayer *gpl);
+  void prepare_stroke_export_colors(struct Object *ob, struct bGPDstroke *gps);
 
   void selected_objects_boundbox_calc();
   void selected_objects_boundbox_get(rctf *boundbox);
