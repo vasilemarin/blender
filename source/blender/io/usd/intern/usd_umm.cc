@@ -480,6 +480,10 @@ PyObject *USDUMM::get_omni_pbr_source_data(const pxr::UsdShadeShader &usd_shader
       int ival = val.UncheckedGet<int>();
       tup = Py_BuildValue("si", name.c_str(), ival);
     }
+    else if (val.IsHolding<bool>()) {
+      int ival = val.UncheckedGet<bool>();
+      tup = Py_BuildValue("si", name.c_str(), ival);
+    }
     else if (val.IsHolding<pxr::SdfAssetPath>()) {
       pxr::SdfAssetPath assetPath = val.Get<pxr::SdfAssetPath>();
 
