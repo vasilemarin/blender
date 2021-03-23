@@ -3487,7 +3487,9 @@ void BKE_gpencil_stroke_to_view_space(RegionView3D *rv3d,
  * BKE_gpencil_stroke_to_view_space
  * Note: also takes care of parent space transform
  */
-void BKE_gpencil_stroke_from_view_space(RegionView3D *rv3d, bGPDstroke *gps, float diff_mat[4][4])
+void BKE_gpencil_stroke_from_view_space(RegionView3D *rv3d,
+                                        bGPDstroke *gps,
+                                        const float diff_mat[4][4])
 {
   float inverse_diff_mat[4][4];
   invert_m4_m4(inverse_diff_mat, diff_mat);
