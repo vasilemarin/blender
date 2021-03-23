@@ -27,14 +27,6 @@
 
 #include "DNA_vec_types.h"
 
-#include "BKE_camera.h"
-#include "BKE_context.h"
-#include "BKE_gpencil.h"
-#include "BKE_gpencil_geom.h"
-#include "BKE_layer.h"
-#include "BKE_main.h"
-#include "BKE_material.h"
-
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_span.hh"
@@ -45,6 +37,14 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
+
+#include "BKE_camera.h"
+#include "BKE_context.h"
+#include "BKE_gpencil.h"
+#include "BKE_gpencil_geom.h"
+#include "BKE_layer.h"
+#include "BKE_main.h"
+#include "BKE_material.h"
 
 #include "UI_view2d.h"
 
@@ -62,20 +62,7 @@ namespace blender::io::gpencil {
 /* Constructor. */
 GpencilIO::GpencilIO(const GpencilIOParams *iparams)
 {
-  params_.frame_start = iparams->frame_start;
-  params_.frame_end = iparams->frame_end;
-  params_.frame_cur = iparams->frame_cur;
-  params_.ob = iparams->ob;
-  params_.region = iparams->region;
-  params_.v3d = iparams->v3d;
-  params_.C = iparams->C;
-  params_.mode = iparams->mode;
-  params_.flag = iparams->flag;
-  params_.select_mode = iparams->select_mode;
-  params_.frame_mode = iparams->frame_mode;
-  params_.stroke_sample = iparams->stroke_sample;
-  params_.resolution = iparams->resolution;
-  params_.scale = iparams->scale;
+  params_ = *iparams;
 
   /* Easy access data. */
   bmain_ = CTX_data_main(params_.C);
@@ -285,7 +272,7 @@ void GpencilIO::gpencil_3d_point_to_2D(const float co[3], float r_co[2])
 }
 
 /** Get radius of point. */
-float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, struct bGPDstroke *gps)
+float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, bGPDstroke *gps)
 {
   float v1[2], screen_co[2], screen_ex[2];
 
@@ -306,13 +293,13 @@ float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, struct bGPDstroke *gps)
   return MAX2(radius, 1.0f);
 }
 
-void GpencilIO::prepare_layer_export_matrix(struct Object *ob, struct bGPDlayer *gpl)
+void GpencilIO::prepare_layer_export_matrix(Object *ob, bGPDlayer *gpl)
 {
   BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob, gpl, diff_mat_);
   mul_m4_m4m4(diff_mat_, diff_mat_, gpl->layer_invmat);
 }
 
-void GpencilIO::prepare_stroke_export_colors(struct Object *ob, struct bGPDstroke *gps)
+void GpencilIO::prepare_stroke_export_colors(Object *ob, bGPDstroke *gps)
 {
   MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
 

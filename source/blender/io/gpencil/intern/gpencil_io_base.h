@@ -29,7 +29,6 @@
 
 #include "gpencil_io.h"
 
-struct ARegion;
 struct Depsgraph;
 struct Main;
 struct Object;
@@ -38,9 +37,7 @@ struct Scene;
 
 struct bGPdata;
 struct bGPDlayer;
-struct bGPDframe;
 struct bGPDstroke;
-struct MaterialGPencilStyle;
 
 using blender::Vector;
 

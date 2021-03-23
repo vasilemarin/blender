@@ -26,12 +26,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BKE_context.h"
-#include "BKE_gpencil.h"
-#include "BKE_gpencil_geom.h"
-#include "BKE_main.h"
-#include "BKE_material.h"
-
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
@@ -43,6 +37,12 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
+
+#include "BKE_context.h"
+#include "BKE_gpencil.h"
+#include "BKE_gpencil_geom.h"
+#include "BKE_main.h"
+#include "BKE_material.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -65,7 +65,7 @@
 namespace blender ::io ::gpencil {
 
 /* Constructor. */
-GpencilExporterSVG::GpencilExporterSVG(const char *filename, const struct GpencilIOParams *iparams)
+GpencilExporterSVG::GpencilExporterSVG(const char *filename, const GpencilIOParams *iparams)
     : GpencilExporter(iparams)
 {
   filename_set(filename);
@@ -267,8 +267,8 @@ void GpencilExporterSVG::export_gpencil_layers()
  * \param node_gpl: Node of the layer.
  * \param do_fill: True if the stroke is only fill
  */
-void GpencilExporterSVG::export_stroke_to_path(struct bGPDlayer *gpl,
-                                               struct bGPDstroke *gps,
+void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
+                                               bGPDstroke *gps,
                                                pugi::xml_node node_gpl,
                                                const bool do_fill)
 {
@@ -317,8 +317,8 @@ void GpencilExporterSVG::export_stroke_to_path(struct bGPDlayer *gpl,
  * \param node_gpl: Node of the layer.
  * \param do_fill: True if the stroke is only fill
  */
-void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
-                                                   struct bGPDstroke *gps,
+void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,
+                                                   bGPDstroke *gps,
                                                    pugi::xml_node node_gpl,
                                                    const bool is_stroke,
                                                    const bool do_fill)
@@ -366,8 +366,8 @@ void GpencilExporterSVG::export_stroke_to_polyline(struct bGPDlayer *gpl,
  * \param node_gps: Stroke node
  * @param do_fill: True if the stroke is only fill
  */
-void GpencilExporterSVG::color_string_set(struct bGPDlayer *gpl,
-                                          struct bGPDstroke *gps,
+void GpencilExporterSVG::color_string_set(bGPDlayer *gpl,
+                                          bGPDstroke *gps,
                                           pugi::xml_node node_gps,
                                           const bool do_fill)
 {

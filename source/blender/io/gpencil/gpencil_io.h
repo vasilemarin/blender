@@ -31,7 +31,7 @@ struct bContext;
 struct Object;
 struct View3D;
 
-struct GpencilIOParams {
+typedef struct GpencilIOParams {
   bContext *C;
   ARegion *region;
   View3D *v3d;
@@ -51,7 +51,7 @@ struct GpencilIOParams {
   /** Stroke sampling factor. */
   float stroke_sample;
   int32_t resolution;
-};
+} GpencilIOParams;
 
 /* GpencilIOParams->flag. */
 typedef enum eGpencilIOParams_Flag {

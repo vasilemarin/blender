@@ -26,12 +26,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BKE_context.h"
-#include "BKE_gpencil.h"
-#include "BKE_gpencil_geom.h"
-#include "BKE_main.h"
-#include "BKE_material.h"
-
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
@@ -43,6 +37,12 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
+
+#include "BKE_context.h"
+#include "BKE_gpencil.h"
+#include "BKE_gpencil_geom.h"
+#include "BKE_main.h"
+#include "BKE_material.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -68,7 +68,7 @@ static void error_handler(HPDF_STATUS error_no, HPDF_STATUS detail_no, void *UNU
 }
 
 /* Constructor. */
-GpencilExporterPDF::GpencilExporterPDF(const char *filename, const struct GpencilIOParams *iparams)
+GpencilExporterPDF::GpencilExporterPDF(const char *filename, const GpencilIOParams *iparams)
     : GpencilExporter(iparams)
 {
   filename_set(filename);
@@ -244,7 +244,7 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false);
   gps_temp->totpoints = 1;
   gps_temp->points = (bGPDspoint *)MEM_callocN(sizeof(bGPDspoint), "gp_stroke_points");
-  bGPDspoint *pt_src = &gps->points[0];
+  const bGPDspoint *pt_src = &gps->points[0];
   bGPDspoint *pt_dst = &gps_temp->points[0];
   copy_v3_v3(&pt_dst->x, &pt_src->x);
   pt_dst->pressure = avg_pressure;

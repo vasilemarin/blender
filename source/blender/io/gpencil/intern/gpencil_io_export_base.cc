@@ -58,8 +58,9 @@
 namespace blender::io::gpencil {
 
 /* Constructor. */
-GpencilExporter::GpencilExporter(const struct GpencilIOParams *iparams) : GpencilIO(iparams)
+GpencilExporter::GpencilExporter(const GpencilIOParams *iparams) : GpencilIO(iparams)
 {
   /* Nothing yet */
 }
+
 }  // namespace blender::io::gpencil

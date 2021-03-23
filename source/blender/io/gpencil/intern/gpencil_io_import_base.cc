@@ -27,13 +27,6 @@
 #include <iostream>
 #include <string>
 
-#include "BKE_context.h"
-#include "BKE_gpencil.h"
-#include "BKE_gpencil_geom.h"
-#include "BKE_layer.h"
-#include "BKE_main.h"
-#include "BKE_material.h"
-
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
@@ -43,6 +36,13 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+
+#include "BKE_context.h"
+#include "BKE_gpencil.h"
+#include "BKE_gpencil_geom.h"
+#include "BKE_layer.h"
+#include "BKE_main.h"
+#include "BKE_material.h"
 
 #include "UI_view2d.h"
 
@@ -60,7 +60,7 @@
 namespace blender::io::gpencil {
 
 /* Constructor. */
-GpencilImporter::GpencilImporter(const struct GpencilIOParams *iparams) : GpencilIO(iparams)
+GpencilImporter::GpencilImporter(const GpencilIOParams *iparams) : GpencilIO(iparams)
 {
   /* Nothing to do yet */
 }
