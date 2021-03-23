@@ -100,6 +100,24 @@ static void ui_gpencil_export_common_settings(uiLayout *layout, PointerRNA *imfp
   uiItemR(col, imfptr, "use_clip_camera", 0, NULL, ICON_NONE);
 }
 
+static void set_export_filepath(bContext *C, wmOperator *op)
+{
+  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
+    Main *bmain = CTX_data_main(C);
+    char filepath[FILE_MAX];
+
+    if (BKE_main_blendfile_path(bmain)[0] == '\0') {
+      BLI_strncpy(filepath, "untitled", sizeof(filepath));
+    }
+    else {
+      BLI_strncpy(filepath, BKE_main_blendfile_path(bmain), sizeof(filepath));
+    }
+
+    BLI_path_extension_replace(filepath, sizeof(filepath), ".pdf");
+    RNA_string_set(op->ptr, "filepath", filepath);
+  }
+}
+
 /* <-------- SVG single frame export. --------> */
 #ifdef WITH_PUGIXML
 static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *op)
@@ -118,20 +136,7 @@ static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *
 
 static int wm_gpencil_export_svg_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
-    Main *bmain = CTX_data_main(C);
-    char filepath[FILE_MAX];
-
-    if (BKE_main_blendfile_path(bmain)[0] == '\0') {
-      BLI_strncpy(filepath, "untitled", sizeof(filepath));
-    }
-    else {
-      BLI_strncpy(filepath, BKE_main_blendfile_path(bmain), sizeof(filepath));
-    }
-
-    BLI_path_extension_replace(filepath, sizeof(filepath), ".svg");
-    RNA_string_set(op->ptr, "filepath", filepath);
-  }
+  set_export_filepath(C, op);
 
   WM_event_add_fileselect(C, op);
 
@@ -283,20 +288,7 @@ static bool wm_gpencil_export_pdf_common_check(bContext *UNUSED(C), wmOperator *
 
 static int wm_gpencil_export_pdf_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
-    Main *bmain = CTX_data_main(C);
-    char filepath[FILE_MAX];
-
-    if (BKE_main_blendfile_path(bmain)[0] == '\0') {
-      BLI_strncpy(filepath, "untitled", sizeof(filepath));
-    }
-    else {
-      BLI_strncpy(filepath, BKE_main_blendfile_path(bmain), sizeof(filepath));
-    }
-
-    BLI_path_extension_replace(filepath, sizeof(filepath), ".pdf");
-    RNA_string_set(op->ptr, "filepath", filepath);
-  }
+  set_export_filepath(C, op);
 
   WM_event_add_fileselect(C, op);
 
