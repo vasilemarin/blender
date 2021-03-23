@@ -22,10 +22,9 @@
 /** \file
  * \ingroup bgpencil
  */
-#include <algorithm>
 
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
+#include "BLI_float3.hh"
+#include "BLI_path_util.h"
 #include "BLI_span.hh"
 
 #include "DNA_gpencil_types.h"
@@ -38,7 +37,6 @@
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_geom.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 
@@ -71,14 +69,13 @@ GpencilIO::GpencilIO(const GpencilIOParams *iparams)
   /* Calculate camera matrix. */
   Object *cam_ob = params_.v3d->camera;
   if (cam_ob != NULL) {
-    RenderData *rd = &scene_->r;
+    /* Set up parameters. */
     CameraParams params;
-
-    /* Setup parameters. */
     BKE_camera_params_init(&params);
     BKE_camera_params_from_object(&params, cam_ob);
 
     /* Compute matrix, viewplane, .. */
+    RenderData *rd = &scene_->r;
     BKE_camera_params_compute_viewplane(&params, rd->xsch, rd->ysch, rd->xasp, rd->yasp);
     BKE_camera_params_compute_matrix(&params);
 
@@ -135,7 +132,7 @@ void GpencilIO::create_object_list()
   ViewLayer *view_layer = CTX_data_view_layer(params_.C);
 
   float camera_z_axis[3];
-  copy_v3_v3(camera_z_axis, rv3d_->viewinv[2]);
+  copy_v2_v2(camera_z_axis, rv3d_->viewinv[2]);
   ob_list_.clear();
 
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
