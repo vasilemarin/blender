@@ -179,7 +179,7 @@ void WM_OT_gpencil_import_svg(wmOperatorType *ot)
               1,
               30,
               "Resolution",
-              "Resolution of the generated curves",
+              "Resolution of the generated strokes",
               1,
               20);
 
@@ -189,7 +189,7 @@ void WM_OT_gpencil_import_svg(wmOperatorType *ot)
                 0.001f,
                 100.0f,
                 "Scale",
-                "Scale of the final stroke",
+                "Scale of the final strokes",
                 0.001f,
                 100.0f);
 }
