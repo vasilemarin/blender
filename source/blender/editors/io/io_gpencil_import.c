@@ -21,26 +21,14 @@
  * \ingroup editor/io
  */
 
-#include <errno.h>
-#include <string.h>
-
-#include "MEM_guardedalloc.h"
-
 #include "DNA_gpencil_types.h"
 #include "DNA_space_types.h"
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
-#include "BKE_main.h"
-#include "BKE_object.h"
 #include "BKE_report.h"
-#include "BKE_scene.h"
-#include "BKE_screen.h"
 
-#include "BLI_listbase.h"
 #include "BLI_path_util.h"
-#include "BLI_string.h"
-#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
