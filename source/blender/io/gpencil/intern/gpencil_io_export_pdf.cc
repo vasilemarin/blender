@@ -20,9 +20,6 @@
 /** \file
  * \ingroup bgpencil
  */
-#include <iostream>
-#include <list>
-#include <string>
 
 #include "MEM_guardedalloc.h"
 

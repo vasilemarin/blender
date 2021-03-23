@@ -23,9 +23,9 @@
  * \ingroup bgpencil
  */
 #include <algorithm>
-#include <string>
+// #include <string>
 
-#include "DNA_vec_types.h"
+// #include "DNA_vec_types.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
@@ -36,7 +36,7 @@
 #include "DNA_material_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
-#include "DNA_view3d_types.h"
+// #include "DNA_view3d_types.h"
 
 #include "BKE_camera.h"
 #include "BKE_context.h"

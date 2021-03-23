@@ -27,6 +27,8 @@
 #include "BLI_float2.hh"
 #include "BLI_vector.hh"
 
+#include "DNA_space_types.h" /* for FILE_MAX */
+
 #include "gpencil_io.h"
 
 struct Depsgraph;
