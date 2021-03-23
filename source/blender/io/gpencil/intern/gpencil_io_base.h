@@ -87,8 +87,6 @@ class GpencilIO {
 
   float stroke_color_[4], fill_color_[4];
 
-  static std::string rgb_to_hexstr(float color[3]);
-
   /* Geometry functions. */
   bool gpencil_3d_point_to_screen_space(const float co[3], float r_co[2]);
   void gpencil_3d_point_to_render_space(const float co[3], float r_co[2]);
@@ -101,8 +99,8 @@ class GpencilIO {
 
   float stroke_average_opacity_get();
 
-  void gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl);
-  void gps_material_data_prepare(struct Object *ob, struct bGPDstroke *gps);
+  void gpl_prepare_export_matrix(struct Object *ob, struct bGPDlayer *gpl);
+  void gps_prepare_export_colors(struct Object *ob, struct bGPDstroke *gps);
 
   void selected_objects_boundbox_calc();
   void selected_objects_boundbox_get(rctf *boundbox);

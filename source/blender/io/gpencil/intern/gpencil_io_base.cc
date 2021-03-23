@@ -306,27 +306,13 @@ float GpencilIO::stroke_point_radius_get(bGPDlayer *gpl, struct bGPDstroke *gps)
   return MAX2(radius, 1.0f);
 }
 
-/** Convert a color to Hex value (#FFFFFF). */
-std::string GpencilIO::rgb_to_hexstr(float color[3])
-{
-  uint8_t r = color[0] * 255.0f;
-  uint8_t g = color[1] * 255.0f;
-  uint8_t b = color[2] * 255.0f;
-  char hex_string[20];
-  sprintf(hex_string, "#%02X%02X%02X", r, g, b);
-
-  std::string hexstr = hex_string;
-
-  return hexstr;
-}
-
-void GpencilIO::gpl_matrix_set(struct Object *ob, struct bGPDlayer *gpl)
+void GpencilIO::gpl_prepare_export_matrix(struct Object *ob, struct bGPDlayer *gpl)
 {
   BKE_gpencil_layer_transform_matrix_get(depsgraph_, ob, gpl, diff_mat_);
   mul_m4_m4m4(diff_mat_, diff_mat_, gpl->layer_invmat);
 }
 
-void GpencilIO::gps_material_data_prepare(struct Object *ob, struct bGPDstroke *gps)
+void GpencilIO::gps_prepare_export_colors(struct Object *ob, struct bGPDstroke *gps)
 {
   MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
 

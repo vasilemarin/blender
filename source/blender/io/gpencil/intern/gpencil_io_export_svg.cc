@@ -184,7 +184,7 @@ void GpencilExporterSVG::export_gpencil_layers()
       if (gpl->flag & GP_LAYER_HIDE) {
         continue;
       }
-      gpl_matrix_set(ob, gpl);
+      gpl_prepare_export_matrix(ob, gpl);
 
       bGPDframe *gpf = gpl->actframe;
       if ((gpf == nullptr) || (gpf->strokes.first == nullptr)) {
@@ -218,7 +218,7 @@ void GpencilExporterSVG::export_gpencil_layers()
         const bool is_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
                               (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
 
-        gps_material_data_prepare(ob, gps_duplicate);
+        gps_prepare_export_colors(ob, gps_duplicate);
 
         /* Apply layer thickness change. */
         gps_duplicate->thickness += gpl->line_change;
@@ -457,4 +457,19 @@ void GpencilExporterSVG::add_text(pugi::xml_node node,
   nodetxt.append_attribute("fill").set_value(hexcolor.c_str());
   nodetxt.text().set(text.c_str());
 }
+
+/** Convert a color to Hex value (#FFFFFF). */
+std::string GpencilExporterSVG::rgb_to_hexstr(float color[3])
+{
+  uint8_t r = color[0] * 255.0f;
+  uint8_t g = color[1] * 255.0f;
+  uint8_t b = color[2] * 255.0f;
+  char hex_string[20];
+  sprintf(hex_string, "#%02X%02X%02X", r, g, b);
+
+  std::string hexstr = hex_string;
+
+  return hexstr;
+}
+
 }  // namespace blender::io::gpencil

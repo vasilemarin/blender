@@ -84,6 +84,8 @@ class GpencilExporterSVG : public GpencilExporter {
                         struct bGPDstroke *gps,
                         pugi::xml_node node_gps,
                         const bool is_fill);
+
+  std::string rgb_to_hexstr(float color[3]);
 };
 
 }  // namespace blender::io::gpencil
