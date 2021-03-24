@@ -65,12 +65,12 @@ GpencilIO::GpencilIO(const GpencilIOParams *iparams)
   depsgraph_ = CTX_data_depsgraph_pointer(params_.C);
   scene_ = CTX_data_scene(params_.C);
   rv3d_ = (RegionView3D *)params_.region->regiondata;
-  gpd_ = (params_.ob != NULL) ? (bGPdata *)params_.ob->data : nullptr;
+  gpd_ = (params_.ob != nullptr) ? (bGPdata *)params_.ob->data : nullptr;
   cfra_ = iparams->frame_cur;
 
   /* Calculate camera matrix. */
   Object *cam_ob = params_.v3d->camera;
-  if (cam_ob != NULL) {
+  if (cam_ob != nullptr) {
     /* Set up parameters. */
     CameraParams params;
     BKE_camera_params_init(&params);
