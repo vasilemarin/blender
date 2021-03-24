@@ -283,7 +283,7 @@ static void do_sequence_frame_change_update(Scene *scene, Sequence *seq)
 
   /* TODO(sergey): probably could be optimized.
    *               in terms skipping update of non-changing strips
-   */
+   */ 
   for (tseq = seqbase->first; tseq; tseq = tseq->next) {
     if (tseq->seq1 || tseq->seq2 || tseq->seq3) {
       SEQ_time_update_sequence(scene, tseq);
@@ -307,6 +307,14 @@ static void rna_Sequence_frame_change_update(Main *UNUSED(bmain),
   do_sequence_frame_change_update(scene, (Sequence *)ptr->data);
 }
 
+static void rna_Sequence_override_playback_rate_rate_update(Main *UNUSED(bmain),
+                                                            Scene *scene,
+                                                            PointerRNA *ptr)
+{
+  Sequence *seq = ptr->data;
+  SEQ_relations_framechange_update(scene, seq);
+}
+
 static void rna_Sequence_start_frame_set(PointerRNA *ptr, int value)
 {
   Sequence *seq = (Sequence *)ptr->data;
@@ -324,8 +332,8 @@ static void rna_Sequence_start_frame_final_set(PointerRNA *ptr, int value)
   Scene *scene = (Scene *)ptr->owner_id;
 
   SEQ_relations_invalidate_cache_composite(scene, seq);
-  SEQ_transform_set_left_handle_frame(seq, value);
-  SEQ_transform_fix_single_image_seq_offsets(seq);
+  SEQ_transform_set_left_handle_frame(scene, seq, value);
+  SEQ_transform_fix_single_image_seq_offsets(scene, seq);
   do_sequence_frame_change_update(scene, seq);
   SEQ_relations_invalidate_cache_composite(scene, seq);
 }
@@ -336,8 +344,8 @@ static void rna_Sequence_end_frame_final_set(PointerRNA *ptr, int value)
   Scene *scene = (Scene *)ptr->owner_id;
 
   SEQ_relations_invalidate_cache_composite(scene, seq);
-  SEQ_transform_set_right_handle_frame(seq, value);
-  SEQ_transform_fix_single_image_seq_offsets(seq);
+  SEQ_transform_set_right_handle_frame(scene, seq, value);
+  SEQ_transform_fix_single_image_seq_offsets(scene, seq);
   do_sequence_frame_change_update(scene, seq);
   SEQ_relations_invalidate_cache_composite(scene, seq);
 }
@@ -440,8 +448,8 @@ static void rna_Sequence_frame_length_set(PointerRNA *ptr, int value)
   Scene *scene = (Scene *)ptr->owner_id;
 
   SEQ_relations_invalidate_cache_composite(scene, seq);
-  SEQ_transform_set_right_handle_frame(seq,
-                                       SEQ_transform_get_left_handle_frame(seq, false) + value);
+  SEQ_transform_set_right_handle_frame(
+      scene, seq, SEQ_transform_get_left_handle_frame(scene, seq, false) + value);
   do_sequence_frame_change_update(scene, seq);
   SEQ_relations_invalidate_cache_composite(scene, seq);
 }
@@ -449,8 +457,9 @@ static void rna_Sequence_frame_length_set(PointerRNA *ptr, int value)
 static int rna_Sequence_frame_length_get(PointerRNA *ptr)
 {
   Sequence *seq = (Sequence *)ptr->data;
-  return SEQ_transform_get_right_handle_frame(seq, false) -
-         SEQ_transform_get_left_handle_frame(seq, false);
+  Scene *scene = (Scene *)ptr->owner_id;
+  return SEQ_transform_get_right_handle_frame(scene, seq, false) -
+         SEQ_transform_get_left_handle_frame(scene, seq, false);
 }
 
 static int rna_Sequence_frame_editable(PointerRNA *ptr, const char **UNUSED(r_info))
@@ -1871,6 +1880,16 @@ static void rna_def_sequence(BlenderRNA *brna)
   RNA_def_property_int_funcs(prop, NULL, "rna_Sequence_channel_set", NULL); /* overlap test */
   RNA_def_property_update(
       prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_preprocessed_update");
+
+  prop = RNA_def_property(srna, "playback_rate", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "playback_rate");
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_range(prop, 0.1f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 1.0f, 100.0f, 1.0, 3);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(prop, "Playback Rate", "FPS rate of original media");
+  RNA_def_property_update(
+      prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_override_playback_rate_rate_update");
 
   prop = RNA_def_property(srna, "use_linear_modifiers", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", SEQ_USE_LINEAR_MODIFIERS);

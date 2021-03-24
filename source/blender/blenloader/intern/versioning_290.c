@@ -155,7 +155,7 @@ static void seq_convert_transform_crop(const Scene *scene,
   const uint32_t use_transform_flag = (1 << 16);
   const uint32_t use_crop_flag = (1 << 17);
 
-  const StripElem *s_elem = SEQ_render_give_stripelem(seq, seq->start);
+  const StripElem *s_elem = SEQ_render_give_stripelem(scene, seq, seq->start);
   if (s_elem != NULL) {
     image_size_x = s_elem->orig_width;
     image_size_y = s_elem->orig_height;
@@ -283,7 +283,7 @@ static void seq_convert_transform_crop_2(const Scene *scene,
                                          Sequence *seq,
                                          const eSpaceSeq_Proxy_RenderSize render_size)
 {
-  const StripElem *s_elem = SEQ_render_give_stripelem(seq, seq->start);
+  const StripElem *s_elem = SEQ_render_give_stripelem(scene, seq, seq->start);
   if (s_elem == NULL) {
     return;
   }
@@ -345,8 +345,10 @@ static void seq_convert_transform_crop_lb_2(const Scene *scene,
   }
 }
 
-static void seq_update_meta_disp_range(Editing *ed)
+static void seq_update_meta_disp_range(Scene *scene)
 {
+  Editing *ed = SEQ_editing_get(scene, false);
+
   if (ed == NULL) {
     return;
   }
@@ -358,9 +360,9 @@ static void seq_update_meta_disp_range(Editing *ed)
     }
 
     /* Update meta strip endpoints. */
-    SEQ_transform_set_left_handle_frame(ms->parseq, ms->disp_range[0]);
-    SEQ_transform_set_right_handle_frame(ms->parseq, ms->disp_range[1]);
-    SEQ_transform_fix_single_image_seq_offsets(ms->parseq);
+    SEQ_transform_set_left_handle_frame(scene, ms->parseq, ms->disp_range[0]);
+    SEQ_transform_set_right_handle_frame(scene, ms->parseq, ms->disp_range[1]);
+    SEQ_transform_fix_single_image_seq_offsets(scene, ms->parseq);
 
     /* Recalculate effects using meta strip. */
     LISTBASE_FOREACH (Sequence *, seq, ms->oldbasep) {
@@ -652,7 +654,7 @@ void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
     /* Keep this block, even when empty. */
 
     LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-      seq_update_meta_disp_range(SEQ_editing_get(scene, false));
+      seq_update_meta_disp_range(scene);
     }
   }
 }

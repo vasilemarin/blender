@@ -43,7 +43,13 @@
 #include "strip_time.h"
 #include "utils.h"
 
-float seq_give_frame_index(Sequence *seq, float timeline_frame)
+static float seq_time_playback_rate_factor_get(const Scene *scene, const Sequence *seq)
+{
+  float scene_playback_rate = (float)scene->r.frs_sec / scene->r.frs_sec_base;
+  return seq->playback_rate / scene_playback_rate;
+}
+
+float seq_give_frame_index(const Scene *scene, Sequence *seq, float timeline_frame)
 {
   float frame_index;
   int sta = seq->start;
@@ -58,28 +64,15 @@ float seq_give_frame_index(Sequence *seq, float timeline_frame)
   }
 
   if (seq->flag & SEQ_REVERSE_FRAMES) {
-    /*reverse frame in this sequence */
-    if (timeline_frame <= sta) {
-      frame_index = end - sta;
-    }
-    else if (timeline_frame >= end) {
-      frame_index = 0;
-    }
-    else {
-      frame_index = end - timeline_frame;
-    }
+    frame_index = end - timeline_frame;
   }
   else {
-    if (timeline_frame <= sta) {
-      frame_index = 0;
-    }
-    else if (timeline_frame >= end) {
-      frame_index = end - sta;
-    }
-    else {
-      frame_index = timeline_frame - sta;
-    }
+    frame_index = timeline_frame - sta;
   }
+
+  frame_index *= seq_time_playback_rate_factor_get(scene, seq);
+  /* Clamp frame index to strip frame range. */
+  frame_index = clamp_i(frame_index, 0, end - sta);
 
   if (seq->strobe < 1.0f) {
     seq->strobe = 1.0f;
@@ -90,6 +83,13 @@ float seq_give_frame_index(Sequence *seq, float timeline_frame)
   }
 
   return frame_index;
+}
+
+/* Length of strip content in frames. This is number of original frames adjusted by playback rate
+ * factor */
+int SEQ_time_strip_length_get(const Scene *scene, const Sequence *seq)
+{
+  return seq->len / seq_time_playback_rate_factor_get(scene, seq);
 }
 
 static int metaseq_start(Sequence *metaseq)
@@ -154,7 +154,7 @@ void SEQ_time_update_sequence_bounds(Scene *scene, Sequence *seq)
   }
 
   seq->startdisp = seq->start + seq->startofs - seq->startstill;
-  seq->enddisp = seq->start + seq->len - seq->endofs + seq->endstill;
+  seq->enddisp = seq->start + SEQ_time_strip_length_get(scene, seq) - seq->endofs + seq->endstill;
 
   if (seq->type == SEQ_TYPE_META) {
     seq_update_sound_bounds_recursive(scene, seq);

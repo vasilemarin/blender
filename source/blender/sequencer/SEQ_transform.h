@@ -30,15 +30,19 @@ extern "C" {
 struct ListBase;
 struct Scene;
 struct Sequence;
+struct Scene;
 
-int SEQ_transform_get_left_handle_frame(struct Sequence *seq, bool metaclip);
-int SEQ_transform_get_right_handle_frame(struct Sequence *seq, bool metaclip);
-void SEQ_transform_set_left_handle_frame(struct Sequence *seq, int val);
-void SEQ_transform_set_right_handle_frame(struct Sequence *seq, int val);
-void SEQ_transform_handle_xlimits(struct Sequence *seq, int leftflag, int rightflag);
+int SEQ_transform_get_left_handle_frame(struct Scene *scene, struct Sequence *seq, bool metaclip);
+int SEQ_transform_get_right_handle_frame(struct Scene *scene, struct Sequence *seq, bool metaclip);
+void SEQ_transform_set_left_handle_frame(struct Scene *scene, struct Sequence *seq, int val);
+void SEQ_transform_set_right_handle_frame(struct Scene *scene, struct Sequence *seq, int val);
+void SEQ_transform_handle_xlimits(struct Scene *scene,
+                                  struct Sequence *seq,
+                                  int leftflag,
+                                  int rightflag);
 bool SEQ_transform_sequence_can_be_translated(struct Sequence *seq);
 bool SEQ_transform_single_image_check(struct Sequence *seq);
-void SEQ_transform_fix_single_image_seq_offsets(struct Sequence *seq);
+void SEQ_transform_fix_single_image_seq_offsets(struct Scene *scene, struct Sequence *seq);
 bool SEQ_transform_test_overlap(struct ListBase *seqbasep, struct Sequence *test);
 void SEQ_transform_translate_sequence(struct Scene *scene, struct Sequence *seq, int delta);
 bool SEQ_transform_seqbase_shuffle_ex(struct ListBase *seqbasep,

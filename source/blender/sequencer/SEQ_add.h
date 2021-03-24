@@ -99,7 +99,10 @@ struct Sequence *SEQ_add_effect_strip(struct Scene *scene,
                                       struct ListBase *seqbase,
                                       struct SeqLoadData *load_data);
 void SEQ_add_image_set_directory(struct Sequence *seq, char *path);
-void SEQ_add_image_load_file(struct Sequence *seq, size_t strip_frame, char *filename);
+void SEQ_add_image_load_file(struct Scene *scene,
+                             struct Sequence *seq,
+                             size_t strip_frame,
+                             char *filename);
 void SEQ_add_image_init_alpha_mode(struct Sequence *seq);
 void SEQ_add_reload_new_file(struct Main *bmain,
                              struct Scene *scene,

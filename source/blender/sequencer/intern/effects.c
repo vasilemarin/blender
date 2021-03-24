@@ -62,6 +62,7 @@
 #include "SEQ_effects.h"
 #include "SEQ_proxy.h"
 #include "SEQ_render.h"
+#include "SEQ_time.h"
 #include "SEQ_utils.h"
 
 #include "BLF_api.h"
@@ -3132,7 +3133,8 @@ static int early_out_speed(Sequence *UNUSED(seq), float UNUSED(facf0), float UNU
   return EARLY_DO_EFFECT;
 }
 
-static void store_icu_yrange_speed(Sequence *seq, short UNUSED(adrcode), float *ymin, float *ymax)
+static void store_icu_yrange_speed(
+    const Scene *scene, Sequence *seq, short UNUSED(adrcode), float *ymin, float *ymax)
 {
   SpeedControlVars *v = (SpeedControlVars *)seq->effectdata;
 
@@ -3150,7 +3152,7 @@ static void store_icu_yrange_speed(Sequence *seq, short UNUSED(adrcode), float *
     }
     else {
       *ymin = 0.0;
-      *ymax = seq->len;
+      *ymax = SEQ_time_strip_length_get(scene, seq);
     }
   }
 }
@@ -3160,13 +3162,13 @@ static void store_icu_yrange_speed(Sequence *seq, short UNUSED(adrcode), float *
  * useful to use speed effect on these strips because they can be animated. This can be done by
  * using their length as is on timeline as content length. See T82698.
  */
-static int seq_effect_speed_get_strip_content_length(const Sequence *seq)
+static int seq_effect_speed_get_strip_content_length(Scene *scene, const Sequence *seq)
 {
   if ((seq->type & SEQ_TYPE_EFFECT) != 0 && SEQ_effect_get_num_inputs(seq->type) == 0) {
     return seq->enddisp - seq->startdisp;
   }
 
-  return seq->len;
+  return SEQ_time_strip_length_get(scene, seq);
 }
 
 void seq_effect_speed_rebuild_map(Scene *scene, Sequence *seq, bool force)
@@ -3180,7 +3182,8 @@ void seq_effect_speed_rebuild_map(Scene *scene, Sequence *seq, bool force)
   /* if not already done, load / initialize data */
   SEQ_effect_handle_get(seq);
 
-  if ((force == false) && (seq->len == v->length) && (v->frameMap != NULL)) {
+  if ((force == false) && (SEQ_time_strip_length_get(scene, seq) == v->length) &&
+      (v->frameMap != NULL)) {
     return;
   }
   if ((seq->seq1 == NULL) || (seq->len < 1)) {
@@ -3191,19 +3194,19 @@ void seq_effect_speed_rebuild_map(Scene *scene, Sequence *seq, bool force)
   /* XXX - new in 2.5x. should we use the animation system this way?
    * The fcurve is needed because many frames need evaluating at once - campbell */
   fcu = id_data_find_fcurve(&scene->id, seq, &RNA_Sequence, "speed_factor", 0, NULL);
-  if (!v->frameMap || v->length != seq->len) {
+  if (!v->frameMap || v->length != SEQ_time_strip_length_get(scene, seq)) {
     if (v->frameMap) {
       MEM_freeN(v->frameMap);
     }
 
-    v->length = seq->len;
+    v->length = SEQ_time_strip_length_get(scene, seq);
 
     v->frameMap = MEM_callocN(sizeof(float) * v->length, "speedcontrol frameMap");
   }
 
   fallback_fac = 1.0;
 
-  const int target_strip_length = seq_effect_speed_get_strip_content_length(seq->seq1);
+  const int target_strip_length = seq_effect_speed_get_strip_content_length(scene, seq->seq1);
 
   if (seq->flag & SEQ_USE_EFFECT_DEFAULT_FADE) {
     if ((seq->seq1->enddisp != seq->seq1->start) && (target_strip_length != 0)) {
@@ -3281,7 +3284,7 @@ float seq_speed_effect_target_frame_get(const SeqRenderData *context,
                                         float timeline_frame,
                                         int input)
 {
-  int frame_index = seq_give_frame_index(seq, timeline_frame);
+  int frame_index = seq_give_frame_index(context->scene, seq, timeline_frame);
   SpeedControlVars *s = (SpeedControlVars *)seq->effectdata;
   seq_effect_speed_rebuild_map(context->scene, seq, false);
 
@@ -3300,9 +3303,8 @@ float seq_speed_effect_target_frame_get(const SeqRenderData *context,
 
 static float speed_effect_interpolation_ratio_get(SpeedControlVars *s,
                                                   Sequence *seq,
-                                                  float timeline_frame)
+                                                  int frame_index)
 {
-  int frame_index = seq_give_frame_index(seq, timeline_frame);
   return s->frameMap[frame_index] - floor(s->frameMap[frame_index]);
 }
 
@@ -3321,7 +3323,8 @@ static ImBuf *do_speed_effect(const SeqRenderData *context,
 
   if (s->flags & SEQ_SPEED_USE_INTERPOLATION) {
     out = prepare_effect_imbufs(context, ibuf1, ibuf2, ibuf3);
-    facf0 = facf1 = speed_effect_interpolation_ratio_get(s, seq, timeline_frame);
+    int frame_index = seq_give_frame_index(context->scene, seq, timeline_frame);
+    facf0 = facf1 = speed_effect_interpolation_ratio_get(s, seq, frame_index);
     /* Current frame is ibuf1, next frame is ibuf2. */
     out = seq_render_effect_execute_threaded(
         &cross_effect, context, NULL, timeline_frame, facf0, facf1, ibuf1, ibuf2, ibuf3);
@@ -4084,7 +4087,8 @@ static int early_out_mul_input2(Sequence *UNUSED(seq), float facf0, float facf1)
   return EARLY_DO_EFFECT;
 }
 
-static void store_icu_yrange_noop(Sequence *UNUSED(seq),
+static void store_icu_yrange_noop(const Scene *UNUSED(scene),
+                                  Sequence *UNUSED(seq),
                                   short UNUSED(adrcode),
                                   float *UNUSED(ymin),
                                   float *UNUSED(ymax))
@@ -4092,7 +4096,8 @@ static void store_icu_yrange_noop(Sequence *UNUSED(seq),
   /* defaults are fine */
 }
 
-static void get_default_fac_noop(Sequence *UNUSED(seq),
+static void get_default_fac_noop(const Scene *scene,
+                                 Sequence *UNUSED(seq),
                                  float UNUSED(timeline_frame),
                                  float *facf0,
                                  float *facf1)
@@ -4100,12 +4105,13 @@ static void get_default_fac_noop(Sequence *UNUSED(seq),
   *facf0 = *facf1 = 1.0;
 }
 
-static void get_default_fac_fade(Sequence *seq, float timeline_frame, float *facf0, float *facf1)
+static void get_default_fac_fade(
+    const Scene *scene, Sequence *seq, float timeline_frame, float *facf0, float *facf1)
 {
   *facf0 = (float)(timeline_frame - seq->startdisp);
   *facf1 = (float)(*facf0 + 0.5f);
-  *facf0 /= seq->len;
-  *facf1 /= seq->len;
+  *facf0 /= SEQ_time_strip_length_get(scene, seq);
+  *facf1 /= SEQ_time_strip_length_get(scene, seq);
 }
 
 static struct ImBuf *init_execution(const SeqRenderData *context,

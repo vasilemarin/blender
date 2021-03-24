@@ -986,8 +986,12 @@ static int sequencer_add_image_strip_calculate_length(wmOperator *op,
   return RNA_property_collection_length(op->ptr, RNA_struct_find_property(op->ptr, "files"));
 }
 
-static void sequencer_add_image_strip_load_files(
-    wmOperator *op, Sequence *seq, SeqLoadData *load_data, const int minframe, const int numdigits)
+static void sequencer_add_image_strip_load_files(wmOperator *op,
+                                                 Scene *scene,
+                                                 Sequence *seq,
+                                                 SeqLoadData *load_data,
+                                                 const int minframe,
+                                                 const int numdigits)
 {
   const bool use_placeholders = RNA_boolean_get(op->ptr, "use_placeholders");
 
@@ -1001,7 +1005,7 @@ static void sequencer_add_image_strip_load_files(
     size_t strip_frame = 0;
     RNA_BEGIN (op->ptr, itemptr, "files") {
       char *filename = RNA_string_get_alloc(&itemptr, "name", NULL, 0);
-      SEQ_add_image_load_file(seq, strip_frame, filename);
+      SEQ_add_image_load_file(scene, seq, strip_frame, filename);
       MEM_freeN(filename);
       strip_frame++;
     }
@@ -1029,12 +1033,12 @@ static int sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
   }
 
   Sequence *seq = SEQ_add_image_strip(CTX_data_main(C), scene, ed->seqbasep, &load_data);
-  sequencer_add_image_strip_load_files(op, seq, &load_data, minframe, numdigits);
+  sequencer_add_image_strip_load_files(op, scene, seq, &load_data, minframe, numdigits);
   SEQ_add_image_init_alpha_mode(seq);
 
   /* Adjust length. */
   if (load_data.image.len == 1) {
-    SEQ_transform_set_right_handle_frame(seq, load_data.image.end_frame);
+    SEQ_transform_set_right_handle_frame(scene, seq, load_data.image.end_frame);
     SEQ_time_update_sequence(scene, seq);
   }
 

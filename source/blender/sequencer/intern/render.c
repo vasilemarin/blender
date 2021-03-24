@@ -239,7 +239,7 @@ void seq_render_state_init(SeqRenderState *state)
   state->scene_parents = NULL;
 }
 
-StripElem *SEQ_render_give_stripelem(Sequence *seq, int timeline_frame)
+StripElem *SEQ_render_give_stripelem(const Scene *scene, Sequence *seq, int timeline_frame)
 {
   StripElem *se = seq->strip->stripdata;
 
@@ -248,7 +248,7 @@ StripElem *SEQ_render_give_stripelem(Sequence *seq, int timeline_frame)
      * all other strips don't use this...
      */
 
-    int frame_index = (int)seq_give_frame_index(seq, timeline_frame);
+    int frame_index = (int)seq_give_frame_index(scene, seq, timeline_frame);
 
     if (frame_index == -1 || se == NULL) {
       return NULL;
@@ -872,7 +872,7 @@ static ImBuf *seq_render_effect_strip_impl(const SeqRenderData *context,
   }
 
   if (seq->flag & SEQ_USE_EFFECT_DEFAULT_FADE) {
-    sh.get_default_fac(seq, timeline_frame, &fac, &facf);
+    sh.get_default_fac(scene, seq, timeline_frame, &fac, &facf);
     facf = fac;
   }
   else {
@@ -1012,7 +1012,7 @@ static ImBuf *seq_render_image_strip(const SeqRenderData *context,
   char prefix[FILE_MAX];
   ImBuf *ibuf = NULL;
 
-  StripElem *s_elem = SEQ_render_give_stripelem(seq, timeline_frame);
+  StripElem *s_elem = SEQ_render_give_stripelem(context->scene, seq, timeline_frame);
   if (s_elem == NULL) {
     return NULL;
   }
@@ -1100,7 +1100,8 @@ static ImBuf *seq_render_movie_strip_custom_file_proxy(const SeqRenderData *cont
     }
   }
 
-  int frameno = (int)seq_give_frame_index(seq, timeline_frame) + seq->anim_startofs;
+  int frameno = (int)seq_give_frame_index(context->scene, seq, timeline_frame) +
+                seq->anim_startofs;
   return IMB_anim_absolute(proxy->anim, frameno, IMB_TC_NONE, IMB_PROXY_NONE);
 }
 
@@ -1690,7 +1691,7 @@ static ImBuf *do_render_strip_uncached(const SeqRenderData *context,
                                        bool *r_is_proxy_image)
 {
   ImBuf *ibuf = NULL;
-  float frame_index = seq_give_frame_index(seq, timeline_frame);
+  float frame_index = seq_give_frame_index(context->scene, seq, timeline_frame);
   int type = (seq->type & SEQ_TYPE_EFFECT) ? SEQ_TYPE_EFFECT : seq->type;
   switch (type) {
     case SEQ_TYPE_META: {

@@ -856,6 +856,7 @@ static void rna_Scene_fps_update(Main *bmain, Scene *scene, PointerRNA *UNUSED(p
    * however, changes in FPS actually modifies an original skip length,
    * so this we take care about here. */
   SEQ_sound_update_length(bmain, scene);
+  SEQ_relations_framechange_update_recursive(scene, &scene->ed->seqbase);
 }
 
 static void rna_Scene_listener_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *UNUSED(ptr))

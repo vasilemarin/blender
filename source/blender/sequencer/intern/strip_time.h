@@ -30,8 +30,9 @@ extern "C" {
 struct ListBase;
 struct Scene;
 struct Sequence;
+struct Scene;
 
-float seq_give_frame_index(struct Sequence *seq, float timeline_frame);
+float seq_give_frame_index(const struct Scene *scene, struct Sequence *seq, float timeline_frame);
 void seq_update_sound_bounds_recursive(struct Scene *scene, struct Sequence *metaseq);
 
 /* Describes gap between strips in timeline. */

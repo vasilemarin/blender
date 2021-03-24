@@ -90,8 +90,8 @@ static void SeqTransInfo(TransInfo *t, Sequence *seq, int *r_recursive, int *r_c
 
     Scene *scene = t->scene;
     int cfra = CFRA;
-    int left = SEQ_transform_get_left_handle_frame(seq, false);
-    int right = SEQ_transform_get_right_handle_frame(seq, false);
+    int left = SEQ_transform_get_left_handle_frame(scene, seq, false);
+    int right = SEQ_transform_get_right_handle_frame(scene, seq, false);
 
     if (seq->depth == 0 && ((seq->flag & SELECT) == 0 || (seq->flag & SEQ_LOCK))) {
       *r_recursive = false;
@@ -196,8 +196,13 @@ static int SeqTransCount(TransInfo *t, Sequence *parent, ListBase *seqbase, int 
   return tot;
 }
 
-static TransData *SeqToTransData(
-    TransData *td, TransData2D *td2d, TransDataSeq *tdsq, Sequence *seq, int flag, int sel_flag)
+static TransData *SeqToTransData(TransData *td,
+                                 TransData2D *td2d,
+                                 TransDataSeq *tdsq,
+                                 Scene *scene,
+                                 Sequence *seq,
+                                 int flag,
+                                 int sel_flag)
 {
   int start_left;
 
@@ -206,16 +211,16 @@ static TransData *SeqToTransData(
       /* Use seq_tx_get_final_left() and an offset here
        * so transform has the left hand location of the strip.
        * tdsq->start_offset is used when flushing the tx data back */
-      start_left = SEQ_transform_get_left_handle_frame(seq, false);
+      start_left = SEQ_transform_get_left_handle_frame(scene, seq, false);
       td2d->loc[0] = start_left;
       tdsq->start_offset = start_left - seq->start; /* use to apply the original location */
       break;
     case SEQ_LEFTSEL:
-      start_left = SEQ_transform_get_left_handle_frame(seq, false);
+      start_left = SEQ_transform_get_left_handle_frame(scene, seq, false);
       td2d->loc[0] = start_left;
       break;
     case SEQ_RIGHTSEL:
-      td2d->loc[0] = SEQ_transform_get_right_handle_frame(seq, false);
+      td2d->loc[0] = SEQ_transform_get_right_handle_frame(scene, seq, false);
       break;
   }
 
@@ -282,16 +287,16 @@ static int SeqToTransData_Recursive(
     if (flag & SELECT) {
       if (flag & (SEQ_LEFTSEL | SEQ_RIGHTSEL)) {
         if (flag & SEQ_LEFTSEL) {
-          SeqToTransData(td++, td2d++, tdsq++, seq, flag, SEQ_LEFTSEL);
+          SeqToTransData(td++, td2d++, tdsq++, t->scene, seq, flag, SEQ_LEFTSEL);
           tot++;
         }
         if (flag & SEQ_RIGHTSEL) {
-          SeqToTransData(td++, td2d++, tdsq++, seq, flag, SEQ_RIGHTSEL);
+          SeqToTransData(td++, td2d++, tdsq++, t->scene, seq, flag, SEQ_RIGHTSEL);
           tot++;
         }
       }
       else {
-        SeqToTransData(td++, td2d++, tdsq++, seq, flag, SELECT);
+        SeqToTransData(td++, td2d++, tdsq++, t->scene, seq, flag, SELECT);
         tot++;
       }
     }
@@ -666,18 +671,20 @@ static void flushTransSeq(TransInfo *t)
         }
         break;
       case SEQ_LEFTSEL: /* no vertical transform  */
-        SEQ_transform_set_left_handle_frame(seq, new_frame);
-        SEQ_transform_handle_xlimits(seq, tdsq->flag & SEQ_LEFTSEL, tdsq->flag & SEQ_RIGHTSEL);
+        SEQ_transform_set_left_handle_frame(t->scene, seq, new_frame);
+        SEQ_transform_handle_xlimits(
+            t->scene, seq, tdsq->flag & SEQ_LEFTSEL, tdsq->flag & SEQ_RIGHTSEL);
 
         /* todo - move this into aftertrans update? - old seq tx needed it anyway */
-        SEQ_transform_fix_single_image_seq_offsets(seq);
+        SEQ_transform_fix_single_image_seq_offsets(t->scene, seq);
         break;
       case SEQ_RIGHTSEL: /* no vertical transform  */
-        SEQ_transform_set_right_handle_frame(seq, new_frame);
-        SEQ_transform_handle_xlimits(seq, tdsq->flag & SEQ_LEFTSEL, tdsq->flag & SEQ_RIGHTSEL);
+        SEQ_transform_set_right_handle_frame(t->scene, seq, new_frame);
+        SEQ_transform_handle_xlimits(
+            t->scene, seq, tdsq->flag & SEQ_LEFTSEL, tdsq->flag & SEQ_RIGHTSEL);
 
         /* todo - move this into aftertrans update? - old seq tx needed it anyway */
-        SEQ_transform_fix_single_image_seq_offsets(seq);
+        SEQ_transform_fix_single_image_seq_offsets(t->scene, seq);
         break;
     }
 

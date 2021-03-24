@@ -49,11 +49,11 @@
 #include "SEQ_transform.h"
 #include "SEQ_utils.h"
 
-int SEQ_edit_sequence_swap(Sequence *seq_a, Sequence *seq_b, const char **error_str)
+int SEQ_edit_sequence_swap(Scene *scene, Sequence *seq_a, Sequence *seq_b, const char **error_str)
 {
   char name[sizeof(seq_a->name)];
 
-  if (seq_a->len != seq_b->len) {
+  if (SEQ_time_strip_length_get(scene, seq_a) != SEQ_time_strip_length_get(scene, seq_b)) {
     *error_str = N_("Strips must be the same length");
     return 0;
   }
@@ -270,77 +270,79 @@ bool SEQ_edit_move_strip_to_meta(Scene *scene,
   return true;
 }
 
-static void seq_split_set_left_hold_offset(Sequence *seq, int timeline_frame)
+static void seq_split_set_left_hold_offset(Scene *scene, Sequence *seq, int timeline_frame)
 {
   /* Adjust within range of extended stillframes before strip. */
   if (timeline_frame < seq->start) {
     seq->start = timeline_frame - 1;
-    seq->anim_endofs += seq->len - 1;
+    seq->anim_endofs += SEQ_time_strip_length_get(scene, seq) - 1;
     seq->startstill = timeline_frame - seq->startdisp - 1;
     seq->endstill = 0;
   }
   /* Adjust within range of strip contents. */
-  else if ((timeline_frame >= seq->start) && (timeline_frame <= (seq->start + seq->len))) {
+  else if ((timeline_frame >= seq->start) &&
+           (timeline_frame <= (seq->start + SEQ_time_strip_length_get(scene, seq)))) {
     seq->endofs = 0;
     seq->endstill = 0;
-    seq->anim_endofs += (seq->start + seq->len) - timeline_frame;
+    seq->anim_endofs += (seq->start + SEQ_time_strip_length_get(scene, seq)) - timeline_frame;
   }
   /* Adjust within range of extended stillframes after strip. */
-  else if ((seq->start + seq->len) < timeline_frame) {
-    seq->endstill = timeline_frame - seq->start - seq->len;
+  else if ((seq->start + SEQ_time_strip_length_get(scene, seq)) < timeline_frame) {
+    seq->endstill = timeline_frame - seq->start - SEQ_time_strip_length_get(scene, seq);
   }
 }
 
-static void seq_split_set_right_hold_offset(Sequence *seq, int timeline_frame)
+static void seq_split_set_right_hold_offset(Scene *scene, Sequence *seq, int timeline_frame)
 {
   /* Adjust within range of extended stillframes before strip. */
   if (timeline_frame < seq->start) {
     seq->startstill = seq->start - timeline_frame;
   }
   /* Adjust within range of strip contents. */
-  else if ((timeline_frame >= seq->start) && (timeline_frame <= (seq->start + seq->len))) {
+  else if ((timeline_frame >= seq->start) &&
+           (timeline_frame <= (seq->start + SEQ_time_strip_length_get(scene, seq)))) {
     seq->anim_startofs += timeline_frame - seq->start;
     seq->start = timeline_frame;
     seq->startstill = 0;
     seq->startofs = 0;
   }
   /* Adjust within range of extended stillframes after strip. */
-  else if ((seq->start + seq->len) < timeline_frame) {
+  else if ((seq->start + SEQ_time_strip_length_get(scene, seq)) < timeline_frame) {
     seq->start = timeline_frame;
     seq->startofs = 0;
-    seq->anim_startofs += seq->len - 1;
+    seq->anim_startofs += SEQ_time_strip_length_get(scene, seq) - 1;
     seq->endstill = seq->enddisp - timeline_frame - 1;
     seq->startstill = 0;
   }
 }
 
-static void seq_split_set_right_offset(Sequence *seq, int timeline_frame)
+static void seq_split_set_right_offset(Scene *scene, Sequence *seq, int timeline_frame)
 {
   /* Adjust within range of extended stillframes before strip. */
   if (timeline_frame < seq->start) {
     seq->start = timeline_frame - 1;
     seq->startstill = timeline_frame - seq->startdisp - 1;
-    seq->endofs = seq->len - 1;
+    seq->endofs = SEQ_time_strip_length_get(scene, seq) - 1;
   }
   /* Adjust within range of extended stillframes after strip. */
-  else if ((seq->start + seq->len) < timeline_frame) {
+  else if ((seq->start + SEQ_time_strip_length_get(scene, seq)) < timeline_frame) {
     seq->endstill -= seq->enddisp - timeline_frame;
   }
-  SEQ_transform_set_right_handle_frame(seq, timeline_frame);
+  SEQ_transform_set_right_handle_frame(scene, seq, timeline_frame);
 }
 
-static void seq_split_set_left_offset(Sequence *seq, int timeline_frame)
+static void seq_split_set_left_offset(Scene *scene, Sequence *seq, int timeline_frame)
 {
   /* Adjust within range of extended stillframes before strip. */
   if (timeline_frame < seq->start) {
     seq->startstill = seq->start - timeline_frame;
   }
   /* Adjust within range of extended stillframes after strip. */
-  if ((seq->start + seq->len) < timeline_frame) {
-    seq->start = timeline_frame - seq->len + 1;
+  if ((seq->start + SEQ_time_strip_length_get(scene, seq)) < timeline_frame) {
+    seq->start = timeline_frame - SEQ_time_strip_length_get(scene, seq) + 1;
     seq->endstill = seq->enddisp - timeline_frame - 1;
   }
-  SEQ_transform_set_left_handle_frame(seq, timeline_frame);
+  SEQ_transform_set_left_handle_frame(scene, seq, timeline_frame);
 }
 
 /**
@@ -379,12 +381,12 @@ Sequence *SEQ_edit_strip_split(Main *bmain,
 
   switch (method) {
     case SEQ_SPLIT_SOFT:
-      seq_split_set_left_offset(right_seq, timeline_frame);
-      seq_split_set_right_offset(left_seq, timeline_frame);
+      seq_split_set_left_offset(scene, right_seq, timeline_frame);
+      seq_split_set_right_offset(scene, left_seq, timeline_frame);
       break;
     case SEQ_SPLIT_HARD:
-      seq_split_set_right_hold_offset(left_seq, timeline_frame);
-      seq_split_set_left_hold_offset(right_seq, timeline_frame);
+      seq_split_set_right_hold_offset(scene, left_seq, timeline_frame);
+      seq_split_set_left_hold_offset(scene, right_seq, timeline_frame);
       SEQ_add_reload_new_file(bmain, scene, left_seq, false);
       SEQ_add_reload_new_file(bmain, scene, right_seq, false);
       break;

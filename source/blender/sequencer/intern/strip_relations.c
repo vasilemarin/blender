@@ -45,6 +45,7 @@
 #include "SEQ_relations.h"
 #include "SEQ_sequencer.h"
 #include "SEQ_time.h"
+#include "SEQ_transform.h"
 
 #include "effects.h"
 #include "image_cache.h"
@@ -504,4 +505,23 @@ void SEQ_relations_check_uuids_unique_and_report(const Scene *scene)
   SEQ_ALL_END;
 
   BLI_gset_free(used_uuids, NULL);
+}
+
+void SEQ_relations_framechange_update(Scene *scene, Sequence *seq)
+{
+  const int frame_end = seq->enddisp;
+  SEQ_time_update_sequence(scene, seq);
+  SEQ_relations_invalidate_cache_preprocessed(scene, seq);
+  SEQ_transform_set_right_handle_frame(scene, seq, frame_end);
+  SEQ_time_update_sequence(scene, seq);
+}
+
+void SEQ_relations_framechange_update_recursive(Scene *scene, const ListBase *seqbase)
+{
+  LISTBASE_FOREACH (Sequence *, seq, seqbase) {
+    if (seq->type == SEQ_TYPE_META) {
+      SEQ_relations_framechange_update_recursive(scene, &seq->seqbase);
+    }
+    SEQ_relations_framechange_update(scene, seq);
+  }
 }

@@ -791,12 +791,19 @@ static void draw_sequence_extensions_overlay(Scene *scene, Sequence *seq, uint p
   }
   if (seq->endofs) {
     immUniformColor4ubv(col);
-    immRectf(pos, x2, y2 + pixely, (float)(seq->start + seq->len), y2 + SEQ_STRIP_OFSBOTTOM);
+    immRectf(pos,
+             x2,
+             y2 + pixely,
+             (float)(seq->start + SEQ_time_strip_length_get(scene, seq)),
+             y2 + SEQ_STRIP_OFSBOTTOM);
 
     /* Outline. */
     immUniformColor3ubv(blend_col);
-    imm_draw_box_wire_2d(
-        pos, x2, y2 + pixely, (float)(seq->start + seq->len), y2 + SEQ_STRIP_OFSBOTTOM);
+    imm_draw_box_wire_2d(pos,
+                         x2,
+                         y2 + pixely,
+                         (float)(seq->start + SEQ_time_strip_length_get(scene, seq)),
+                         y2 + SEQ_STRIP_OFSBOTTOM);
   }
   GPU_blend(GPU_BLEND_NONE);
 }
@@ -872,9 +879,9 @@ static void draw_seq_background(Scene *scene,
   /* Draw the main strip body. */
   if (is_single_image) {
     immRectf(pos,
-             SEQ_transform_get_left_handle_frame(seq, false),
+             SEQ_transform_get_left_handle_frame(scene, seq, false),
              y1,
-             SEQ_transform_get_right_handle_frame(seq, false),
+             SEQ_transform_get_right_handle_frame(scene, seq, false),
              y2);
   }
   else {
@@ -890,7 +897,8 @@ static void draw_seq_background(Scene *scene,
       immRectf(pos, seq->startdisp, y1, (float)(seq->start), y2);
     }
     if (seq->endstill) {
-      immRectf(pos, (float)(seq->start + seq->len), y1, seq->enddisp, y2);
+      immRectf(
+          pos, (float)(seq->start + SEQ_time_strip_length_get(scene, seq)), y1, seq->enddisp, y2);
     }
   }
 
@@ -1104,7 +1112,7 @@ static void draw_seq_strip(const bContext *C,
   /* Draw strip body. */
   x1 = (seq->startstill) ? seq->start : seq->startdisp;
   y1 = seq->machine + SEQ_STRIP_OFSBOTTOM;
-  x2 = (seq->endstill) ? (seq->start + seq->len) : seq->enddisp;
+  x2 = (seq->endstill) ? (seq->start + SEQ_time_strip_length_get(scene, seq)) : seq->enddisp;
   y2 = seq->machine + SEQ_STRIP_OFSTOP;
 
   float text_margin_y;
@@ -2009,7 +2017,8 @@ static void draw_seq_strips(const bContext *C, Editing *ed, ARegion *region)
       if (min_ii(seq->startdisp, seq->start) > v2d->cur.xmax) {
         continue;
       }
-      if (max_ii(seq->enddisp, seq->start + seq->len) < v2d->cur.xmin) {
+      if (max_ii(seq->enddisp, seq->start + SEQ_time_strip_length_get(scene, seq)) <
+          v2d->cur.xmin) {
         continue;
       }
       if (seq->machine + 1.0f < v2d->cur.ymin) {

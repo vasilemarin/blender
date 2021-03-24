@@ -300,13 +300,14 @@ static int sequencer_snap_exec(bContext *C, wmOperator *op)
       }
       else {
         if (seq->flag & SEQ_LEFTSEL) {
-          SEQ_transform_set_left_handle_frame(seq, snap_frame);
+          SEQ_transform_set_left_handle_frame(scene, seq, snap_frame);
         }
         else { /* SEQ_RIGHTSEL */
-          SEQ_transform_set_right_handle_frame(seq, snap_frame);
+          SEQ_transform_set_right_handle_frame(scene, seq, snap_frame);
         }
-        SEQ_transform_handle_xlimits(seq, seq->flag & SEQ_LEFTSEL, seq->flag & SEQ_RIGHTSEL);
-        SEQ_transform_fix_single_image_seq_offsets(seq);
+        SEQ_transform_handle_xlimits(
+            scene, seq, seq->flag & SEQ_LEFTSEL, seq->flag & SEQ_RIGHTSEL);
+        SEQ_transform_fix_single_image_seq_offsets(scene, seq);
       }
       SEQ_time_update_sequence(scene, seq);
     }
@@ -1789,12 +1790,12 @@ static int sequencer_separate_images_exec(bContext *C, wmOperator *op)
       /* if (seq->ipo) id_us_min(&seq->ipo->id); */
       /* XXX, remove fcurve and assign to split image strips */
 
-      start_ofs = timeline_frame = SEQ_transform_get_left_handle_frame(seq, false);
-      frame_end = SEQ_transform_get_right_handle_frame(seq, false);
+      start_ofs = timeline_frame = SEQ_transform_get_left_handle_frame(scene, seq, false);
+      frame_end = SEQ_transform_get_right_handle_frame(scene, seq, false);
 
       while (timeline_frame < frame_end) {
         /* New seq. */
-        se = SEQ_render_give_stripelem(seq, timeline_frame);
+        se = SEQ_render_give_stripelem(scene, seq, timeline_frame);
 
         seq_new = SEQ_sequence_dupli_recursive(
             scene, scene, ed->seqbasep, seq, SEQ_DUPE_UNIQUE_NAME);
@@ -2296,7 +2297,7 @@ static int sequencer_rendersize_exec(bContext *C, wmOperator *UNUSED(op))
   if (active_seq->strip) {
     switch (active_seq->type) {
       case SEQ_TYPE_IMAGE:
-        se = SEQ_render_give_stripelem(active_seq, scene->r.cfra);
+        se = SEQ_render_give_stripelem(scene, active_seq, scene->r.cfra);
         break;
       case SEQ_TYPE_MOVIE:
         se = active_seq->strip->stripdata;
@@ -2531,7 +2532,7 @@ static int sequencer_swap_data_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (SEQ_edit_sequence_swap(seq_act, seq_other, &error_msg) == 0) {
+  if (SEQ_edit_sequence_swap(scene, seq_act, seq_other, &error_msg) == 0) {
     BKE_report(op->reports, RPT_ERROR, error_msg);
     return OPERATOR_CANCELLED;
   }
@@ -3203,7 +3204,7 @@ static int sequencer_strip_transform_fit_exec(bContext *C, wmOperator *op)
   for (seq = ed->seqbasep->first; seq; seq = seq->next) {
     if (seq->flag & SELECT && seq->type != SEQ_TYPE_SOUND_RAM) {
       const int timeline_frame = CFRA;
-      StripElem *strip_elem = SEQ_render_give_stripelem(seq, timeline_frame);
+      StripElem *strip_elem = SEQ_render_give_stripelem(scene, seq, timeline_frame);
 
       if (strip_elem == NULL) {
         continue;

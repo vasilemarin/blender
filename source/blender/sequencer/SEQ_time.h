@@ -45,7 +45,7 @@ int SEQ_time_find_next_prev_edit(struct Scene *scene,
 void SEQ_time_update_sequence(struct Scene *scene, struct Sequence *seq);
 void SEQ_time_update_sequence_bounds(struct Scene *scene, struct Sequence *seq);
 int SEQ_time_cmp_time_startdisp(const void *a, const void *b);
-
+int SEQ_time_strip_length_get(const struct Scene *scene, const struct Sequence *seq);
 #ifdef __cplusplus
 }
 #endif

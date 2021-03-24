@@ -1554,6 +1554,11 @@ class SEQUENCER_PT_time(SequencerButtonsPanel, Panel):
         max_length = max(len(x) for x in length_list)
         max_factor = (1.9 - max_length) / 30
 
+        split = layout.split(factor=0.5 + max_factor)
+        split.label(text="Playback Rate")
+        split.prop(strip, "playback_rate", text="")
+
+
         layout.enabled = not strip.lock
         layout.active = not strip.mute
 

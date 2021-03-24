@@ -172,7 +172,8 @@ typedef struct SeqCacheKey {
 } SeqCacheKey;
 
 static ThreadMutex cache_create_lock = BLI_MUTEX_INITIALIZER;
-static float seq_cache_timeline_frame_to_frame_index(Sequence *seq,
+static float seq_cache_timeline_frame_to_frame_index(Scene *scene,
+                                                     Sequence *seq,
                                                      float timeline_frame,
                                                      int type);
 static float seq_cache_frame_index_to_timeline_frame(Sequence *seq, float frame_index);
@@ -758,13 +759,16 @@ static bool seq_cache_hashcmp(const void *a_, const void *b_)
           seq_cmp_render_data(&a->context, &b->context));
 }
 
-static float seq_cache_timeline_frame_to_frame_index(Sequence *seq, float timeline_frame, int type)
+static float seq_cache_timeline_frame_to_frame_index(Scene *scene,
+                                                     Sequence *seq,
+                                                     float timeline_frame,
+                                                     int type)
 {
   /* With raw images, map timeline_frame to strip input media frame range. This means that static
    * images or extended frame range of movies will only generate one cache entry. No special
    * treatment in converting frame index to timeline_frame is needed. */
   if (type == SEQ_CACHE_STORE_RAW) {
-    return seq_give_frame_index(seq, timeline_frame);
+    return seq_give_frame_index(scene, seq, timeline_frame);
   }
 
   return timeline_frame - seq->start;
@@ -1147,7 +1151,8 @@ static void seq_cache_populate_key(SeqCacheKey *key,
   key->cache_owner = seq_cache_get_from_scene(context->scene);
   key->seq = seq;
   key->context = *context;
-  key->frame_index = seq_cache_timeline_frame_to_frame_index(seq, timeline_frame, type);
+  key->frame_index = seq_cache_timeline_frame_to_frame_index(
+      context->scene, seq, timeline_frame, type);
   key->timeline_frame = timeline_frame;
   key->type = type;
   key->link_prev = NULL;
@@ -1187,7 +1192,7 @@ void seq_cache_free_temp_cache(Scene *scene, short id, int timeline_frame)
     if (key->is_temp_cache && key->task_id == id) {
       /* Use frame_index here to avoid freeing raw images if they are used for multiple frames. */
       float frame_index = seq_cache_timeline_frame_to_frame_index(
-          key->seq, timeline_frame, key->type);
+          scene, key->seq, timeline_frame, key->type);
       if (frame_index != key->frame_index || timeline_frame > key->seq->enddisp ||
           timeline_frame < key->seq->startdisp) {
         BLI_ghash_remove(cache->hash, key, seq_cache_keyfree, seq_cache_valfree);

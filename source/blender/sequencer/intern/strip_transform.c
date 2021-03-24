@@ -43,33 +43,33 @@ static int seq_tx_get_start(Sequence *seq)
 {
   return seq->start;
 }
-static int seq_tx_get_end(Sequence *seq)
+static int seq_tx_get_end(Scene *scene, Sequence *seq)
 {
-  return seq->start + seq->len;
+  return seq->start + SEQ_time_strip_length_get(scene, seq);
 }
 
-int SEQ_transform_get_left_handle_frame(Sequence *seq, bool metaclip)
+int SEQ_transform_get_left_handle_frame(Scene *scene, Sequence *seq, bool metaclip)
 {
   if (metaclip && seq->tmp) {
     /* return the range clipped by the parents range */
-    return max_ii(SEQ_transform_get_left_handle_frame(seq, false),
-                  SEQ_transform_get_left_handle_frame((Sequence *)seq->tmp, true));
+    return max_ii(SEQ_transform_get_left_handle_frame(scene, seq, false),
+                  SEQ_transform_get_left_handle_frame(scene, (Sequence *)seq->tmp, true));
   }
 
   return (seq->start - seq->startstill) + seq->startofs;
 }
-int SEQ_transform_get_right_handle_frame(Sequence *seq, bool metaclip)
+int SEQ_transform_get_right_handle_frame(Scene *scene, Sequence *seq, bool metaclip)
 {
   if (metaclip && seq->tmp) {
     /* return the range clipped by the parents range */
-    return min_ii(SEQ_transform_get_right_handle_frame(seq, false),
-                  SEQ_transform_get_right_handle_frame((Sequence *)seq->tmp, true));
+    return min_ii(SEQ_transform_get_right_handle_frame(scene, seq, false),
+                  SEQ_transform_get_right_handle_frame(scene, (Sequence *)seq->tmp, true));
   }
 
-  return ((seq->start + seq->len) + seq->endstill) - seq->endofs;
+  return ((seq->start + SEQ_time_strip_length_get(scene, seq)) + seq->endstill) - seq->endofs;
 }
 
-void SEQ_transform_set_left_handle_frame(Sequence *seq, int val)
+void SEQ_transform_set_left_handle_frame(Scene *UNUSED(scene), Sequence *seq, int val)
 {
   if (val < (seq)->start) {
     seq->startstill = abs(val - (seq)->start);
@@ -81,14 +81,14 @@ void SEQ_transform_set_left_handle_frame(Sequence *seq, int val)
   }
 }
 
-void SEQ_transform_set_right_handle_frame(Sequence *seq, int val)
+void SEQ_transform_set_right_handle_frame(Scene *scene, Sequence *seq, int val)
 {
-  if (val > (seq)->start + (seq)->len) {
-    seq->endstill = abs(val - (seq->start + (seq)->len));
+  if (val > seq->start + SEQ_time_strip_length_get(scene, seq)) {
+    seq->endstill = abs(val - (seq->start + SEQ_time_strip_length_get(scene, seq)));
     seq->endofs = 0;
   }
   else {
-    seq->endofs = abs(val - ((seq)->start + (seq)->len));
+    seq->endofs = abs(val - (seq->start + SEQ_time_strip_length_get(scene, seq)));
     seq->endstill = 0;
   }
 }
@@ -148,18 +148,18 @@ bool SEQ_transform_seqbase_isolated_sel_check(ListBase *seqbase)
  * Use to impose limits when dragging/extending - so impossible situations don't happen.
  * Cant use the #SEQ_LEFTSEL and #SEQ_LEFTSEL directly because the strip may be in a meta-strip.
  */
-void SEQ_transform_handle_xlimits(Sequence *seq, int leftflag, int rightflag)
+void SEQ_transform_handle_xlimits(Scene *scene, Sequence *seq, int leftflag, int rightflag)
 {
   if (leftflag) {
-    if (SEQ_transform_get_left_handle_frame(seq, false) >=
-        SEQ_transform_get_right_handle_frame(seq, false)) {
-      SEQ_transform_set_left_handle_frame(seq,
-                                          SEQ_transform_get_right_handle_frame(seq, false) - 1);
+    if (SEQ_transform_get_left_handle_frame(scene, seq, false) >=
+        SEQ_transform_get_right_handle_frame(scene, seq, false)) {
+      SEQ_transform_set_left_handle_frame(
+          scene, seq, SEQ_transform_get_right_handle_frame(scene, seq, false) - 1);
     }
 
     if (SEQ_transform_single_image_check(seq) == 0) {
-      if (SEQ_transform_get_left_handle_frame(seq, false) >= seq_tx_get_end(seq)) {
-        SEQ_transform_set_left_handle_frame(seq, seq_tx_get_end(seq) - 1);
+      if (SEQ_transform_get_left_handle_frame(scene, seq, false) >= seq_tx_get_end(scene, seq)) {
+        SEQ_transform_set_left_handle_frame(scene, seq, seq_tx_get_end(scene, seq) - 1);
       }
 
       /* doesn't work now - TODO */
@@ -175,15 +175,15 @@ void SEQ_transform_handle_xlimits(Sequence *seq, int leftflag, int rightflag)
   }
 
   if (rightflag) {
-    if (SEQ_transform_get_right_handle_frame(seq, false) <=
-        SEQ_transform_get_left_handle_frame(seq, false)) {
-      SEQ_transform_set_right_handle_frame(seq,
-                                           SEQ_transform_get_left_handle_frame(seq, false) + 1);
+    if (SEQ_transform_get_right_handle_frame(scene, seq, false) <=
+        SEQ_transform_get_left_handle_frame(scene, seq, false)) {
+      SEQ_transform_set_right_handle_frame(
+          scene, seq, SEQ_transform_get_left_handle_frame(scene, seq, false) + 1);
     }
 
     if (SEQ_transform_single_image_check(seq) == 0) {
-      if (SEQ_transform_get_right_handle_frame(seq, false) <= seq_tx_get_start(seq)) {
-        SEQ_transform_set_right_handle_frame(seq, seq_tx_get_start(seq) + 1);
+      if (SEQ_transform_get_right_handle_frame(scene, seq, false) <= seq_tx_get_start(seq)) {
+        SEQ_transform_set_right_handle_frame(scene, seq, seq_tx_get_start(seq) + 1);
       }
     }
   }
@@ -195,7 +195,7 @@ void SEQ_transform_handle_xlimits(Sequence *seq, int leftflag, int rightflag)
   }
 }
 
-void SEQ_transform_fix_single_image_seq_offsets(Sequence *seq)
+void SEQ_transform_fix_single_image_seq_offsets(Scene *scene, Sequence *seq)
 {
   int left, start, offset;
   if (!SEQ_transform_single_image_check(seq)) {
@@ -204,14 +204,14 @@ void SEQ_transform_fix_single_image_seq_offsets(Sequence *seq)
 
   /* make sure the image is always at the start since there is only one,
    * adjusting its start should be ok */
-  left = SEQ_transform_get_left_handle_frame(seq, false);
+  left = SEQ_transform_get_left_handle_frame(scene, seq, false);
   start = seq->start;
   if (start != left) {
     offset = left - start;
-    SEQ_transform_set_left_handle_frame(seq,
-                                        SEQ_transform_get_left_handle_frame(seq, false) - offset);
+    SEQ_transform_set_left_handle_frame(
+        scene, seq, SEQ_transform_get_left_handle_frame(scene, seq, false) - offset);
     SEQ_transform_set_right_handle_frame(
-        seq, SEQ_transform_get_right_handle_frame(seq, false) - offset);
+        scene, seq, SEQ_transform_get_right_handle_frame(scene, seq, false) - offset);
     seq->start += offset;
   }
 }

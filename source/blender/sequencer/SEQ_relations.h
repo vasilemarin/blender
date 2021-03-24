@@ -65,6 +65,10 @@ void SEQ_cache_iterate(
     void *userdata,
     bool callback_init(void *userdata, size_t item_count),
     bool callback_iter(void *userdata, struct Sequence *seq, int timeline_frame, int cache_type));
+void SEQ_relations_framechange_update(struct Scene *scene, struct Sequence *seq);
+void SEQ_relations_framechange_update_recursive(struct Scene *scene,
+                                                const struct ListBase *seqbase);
+
 #ifdef __cplusplus
 }
 #endif

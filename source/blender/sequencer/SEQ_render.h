@@ -77,7 +77,9 @@ void SEQ_render_new_render_data(struct Main *bmain,
                                 int for_render,
                                 SeqRenderData *r_context);
 int SEQ_render_evaluate_frame(struct ListBase *seqbase, int timeline_frame);
-struct StripElem *SEQ_render_give_stripelem(struct Sequence *seq, int timeline_frame);
+struct StripElem *SEQ_render_give_stripelem(const struct Scene *scene,
+                                            struct Sequence *seq,
+                                            int timeline_frame);
 
 void SEQ_render_imbuf_from_sequencer_space(struct Scene *scene, struct ImBuf *ibuf);
 void SEQ_render_pixel_from_sequencer_space_v4(struct Scene *scene, float pixel[4]);

@@ -245,6 +245,10 @@ typedef struct Sequence {
   int cache_flag;
   int _pad2[3];
 
+  /* Playback rate of strip content in frames per second. */
+  float playback_rate;
+  float _pad3;
+
   SequenceRuntime runtime;
 } Sequence;
 
