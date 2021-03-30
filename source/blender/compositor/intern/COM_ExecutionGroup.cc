@@ -107,6 +107,7 @@ bool ExecutionGroup::addOperation(NodeOperation *operation)
       operation->get_flags().single_threaded) {
     m_flags.complex = operation->get_flags().complex;
     m_flags.open_cl = operation->get_flags().open_cl;
+    m_flags.single_threaded = operation->get_flags().single_threaded;
     m_flags.initialized = true;
   }
 
