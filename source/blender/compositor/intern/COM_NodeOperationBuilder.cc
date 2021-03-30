@@ -490,6 +490,11 @@ void NodeOperationBuilder::add_output_buffers(NodeOperation *operation,
   }
 
   WriteBufferOperation *writeOperation = nullptr;
+  if (operation->get_flags().is_write_buffer_operation) {
+    writeOperation = static_cast<WriteBufferOperation *>(operation);
+    writeOperation->setbNodeTree(m_context->getbNodeTree());
+  }
+
   for (NodeOperationInput *target : targets) {
     /* try to find existing write buffer operation */
     if (target->getOperation().get_flags().is_write_buffer_operation) {

@@ -21,10 +21,9 @@
 
 namespace blender::compositor {
 
-GlareBaseOperation::GlareBaseOperation()
+GlareBaseOperation::GlareBaseOperation() : SingleThreadedOperation(DataType::Color)
 {
   this->addInputSocket(DataType::Color);
-  this->addOutputSocket(DataType::Color);
   this->m_settings = nullptr;
 }
 void GlareBaseOperation::initExecution()
@@ -39,7 +38,7 @@ void GlareBaseOperation::deinitExecution()
   SingleThreadedOperation::deinitExecution();
 }
 
-MemoryBuffer *GlareBaseOperation::createMemoryBuffer(rcti *rect2)
+MemoryBuffer GlareBaseOperation::createMemoryBuffer(rcti *rect2)
 {
   MemoryBuffer *tile = (MemoryBuffer *)this->m_inputProgram->initializeTileData(rect2);
   rcti rect;
@@ -47,8 +46,8 @@ MemoryBuffer *GlareBaseOperation::createMemoryBuffer(rcti *rect2)
   rect.ymin = 0;
   rect.xmax = getWidth();
   rect.ymax = getHeight();
-  MemoryBuffer *result = new MemoryBuffer(DataType::Color, rect);
-  float *data = result->getBuffer();
+  MemoryBuffer result(DataType::Color, rect);
+  float *data = result.getBuffer();
   this->generateGlare(data, tile, this->m_settings);
   return result;
 }
@@ -57,7 +56,7 @@ bool GlareBaseOperation::determineDependingAreaOfInterest(rcti * /*input*/,
                                                           ReadBufferOperation *readOperation,
                                                           rcti *output)
 {
-  if (isCached()) {
+  if (is_executed()) {
     return false;
   }
 

@@ -18,27 +18,22 @@
 
 #pragma once
 
-#include "COM_NodeOperation.h"
+#include "COM_WriteBufferOperation.h"
 
 namespace blender::compositor {
 
-class SingleThreadedOperation : public NodeOperation {
+class SingleThreadedOperation : public WriteBufferOperation {
  private:
-  MemoryBuffer *m_cachedInstance;
+  bool executed = false;
 
  protected:
-  inline bool isCached()
+  bool is_executed()
   {
-    return this->m_cachedInstance != nullptr;
+    return executed;
   }
 
  public:
-  SingleThreadedOperation();
-
-  /**
-   * The inner loop of this operation.
-   */
-  void executePixel(float output[4], int x, int y, void *data) override;
+  SingleThreadedOperation(DataType data_type);
 
   /**
    * Initialize the execution
@@ -50,9 +45,9 @@ class SingleThreadedOperation : public NodeOperation {
    */
   void deinitExecution() override;
 
-  void *initializeTileData(rcti *rect) override;
+  void executeRegion(rcti *rect, unsigned int tile_number) override;
 
-  virtual MemoryBuffer *createMemoryBuffer(rcti *rect) = 0;
+  virtual MemoryBuffer createMemoryBuffer(rcti *rect) = 0;
 };
 
 }  // namespace blender::compositor

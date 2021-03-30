@@ -73,7 +73,7 @@ class GlareBaseOperation : public SingleThreadedOperation {
 
   virtual void generateGlare(float *data, MemoryBuffer *inputTile, NodeGlare *settings) = 0;
 
-  MemoryBuffer *createMemoryBuffer(rcti *rect) override;
+  MemoryBuffer createMemoryBuffer(rcti *rect) override;
 };
 
 }  // namespace blender::compositor

@@ -28,12 +28,11 @@ static pthread_mutex_t oidn_lock = BLI_MUTEX_INITIALIZER;
 
 namespace blender::compositor {
 
-DenoiseOperation::DenoiseOperation()
+DenoiseOperation::DenoiseOperation() : SingleThreadedOperation(DataType::Color)
 {
   this->addInputSocket(DataType::Color);
   this->addInputSocket(DataType::Vector);
   this->addInputSocket(DataType::Color);
-  this->addOutputSocket(DataType::Color);
   this->m_settings = nullptr;
 }
 void DenoiseOperation::initExecution()
@@ -52,7 +51,7 @@ void DenoiseOperation::deinitExecution()
   SingleThreadedOperation::deinitExecution();
 }
 
-MemoryBuffer *DenoiseOperation::createMemoryBuffer(rcti *rect2)
+MemoryBuffer DenoiseOperation::createMemoryBuffer(rcti *rect2)
 {
   MemoryBuffer *tileColor = (MemoryBuffer *)this->m_inputProgramColor->initializeTileData(rect2);
   MemoryBuffer *tileNormal = (MemoryBuffer *)this->m_inputProgramNormal->initializeTileData(rect2);
@@ -62,8 +61,8 @@ MemoryBuffer *DenoiseOperation::createMemoryBuffer(rcti *rect2)
   rect.ymin = 0;
   rect.xmax = getWidth();
   rect.ymax = getHeight();
-  MemoryBuffer *result = new MemoryBuffer(DataType::Color, rect);
-  float *data = result->getBuffer();
+  MemoryBuffer result(DataType::Color, rect);
+  float *data = result.getBuffer();
   this->generateDenoise(data, tileColor, tileNormal, tileAlbedo, this->m_settings);
   return result;
 }
@@ -72,7 +71,7 @@ bool DenoiseOperation::determineDependingAreaOfInterest(rcti * /*input*/,
                                                         ReadBufferOperation *readOperation,
                                                         rcti *output)
 {
-  if (isCached()) {
+  if (is_executed()) {
     return false;
   }
 

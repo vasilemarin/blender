@@ -20,44 +20,42 @@
 
 namespace blender::compositor {
 
-SingleThreadedOperation::SingleThreadedOperation()
+SingleThreadedOperation::SingleThreadedOperation(DataType data_type)
+    : WriteBufferOperation(data_type, false)
 {
-  this->m_cachedInstance = nullptr;
+  addOutputSocket(data_type);
   flags.complex = true;
   flags.single_threaded = true;
 }
 
 void SingleThreadedOperation::initExecution()
 {
+  WriteBufferOperation::initExecution();
   initMutex();
-}
-
-void SingleThreadedOperation::executePixel(float output[4], int x, int y, void * /*data*/)
-{
-  this->m_cachedInstance->readNoCheck(output, x, y);
 }
 
 void SingleThreadedOperation::deinitExecution()
 {
+  WriteBufferOperation::deinitExecution();
   deinitMutex();
-  if (this->m_cachedInstance) {
-    delete this->m_cachedInstance;
-    this->m_cachedInstance = nullptr;
-  }
 }
-void *SingleThreadedOperation::initializeTileData(rcti *rect)
+
+void SingleThreadedOperation::executeRegion(rcti *rect, unsigned int UNUSED(tile_number))
 {
-  if (this->m_cachedInstance) {
-    return this->m_cachedInstance;
+  if (executed) {
+    return;
+  }
+  lockMutex();
+  if (executed) {
+    return;
   }
 
-  lockMutex();
-  if (this->m_cachedInstance == nullptr) {
-    //
-    this->m_cachedInstance = createMemoryBuffer(rect);
-  }
+  MemoryBuffer buffer = createMemoryBuffer(rect);
+  MemoryBuffer *memory_buffer = getMemoryProxy()->getBuffer();
+  memory_buffer->fill_from(buffer);
+
   unlockMutex();
-  return this->m_cachedInstance;
+  executed = true;
 }
 
 }  // namespace blender::compositor

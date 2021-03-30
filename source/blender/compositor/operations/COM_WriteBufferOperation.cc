@@ -23,9 +23,11 @@
 
 namespace blender::compositor {
 
-WriteBufferOperation::WriteBufferOperation(DataType datatype)
+WriteBufferOperation::WriteBufferOperation(DataType datatype, bool add_input)
 {
-  this->addInputSocket(datatype);
+  if (add_input) {
+    this->addInputSocket(datatype);
+  }
   this->m_memoryProxy = new MemoryProxy(datatype);
   this->m_memoryProxy->setWriteBufferOperation(this);
   this->m_memoryProxy->setExecutor(nullptr);

@@ -36,7 +36,7 @@ class WriteBufferOperation : public NodeOperation {
   NodeOperation *m_input;
 
  public:
-  WriteBufferOperation(DataType datatype);
+  WriteBufferOperation(DataType datatype, bool add_input = true);
   ~WriteBufferOperation();
   MemoryProxy *getMemoryProxy()
   {

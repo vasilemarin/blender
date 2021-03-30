@@ -102,11 +102,11 @@ bool ExecutionGroup::addOperation(NodeOperation *operation)
     return false;
   }
 
-  if (!operation->get_flags().is_read_buffer_operation &&
-      !operation->get_flags().is_write_buffer_operation) {
+  if ((!operation->get_flags().is_read_buffer_operation &&
+       !operation->get_flags().is_write_buffer_operation) ||
+      operation->get_flags().single_threaded) {
     m_flags.complex = operation->get_flags().complex;
     m_flags.open_cl = operation->get_flags().open_cl;
-    m_flags.single_threaded = operation->get_flags().single_threaded;
     m_flags.initialized = true;
   }
 
