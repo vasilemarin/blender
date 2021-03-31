@@ -179,24 +179,77 @@ static void init_execution_groups_for_execution(blender::Vector<ExecutionGroup *
   }
 }
 
+/**
+ * Link all work packages with the work packages they depend on.
+ */
+static void link_work_packages(blender::Vector<ExecutionGroup *> &groups)
+{
+  for (ExecutionGroup *group : groups) {
+    for (WorkPackage &work_package : group->get_work_packages()) {
+      for (ReadBufferOperation *read_operation : group->get_read_buffer_operations()) {
+        rcti area = {0};
+        group->getOutputOperation()->determineDependingAreaOfInterest(
+            &work_package.rect, read_operation, &area);
+        ExecutionGroup *parent = read_operation->getMemoryProxy()->getExecutor();
+        parent->link_child_work_packages(&work_package, &area);
+      }
+    }
+  }
+}
+
+static void schedule_root_work_packages(blender::Vector<ExecutionGroup *> &groups)
+{
+  for (ExecutionGroup *group : groups) {
+    for (WorkPackage &work_package : group->get_work_packages()) {
+      if (work_package.parents.size() == 0) {
+        WorkScheduler::schedule(&work_package);
+      }
+    }
+  }
+}
+
+static void update_output_groups(blender::Vector<ExecutionGroup *> &groups, const bNodeTree *btree)
+{
+  for (ExecutionGroup *group : groups) {
+    if (group->get_flags().is_output) {
+      group->set_btree(btree);
+    }
+  }
+}
+
 void ExecutionSystem::execute()
 {
   const bNodeTree *editingtree = this->m_context.getbNodeTree();
   editingtree->stats_draw(editingtree->sdh, TIP_("Compositing | Initializing execution"));
 
   DebugInfo::execute_started(this);
-  update_read_buffer_offset(m_operations);
 
+  update_read_buffer_offset(m_operations);
   init_write_operations_for_execution(m_operations, m_context.getbNodeTree());
   link_write_buffers(m_operations);
   init_non_write_operations_for_execution(m_operations, m_context.getbNodeTree());
   init_execution_groups_for_execution(m_groups, m_context.getChunksize());
+  link_work_packages(m_groups);
 
   WorkScheduler::start(this->m_context);
-  execute_groups(CompositorPriority::High);
-  if (!this->getContext().isFastCalculation()) {
-    execute_groups(CompositorPriority::Medium);
-    execute_groups(CompositorPriority::Low);
+  editingtree->stats_draw(editingtree->sdh, TIP_("Compositing | Started"));
+  switch (COM_SCHEDULING_MODE) {
+    case eSchedulingMode::InputToOutput: {
+      /* TODO: Mark work_packages with priorities and use this when scheduling. Only schedule when
+       * priority match and not waiting on any parents. */
+      update_output_groups(m_groups, m_context.getbNodeTree());
+      /* TODO: move inside execute groups. */
+      schedule_root_work_packages(m_groups);
+      break;
+    }
+    case eSchedulingMode::OutputToInput: {
+      execute_groups(CompositorPriority::High);
+      if (!this->getContext().isFastCalculation()) {
+        execute_groups(CompositorPriority::Medium);
+        execute_groups(CompositorPriority::Low);
+      }
+      break;
+    }
   }
   WorkScheduler::finish();
   WorkScheduler::stop();

@@ -432,6 +432,12 @@ static void threading_model_task_stop()
 
 void WorkScheduler::schedule(WorkPackage *package)
 {
+  // TODO: race condition..... we should add a mutex to the work package.
+  if (package->state != eChunkExecutionState::NotScheduled) {
+    return;
+  }
+  package->state = eChunkExecutionState::Scheduled;
+
   if (COM_is_opencl_enabled()) {
     if (opencl_schedule(package)) {
       return;

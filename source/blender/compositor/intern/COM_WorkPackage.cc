@@ -18,6 +18,58 @@
 
 #include "COM_WorkPackage.h"
 
+#include "COM_ExecutionGroup.h"
+
 namespace blender::compositor {
+
+std::string WorkPackage::str(int indent) const
+{
+  std::stringstream result;
+  for (int i = 0; i < indent; i++) {
+    result << " ";
+  }
+  result << *this;
+  for (WorkPackage *child : children) {
+    result << "\n";
+    for (int i = 0; i < indent + 1; i++) {
+      result << " ";
+    }
+    result << *child;
+  }
+  return result.str();
+}
+
+// TODO: Move to `COM_enum_types.cc`
+static std::ostream &operator<<(std::ostream &os, const eChunkExecutionState &execution_state)
+{
+  switch (execution_state) {
+    case eChunkExecutionState::NotScheduled: {
+      os << "ExecutionState::NotScheduled";
+      break;
+    }
+    case eChunkExecutionState::Scheduled: {
+      os << "ExecutionState::Scheduled";
+      break;
+    }
+    case eChunkExecutionState::Executed: {
+      os << "ExecutionState::Executed";
+      break;
+    }
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const WorkPackage &work_package)
+{
+  os << "WorkPackage(execution_group=" << *work_package.execution_group;
+  os << ",chunk=" << work_package.chunk_number;
+  os << ",state=" << work_package.state;
+  os << ",parents=[" << work_package.num_parents << "/" << work_package.parents.size() << "]";
+  os << ",children=" << work_package.children.size();
+  os << ",rect=(" << work_package.rect.xmin << "," << work_package.rect.ymin << ")-("
+     << work_package.rect.xmax << "," << work_package.rect.ymax << ")";
+  os << ")";
+  return os;
+}
 
 }  // namespace blender::compositor

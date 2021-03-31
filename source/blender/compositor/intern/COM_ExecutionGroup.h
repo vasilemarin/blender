@@ -71,7 +71,11 @@ struct ExecutionGroupFlags {
     open_cl = false;
     single_threaded = false;
   }
+
+  std::string str() const;
 };
+
+std::ostream &operator<<(std::ostream &os, const ExecutionGroupFlags &flags);
 
 /**
  * \brief Class ExecutionGroup is a group of Operations that are executed as one.
@@ -82,6 +86,10 @@ struct ExecutionGroupFlags {
 class ExecutionGroup {
  private:
   // fields
+  /**
+   * Id of the execution group. For debugging purposes.
+   */
+  int m_id;
 
   /**
    * \brief list of operations in this ExecutionGroup
@@ -142,7 +150,7 @@ class ExecutionGroup {
   /**
    * \brief total number of chunks that have been calculated for this ExecutionGroup
    */
-  unsigned int m_chunks_finished;
+  unsigned int m_chunks_finished = 0;
 
   /**
    * \brief m_work_packages holds all unit of work.
@@ -191,25 +199,7 @@ class ExecutionGroup {
    * true: package(s) are scheduled
    * false: scheduling is deferred (depending workpackages are scheduled)
    */
-  bool scheduleChunkWhenPossible(ExecutionSystem *graph, const int chunk_x, const int chunk_y);
-
-  /**
-   * \brief try to schedule a specific area.
-   * \note Check if a certain area is available, when not available this are will be checked.
-   * \note This method is called from other ExecutionGroup's.
-   * \param graph:
-   * \param area:
-   * \return [true:false]
-   * true: package(s) are scheduled
-   * false: scheduling is deferred (depending workpackages are scheduled)
-   */
-  bool scheduleAreaWhenPossible(ExecutionSystem *graph, rcti *area);
-
-  /**
-   * \brief add a chunk to the WorkScheduler.
-   * \param chunknumber:
-   */
-  bool scheduleChunk(unsigned int chunkNumber);
+  bool scheduleChunkWhenPossible(ExecutionSystem *graph, WorkPackage &work_package);
 
   /**
    * \brief determine the area of interest of a certain input area
@@ -232,7 +222,17 @@ class ExecutionGroup {
 
  public:
   // constructors
-  ExecutionGroup();
+  ExecutionGroup(int id);
+
+  int get_id() const
+  {
+    return m_id;
+  }
+
+  void set_btree(const bNodeTree *btree)
+  {
+    m_bTree = btree;
+  }
 
   const ExecutionGroupFlags get_flags() const
   {
@@ -388,6 +388,18 @@ class ExecutionGroup {
 
   void setRenderBorder(float xmin, float xmax, float ymin, float ymax);
 
+  blender::Vector<ReadBufferOperation *> &get_read_buffer_operations()
+  {
+    return m_read_operations;
+  }
+
+  blender::Vector<WorkPackage> &get_work_packages()
+  {
+    return m_work_packages;
+  }
+
+  void link_child_work_packages(WorkPackage *child, rcti *area);
+
   /* allow the DebugInfo class to look at internals */
   friend class DebugInfo;
 
@@ -395,5 +407,7 @@ class ExecutionGroup {
   MEM_CXX_CLASS_ALLOC_FUNCS("COM:ExecutionGroup")
 #endif
 };
+
+std::ostream &operator<<(std::ostream &os, const ExecutionGroup &execution_group);
 
 }  // namespace blender::compositor

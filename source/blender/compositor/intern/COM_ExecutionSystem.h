@@ -134,6 +134,7 @@ class ExecutionSystem {
   /**
    * \brief vector of groups
    */
+  /* TODO(jbakker): `blender::Vector<ExecutionGroup>` */
   blender::Vector<ExecutionGroup *> m_groups;
 
  private:  // methods
