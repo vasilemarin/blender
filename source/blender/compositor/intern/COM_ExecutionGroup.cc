@@ -162,6 +162,7 @@ void ExecutionGroup::init_work_packages()
     m_work_packages.resize(this->m_chunks_len);
     for (unsigned int index = 0; index < m_chunks_len; index++) {
       m_work_packages[index].state = eChunkExecutionState::NotScheduled;
+      m_work_packages[index].priority = CompositorPriority::Unset;
       m_work_packages[index].execution_group = this;
       m_work_packages[index].chunk_number = index;
       determineChunkRect(&m_work_packages[index].rect, index);
@@ -432,8 +433,8 @@ void ExecutionGroup::finalizeChunkExecution(int chunkNumber, MemoryBuffer **memo
   WorkPackage &work_package = m_work_packages[chunkNumber];
   for (WorkPackage *child : work_package.children) {
     if (child->parent_finished()) {
-      if (COM_SCHEDULING_MODE == eSchedulingMode::InputToOutput) {
-        /* TODO: Do not schedule lower priority children. */
+      if (COM_SCHEDULING_MODE == eSchedulingMode::InputToOutput &&
+          child->priority != CompositorPriority::Unset) {
         WorkScheduler::schedule(child);
       }
     }

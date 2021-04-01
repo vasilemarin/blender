@@ -35,7 +35,7 @@ class ExecutionGroup;
  */
 struct WorkPackage {
   eChunkExecutionState state = eChunkExecutionState::NotScheduled;
-
+  CompositorPriority priority = CompositorPriority::Unset;
   /**
    * \brief executionGroup with the operations-setup to be evaluated
    */

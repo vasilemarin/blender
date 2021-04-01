@@ -59,11 +59,35 @@ static std::ostream &operator<<(std::ostream &os, const eChunkExecutionState &ex
   return os;
 }
 
+static std::ostream &operator<<(std::ostream &os, const CompositorPriority &priority)
+{
+  switch (priority) {
+    case CompositorPriority::High: {
+      os << "Priority::High";
+      break;
+    }
+    case CompositorPriority::Medium: {
+      os << "Priority::Medium";
+      break;
+    }
+    case CompositorPriority::Low: {
+      os << "Priority::Low";
+      break;
+    }
+    case CompositorPriority::Unset: {
+      os << "Priority::Unset";
+      break;
+    }
+  }
+  return os;
+}
+
 std::ostream &operator<<(std::ostream &os, const WorkPackage &work_package)
 {
   os << "WorkPackage(execution_group=" << *work_package.execution_group;
   os << ",chunk=" << work_package.chunk_number;
   os << ",state=" << work_package.state;
+  os << ",priority=" << work_package.priority;
   os << ",parents=[" << work_package.num_parents << "/" << work_package.parents.size() << "]";
   os << ",children=" << work_package.children.size();
   os << ",rect=(" << work_package.rect.xmin << "," << work_package.rect.ymin << ")-("

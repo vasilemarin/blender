@@ -201,19 +201,37 @@ static void schedule_root_work_packages(blender::Vector<ExecutionGroup *> &group
 {
   for (ExecutionGroup *group : groups) {
     for (WorkPackage &work_package : group->get_work_packages()) {
-      if (work_package.parents.size() == 0) {
+      if (work_package.state != eChunkExecutionState::NotScheduled) {
+        continue;
+      }
+      if (work_package.priority == CompositorPriority::Unset) {
+        continue;
+      }
+      if (work_package.num_parents == 0) {
         WorkScheduler::schedule(&work_package);
       }
     }
   }
 }
 
-static void update_output_groups(blender::Vector<ExecutionGroup *> &groups, const bNodeTree *btree)
+static void mark_priority(WorkPackage &work_package, CompositorPriority priority)
 {
-  for (ExecutionGroup *group : groups) {
-    if (group->get_flags().is_output) {
-      group->set_btree(btree);
-    }
+  if (work_package.state != eChunkExecutionState::NotScheduled) {
+    return;
+  }
+  if (work_package.priority != CompositorPriority::Unset) {
+    return;
+  }
+  work_package.priority = priority;
+  for (WorkPackage *parent : work_package.parents) {
+    mark_priority(*parent, priority);
+  }
+}
+
+static void mark_priority(blender::Vector<WorkPackage> &work_packages, CompositorPriority priority)
+{
+  for (WorkPackage &work_package : work_packages) {
+    mark_priority(work_package, priority);
   }
 }
 
@@ -233,23 +251,10 @@ void ExecutionSystem::execute()
 
   WorkScheduler::start(this->m_context);
   editingtree->stats_draw(editingtree->sdh, TIP_("Compositing | Started"));
-  switch (COM_SCHEDULING_MODE) {
-    case eSchedulingMode::InputToOutput: {
-      /* TODO: Mark work_packages with priorities and use this when scheduling. Only schedule when
-       * priority match and not waiting on any parents. */
-      update_output_groups(m_groups, m_context.getbNodeTree());
-      /* TODO: move inside execute groups. */
-      schedule_root_work_packages(m_groups);
-      break;
-    }
-    case eSchedulingMode::OutputToInput: {
-      execute_groups(CompositorPriority::High);
-      if (!this->getContext().isFastCalculation()) {
-        execute_groups(CompositorPriority::Medium);
-        execute_groups(CompositorPriority::Low);
-      }
-      break;
-    }
+  execute_groups(CompositorPriority::High);
+  if (!this->getContext().isFastCalculation()) {
+    execute_groups(CompositorPriority::Medium);
+    execute_groups(CompositorPriority::Low);
   }
   WorkScheduler::finish();
   WorkScheduler::stop();
@@ -267,10 +272,27 @@ void ExecutionSystem::execute()
 
 void ExecutionSystem::execute_groups(CompositorPriority priority)
 {
-  for (ExecutionGroup *execution_group : m_groups) {
-    if (execution_group->get_flags().is_output &&
-        execution_group->getRenderPriority() == priority) {
-      execution_group->execute(this);
+  switch (COM_SCHEDULING_MODE) {
+    case eSchedulingMode::InputToOutput: {
+      const bNodeTree *bnodetree = this->m_context.getbNodeTree();
+      for (ExecutionGroup *execution_group : m_groups) {
+        if (execution_group->get_flags().is_output &&
+            execution_group->getRenderPriority() == priority) {
+          execution_group->set_btree(bnodetree);
+          mark_priority(execution_group->get_work_packages(), priority);
+        }
+      }
+      schedule_root_work_packages(m_groups);
+      break;
+    }
+    case eSchedulingMode::OutputToInput: {
+      for (ExecutionGroup *execution_group : m_groups) {
+        if (execution_group->get_flags().is_output &&
+            execution_group->getRenderPriority() == priority) {
+          execution_group->execute(this);
+        }
+      }
+      break;
     }
   }
 }

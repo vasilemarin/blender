@@ -77,6 +77,8 @@ enum class CompositorPriority {
   Medium = 1,
   /** \brief Low quality setting */
   Low = 0,
+  /** No priority set. Is used to mark WorkPackages that aren't used. */
+  Unset = -1,
 };
 
 enum class eSchedulingMode {
