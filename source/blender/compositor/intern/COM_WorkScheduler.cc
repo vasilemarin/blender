@@ -79,7 +79,7 @@ static struct {
     /** \brief list of all CPUDevices. for every hardware thread an instance of CPUDevice is
      * created
      */
-    blender::Vector<CPUDevice> devices;
+    Vector<CPUDevice> devices;
 
     /** \brief list of all thread for every CPUDevice in cpudevices a thread exists. */
     ListBase threads;
@@ -98,7 +98,7 @@ static struct {
     cl_program program;
     /** \brief list of all OpenCLDevices. for every OpenCL GPU device an instance of OpenCLDevice
      * is created. */
-    blender::Vector<OpenCLDevice> devices;
+    Vector<OpenCLDevice> devices;
     /** \brief list of all thread for every GPUDevice in cpudevices a thread exists. */
     ListBase threads;
     /** \brief all scheduled work for the GPU. */
@@ -446,10 +446,10 @@ void WorkScheduler::schedule(WorkPackage *package)
     return;
   }
   // TODO: race condition..... we should add a mutex to the work package.
-  if (package->state != eChunkExecutionState::NotScheduled) {
+  if (package->state != eWorkPackageState::NotScheduled) {
     return;
   }
-  package->state = eChunkExecutionState::Scheduled;
+  package->state = eWorkPackageState::Scheduled;
 
   if (COM_is_opencl_enabled()) {
     if (opencl_schedule(package)) {

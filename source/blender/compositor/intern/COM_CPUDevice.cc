@@ -35,7 +35,7 @@ void CPUDevice::execute(WorkPackage *work_package)
 
   executionGroup->getOutputOperation()->executeRegion(&work_package->rect, chunkNumber);
   executionGroup->finalizeChunkExecution(chunkNumber, nullptr);
-  work_package->state = eChunkExecutionState::Executed;
+  work_package->state = eWorkPackageState::Executed;
 }
 
 }  // namespace blender::compositor

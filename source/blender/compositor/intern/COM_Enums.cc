@@ -20,22 +20,22 @@
 
 namespace blender::compositor {
 
-std::ostream &operator<<(std::ostream &os, const CompositorPriority &priority)
+std::ostream &operator<<(std::ostream &os, const eCompositorPriority &priority)
 {
   switch (priority) {
-    case CompositorPriority::High: {
+    case eCompositorPriority::High: {
       os << "Priority::High";
       break;
     }
-    case CompositorPriority::Medium: {
+    case eCompositorPriority::Medium: {
       os << "Priority::Medium";
       break;
     }
-    case CompositorPriority::Low: {
+    case eCompositorPriority::Low: {
       os << "Priority::Low";
       break;
     }
-    case CompositorPriority::Unset: {
+    case eCompositorPriority::Unset: {
       os << "Priority::Unset";
       break;
     }
@@ -43,18 +43,18 @@ std::ostream &operator<<(std::ostream &os, const CompositorPriority &priority)
   return os;
 }
 
-std::ostream &operator<<(std::ostream &os, const eChunkExecutionState &execution_state)
+std::ostream &operator<<(std::ostream &os, const eWorkPackageState &execution_state)
 {
   switch (execution_state) {
-    case eChunkExecutionState::NotScheduled: {
+    case eWorkPackageState::NotScheduled: {
       os << "ExecutionState::NotScheduled";
       break;
     }
-    case eChunkExecutionState::Scheduled: {
+    case eWorkPackageState::Scheduled: {
       os << "ExecutionState::Scheduled";
       break;
     }
-    case eChunkExecutionState::Executed: {
+    case eWorkPackageState::Executed: {
       os << "ExecutionState::Executed";
       break;
     }
