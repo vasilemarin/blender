@@ -28,33 +28,10 @@ SingleThreadedOperation::SingleThreadedOperation(DataType data_type)
   flags.single_threaded = true;
 }
 
-void SingleThreadedOperation::initExecution()
-{
-  WriteBufferOperation::initExecution();
-  initMutex();
-}
-
-void SingleThreadedOperation::deinitExecution()
-{
-  WriteBufferOperation::deinitExecution();
-  deinitMutex();
-}
-
 void SingleThreadedOperation::executeRegion(rcti *rect, unsigned int UNUSED(tile_number))
 {
-  if (executed) {
-    return;
-  }
-  lockMutex();
-  if (executed) {
-    return;
-  }
-
   MemoryBuffer *memory_buffer = getMemoryProxy()->getBuffer();
   update_memory_buffer(*memory_buffer, rect);
-
-  unlockMutex();
-  executed = true;
 }
 
 }  // namespace blender::compositor

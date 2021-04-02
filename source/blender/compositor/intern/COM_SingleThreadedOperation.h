@@ -23,27 +23,8 @@
 namespace blender::compositor {
 
 class SingleThreadedOperation : public WriteBufferOperation {
- private:
-  bool executed = false;
-
- protected:
-  bool is_executed()
-  {
-    return executed;
-  }
-
  public:
   SingleThreadedOperation(DataType data_type);
-
-  /**
-   * Initialize the execution
-   */
-  void initExecution() override;
-
-  /**
-   * Deinitialize the execution
-   */
-  void deinitExecution() override;
 
   void executeRegion(rcti *rect, unsigned int tile_number) override;
 

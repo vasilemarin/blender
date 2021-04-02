@@ -64,10 +64,6 @@ bool DenoiseOperation::determineDependingAreaOfInterest(rcti * /*input*/,
                                                         ReadBufferOperation *readOperation,
                                                         rcti *output)
 {
-  if (is_executed()) {
-    return false;
-  }
-
   rcti newInput;
   newInput.xmax = this->getWidth();
   newInput.xmin = 0;
