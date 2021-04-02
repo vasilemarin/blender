@@ -38,18 +38,10 @@ void GlareBaseOperation::deinitExecution()
   SingleThreadedOperation::deinitExecution();
 }
 
-MemoryBuffer GlareBaseOperation::createMemoryBuffer(rcti *rect2)
+void GlareBaseOperation::update_memory_buffer(MemoryBuffer &memory_buffer, rcti *rect2)
 {
   MemoryBuffer *tile = (MemoryBuffer *)this->m_inputProgram->initializeTileData(rect2);
-  rcti rect;
-  rect.xmin = 0;
-  rect.ymin = 0;
-  rect.xmax = getWidth();
-  rect.ymax = getHeight();
-  MemoryBuffer result(DataType::Color, rect);
-  float *data = result.getBuffer();
-  this->generateGlare(data, tile, this->m_settings);
-  return result;
+  this->generateGlare(memory_buffer.getBuffer(), tile, this->m_settings);
 }
 
 bool GlareBaseOperation::determineDependingAreaOfInterest(rcti * /*input*/,

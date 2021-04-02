@@ -64,7 +64,7 @@ class DenoiseOperation : public SingleThreadedOperation {
                        MemoryBuffer *inputTileAlbedo,
                        NodeDenoise *settings);
 
-  MemoryBuffer createMemoryBuffer(rcti *rect) override;
+  void update_memory_buffer(MemoryBuffer&memory_buffer, rcti *rect) override;
 };
 
 }  // namespace blender::compositor

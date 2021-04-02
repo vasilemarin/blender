@@ -191,7 +191,6 @@ static void link_work_packages(blender::Vector<ExecutionGroup *> &groups)
         group->getOutputOperation()->determineDependingAreaOfInterest(
             &work_package.rect, read_operation, &area);
         ExecutionGroup *parent = read_operation->getMemoryProxy()->getExecutor();
-        std::cout << *group << "->" << *parent << "\n";
         parent->link_child_work_packages(&work_package, &area);
       }
     }

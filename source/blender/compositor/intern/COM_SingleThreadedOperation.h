@@ -47,7 +47,7 @@ class SingleThreadedOperation : public WriteBufferOperation {
 
   void executeRegion(rcti *rect, unsigned int tile_number) override;
 
-  virtual MemoryBuffer createMemoryBuffer(rcti *rect) = 0;
+  virtual void update_memory_buffer(MemoryBuffer &memory_buffer, rcti *rect) = 0;
 };
 
 }  // namespace blender::compositor

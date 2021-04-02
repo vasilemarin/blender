@@ -250,6 +250,7 @@ struct NodeOperationFlags {
  */
 class NodeOperation {
  private:
+  std::string m_name;
   blender::Vector<NodeOperationInput> m_inputs;
   blender::Vector<NodeOperationOutput> m_outputs;
 
@@ -293,6 +294,16 @@ class NodeOperation {
  public:
   virtual ~NodeOperation()
   {
+  }
+
+  void set_name(const std::string name)
+  {
+    m_name = name;
+  }
+
+  const std::string get_name() const
+  {
+    return m_name;
   }
 
   const NodeOperationFlags get_flags() const

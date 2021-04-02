@@ -51,20 +51,13 @@ void DenoiseOperation::deinitExecution()
   SingleThreadedOperation::deinitExecution();
 }
 
-MemoryBuffer DenoiseOperation::createMemoryBuffer(rcti *rect2)
+void DenoiseOperation::update_memory_buffer(MemoryBuffer &memory_buffer, rcti *rect2)
 {
   MemoryBuffer *tileColor = (MemoryBuffer *)this->m_inputProgramColor->initializeTileData(rect2);
   MemoryBuffer *tileNormal = (MemoryBuffer *)this->m_inputProgramNormal->initializeTileData(rect2);
   MemoryBuffer *tileAlbedo = (MemoryBuffer *)this->m_inputProgramAlbedo->initializeTileData(rect2);
-  rcti rect;
-  rect.xmin = 0;
-  rect.ymin = 0;
-  rect.xmax = getWidth();
-  rect.ymax = getHeight();
-  MemoryBuffer result(DataType::Color, rect);
-  float *data = result.getBuffer();
-  this->generateDenoise(data, tileColor, tileNormal, tileAlbedo, this->m_settings);
-  return result;
+  this->generateDenoise(
+      memory_buffer.getBuffer(), tileColor, tileNormal, tileAlbedo, this->m_settings);
 }
 
 bool DenoiseOperation::determineDependingAreaOfInterest(rcti * /*input*/,

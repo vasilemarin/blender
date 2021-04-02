@@ -50,9 +50,8 @@ void SingleThreadedOperation::executeRegion(rcti *rect, unsigned int UNUSED(tile
     return;
   }
 
-  MemoryBuffer buffer = createMemoryBuffer(rect);
   MemoryBuffer *memory_buffer = getMemoryProxy()->getBuffer();
-  memory_buffer->fill_from(buffer);
+  update_memory_buffer(*memory_buffer, rect);
 
   unlockMutex();
   executed = true;

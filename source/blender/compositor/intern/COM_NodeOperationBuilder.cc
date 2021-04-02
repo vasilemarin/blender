@@ -125,6 +125,9 @@ void NodeOperationBuilder::convertToOperations(ExecutionSystem *system)
 void NodeOperationBuilder::addOperation(NodeOperation *operation)
 {
   m_operations.append(operation);
+  if (m_current_node) {
+    operation->set_name(m_current_node->getbNode()->name);
+  }
 }
 
 void NodeOperationBuilder::mapInputSocket(NodeInput *node_socket,

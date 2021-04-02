@@ -259,6 +259,9 @@ std::ostream &operator<<(std::ostream &os, const NodeOperation &node_operation)
 {
   NodeOperationFlags flags = node_operation.get_flags();
   os << "NodeOperation(";
+  if (!node_operation.get_name().empty()) {
+    os << "name=" << node_operation.get_name() << ",";
+  }
   os << "flags={" << flags << "},";
   if (flags.is_read_buffer_operation) {
     const ReadBufferOperation *read_operation = (const ReadBufferOperation *)&node_operation;
