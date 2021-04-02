@@ -594,4 +594,7 @@ class NodeOperation {
 #endif
 };
 
+std::ostream &operator<<(std::ostream &os, const NodeOperationFlags &node_operation_flags);
+std::ostream &operator<<(std::ostream &os, const NodeOperation &node_operation);
+
 }  // namespace blender::compositor

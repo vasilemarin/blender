@@ -23,6 +23,7 @@
 #include "COM_defines.h"
 
 #include "COM_NodeOperation.h" /* own include */
+#include "COM_ReadBufferOperation.h"
 
 namespace blender::compositor {
 
@@ -209,4 +210,68 @@ void NodeOperationOutput::determineResolution(unsigned int resolution[2],
   }
 }
 
+std::ostream &operator<<(std::ostream &os, const NodeOperationFlags &node_operation_flags)
+{
+  if (node_operation_flags.complex) {
+    os << "complex,";
+  }
+  if (node_operation_flags.open_cl) {
+    os << "open_cl,";
+  }
+  if (node_operation_flags.single_threaded) {
+    os << "single_threaded,";
+  }
+  if (node_operation_flags.use_render_border) {
+    os << "render_border,";
+  }
+  if (node_operation_flags.use_viewer_border) {
+    os << "view_border,";
+  }
+  if (node_operation_flags.is_resolution_set) {
+    os << "resolution_set,";
+  }
+  if (node_operation_flags.is_set_operation) {
+    os << "set_operation,";
+  }
+  if (node_operation_flags.is_write_buffer_operation) {
+    os << "write_buffer,";
+  }
+  if (node_operation_flags.is_read_buffer_operation) {
+    os << "read_buffer,";
+  }
+  if (node_operation_flags.is_proxy_operation) {
+    os << "proxy,";
+  }
+  if (node_operation_flags.is_viewer_operation) {
+    os << "viewer,";
+  }
+  if (node_operation_flags.is_preview_operation) {
+    os << "preview,";
+  }
+  if (!node_operation_flags.use_datatype_conversion) {
+    os << "no_conversion,";
+  }
+
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const NodeOperation &node_operation)
+{
+  NodeOperationFlags flags = node_operation.get_flags();
+  os << "NodeOperation(";
+  os << "flags={" << flags << "},";
+  if (flags.is_read_buffer_operation) {
+    const ReadBufferOperation *read_operation = (const ReadBufferOperation *)&node_operation;
+    const MemoryProxy *proxy = read_operation->getMemoryProxy();
+    if (proxy) {
+      const WriteBufferOperation *write_operation = proxy->getWriteBufferOperation();
+      if (write_operation) {
+        os << "write=" << (NodeOperation &)*write_operation << ",";
+      }
+    }
+  }
+  os << ")";
+
+  return os;
+}
 }  // namespace blender::compositor

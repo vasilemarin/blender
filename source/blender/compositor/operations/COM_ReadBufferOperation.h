@@ -37,7 +37,7 @@ class ReadBufferOperation : public NodeOperation {
   {
     this->m_memoryProxy = memoryProxy;
   }
-  MemoryProxy *getMemoryProxy()
+  MemoryProxy *getMemoryProxy() const
   {
     return this->m_memoryProxy;
   }

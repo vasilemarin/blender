@@ -91,8 +91,10 @@ ExecutionGroup::ExecutionGroup(int id)
 
 std::ostream &operator<<(std::ostream &os, const ExecutionGroup &execution_group)
 {
-  os << "ExecutionGroup(id=" << execution_group.get_id()
-     << ",flags=" << execution_group.get_flags() << ")";
+  os << "ExecutionGroup(id=" << execution_group.get_id();
+  os << ",flags={" << execution_group.get_flags() << "}";
+  os << ",operation=" << *execution_group.getOutputOperation() << "";
+  os << ")";
   return os;
 }
 

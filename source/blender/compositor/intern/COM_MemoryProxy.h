@@ -88,7 +88,7 @@ class MemoryProxy {
    * \brief get the WriteBufferOperation that is responsible for writing to this MemoryProxy
    * \return WriteBufferOperation
    */
-  WriteBufferOperation *getWriteBufferOperation()
+  WriteBufferOperation *getWriteBufferOperation() const
   {
     return this->m_writeBufferOperation;
   }
