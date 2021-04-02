@@ -270,19 +270,42 @@ void ExecutionSystem::execute()
   }
 }
 
+static bool is_completed(Vector<ExecutionGroup *> &groups)
+{
+  for (ExecutionGroup *group : groups) {
+    for (WorkPackage &work_package : group->get_work_packages()) {
+      if (work_package.state != eChunkExecutionState::Executed) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+static void wait_for_completion(Vector<ExecutionGroup *> &groups)
+{
+  /* Todo: check for break! */
+  while (!is_completed(groups)) {
+    PIL_sleep_ms(100);
+  }
+}
+
 void ExecutionSystem::execute_groups(CompositorPriority priority)
 {
   switch (COM_SCHEDULING_MODE) {
     case eSchedulingMode::InputToOutput: {
       const bNodeTree *bnodetree = this->m_context.getbNodeTree();
+      Vector<ExecutionGroup *> groups;
       for (ExecutionGroup *execution_group : m_groups) {
         if (execution_group->get_flags().is_output &&
             execution_group->getRenderPriority() == priority) {
           execution_group->set_btree(bnodetree);
           mark_priority(execution_group->get_work_packages(), priority);
+          groups.append(execution_group);
         }
       }
       schedule_root_work_packages(m_groups);
+      wait_for_completion(groups);
       break;
     }
     case eSchedulingMode::OutputToInput: {

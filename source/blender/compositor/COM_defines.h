@@ -83,18 +83,18 @@ enum class CompositorPriority {
 
 enum class eSchedulingMode {
   /**
-   * Scheduling mode where inputs (render layers/images) are scheduled and when finished the next
-   * work will be scheduled where all] inputs are finished.
+   * Input based scheduling mode. Scheduling starts from input nodes. When a work package is
+   * finished, other work packages are scheduled where all inputs have been executed..
    */
   InputToOutput,
 
   /**
    * Scheduling mode where outputs are scheduled when all its inputs have been completed. When
-   * inputs aren't completed it tries to schedule these inputs.
+   * inputs aren't completed it tries to schedule these inputs recursivly.
    */
   OutputToInput,
 };
-static constexpr eSchedulingMode COM_SCHEDULING_MODE = eSchedulingMode::InputToOutput;
+static constexpr eSchedulingMode COM_SCHEDULING_MODE = eSchedulingMode::OutputToInput;
 
 /**
  * \brief the execution state of a chunk in an ExecutionGroup
