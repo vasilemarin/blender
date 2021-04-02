@@ -71,8 +71,6 @@ struct ExecutionGroupFlags {
     open_cl = false;
     single_threaded = false;
   }
-
-  std::string str() const;
 };
 
 std::ostream &operator<<(std::ostream &os, const ExecutionGroupFlags &flags);
