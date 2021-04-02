@@ -77,7 +77,24 @@ enum class CompositorPriority {
   Medium = 1,
   /** \brief Low quality setting */
   Low = 0,
+  /** No priority set. Is used to mark WorkPackages that aren't used. */
+  Unset = -1,
 };
+
+enum class eSchedulingMode {
+  /**
+   * Input based scheduling mode. Scheduling starts from input nodes. When a work package is
+   * finished, other work packages are scheduled where all inputs have been executed..
+   */
+  InputToOutput,
+
+  /**
+   * Scheduling mode where outputs are scheduled when all its inputs have been completed. When
+   * inputs aren't completed it tries to schedule these inputs recursivly.
+   */
+  OutputToInput,
+};
+static constexpr eSchedulingMode COM_SCHEDULING_MODE = eSchedulingMode::OutputToInput;
 
 /**
  * \brief the execution state of a chunk in an ExecutionGroup

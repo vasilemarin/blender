@@ -48,8 +48,36 @@
 
 namespace blender::compositor {
 
-ExecutionGroup::ExecutionGroup()
+std::ostream &operator<<(std::ostream &os, const ExecutionGroupFlags &flags)
 {
+  os << flags.str();
+  return os;
+}
+
+std::string ExecutionGroupFlags::str() const
+{
+  std::stringstream ss;
+  if (initialized) {
+    ss << "init,";
+  }
+  if (is_output) {
+    ss << "output,";
+  }
+  if (complex) {
+    ss << "complex,";
+  }
+  if (open_cl) {
+    ss << "open_cl,";
+  }
+  if (single_threaded) {
+    ss << "single_threaded,";
+  }
+  return ss.str();
+}
+
+ExecutionGroup::ExecutionGroup(int id)
+{
+  m_id = id;
   this->m_bTree = nullptr;
   this->m_height = 0;
   this->m_width = 0;
@@ -57,9 +85,15 @@ ExecutionGroup::ExecutionGroup()
   this->m_x_chunks_len = 0;
   this->m_y_chunks_len = 0;
   this->m_chunks_len = 0;
-  this->m_chunks_finished = 0;
   BLI_rcti_init(&this->m_viewerBorder, 0, 0, 0, 0);
   this->m_executionStartTime = 0;
+}
+
+std::ostream &operator<<(std::ostream &os, const ExecutionGroup &execution_group)
+{
+  os << "ExecutionGroup(id=" << execution_group.get_id()
+     << ",flags=" << execution_group.get_flags() << ")";
+  return os;
 }
 
 CompositorPriority ExecutionGroup::getRenderPriority()
@@ -129,6 +163,7 @@ void ExecutionGroup::init_work_packages()
     m_work_packages.resize(this->m_chunks_len);
     for (unsigned int index = 0; index < m_chunks_len; index++) {
       m_work_packages[index].state = eChunkExecutionState::NotScheduled;
+      m_work_packages[index].priority = CompositorPriority::Unset;
       m_work_packages[index].execution_group = this;
       m_work_packages[index].chunk_number = index;
       determineChunkRect(&m_work_packages[index].rect, index);
@@ -291,6 +326,7 @@ blender::Array<unsigned int> ExecutionGroup::get_execution_order() const
  * this method is called for the top execution groups. containing the compositor node or the
  * preview node or the viewer node)
  */
+/* TODO: Move to execution system. Might need to split... */
 void ExecutionGroup::execute(ExecutionSystem *graph)
 {
   const CompositorContext &context = graph->getContext();
@@ -330,12 +366,10 @@ void ExecutionGroup::execute(ExecutionSystem *graph)
          index < this->m_chunks_len && numberEvaluated < maxNumberEvaluated;
          index++) {
       chunk_index = chunk_order[index];
-      int yChunk = chunk_index / this->m_x_chunks_len;
-      int xChunk = chunk_index - (yChunk * this->m_x_chunks_len);
-      const WorkPackage &work_package = m_work_packages[chunk_index];
+      WorkPackage &work_package = m_work_packages[chunk_index];
       switch (work_package.state) {
         case eChunkExecutionState::NotScheduled: {
-          scheduleChunkWhenPossible(graph, xChunk, yChunk);
+          scheduleChunkWhenPossible(graph, work_package);
           finished = false;
           startEvaluated = true;
           numberEvaluated++;
@@ -398,11 +432,15 @@ MemoryBuffer *ExecutionGroup::constructConsolidatedMemoryBuffer(MemoryProxy &mem
 void ExecutionGroup::finalizeChunkExecution(int chunkNumber, MemoryBuffer **memoryBuffers)
 {
   WorkPackage &work_package = m_work_packages[chunkNumber];
-  if (work_package.state == eChunkExecutionState::Scheduled) {
-    work_package.state = eChunkExecutionState::Executed;
+  for (WorkPackage *child : work_package.children) {
+    if (child->parent_finished()) {
+      if (COM_SCHEDULING_MODE == eSchedulingMode::InputToOutput &&
+          child->priority != CompositorPriority::Unset) {
+        WorkScheduler::schedule(child);
+      }
+    }
   }
 
-  atomic_add_and_fetch_u(&this->m_chunks_finished, 1);
   if (memoryBuffers) {
     for (unsigned int index = 0; index < this->m_max_read_buffer_offset; index++) {
       MemoryBuffer *buffer = memoryBuffers[index];
@@ -416,6 +454,7 @@ void ExecutionGroup::finalizeChunkExecution(int chunkNumber, MemoryBuffer **memo
     MEM_freeN(memoryBuffers);
   }
   if (this->m_bTree) {
+    atomic_add_and_fetch_u(&this->m_chunks_finished, 1);
     // status report is only performed for top level Execution Groups.
     float progress = this->m_chunks_finished;
     progress /= this->m_chunks_len;
@@ -475,65 +514,9 @@ MemoryBuffer *ExecutionGroup::allocateOutputBuffer(rcti &rect)
   return nullptr;
 }
 
-bool ExecutionGroup::scheduleAreaWhenPossible(ExecutionSystem *graph, rcti *area)
+bool ExecutionGroup::scheduleChunkWhenPossible(ExecutionSystem *graph, WorkPackage &work_package)
 {
-  if (this->m_flags.single_threaded) {
-    return scheduleChunkWhenPossible(graph, 0, 0);
-  }
-  // find all chunks inside the rect
-  // determine minxchunk, minychunk, maxxchunk, maxychunk where x and y are chunknumbers
-
-  int indexx, indexy;
-  int minx = max_ii(area->xmin - m_viewerBorder.xmin, 0);
-  int maxx = min_ii(area->xmax - m_viewerBorder.xmin, m_viewerBorder.xmax - m_viewerBorder.xmin);
-  int miny = max_ii(area->ymin - m_viewerBorder.ymin, 0);
-  int maxy = min_ii(area->ymax - m_viewerBorder.ymin, m_viewerBorder.ymax - m_viewerBorder.ymin);
-  int minxchunk = minx / (int)m_chunkSize;
-  int maxxchunk = (maxx + (int)m_chunkSize - 1) / (int)m_chunkSize;
-  int minychunk = miny / (int)m_chunkSize;
-  int maxychunk = (maxy + (int)m_chunkSize - 1) / (int)m_chunkSize;
-  minxchunk = max_ii(minxchunk, 0);
-  minychunk = max_ii(minychunk, 0);
-  maxxchunk = min_ii(maxxchunk, (int)m_x_chunks_len);
-  maxychunk = min_ii(maxychunk, (int)m_y_chunks_len);
-
-  bool result = true;
-  for (indexx = minxchunk; indexx < maxxchunk; indexx++) {
-    for (indexy = minychunk; indexy < maxychunk; indexy++) {
-      if (!scheduleChunkWhenPossible(graph, indexx, indexy)) {
-        result = false;
-      }
-    }
-  }
-
-  return result;
-}
-
-bool ExecutionGroup::scheduleChunk(unsigned int chunkNumber)
-{
-  WorkPackage &work_package = m_work_packages[chunkNumber];
-  if (work_package.state == eChunkExecutionState::NotScheduled) {
-    work_package.state = eChunkExecutionState::Scheduled;
-    WorkScheduler::schedule(&work_package);
-    return true;
-  }
-  return false;
-}
-
-bool ExecutionGroup::scheduleChunkWhenPossible(ExecutionSystem *graph,
-                                               const int chunk_x,
-                                               const int chunk_y)
-{
-  if (chunk_x < 0 || chunk_x >= (int)this->m_x_chunks_len) {
-    return true;
-  }
-  if (chunk_y < 0 || chunk_y >= (int)this->m_y_chunks_len) {
-    return true;
-  }
-
   // Check if chunk is already executed or scheduled and not yet executed.
-  const int chunk_index = chunk_y * this->m_x_chunks_len + chunk_x;
-  WorkPackage &work_package = m_work_packages[chunk_index];
   if (work_package.state == eChunkExecutionState::Executed) {
     return true;
   }
@@ -542,21 +525,14 @@ bool ExecutionGroup::scheduleChunkWhenPossible(ExecutionSystem *graph,
   }
 
   bool can_be_executed = true;
-  rcti area;
-
-  for (ReadBufferOperation *read_operation : m_read_operations) {
-    BLI_rcti_init(&area, 0, 0, 0, 0);
-    MemoryProxy *memory_proxy = read_operation->getMemoryProxy();
-    determineDependingAreaOfInterest(&work_package.rect, read_operation, &area);
-    ExecutionGroup *group = memory_proxy->getExecutor();
-
-    if (!group->scheduleAreaWhenPossible(graph, &area)) {
+  for (WorkPackage *parent : work_package.parents) {
+    if (!parent->execution_group->scheduleChunkWhenPossible(graph, *parent)) {
       can_be_executed = false;
     }
   }
 
   if (can_be_executed) {
-    scheduleChunk(chunk_index);
+    WorkScheduler::schedule(&work_package);
   }
 
   return false;
@@ -567,6 +543,22 @@ void ExecutionGroup::determineDependingAreaOfInterest(rcti *input,
                                                       rcti *output)
 {
   this->getOutputOperation()->determineDependingAreaOfInterest(input, readOperation, output);
+}
+
+void ExecutionGroup::link_child_work_packages(WorkPackage *child, rcti *area)
+{
+  for (WorkPackage &work_package : m_work_packages) {
+    rcti isect;
+    if (!BLI_rcti_isect(&work_package.rect, area, &isect)) {
+      continue;
+    }
+
+    // TODO(jbakker): `BLI_rcti_isect` assumes inclusive. we use exclusive. added area check to
+    // counteract this.
+    if (BLI_rcti_size_x(&isect) * BLI_rcti_size_y(&isect) > 0) {
+      work_package.add_child(child);
+    }
+  }
 }
 
 void ExecutionGroup::setViewerBorder(float xmin, float xmax, float ymin, float ymax)

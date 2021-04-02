@@ -66,8 +66,15 @@ constexpr bool COM_is_opencl_enabled()
   return COM_threading_model() != ThreadingModel::SingleThreaded;
 }
 
+enum class eWorkSchedulerState {
+  Idle,
+  Running,
+  Stopping,
+};
+
 static ThreadLocal(CPUDevice *) g_thread_device;
 static struct {
+  eWorkSchedulerState state = eWorkSchedulerState::Idle;
   struct {
     /** \brief list of all CPUDevices. for every hardware thread an instance of CPUDevice is
      * created
@@ -114,13 +121,14 @@ static void CL_CALLBACK clContextError(const char *errinfo,
 
 static void *thread_execute_gpu(void *data)
 {
-  Device *device = (Device *)data;
+  OpenCLDevice *device = (OpenCLDevice *)data;
   WorkPackage *work;
-
-  while ((work = (WorkPackage *)BLI_thread_queue_pop(g_work_scheduler.opencl.queue))) {
-    device->execute(work);
+  while (g_work_scheduler.state == eWorkSchedulerState::Running) {
+    work = (WorkPackage *)BLI_thread_queue_pop(g_work_scheduler.opencl.queue);
+    if (work) {
+      device->execute(work);
+    }
   }
-
   return nullptr;
 }
 
@@ -318,10 +326,12 @@ static void *threading_model_queue_execute(void *data)
   CPUDevice *device = (CPUDevice *)data;
   WorkPackage *work;
   BLI_thread_local_set(g_thread_device, device);
-  while ((work = (WorkPackage *)BLI_thread_queue_pop(g_work_scheduler.queue.queue))) {
-    device->execute(work);
+  while (g_work_scheduler.state == eWorkSchedulerState::Running) {
+    work = (WorkPackage *)BLI_thread_queue_pop(g_work_scheduler.queue.queue);
+    if (work) {
+      device->execute(work);
+    }
   }
-
   return nullptr;
 }
 
@@ -397,7 +407,6 @@ static void threading_model_task_execute(TaskPool *__restrict UNUSED(pool), void
   CPUDevice device(BLI_task_parallel_thread_id(nullptr));
   BLI_thread_local_set(g_thread_device, &device);
   device.execute(package);
-  delete package;
 }
 
 static void threading_model_task_schedule(WorkPackage *package)
@@ -432,6 +441,16 @@ static void threading_model_task_stop()
 
 void WorkScheduler::schedule(WorkPackage *package)
 {
+  BLI_assert(g_work_scheduler.state != eWorkSchedulerState::Idle);
+  if (g_work_scheduler.state == eWorkSchedulerState::Stopping) {
+    return;
+  }
+  // TODO: race condition..... we should add a mutex to the work package.
+  if (package->state != eChunkExecutionState::NotScheduled) {
+    return;
+  }
+  package->state = eChunkExecutionState::Scheduled;
+
   if (COM_is_opencl_enabled()) {
     if (opencl_schedule(package)) {
       return;
@@ -458,6 +477,9 @@ void WorkScheduler::schedule(WorkPackage *package)
 
 void WorkScheduler::start(CompositorContext &context)
 {
+  BLI_assert(g_work_scheduler.state == eWorkSchedulerState::Idle);
+  g_work_scheduler.state = eWorkSchedulerState::Running;
+
   if (COM_is_opencl_enabled()) {
     opencl_start(context);
   }
@@ -479,6 +501,7 @@ void WorkScheduler::start(CompositorContext &context)
 
 void WorkScheduler::finish()
 {
+  BLI_assert(g_work_scheduler.state == eWorkSchedulerState::Running);
   if (COM_is_opencl_enabled()) {
     opencl_finish();
   }
@@ -500,6 +523,8 @@ void WorkScheduler::finish()
 
 void WorkScheduler::stop()
 {
+  BLI_assert(g_work_scheduler.state == eWorkSchedulerState::Running);
+  g_work_scheduler.state = eWorkSchedulerState::Stopping;
   if (COM_is_opencl_enabled()) {
     opencl_stop();
   }
@@ -517,6 +542,7 @@ void WorkScheduler::stop()
       threading_model_task_stop();
       break;
   }
+  g_work_scheduler.state = eWorkSchedulerState::Idle;
 }
 
 bool WorkScheduler::has_gpu_devices()
@@ -529,6 +555,7 @@ bool WorkScheduler::has_gpu_devices()
 
 void WorkScheduler::initialize(bool use_opencl, int num_cpu_threads)
 {
+  g_work_scheduler.state = eWorkSchedulerState::Idle;
   if (COM_is_opencl_enabled()) {
     opencl_initialize(use_opencl);
   }
@@ -550,6 +577,7 @@ void WorkScheduler::initialize(bool use_opencl, int num_cpu_threads)
 
 void WorkScheduler::deinitialize()
 {
+  BLI_assert(g_work_scheduler.state == eWorkSchedulerState::Idle);
   if (COM_is_opencl_enabled()) {
     opencl_deinitialize();
   }

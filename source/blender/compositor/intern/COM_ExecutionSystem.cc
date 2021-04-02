@@ -179,20 +179,78 @@ static void init_execution_groups_for_execution(blender::Vector<ExecutionGroup *
   }
 }
 
+/**
+ * Link all work packages with the work packages they depend on.
+ */
+static void link_work_packages(blender::Vector<ExecutionGroup *> &groups)
+{
+  for (ExecutionGroup *group : groups) {
+    for (WorkPackage &work_package : group->get_work_packages()) {
+      for (ReadBufferOperation *read_operation : group->get_read_buffer_operations()) {
+        rcti area = {0};
+        group->getOutputOperation()->determineDependingAreaOfInterest(
+            &work_package.rect, read_operation, &area);
+        ExecutionGroup *parent = read_operation->getMemoryProxy()->getExecutor();
+        parent->link_child_work_packages(&work_package, &area);
+      }
+    }
+  }
+}
+
+static void schedule_root_work_packages(blender::Vector<ExecutionGroup *> &groups)
+{
+  for (ExecutionGroup *group : groups) {
+    for (WorkPackage &work_package : group->get_work_packages()) {
+      if (work_package.state != eChunkExecutionState::NotScheduled) {
+        continue;
+      }
+      if (work_package.priority == CompositorPriority::Unset) {
+        continue;
+      }
+      if (work_package.num_parents == 0) {
+        WorkScheduler::schedule(&work_package);
+      }
+    }
+  }
+}
+
+static void mark_priority(WorkPackage &work_package, CompositorPriority priority)
+{
+  if (work_package.state != eChunkExecutionState::NotScheduled) {
+    return;
+  }
+  if (work_package.priority != CompositorPriority::Unset) {
+    return;
+  }
+  work_package.priority = priority;
+  for (WorkPackage *parent : work_package.parents) {
+    mark_priority(*parent, priority);
+  }
+}
+
+static void mark_priority(blender::Vector<WorkPackage> &work_packages, CompositorPriority priority)
+{
+  for (WorkPackage &work_package : work_packages) {
+    mark_priority(work_package, priority);
+  }
+}
+
 void ExecutionSystem::execute()
 {
   const bNodeTree *editingtree = this->m_context.getbNodeTree();
   editingtree->stats_draw(editingtree->sdh, TIP_("Compositing | Initializing execution"));
 
   DebugInfo::execute_started(this);
-  update_read_buffer_offset(m_operations);
 
+  update_read_buffer_offset(m_operations);
   init_write_operations_for_execution(m_operations, m_context.getbNodeTree());
   link_write_buffers(m_operations);
   init_non_write_operations_for_execution(m_operations, m_context.getbNodeTree());
   init_execution_groups_for_execution(m_groups, m_context.getChunksize());
+  link_work_packages(m_groups);
 
   WorkScheduler::start(this->m_context);
+  editingtree->stats_draw(editingtree->sdh, TIP_("Compositing | Started"));
   execute_groups(CompositorPriority::High);
   if (!this->getContext().isFastCalculation()) {
     execute_groups(CompositorPriority::Medium);
@@ -212,12 +270,52 @@ void ExecutionSystem::execute()
   }
 }
 
+static bool is_completed(Vector<ExecutionGroup *> &groups)
+{
+  for (ExecutionGroup *group : groups) {
+    for (WorkPackage &work_package : group->get_work_packages()) {
+      if (work_package.state != eChunkExecutionState::Executed) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+static void wait_for_completion(Vector<ExecutionGroup *> &groups)
+{
+  /* Todo: check for break! */
+  while (!is_completed(groups)) {
+    PIL_sleep_ms(100);
+  }
+}
+
 void ExecutionSystem::execute_groups(CompositorPriority priority)
 {
-  for (ExecutionGroup *execution_group : m_groups) {
-    if (execution_group->get_flags().is_output &&
-        execution_group->getRenderPriority() == priority) {
-      execution_group->execute(this);
+  switch (COM_SCHEDULING_MODE) {
+    case eSchedulingMode::InputToOutput: {
+      const bNodeTree *bnodetree = this->m_context.getbNodeTree();
+      Vector<ExecutionGroup *> groups;
+      for (ExecutionGroup *execution_group : m_groups) {
+        if (execution_group->get_flags().is_output &&
+            execution_group->getRenderPriority() == priority) {
+          execution_group->set_btree(bnodetree);
+          mark_priority(execution_group->get_work_packages(), priority);
+          groups.append(execution_group);
+        }
+      }
+      schedule_root_work_packages(m_groups);
+      wait_for_completion(groups);
+      break;
+    }
+    case eSchedulingMode::OutputToInput: {
+      for (ExecutionGroup *execution_group : m_groups) {
+        if (execution_group->get_flags().is_output &&
+            execution_group->getRenderPriority() == priority) {
+          execution_group->execute(this);
+        }
+      }
+      break;
     }
   }
 }
