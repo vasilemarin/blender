@@ -50,29 +50,22 @@ namespace blender::compositor {
 
 std::ostream &operator<<(std::ostream &os, const ExecutionGroupFlags &flags)
 {
-  os << flags.str();
+  if (flags.initialized) {
+    os << "init,";
+  }
+  if (flags.is_output) {
+    os << "output,";
+  }
+  if (flags.complex) {
+    os << "complex,";
+  }
+  if (flags.open_cl) {
+    os << "open_cl,";
+  }
+  if (flags.single_threaded) {
+    os << "single_threaded,";
+  }
   return os;
-}
-
-std::string ExecutionGroupFlags::str() const
-{
-  std::stringstream ss;
-  if (initialized) {
-    ss << "init,";
-  }
-  if (is_output) {
-    ss << "output,";
-  }
-  if (complex) {
-    ss << "complex,";
-  }
-  if (open_cl) {
-    ss << "open_cl,";
-  }
-  if (single_threaded) {
-    ss << "single_threaded,";
-  }
-  return ss.str();
 }
 
 ExecutionGroup::ExecutionGroup(int id)

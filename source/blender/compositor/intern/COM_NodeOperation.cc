@@ -20,6 +20,7 @@
 #include <typeinfo>
 
 #include "COM_ExecutionSystem.h"
+#include "COM_ReadBufferOperation.h"
 #include "COM_defines.h"
 
 #include "COM_NodeOperation.h" /* own include */
@@ -277,4 +278,5 @@ std::ostream &operator<<(std::ostream &os, const NodeOperation &node_operation)
 
   return os;
 }
+
 }  // namespace blender::compositor

@@ -18,12 +18,14 @@
 
 #pragma once
 
-#include "COM_defines.h"
+#include "COM_Enums.h"
 
 #include "BLI_rect.h"
 #include "BLI_vector.hh"
 
 #include "atomic_ops.h"
+
+#include <ostream>
 
 namespace blender::compositor {
 // Forward Declarations.
