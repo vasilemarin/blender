@@ -533,7 +533,7 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
 
   RNA_def_boolean(ot->srna,
                   "generate_preview_surface",
-                  false,
+                  true,
                   "Convert Cycles Node Graph",
                   "When checked, the USD exporter generate an approximate USD Preview Surface. "
                   "(Experimental, only works on simple material graphs)");
@@ -998,13 +998,13 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
   RNA_def_boolean(
       ot->srna,
       "import_usd_preview",
-      false,
+      true,
       "Import USD Preview",
       "When checked, convert UsdPreviewSurface shaders to Principled BSD shader networks.");
 
   RNA_def_boolean(ot->srna,
                   "set_material_blend",
-                  false,
+                  true,
                   "Set Material Blend",
                   "When checked and if the Import Usd Preview option is enabled, "
                   "the material blend method will automatically be set based on the "
