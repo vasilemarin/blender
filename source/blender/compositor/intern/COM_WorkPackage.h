@@ -86,6 +86,6 @@ struct WorkPackage {
 #endif
 };
 
-std::ostream &operator<<(std::ostream &os, const WorkPackage &WorkPackage);
+std::ostream &operator<<(std::ostream &os, const WorkPackage &work_package);
 
 }  // namespace blender::compositor
