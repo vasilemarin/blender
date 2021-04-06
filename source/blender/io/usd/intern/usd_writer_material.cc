@@ -1707,7 +1707,7 @@ void create_usd_preview_surface_material(USDExporterContext const &usd_export_co
           else {  // Set hardcoded value
             bNodeSocketValueFloat *socket_data = (bNodeSocketValueFloat *)sock->default_value;
             previewSurface.CreateInput(usdtokens::opacity, pxr::SdfValueTypeNames->Float)
-                .Set(pxr::VtValue(1.0f - socket_data->value));
+                .Set(pxr::VtValue(socket_data->value));
           }
         }
         else if (strncmp(sock->name, "IOR", 64) == 0) {
