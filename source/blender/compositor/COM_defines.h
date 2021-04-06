@@ -55,13 +55,13 @@ constexpr int COM_DATA_TYPE_COLOR_CHANNELS = COM_data_type_num_channels(DataType
 enum class eSchedulingMode {
   /**
    * Input based scheduling mode. Scheduling starts from input nodes. When a work package is
-   * finished, other work packages are scheduled where all inputs have been executed..
+   * finished, other work packages are checked if they can be scheduled.
    */
   InputToOutput,
 
   /**
    * Scheduling mode where outputs are scheduled when all its inputs have been completed. When
-   * inputs aren't completed it tries to schedule these inputs recursivly.
+   * inputs aren't completed it tries to schedule these inputs.
    */
   OutputToInput,
 };
