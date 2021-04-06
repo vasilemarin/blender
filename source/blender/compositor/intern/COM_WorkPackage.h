@@ -18,12 +18,14 @@
 
 #pragma once
 
-#include "COM_defines.h"
+#include "COM_Enums.h"
 
 #include "BLI_rect.h"
 #include "BLI_vector.hh"
 
 #include "atomic_ops.h"
+
+#include <ostream>
 
 namespace blender::compositor {
 // Forward Declarations.
@@ -34,8 +36,9 @@ class ExecutionGroup;
  * \see WorkScheduler
  */
 struct WorkPackage {
-  eChunkExecutionState state = eChunkExecutionState::NotScheduled;
-  CompositorPriority priority = CompositorPriority::Unset;
+  eWorkPackageState state = eWorkPackageState::NotScheduled;
+  eCompositorPriority priority = eCompositorPriority::Unset;
+
   /**
    * \brief executionGroup with the operations-setup to be evaluated
    */
@@ -83,6 +86,6 @@ struct WorkPackage {
 #endif
 };
 
-std::ostream &operator<<(std::ostream &os, const WorkPackage &WorkPackage);
+std::ostream &operator<<(std::ostream &os, const WorkPackage &work_package);
 
 }  // namespace blender::compositor

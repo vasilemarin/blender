@@ -71,7 +71,7 @@ void OpenCLDevice::execute(WorkPackage *work_package)
   delete outputBuffer;
 
   executionGroup->finalizeChunkExecution(chunkNumber, inputBuffers);
-  work_package->state = eChunkExecutionState::Executed;
+  work_package->state = eWorkPackageState::Executed;
 }
 cl_mem OpenCLDevice::COM_clAttachMemoryBufferToKernelParameter(cl_kernel kernel,
                                                                int parameterIndex,
