@@ -1694,9 +1694,8 @@ void create_usd_preview_surface_material(USDExporterContext const &usd_export_co
                 .Set(pxr::VtValue(socket_data->value));
           }
         }
-        else if (strncmp(sock->name, "Transmission", 64) == 0) {
-          // -- Transmission
-          // @TODO: We might need to check this, could need one minus
+        else if (strncmp(sock->name, "Alpha", 64) == 0) {
+          // -- Alpha
 
           found_node = traverse_channel(sock);
           if (found_node) {  // Set hardcoded value
