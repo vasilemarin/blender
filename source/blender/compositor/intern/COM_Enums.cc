@@ -35,6 +35,10 @@ std::ostream &operator<<(std::ostream &os, const eCompositorPriority &priority)
       os << "Priority::Low";
       break;
     }
+    case eCompositorPriority::Unset: {
+      os << "Priority::Unset";
+      break;
+    }
   }
   return os;
 }
