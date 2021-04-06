@@ -335,7 +335,6 @@ void USDMeshReader::read_uvs(Mesh *mesh,
 
   struct UVSample {
     pxr::VtVec2fArray uvs;
-    pxr::VtIntArray indices;  // Non-empty for indexed UVs
     pxr::TfToken interpolation;
   };
 
@@ -375,8 +374,7 @@ void USDMeshReader::read_uvs(Mesh *mesh,
       }
 
       if (pxr::UsdGeomPrimvar uv_primvar = mesh_prim_.GetPrimvar(uv_token)) {
-        uv_primvar.Get<pxr::VtVec2fArray>(&uv_primvars[layer_idx].uvs, motionSampleTime);
-        uv_primvar.GetIndices(&uv_primvars[layer_idx].indices, motionSampleTime);
+        uv_primvar.ComputeFlattened(&uv_primvars[layer_idx].uvs, motionSampleTime);
         uv_primvars[layer_idx].interpolation = uv_primvar.GetInterpolation();
       }
     }
@@ -407,15 +405,22 @@ void USDMeshReader::read_uvs(Mesh *mesh,
 
         const UVSample &sample = uv_primvars[layer_idx];
 
+        if (!(sample.interpolation == pxr::UsdGeomTokens->faceVarying ||
+              sample.interpolation == pxr::UsdGeomTokens->vertex)) {
+          /* Shouldn't happen. */
+          std::cerr << "WARNING: unexpected interpolation type " << sample.interpolation
+                    << " for uv " << layer->name << std::endl;
+          continue;
+        }
+
         // For Vertex interpolation, use the vertex index.
         int usd_uv_index = sample.interpolation == pxr::UsdGeomTokens->vertex ?
                                mesh->mloop[loop_index].v :
                                loop_index;
 
-        // Handle indexed UVs.
-        usd_uv_index = sample.indices.empty() ? usd_uv_index : sample.indices[usd_uv_index];
-
         if (usd_uv_index >= sample.uvs.size()) {
+          std::cerr << "WARNING: out of bounds uv index " << usd_uv_index << " for uv "
+                    << layer->name << " of size " << sample.uvs.size() << std::endl;
           continue;
         }
 
@@ -672,8 +677,6 @@ void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
                                              int totpoly,
                                              std::map<pxr::SdfPath, int> &r_mat_map)
 {
-  pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(prim_);
-
   /* Find the geom subsets that have bound materials.
    * We don't call pxr::UsdShadeMaterialBindingAPI::GetMaterialBindSubsets()
    * because this function returns only those subsets that are in the 'materialBind'
@@ -686,20 +689,26 @@ void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
   int current_mat = 0;
   if (subsets.size() > 0) {
     for (const pxr::UsdGeomSubset &subset : subsets) {
-      pxr::UsdShadeMaterialBindingAPI subsetAPI = pxr::UsdShadeMaterialBindingAPI(
+      pxr::UsdShadeMaterialBindingAPI subset_api = pxr::UsdShadeMaterialBindingAPI(
           subset.GetPrim());
 
-      pxr::SdfPath materialPath = subsetAPI.GetDirectBinding().GetMaterialPath();
+      pxr::UsdShadeMaterial subset_mtl = subset_api.ComputeBoundMaterial();
 
-      if (materialPath.IsEmpty()) {
+      if (!subset_mtl) {
         continue;
       }
 
-      if (r_mat_map.find(materialPath) == r_mat_map.end()) {
-        r_mat_map[materialPath] = 1 + current_mat++;
+      pxr::SdfPath subset_mtl_path = subset_mtl.GetPath();
+
+      if (subset_mtl_path.IsEmpty()) {
+        continue;
       }
 
-      const int mat_idx = r_mat_map[materialPath] - 1;
+      if (r_mat_map.find(subset_mtl_path) == r_mat_map.end()) {
+        r_mat_map[subset_mtl_path] = 1 + current_mat++;
+      }
+
+      const int mat_idx = r_mat_map[subset_mtl_path] - 1;
 
       pxr::UsdAttribute indicesAttribute = subset.GetIndicesAttr();
       pxr::VtIntArray indices;
@@ -711,10 +720,17 @@ void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
       }
     }
   }
-  else {
-    pxr::SdfPath materialPath = api.GetDirectBinding().GetMaterialPath();
-    if (!materialPath.IsEmpty()) {
-      r_mat_map[materialPath] = 1;
+
+  if (r_mat_map.empty()) {
+    pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(prim_);
+
+    if (pxr::UsdShadeMaterial mtl = api.ComputeBoundMaterial()) {
+
+      pxr::SdfPath mtl_path = mtl.GetPath();
+
+      if (!mtl_path.IsEmpty()) {
+        r_mat_map.insert(std::make_pair(mtl.GetPath(), 1));
+      }
     }
   }
 }
@@ -767,6 +783,13 @@ Mesh *USDMeshReader::read_mesh(Mesh *existing_mesh,
     }
 
     if (is_uv) {
+
+      pxr::TfToken interp = p.GetInterpolation();
+
+      if (!(interp == pxr::UsdGeomTokens->faceVarying || interp == pxr::UsdGeomTokens->vertex)) {
+        continue;
+      }
+
       uv_tokens.push_back(p.GetBaseName());
       has_uvs_ = true;
 
