@@ -494,14 +494,19 @@ void NodeOperationBuilder::add_output_buffers(NodeOperation *operation,
   }
 
   WriteBufferOperation *writeOperation = nullptr;
+  /* Check if the current operation can handle writing to buffer.
+   * If this is the case we don't need to add a separate write buffer operation. */
   if (operation->get_flags().is_write_buffer_operation) {
     writeOperation = static_cast<WriteBufferOperation *>(operation);
     writeOperation->setbNodeTree(m_context->getbNodeTree());
   }
 
   for (NodeOperationInput *target : targets) {
-    /* try to find existing write buffer operation */
-    if (target->getOperation().get_flags().is_write_buffer_operation) {
+    /* Try to find existing write buffer operation. Don't select complex write buffer operation as
+     * they are complex operations that handle their own writing, but haven't been isolated with
+     * read operators. */
+    NodeOperationFlags target_flags = target->getOperation().get_flags();
+    if (target_flags.is_write_buffer_operation && !target_flags.complex) {
       BLI_assert(writeOperation == nullptr); /* there should only be one write op connected */
       writeOperation = (WriteBufferOperation *)(&target->getOperation());
     }
