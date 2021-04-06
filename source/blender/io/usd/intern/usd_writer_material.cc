@@ -64,6 +64,7 @@ extern "C" {
 
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 #include <string>
 #include <utility>
 
@@ -100,6 +101,9 @@ static const pxr::TfToken normal("normal", pxr::TfToken::Immortal);
 static const pxr::TfToken ior("ior", pxr::TfToken::Immortal);
 static const pxr::TfToken file("file", pxr::TfToken::Immortal);
 static const pxr::TfToken preview("preview", pxr::TfToken::Immortal);
+static const pxr::TfToken raw("raw", pxr::TfToken::Immortal);
+static const pxr::TfToken sRGB("sRGB", pxr::TfToken::Immortal);
+static const pxr::TfToken sourceColorSpace("sourceColorSpace", pxr::TfToken::Immortal);
 }  // namespace usdtokens
 
 /* Cycles specific tokens (Blender Importer and HdCycles) */
@@ -471,6 +475,36 @@ static std::string get_node_tex_image_filepath(bNode *node)
   }
 
   return std::string(filepath);
+}
+
+static pxr::TfToken get_node_tex_image_color_space(bNode *node)
+{
+  if (node->type != SH_NODE_TEX_IMAGE) {
+    std::cout << "get_node_tex_image_color_space() called with unexpected type.\n";
+    return pxr::TfToken();
+  }
+
+  if (node->id == nullptr) {
+    return pxr::TfToken();
+  }
+
+  NodeTexImage *tex_original = (NodeTexImage *)node->storage;
+
+  Image *ima = reinterpret_cast<Image *>(node->id);
+
+  pxr::TfToken color_space;
+
+  if (strcmp(ima->colorspace_settings.name, "Raw") == 0) {
+    color_space = usdtokens::raw;
+  }
+  else if (strcmp(ima->colorspace_settings.name, "Non-Color") == 0) {
+    color_space = usdtokens::raw;
+  }
+  else if (strcmp(ima->colorspace_settings.name, "sRGB") == 0) {
+    color_space = usdtokens::sRGB;
+  }
+
+  return color_space;
 }
 
 static const int HD_CYCLES_CURVE_EXPORT_RES = 256;
@@ -939,6 +973,12 @@ pxr::UsdShadeShader create_usd_preview_shader_node(USDExporterContext const &usd
       if (imagePath.size() > 0)
         shader.CreateInput(usdtokens::file, pxr::SdfValueTypeNames->Asset)
             .Set(pxr::SdfAssetPath(imagePath));
+
+      pxr::TfToken colorSpace = get_node_tex_image_color_space(node);
+      if (!colorSpace.IsEmpty()) {
+        shader.CreateInput(usdtokens::sourceColorSpace, pxr::SdfValueTypeNames->Token)
+            .Set(colorSpace);
+      }
       break;
     }
     case SH_NODE_TEX_COORD:
