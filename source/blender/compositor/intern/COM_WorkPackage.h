@@ -79,8 +79,6 @@ struct WorkPackage {
     child->num_parents++;
   }
 
-  std::string str(int indent = 0) const;
-
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("COM:WorkPackage")
 #endif

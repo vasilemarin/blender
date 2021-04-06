@@ -67,6 +67,7 @@ enum class eCompositorPriority {
  * \brief the execution state of a chunk in an ExecutionGroup
  * \ingroup Execution
  */
+/* NOTE: Explicit data type due to atomic operations. */
 enum class eWorkPackageState : int32_t {
   /**
    * \brief chunk is not yet scheduled
