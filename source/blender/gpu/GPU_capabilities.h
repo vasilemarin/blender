@@ -46,6 +46,7 @@ bool GPU_use_main_context_workaround(void);
 bool GPU_use_hq_normals_workaround(void);
 bool GPU_crappy_amd_driver(void);
 
+bool GPU_compute_shader_support(void);
 bool GPU_shader_image_load_store_support(void);
 
 bool GPU_mem_stats_supported(void);
