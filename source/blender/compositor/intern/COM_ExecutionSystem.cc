@@ -33,6 +33,8 @@
 #include "COM_ReadBufferOperation.h"
 #include "COM_WorkScheduler.h"
 
+#include <thread>
+
 #ifdef WITH_CXX_GUARDEDALLOC
 #  include "MEM_guardedalloc.h"
 #endif
@@ -228,7 +230,8 @@ static void mark_priority(WorkPackage &work_package, eCompositorPriority priorit
   }
 }
 
-static void mark_priority(blender::Vector<WorkPackage> &work_packages, eCompositorPriority priority)
+static void mark_priority(blender::Vector<WorkPackage> &work_packages,
+                          eCompositorPriority priority)
 {
   for (WorkPackage &work_package : work_packages) {
     mark_priority(work_package, priority);
@@ -284,9 +287,10 @@ static bool is_completed(Vector<ExecutionGroup *> &groups)
 
 static void wait_for_completion(Vector<ExecutionGroup *> &groups)
 {
-  /* Todo: check for break! */
+  /* TODO: check for break! */
   while (!is_completed(groups)) {
-    PIL_sleep_ms(100);
+    /* TODO: Wrap this in a function in BLI. */
+    std::this_thread::yield();
   }
 }
 
