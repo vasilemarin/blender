@@ -49,7 +49,17 @@ enum class eCompositorPriority {
   Medium = 1,
   /** \brief Low quality setting */
   Low = 0,
-  /** No priority set. Is used to mark WorkPackages that aren't used. */
+  /**
+   * No priority set. Is used to mark WorkPackages that aren't needed to be scheduled (yet).
+   *
+   * When executing the compositor marks all dependend work packages with a High priority. Work
+   * packages with the high priority are scheduled. After completed medium priority work packages
+   * are determined and scheduled.
+   *
+   * The Unset marks work packages that don't have been selected for the current priority that
+   * is being executed. They might be selected when executing the other priority or aren't needed
+   * at all. The later can happen when the tile is moved completely out the visible viewport.
+   */
   Unset = -1,
 };
 
@@ -57,7 +67,8 @@ enum class eCompositorPriority {
  * \brief the execution state of a chunk in an ExecutionGroup
  * \ingroup Execution
  */
-enum class eWorkPackageState {
+/* NOTE: Explicit data type due to atomic operations. */
+enum class eWorkPackageState : int32_t {
   /**
    * \brief chunk is not yet scheduled
    */

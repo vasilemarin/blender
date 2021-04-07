@@ -445,11 +445,14 @@ void WorkScheduler::schedule(WorkPackage *package)
   if (g_work_scheduler.state == eWorkSchedulerState::Stopping) {
     return;
   }
-  // TODO: race condition..... we should add a mutex to the work package.
-  if (package->state != eWorkPackageState::NotScheduled) {
+
+  eWorkPackageState old_state = static_cast<eWorkPackageState>(
+      atomic_cas_int32(reinterpret_cast<int32_t *>(&package->state),
+                       static_cast<int32_t>(eWorkPackageState::NotScheduled),
+                       static_cast<int32_t>(eWorkPackageState::Scheduled)));
+  if (old_state != eWorkPackageState::NotScheduled) {
     return;
   }
-  package->state = eWorkPackageState::Scheduled;
 
   if (COM_is_opencl_enabled()) {
     if (opencl_schedule(package)) {

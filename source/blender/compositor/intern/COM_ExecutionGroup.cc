@@ -436,6 +436,8 @@ void ExecutionGroup::finalizeChunkExecution(int chunkNumber, MemoryBuffer **memo
     }
   }
 
+  atomic_add_and_fetch_u(&this->m_chunks_finished, 1);
+
   if (memoryBuffers) {
     for (unsigned int index = 0; index < this->m_max_read_buffer_offset; index++) {
       MemoryBuffer *buffer = memoryBuffers[index];
@@ -448,8 +450,8 @@ void ExecutionGroup::finalizeChunkExecution(int chunkNumber, MemoryBuffer **memo
     }
     MEM_freeN(memoryBuffers);
   }
+
   if (this->m_bTree) {
-    atomic_add_and_fetch_u(&this->m_chunks_finished, 1);
     // status report is only performed for top level Execution Groups.
     float progress = this->m_chunks_finished;
     progress /= this->m_chunks_len;
@@ -547,9 +549,14 @@ void ExecutionGroup::link_child_work_packages(WorkPackage *child, rcti *area)
     if (!BLI_rcti_isect(&work_package.rect, area, &isect)) {
       continue;
     }
+    if (!BLI_rcti_isect(&isect, &m_viewerBorder, &isect)) {
+      continue;
+    }
 
-    // TODO(jbakker): `BLI_rcti_isect` assumes inclusive. we use exclusive. added area check to
-    // counteract this.
+    /*
+     * NOTE: `BLI_rcti_isect` includes max values. Compositor excludes max values.
+     * This area check counter act this.
+     */
     if (BLI_rcti_size_x(&isect) * BLI_rcti_size_y(&isect) > 0) {
       work_package.add_child(child);
     }
