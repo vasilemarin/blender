@@ -2,6 +2,8 @@
 
 #include "testing/testing.h"
 
+#include <math.h>
+
 #include "GPU_capabilities.h"
 #include "GPU_compute.h"
 #include "GPU_shader.h"
@@ -55,6 +57,21 @@ void main() {
 
   float *data = static_cast<float *>(GPU_texture_read(texture, GPU_DATA_FLOAT, 0));
   EXPECT_NE(data, nullptr);
+
+  int index = 0;
+  for (int x = 0; x < WIDTH; x++) {
+    for (int y = 0; y < HEIGHT; y++) {
+      float value = data[index++];
+      float local_x = (x - 8) / 8.0f;
+      float local_y = (y - 8) / 8.0f;
+      float local_coef = sqrtf(local_x * local_x + local_y * local_y);
+
+      float global_coef = 0.0f;
+
+      float expected_value = 0.0f;
+      EXPECT_FLOAT_EQ(value, expected_value);
+    }
+  }
 
   for (int index = 0; index < WIDTH * HEIGHT; index++) {
     printf("%d: %f\n", index, data[index]);

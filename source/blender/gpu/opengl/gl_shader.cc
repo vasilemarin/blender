@@ -123,7 +123,8 @@ static char *glsl_patch_compute_get()
   size_t slen = 0;
   /* Version need to go first. */
   STR_CONCAT(patch, slen, "#version 430\n");
-
+  STR_CONCAT(patch, slen, "#extension GL_ARB_compute_shader :enable\n");
+  // STR_CONCAT(patch, slen, "#extension GL_ARB_shader_storage_buffer_object : enable\n");
   BLI_assert(slen < sizeof(patch));
   return patch;
 }
