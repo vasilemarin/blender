@@ -140,7 +140,7 @@ pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material)
     create_usd_cycles_material(this->usd_export_context_.stage,
                                material,
                                usd_material,
-                               this->usd_export_context_.export_params.export_as_overs);
+                               this->usd_export_context_.export_params);
   }
   if (material->use_nodes && this->usd_export_context_.export_params.generate_preview_surface) {
     create_usd_preview_surface_material(this->usd_export_context_, material, usd_material);

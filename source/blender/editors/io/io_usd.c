@@ -219,49 +219,53 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
   int global_forward = RNA_enum_get(op->ptr, "export_global_forward_selection");
   int global_up = RNA_enum_get(op->ptr, "export_global_up_selection");
 
-  struct USDExportParams params = {
-      RNA_int_get(op->ptr, "start"),
-      RNA_int_get(op->ptr, "end"),
-      export_animation,
-      export_hair,
-      export_vertices,
-      export_vertex_colors,
-      export_vertex_groups,
-      export_face_maps,
-      export_uvmaps,
-      export_normals,
-      export_transforms,
-      export_materials,
-      export_meshes,
-      export_lights,
-      export_cameras,
-      export_curves,
-      export_particles,
-      selected_objects_only,
-      visible_objects_only,
-      use_instancing,
-      evaluation_mode,
-      default_prim_path,
-      root_prim_path,
-      material_prim_path,
-      generate_preview_surface,
-      convert_uv_to_st,
-      convert_orientation,
-      global_forward,
-      global_up,
-      export_child_particles,
-      export_as_overs,
-      merge_transform_and_shape,
-      export_custom_properties,
-      export_identity_transforms,
-      apply_subdiv,
-      author_blender_name,
-      vertex_data_as_face_varying,
-      frame_step,
-      override_shutter,
-      shutter_open,
-      shutter_close,
-  };
+  bool export_textures = RNA_boolean_get(op->ptr, "export_textures");
+
+  bool relative_texture_paths = RNA_boolean_get(op->ptr, "relative_texture_paths");
+
+  struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
+                                   RNA_int_get(op->ptr, "end"),
+                                   export_animation,
+                                   export_hair,
+                                   export_vertices,
+                                   export_vertex_colors,
+                                   export_vertex_groups,
+                                   export_face_maps,
+                                   export_uvmaps,
+                                   export_normals,
+                                   export_transforms,
+                                   export_materials,
+                                   export_meshes,
+                                   export_lights,
+                                   export_cameras,
+                                   export_curves,
+                                   export_particles,
+                                   selected_objects_only,
+                                   visible_objects_only,
+                                   use_instancing,
+                                   evaluation_mode,
+                                   default_prim_path,
+                                   root_prim_path,
+                                   material_prim_path,
+                                   generate_preview_surface,
+                                   convert_uv_to_st,
+                                   convert_orientation,
+                                   global_forward,
+                                   global_up,
+                                   export_child_particles,
+                                   export_as_overs,
+                                   merge_transform_and_shape,
+                                   export_custom_properties,
+                                   export_identity_transforms,
+                                   apply_subdiv,
+                                   author_blender_name,
+                                   vertex_data_as_face_varying,
+                                   frame_step,
+                                   override_shutter,
+                                   shutter_open,
+                                   shutter_close,
+                                   export_textures,
+                                   relative_texture_paths};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -373,6 +377,13 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
 
   if (RNA_boolean_get(ptr, "export_uvmaps"))
     uiItemR(box, ptr, "convert_uv_to_st", 0, NULL, ICON_NONE);
+
+  if (RNA_boolean_get(ptr, "export_materials")) {
+    box = uiLayoutBox(layout);
+    uiItemL(box, IFACE_("Textures:"), ICON_NONE);
+    uiItemR(box, ptr, "export_textures", 0, NULL, ICON_NONE);
+    uiItemR(box, ptr, "relative_texture_paths", 0, NULL, ICON_NONE);
+  }
 
   box = uiLayoutBox(layout);
   uiItemL(box, IFACE_("Experimental:"), ICON_NONE);
@@ -658,6 +669,20 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
    * end frame values to that of the scene's, otherwise they are reset at
    * every change, draw update. */
   RNA_def_boolean(ot->srna, "init_scene_frame_range", false, "", "");
+
+  RNA_def_boolean(ot->srna,
+                  "export_textures",
+                  false,
+                  "Export Textures",
+                  "When checked and if exporting materials, textures referenced by material nodes "
+                  "will be exported to a 'textures' directory in the same directory as the USD.");
+
+  RNA_def_boolean(
+      ot->srna,
+      "relative_texture_paths",
+      false,
+      "Relative Texture Paths",
+      "When checked, material texture asset paths will be saved as relative paths in the USD.");
 }
 
 /* ====== USD Import ====== */

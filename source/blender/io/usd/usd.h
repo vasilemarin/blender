@@ -97,6 +97,8 @@ struct USDExportParams {
   bool override_shutter;
   double shutter_open;
   double shutter_close;
+  bool export_textures;
+  bool relative_texture_paths;
 };
 
 struct USDImportParams {

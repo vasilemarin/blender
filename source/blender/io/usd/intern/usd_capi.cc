@@ -370,8 +370,7 @@ static void export_startjob(void *customdata,
     // Store Light node tree
     pxr::UsdShadeMaterial world_mat = pxr::UsdShadeMaterial::Define(
         usd_stage, environment_light_path.AppendChild(pxr::TfToken("world_material")));
-    create_usd_cycles_material(
-        usd_stage, scene->world->nodetree, world_mat, data->params.export_as_overs);
+    create_usd_cycles_material(usd_stage, scene->world->nodetree, world_mat, data->params);
 
     // Convert node graph to USD Dome Light
 

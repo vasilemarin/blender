@@ -38,6 +38,7 @@
 #include "usd_exporter_context.h"
 
 struct Material;
+struct bNode;
 struct bNodeTree;
 
 namespace blender::io::usd {
@@ -54,14 +55,16 @@ void create_usd_preview_surface_material(USDExporterContext const &usd_export_co
 void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
                                 bNodeTree *ntree,
                                 pxr::UsdShadeMaterial &usd_material,
-                                bool a_asOvers);
+                                const USDExportParams &export_params);
 void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
                                 Material *material,
                                 pxr::UsdShadeMaterial &usd_material,
-                                bool a_asOvers);
+                                const USDExportParams &export_params);
 void create_usd_viewport_material(USDExporterContext const &usd_export_context_,
                                   Material *material,
                                   pxr::UsdShadeMaterial &usd_material);
+
+void export_texture(bNode *node, pxr::UsdStageRefPtr stage);
 
 }  // Namespace blender::io::usd
 
