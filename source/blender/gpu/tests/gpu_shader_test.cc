@@ -17,8 +17,7 @@ namespace blender::gpu::tests {
 
 TEST_F(GPUTest, gpu_shader_compute)
 {
-  static constexpr int WIDTH = 512;
-  static constexpr int HEIGHT = 512;
+  static constexpr int SIZE = 512;
 
   if (!GPU_compute_shader_support()) {
     /* We can't test as a the platform does not support compute shaders. */
@@ -28,57 +27,43 @@ TEST_F(GPUTest, gpu_shader_compute)
 
   const char *compute_glsl = R"(
 
-uniform float roll;
-uniform writeonly image2D destTex;
-layout (local_size_x = 16, local_size_y = 16) in;
+layout(local_size_x = 1, local_size_y = 1) in;
+layout(rgba32f, binding = 0) uniform image1D img_output;
 
 void main() {
-    ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
-    float localCoef = length(vec2(ivec2(gl_LocalInvocationID.xy)-8)/8.0);
-    float globalCoef = sin(float(gl_WorkGroupID.x+gl_WorkGroupID.y)*0.1 + roll)*0.5;
-    imageStore(destTex, storePos, vec4(1.0-globalCoef*localCoef, 0.0, 0.0, 0.0));
-}
+  // base pixel colour for image
+  vec4 pixel = vec4(1.0, 0.5, 0.2, 1.0);
+  
+  // output to a specific pixel in the image
+  imageStore(img_output, int(gl_GlobalInvocationID.x), pixel);}
 
 )";
 
-  GPUShader *shader = GPU_shader_create_compute(compute_glsl, nullptr, nullptr, __func__);
+  GPUShader *shader = GPU_shader_create_compute(
+      compute_glsl, nullptr, nullptr, "gpu_shader_compute");
   EXPECT_NE(shader, nullptr);
 
-  GPUTexture *texture = GPU_texture_create_2d(__func__, WIDTH, HEIGHT, 1, GPU_R32F, nullptr);
-  int binding = GPU_shader_get_texture_binding(shader, "destTex");
+  GPUTexture *texture = GPU_texture_create_2d(
+      "gpu_shader_compute", SIZE, SIZE, 0, GPU_RGBA32F, nullptr);
+  EXPECT_NE(texture, nullptr);
 
   GPU_shader_bind(shader);
-  GPU_shader_uniform_1f(shader, "roll", 1.0f);
-  GPU_texture_bind(texture, binding);
-  GPU_compute_dispatch(WIDTH / 16, HEIGHT / 16, 1);
-  GPU_flush();
-  GPU_finish();
-  GPU_shader_unbind();
+  int binding = GPU_shader_get_texture_binding(shader, "img_output");
+  GPU_texture_image_bind(texture, binding);
+  GPU_compute_dispatch(SIZE, SIZE, 1);
+
+  GPU_memory_barrier(GPU_BARRIER_SHADER_IMAGE_ACCESS);
 
   float *data = static_cast<float *>(GPU_texture_read(texture, GPU_DATA_FLOAT, 0));
   EXPECT_NE(data, nullptr);
 
-  int index = 0;
-  for (int x = 0; x < WIDTH; x++) {
-    for (int y = 0; y < HEIGHT; y++) {
-      float value = data[index++];
-      float local_x = (x - 8) / 8.0f;
-      float local_y = (y - 8) / 8.0f;
-      float local_coef = sqrtf(local_x * local_x + local_y * local_y);
-
-      float global_coef = 0.0f;
-
-      float expected_value = 0.0f;
-      EXPECT_FLOAT_EQ(value, expected_value);
-    }
-  }
-
-  for (int index = 0; index < WIDTH * HEIGHT; index++) {
+  for (int index = 0; index < SIZE * SIZE * 4; index++) {
     printf("%d: %f\n", index, data[index]);
   }
 
   MEM_freeN(data);
 
+  GPU_shader_unbind();
   GPU_texture_unbind(texture);
   GPU_texture_free(texture);
 
