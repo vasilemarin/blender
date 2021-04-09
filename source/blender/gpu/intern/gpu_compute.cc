@@ -19,7 +19,8 @@
  */
 
 #include "GPU_compute.h"
-#include "GPU_context.h"
+
+#include "gpu_backend.hh"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +28,8 @@ extern "C" {
 
 void GPU_compute_dispatch(int groups_x_len, int groups_y_len, int groups_z_len)
 {
-  GPUContext &gpu_context = *GPU_context_active_get();
+  blender::gpu::GPUBackend &gpu_backend = *blender::gpu::GPUBackend::get();
+  gpu_backend.compute_dispatch(groups_x_len, groups_y_len, groups_z_len);
 }
 
 #ifdef __cplusplus
