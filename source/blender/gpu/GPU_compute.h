@@ -20,11 +20,13 @@
 
 #pragma once
 
+#include "GPU_shader.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void GPU_compute_dispatch(int groups_x_len, int groups_y_len, int groups_z_len);
+void GPU_compute_dispatch(GPUShader *shader, int groups_x_len, int groups_y_len, int groups_z_len);
 
 #ifdef __cplusplus
 }

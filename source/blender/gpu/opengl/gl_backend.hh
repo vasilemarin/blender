@@ -129,6 +129,7 @@ class GLBackend : public GPUBackend {
 
   void compute_dispatch(int groups_x_len, int groups_y_len, int groups_z_len) override
   {
+    GLContext::get()->state_manager_active_get()->apply_state();
     GLCompute::dispatch(groups_x_len, groups_y_len, groups_z_len);
   }
 
