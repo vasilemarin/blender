@@ -363,16 +363,3 @@ void GLBatch::draw(int v_first, int v_count, int i_first, int i_count)
 }
 
 /** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Compute
- * \{ */
-
-void GLBatch::compute(uint group_x_len, uint group_y_len, uint group_z_len)
-{
-  GLContext::get()->state_manager->apply_state();
-  glDispatchCompute(group_x_len, group_y_len, group_z_len);
-  debug::check_gl_error("Dispatch Compute");
-}
-
-/** \} */

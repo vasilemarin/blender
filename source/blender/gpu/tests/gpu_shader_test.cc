@@ -2,7 +2,6 @@
 
 #include "testing/testing.h"
 
-#include "GPU_batch.h"
 #include "GPU_capabilities.h"
 #include "GPU_compute.h"
 #include "GPU_shader.h"
@@ -23,55 +22,50 @@ TEST_F(GPUTest, gpu_shader_compute)
     return;
   }
 
-  static constexpr int SIZE = 2;
-
-  /* Create a compute batch. */
-  GPUBatch *batch = GPU_batch_compute_create();
-  EXPECT_NE(batch, nullptr);
-
-  /* Build the compute shader and attach to the compute batch. */
+  static constexpr int SIZE = 512;
   const char *compute_glsl = R"(
+
 layout(local_size_x = 1, local_size_y = 1) in;
-layout(rgba32f, binding = 0) uniform image2D img_output;
+layout(rgba32f, binding = 0) uniform image1D img_output;
 
 void main() {
+  // base pixel colour for image
   vec4 pixel = vec4(1.0, 0.5, 0.2, 1.0);
-  imageStore(img_output, ivec2(gl_GlobalInvocationID.xy), pixel);
-}
+  
+  // output to a specific pixel in the image
+  imageStore(img_output, int(gl_GlobalInvocationID.x), pixel);}
+
 )";
 
   GPUShader *shader = GPU_shader_create_compute(
       compute_glsl, nullptr, nullptr, "gpu_shader_compute");
   EXPECT_NE(shader, nullptr);
-  GPU_batch_set_shader(batch, shader);
 
-  /* Create result texture and bind to the shader. */
   GPUTexture *texture = GPU_texture_create_2d(
       "gpu_shader_compute", SIZE, SIZE, 0, GPU_RGBA32F, nullptr);
   EXPECT_NE(texture, nullptr);
-  GPU_batch_texture_image_bind(batch, "img_output", texture);
 
-  /* Dispatch the compute command. */
-  GPU_batch_compute(batch, SIZE, SIZE, 1);
+  GPU_shader_bind(shader);
+  int binding = GPU_shader_get_texture_binding(shader, "img_output");
+  GPU_texture_image_bind(texture, binding);
+  GPU_compute_dispatch(SIZE, SIZE, 1);
 
-  /* Check if compute has been done. */
+  GPU_memory_barrier(GPU_BARRIER_SHADER_IMAGE_ACCESS);
+
   float *data = static_cast<float *>(GPU_texture_read(texture, GPU_DATA_FLOAT, 0));
   EXPECT_NE(data, nullptr);
 
-  for (int index = 0; index < SIZE * SIZE; index++) {
-    EXPECT_FLOAT_EQ(data[index * 4 + 0], 1.0f);
-    EXPECT_FLOAT_EQ(data[index * 4 + 1], 0.5f);
-    EXPECT_FLOAT_EQ(data[index * 4 + 2], 0.2f);
-    EXPECT_FLOAT_EQ(data[index * 4 + 3], 1.0f);
+  for (int index = 0; index < SIZE * SIZE * 4; index++) {
+    printf("%d: %f\n", index, data[index]);
   }
+
   MEM_freeN(data);
 
-  /* Clean up. */
   GPU_shader_unbind();
-  GPU_shader_free(shader);
   GPU_texture_unbind(texture);
   GPU_texture_free(texture);
-  GPU_batch_discard(batch);
+
+  GPU_shader_free(shader);
 }
 
 }  // namespace blender::gpu::tests
