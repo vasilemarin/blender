@@ -56,6 +56,7 @@ void main() {
   GPU_compute_dispatch(shader, SIZE, SIZE, 1);
 
   /* Check if compute has been done. */
+  GPU_memory_barrier(GPU_BARRIER_TEXTURE_FETCH);
   float *data = static_cast<float *>(GPU_texture_read(texture, GPU_DATA_FLOAT, 0));
   EXPECT_NE(data, nullptr);
   for (int index = 0; index < SIZE * SIZE; index++) {
