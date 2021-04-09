@@ -95,6 +95,7 @@ void ED_spacetypes_init(void)
   ED_spacetype_clip();
   ED_spacetype_statusbar();
   ED_spacetype_topbar();
+  ED_spacetype_spreadsheet();
 
   /* Register operator types for screen and all spaces. */
   ED_operatortypes_userpref();
@@ -262,7 +263,7 @@ void ED_region_draw_cb_exit(ARegionType *art, void *handle)
 
 void ED_region_draw_cb_draw(const bContext *C, ARegion *region, int type)
 {
-  LISTBASE_FOREACH (RegionDrawCB *, rdc, &region->type->drawcalls) {
+  LISTBASE_FOREACH_MUTABLE (RegionDrawCB *, rdc, &region->type->drawcalls) {
     if (rdc->type == type) {
       rdc->draw(C, region, rdc->customdata);
 
@@ -274,9 +275,7 @@ void ED_region_draw_cb_draw(const bContext *C, ARegion *region, int type)
 
 void ED_region_draw_cb_remove_by_type(ARegionType *art, void *draw_fn, void (*free)(void *))
 {
-  RegionDrawCB *rdc = art->drawcalls.first;
-  while (rdc) {
-    RegionDrawCB *rdc_next = rdc->next;
+  LISTBASE_FOREACH_MUTABLE (RegionDrawCB *, rdc, &art->drawcalls) {
     if (rdc->draw == draw_fn) {
       if (free) {
         free(rdc->customdata);
@@ -284,7 +283,6 @@ void ED_region_draw_cb_remove_by_type(ARegionType *art, void *draw_fn, void (*fr
       BLI_remlink(&art->drawcalls, rdc);
       MEM_freeN(rdc);
     }
-    rdc = rdc_next;
   }
 }
 

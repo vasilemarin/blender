@@ -16,14 +16,20 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "BLI_hash.hh"
 #include "BLI_map.hh"
+#include "BLI_multi_value_map.hh"
 #include "BLI_session_uuid.h"
 #include "BLI_set.hh"
 
 #include "DNA_ID.h"
+#include "DNA_customdata_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_session_uuid_types.h"
+
+#include "BKE_attribute.h"
 
 struct ModifierData;
 struct Object;
@@ -52,15 +58,13 @@ class NodeTreeEvaluationContext {
 
   uint64_t hash() const
   {
-    const uint64_t hash1 = blender::DefaultHash<std::string>{}(object_name_);
-    const uint64_t hash2 = BLI_session_uuid_hash_uint64(&modifier_session_uuid_);
-    return hash1 ^ (hash2 * 33); /* Copied from DefaultHash for std::pair. */
+    return blender::get_default_hash_2(object_name_, modifier_session_uuid_);
   }
 
-  bool operator==(const NodeTreeEvaluationContext &other) const
+  friend bool operator==(const NodeTreeEvaluationContext &a, const NodeTreeEvaluationContext &b)
   {
-    return other.object_name_ == object_name_ &&
-           BLI_session_uuid_is_equal(&other.modifier_session_uuid_, &modifier_session_uuid_);
+    return a.object_name_ == b.object_name_ &&
+           BLI_session_uuid_is_equal(&a.modifier_session_uuid_, &b.modifier_session_uuid_);
   }
 };
 
@@ -75,13 +79,31 @@ struct NodeWarning {
   std::string message;
 };
 
+struct AvailableAttributeInfo {
+  AttributeDomain domain;
+  CustomDataType data_type;
+
+  uint64_t hash() const
+  {
+    uint64_t domain_hash = (uint64_t)domain;
+    uint64_t data_type_hash = (uint64_t)data_type;
+    return (domain_hash * 33) ^ (data_type_hash * 89);
+  }
+
+  friend bool operator==(const AvailableAttributeInfo &a, const AvailableAttributeInfo &b)
+  {
+    return a.domain == b.domain && a.data_type == b.data_type;
+  }
+};
+
 struct NodeUIStorage {
   blender::Vector<NodeWarning> warnings;
-  blender::Set<std::string> attribute_name_hints;
+  blender::MultiValueMap<std::string, AvailableAttributeInfo> attribute_hints;
 };
 
 struct NodeTreeUIStorage {
   blender::Map<NodeTreeEvaluationContext, blender::Map<std::string, NodeUIStorage>> context_map;
+  std::mutex context_map_mutex;
 };
 
 const NodeUIStorage *BKE_node_tree_ui_storage_get_from_context(const bContext *C,
@@ -100,4 +122,6 @@ void BKE_nodetree_error_message_add(bNodeTree &ntree,
 void BKE_nodetree_attribute_hint_add(bNodeTree &ntree,
                                      const NodeTreeEvaluationContext &context,
                                      const bNode &node,
-                                     const blender::StringRef attribute_name);
+                                     const blender::StringRef attribute_name,
+                                     const AttributeDomain domain,
+                                     const CustomDataType data_type);

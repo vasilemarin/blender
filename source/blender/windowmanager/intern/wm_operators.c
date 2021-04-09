@@ -561,7 +561,7 @@ char *WM_prop_pystring_assign(bContext *C, PointerRNA *ptr, PropertyRNA *prop, i
   char *lhs = C ? wm_prop_pystring_from_context(C, ptr, prop, index) : NULL;
 
   if (lhs == NULL) {
-    /* fallback to bpy.data.foo[id] if we dont find in the context */
+    /* Fallback to `bpy.data.foo[id]` if we don't find in the context. */
     lhs = RNA_path_full_property_py(CTX_data_main(C), ptr, prop, index);
   }
 
@@ -1149,7 +1149,7 @@ int WM_operator_filesel(bContext *C, wmOperator *op, const wmEvent *UNUSED(event
 bool WM_operator_filesel_ensure_ext_imtype(wmOperator *op, const struct ImageFormatData *im_format)
 {
   char filepath[FILE_MAX];
-  /* dont NULL check prop, this can only run on ops with a 'filepath' */
+  /* Don't NULL check prop, this can only run on ops with a 'filepath'. */
   PropertyRNA *prop = RNA_struct_find_property(op->ptr, "filepath");
   RNA_property_string_get(op->ptr, prop, filepath);
   if (BKE_image_path_ensure_ext_from_imformat(filepath, im_format)) {
@@ -1229,7 +1229,7 @@ ID *WM_operator_drop_load_path(struct bContext *C, wmOperator *op, const short i
       id = (ID *)BKE_image_load_exists_ex(bmain, path, &exists);
     }
     else {
-      BLI_assert(0);
+      BLI_assert_unreachable();
     }
 
     if (!id) {
@@ -1248,7 +1248,7 @@ ID *WM_operator_drop_load_path(struct bContext *C, wmOperator *op, const short i
           BLI_path_rel(((Image *)id)->filepath, BKE_main_blendfile_path(bmain));
         }
         else {
-          BLI_assert(0);
+          BLI_assert_unreachable();
         }
       }
     }
@@ -1687,7 +1687,7 @@ static uiBlock *wm_block_search_menu(bContext *C, ARegion *region, void *userdat
     UI_but_func_menu_search(but);
   }
   else {
-    BLI_assert(0);
+    BLI_assert_unreachable();
   }
 
   UI_but_flag_enable(but, UI_BUT_ACTIVATE_ON_INIT);
@@ -1809,7 +1809,7 @@ static void WM_OT_call_menu(wmOperatorType *ot)
 {
   ot->name = "Call Menu";
   ot->idname = "WM_OT_call_menu";
-  ot->description = "Call (draw) a predefined menu";
+  ot->description = "Open a predefined menu";
 
   ot->exec = wm_call_menu_exec;
   ot->poll = WM_operator_winactive;
@@ -1840,7 +1840,7 @@ static void WM_OT_call_menu_pie(wmOperatorType *ot)
 {
   ot->name = "Call Pie Menu";
   ot->idname = "WM_OT_call_menu_pie";
-  ot->description = "Call (draw) a predefined pie menu";
+  ot->description = "Open a predefined pie menu";
 
   ot->invoke = wm_call_pie_menu_invoke;
   ot->exec = wm_call_pie_menu_exec;
@@ -1874,7 +1874,7 @@ static void WM_OT_call_panel(wmOperatorType *ot)
 {
   ot->name = "Call Panel";
   ot->idname = "WM_OT_call_panel";
-  ot->description = "Call (draw) a predefined panel";
+  ot->description = "Open a predefined panel";
 
   ot->exec = wm_call_panel_exec;
   ot->poll = WM_operator_winactive;
@@ -2046,7 +2046,7 @@ wmPaintCursor *WM_paint_cursor_activate(short space_type,
 bool WM_paint_cursor_end(wmPaintCursor *handle)
 {
   wmWindowManager *wm = G_MAIN->wm.first;
-  for (wmPaintCursor *pc = wm->paintcursors.first; pc; pc = pc->next) {
+  LISTBASE_FOREACH (wmPaintCursor *, pc, &wm->paintcursors) {
     if (pc == (wmPaintCursor *)handle) {
       BLI_remlink(&wm->paintcursors, pc);
       MEM_freeN(pc);
@@ -2058,9 +2058,7 @@ bool WM_paint_cursor_end(wmPaintCursor *handle)
 
 void WM_paint_cursor_remove_by_type(wmWindowManager *wm, void *draw_fn, void (*free)(void *))
 {
-  wmPaintCursor *pc = wm->paintcursors.first;
-  while (pc) {
-    wmPaintCursor *pc_next = pc->next;
+  LISTBASE_FOREACH_MUTABLE (wmPaintCursor *, pc, &wm->paintcursors) {
     if (pc->draw == draw_fn) {
       if (free) {
         free(pc->customdata);
@@ -2068,7 +2066,6 @@ void WM_paint_cursor_remove_by_type(wmWindowManager *wm, void *draw_fn, void (*f
       BLI_remlink(&wm->paintcursors, pc);
       MEM_freeN(pc);
     }
-    pc = pc_next;
   }
 }
 
@@ -3237,7 +3234,7 @@ static int redraw_timer_exec(bContext *C, wmOperator *op)
    */
   struct Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
 
-  WM_cursor_wait(1);
+  WM_cursor_wait(true);
 
   double time_start = PIL_check_seconds_timer();
 
@@ -3260,7 +3257,7 @@ static int redraw_timer_exec(bContext *C, wmOperator *op)
 
   RNA_enum_description(redraw_timer_type_items, type, &infostr);
 
-  WM_cursor_wait(0);
+  WM_cursor_wait(false);
 
   BKE_reportf(op->reports,
               RPT_WARNING,

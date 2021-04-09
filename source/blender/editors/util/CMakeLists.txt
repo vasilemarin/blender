@@ -18,6 +18,7 @@
 set(INC
   ../include
   ../space_sequencer
+  ../../blenfont
   ../../blenkernel
   ../../blenlib
   ../../blentranslation
@@ -36,6 +37,7 @@ set(INC
 
 
 set(SRC
+  ed_draw.c
   ed_transverts.c
   ed_util.c
   ed_util_imbuf.c

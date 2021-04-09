@@ -14,16 +14,13 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "node_geometry_util.hh"
-
 #include "BLI_hash.h"
 #include "BLI_rand.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
 
-#include "DNA_mesh_types.h"
-#include "DNA_pointcloud_types.h"
+#include "node_geometry_util.hh"
 
 static bNodeSocketTemplate geo_node_attribute_randomize_in[] = {
     {SOCK_GEOMETRY, N_("Geometry")},
@@ -224,7 +221,7 @@ static void randomize_attribute_on_component(GeometryComponent &component,
   if (operation != GEO_NODE_ATTRIBUTE_RANDOMIZE_REPLACE_CREATE) {
     if (!component.attribute_exists(attribute_name)) {
       params.error_message_add(NodeWarningType::Error,
-                               "No attribute with name '" + attribute_name + "'.");
+                               TIP_("No attribute with name \"") + attribute_name + "\"");
       return;
     }
   }

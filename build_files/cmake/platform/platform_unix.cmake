@@ -285,7 +285,7 @@ if(WITH_NANOVDB)
   endif()
 endif()
 
-if(WITH_CPU_SIMD)
+if(WITH_CPU_SIMD AND SUPPORT_NEON_BUILD)
   find_package_wrapper(sse2neon)
 endif()
 
@@ -549,6 +549,14 @@ if(WITH_JACK)
   find_package_wrapper(Jack)
   if(NOT JACK_FOUND)
     set(WITH_JACK OFF)
+  endif()
+endif()
+
+# Pulse is intended to use the system library.
+if(WITH_PULSEAUDIO)
+  find_package_wrapper(Pulse)
+  if(NOT PULSE_FOUND)
+    set(WITH_PULSEAUDIO OFF)
   endif()
 endif()
 

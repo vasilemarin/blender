@@ -102,7 +102,7 @@ float D_ggx_opti(float NH, float a2)
   return M_PI * tmp * tmp; /* Doing RCP and mul a2 at the end */
 }
 
-float G1_Smith_GGX(float NX, float a2)
+float G1_Smith_GGX_opti(float NX, float a2)
 {
   /* Using Brian Karis approach and refactoring by NX/NX
    * this way the (2*NL)*(2*NV) in G = G1(V) * G1(L) gets canceled by the brdf denominator 4*NL*NV
@@ -122,7 +122,7 @@ float bsdf_ggx(vec3 N, vec3 L, vec3 V, float roughness)
   float NL = max(dot(N, L), 1e-8);
   float NV = max(dot(N, V), 1e-8);
 
-  float G = G1_Smith_GGX(NV, a2) * G1_Smith_GGX(NL, a2); /* Doing RCP at the end */
+  float G = G1_Smith_GGX_opti(NV, a2) * G1_Smith_GGX_opti(NL, a2); /* Doing RCP at the end */
   float D = D_ggx_opti(NH, a2);
 
   /* Denominator is canceled by G1_Smith */
@@ -133,6 +133,35 @@ float bsdf_ggx(vec3 N, vec3 L, vec3 V, float roughness)
 void accumulate_light(vec3 light, float fac, inout vec4 accum)
 {
   accum += vec4(light, 1.0) * min(fac, (1.0 - accum.a));
+}
+
+/* Same thing as Cycles without the comments to make it shorter. */
+vec3 ensure_valid_reflection(vec3 Ng, vec3 I, vec3 N)
+{
+  vec3 R;
+  float NI = dot(N, I);
+  float NgR, threshold;
+  /* Check if the incident ray is coming from behind normal N. */
+  if (NI > 0.0) {
+    /* Normal reflection. */
+    R = (2.0 * NI) * N - I;
+    NgR = dot(Ng, R);
+    /* Reflection rays may always be at least as shallow as the incoming ray. */
+    threshold = min(0.9 * dot(Ng, I), 0.01);
+    if (NgR >= threshold) {
+      return N;
+    }
+  }
+  else {
+    /* Bad incident. */
+    R = -I;
+    NgR = dot(Ng, R);
+    threshold = 0.01;
+  }
+  /* Lift the reflection above the threshold. */
+  R = R + Ng * (threshold - NgR);
+  /* Find a bisector. */
+  return safe_normalize(I * length(R) + R * length(I));
 }
 
 /* ----------- Cone angle Approximation --------- */

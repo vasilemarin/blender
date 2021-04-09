@@ -14,18 +14,23 @@
 
 struct LightData {
   vec4 position_influence;     /* w : InfluenceRadius (inversed and squared) */
-  vec4 color_spec;             /* w : Spec Intensity */
+  vec4 color_influence_volume; /* w : InfluenceRadius but for Volume power */
   vec4 spotdata_radius_shadow; /* x : spot size, y : spot blend, z : radius, w: shadow id */
   vec4 rightvec_sizex;         /* xyz: Normalized up vector, w: area size X or spot scale X */
   vec4 upvec_sizey;            /* xyz: Normalized right vector, w: area size Y or spot scale Y */
   vec4 forwardvec_type;        /* xyz: Normalized forward vector, w: Light Type */
+  vec4 diff_spec_volume;       /* xyz: Diffuse/Spec/Volume power, w: radius for volumetric. */
 };
 
 /* convenience aliases */
-#define l_color color_spec.rgb
-#define l_spec color_spec.a
+#define l_color color_influence_volume.rgb
+#define l_diff diff_spec_volume.x
+#define l_spec diff_spec_volume.y
+#define l_volume diff_spec_volume.z
+#define l_volume_radius diff_spec_volume.w
 #define l_position position_influence.xyz
 #define l_influence position_influence.w
+#define l_influence_volume color_influence_volume.w
 #define l_sizex rightvec_sizex.w
 #define l_sizey upvec_sizey.w
 #define l_right rightvec_sizex.xyz
@@ -247,7 +252,11 @@ float light_attenuation(LightData ld, vec4 l_vector)
     vis *= step(0.0, -dot(l_vector.xyz, ld.l_forward));
   }
   if (ld.l_type != SUN) {
+#ifdef VOLUME_LIGHTING
+    vis *= distance_attenuation(l_vector.w * l_vector.w, ld.l_influence_volume);
+#else
     vis *= distance_attenuation(l_vector.w * l_vector.w, ld.l_influence);
+#endif
   }
   return vis;
 }
@@ -268,39 +277,37 @@ float light_shadowing(LightData ld, vec3 P, float vis)
 }
 
 #ifndef VOLUMETRICS
-float light_contact_shadows(
-    LightData ld, vec3 P, vec3 vP, float tracing_depth, vec3 vNg, float rand_x, float vis)
+float light_contact_shadows(LightData ld, vec3 P, vec3 vP, vec3 vNg, float rand_x, float vis)
 {
   if (ld.l_shadowid >= 0.0 && vis > 0.001) {
     ShadowData sd = shadows_data[int(ld.l_shadowid)];
     /* Only compute if not already in shadow. */
     if (sd.sh_contact_dist > 0.0) {
       /* Contact Shadows. */
-      vec3 ray_ori, ray_dir;
-      float trace_distance;
+      Ray ray;
 
       if (ld.l_type == SUN) {
-        trace_distance = sd.sh_contact_dist;
-        ray_dir = shadows_cascade_data[int(sd.sh_data_index)].sh_shadow_vec * trace_distance;
+        ray.direction = shadows_cascade_data[int(sd.sh_data_index)].sh_shadow_vec *
+                        sd.sh_contact_dist;
       }
       else {
-        ray_dir = shadows_cube_data[int(sd.sh_data_index)].position.xyz - P;
-        float len = length(ray_dir);
-        trace_distance = min(sd.sh_contact_dist, len);
-        ray_dir *= trace_distance / len;
+        ray.direction = shadows_cube_data[int(sd.sh_data_index)].position.xyz - P;
+        ray.direction *= saturate(sd.sh_contact_dist * safe_rcp(length(ray.direction)));
       }
 
-      ray_dir = transform_direction(ViewMatrix, ray_dir);
-      ray_ori = vec3(vP.xy, tracing_depth) + vNg * sd.sh_contact_offset;
+      ray.direction = transform_direction(ViewMatrix, ray.direction);
+      ray.origin = vP + vNg * sd.sh_contact_offset;
 
-      vec3 hit_pos = raycast(
-          -1, ray_ori, ray_dir, sd.sh_contact_thickness, rand_x, 0.1, 0.001, false);
+      RayTraceParameters params;
+      params.thickness = sd.sh_contact_thickness;
+      params.jitter = rand_x;
+      params.trace_quality = 0.1;
+      params.roughness = 0.001;
 
-      if (hit_pos.z > 0.0) {
-        hit_pos = get_view_space_from_depth(hit_pos.xy, hit_pos.z);
-        float hit_dist = distance(vP, hit_pos);
-        float dist_ratio = hit_dist / trace_distance;
-        return saturate(dist_ratio * 3.0 - 2.0);
+      vec3 hit_position_unused;
+
+      if (raytrace(ray, params, false, false, hit_position_unused)) {
+        return 0.0;
       }
     }
   }

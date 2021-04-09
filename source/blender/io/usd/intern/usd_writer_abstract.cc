@@ -52,10 +52,6 @@ USDAbstractWriter::USDAbstractWriter(const USDExporterContext &usd_export_contex
 {
 }
 
-USDAbstractWriter::~USDAbstractWriter()
-{
-}
-
 bool USDAbstractWriter::is_supported(const HierarchyContext * /*context*/) const
 {
   return true;

@@ -54,6 +54,7 @@
 #include "ED_screen.h"
 #include "ED_space_api.h"
 #include "ED_transform.h"
+#include "ED_util.h"
 #include "ED_uvedit.h"
 
 #include "WM_api.h"
@@ -199,6 +200,7 @@ static void image_operatortypes(void)
   WM_operatortype_append(IMAGE_OT_view_pan);
   WM_operatortype_append(IMAGE_OT_view_selected);
   WM_operatortype_append(IMAGE_OT_view_center_cursor);
+  WM_operatortype_append(IMAGE_OT_view_cursor_center);
   WM_operatortype_append(IMAGE_OT_view_zoom);
   WM_operatortype_append(IMAGE_OT_view_zoom_in);
   WM_operatortype_append(IMAGE_OT_view_zoom_out);

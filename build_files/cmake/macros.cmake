@@ -569,6 +569,9 @@ function(SETUP_LIBDIRS)
     if(WITH_JACK AND NOT WITH_JACK_DYNLOAD)
       link_directories(${JACK_LIBPATH})
     endif()
+    if(WITH_PULSEAUDIO AND NOT WITH_PULSEAUDIO_DYNLOAD)
+      link_directories(${LIBPULSE_LIBPATH})
+    endif()
     if(WITH_CODEC_SNDFILE)
       link_directories(${LIBSNDFILE_LIBPATH})
     endif()
@@ -682,11 +685,13 @@ macro(TEST_SSE_SUPPORT
 endmacro()
 
 macro(TEST_NEON_SUPPORT)
-  include(CheckCXXSourceCompiles)
-  check_cxx_source_compiles(
-    "#include <arm_neon.h>
-     int main() {return vaddvq_s32(vdupq_n_s32(1));}"
-    SUPPORT_NEON_BUILD)
+  if(NOT DEFINED SUPPORT_NEON_BUILD)
+    include(CheckCXXSourceCompiles)
+    check_cxx_source_compiles(
+      "#include <arm_neon.h>
+       int main() {return vaddvq_s32(vdupq_n_s32(1));}"
+      SUPPORT_NEON_BUILD)
+  endif()
 endmacro()
 
 # Only print message if running CMake first time

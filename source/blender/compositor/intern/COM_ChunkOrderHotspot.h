@@ -22,13 +22,16 @@
 #  include "MEM_guardedalloc.h"
 #endif
 
+namespace blender::compositor {
+
 struct ChunkOrderHotspot {
   int x;
   int y;
   float addition;
 
- public:
-  ChunkOrderHotspot(int x, int y, float addition);
+  ChunkOrderHotspot(int x, int y, float addition) : x(x), y(y), addition(addition)
+  {
+  }
 
   double calc_distance(int x, int y);
 
@@ -36,3 +39,5 @@ struct ChunkOrderHotspot {
   MEM_CXX_CLASS_ALLOC_FUNCS("COM:ChunkOrderHotspot")
 #endif
 };
+
+}  // namespace blender::compositor

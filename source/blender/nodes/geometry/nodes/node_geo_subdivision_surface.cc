@@ -14,8 +14,6 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "MEM_guardedalloc.h"
-
 #include "BKE_mesh.h"
 #include "BKE_subdiv.h"
 #include "BKE_subdiv_mesh.h"
@@ -69,7 +67,7 @@ static void geo_node_subdivision_surface_exec(GeoNodeExecParams params)
 #else
   const int subdiv_level = clamp_i(params.extract_input<int>("Level"), 0, 30);
 
-  /* Only process subdivion if level is greater than 0. */
+  /* Only process subdivision if level is greater than 0. */
   if (subdiv_level == 0) {
     params.set_output("Geometry", std::move(geometry_set));
     return;

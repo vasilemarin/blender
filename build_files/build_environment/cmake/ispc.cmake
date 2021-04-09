@@ -24,11 +24,12 @@ if(WIN32)
     -DARM_ENABLED=Off
   )
 elseif(APPLE)
-  # Use bison installed via Homebrew.
-  # The one which comes which Xcode toolset is too old.
+  # Use bison and flex installed via Homebrew.
+  # The ones that come with Xcode toolset are too old.
   if("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "arm64")
     set(ISPC_EXTRA_ARGS_APPLE
       -DBISON_EXECUTABLE=/opt/homebrew/opt/bison/bin/bison
+      -DFLEX_EXECUTABLE=/opt/homebrew/opt/flex/bin/flex
       -DARM_ENABLED=On
     )
   else()
@@ -62,9 +63,9 @@ set(ISPC_EXTRA_ARGS
 )
 
 ExternalProject_Add(external_ispc
-  URL ${ISPC_URI}
+  URL file://${PACKAGE_DIR}/${ISPC_FILE}
   DOWNLOAD_DIR ${DOWNLOAD_DIR}
-  URL_HASH MD5=${ISPC_HASH}
+  URL_HASH ${ISPC_HASH_TYPE}=${ISPC_HASH}
   PREFIX ${BUILD_DIR}/ispc
   PATCH_COMMAND ${PATCH_CMD} -p 1 -d ${BUILD_DIR}/ispc/src/external_ispc < ${PATCH_DIR}/ispc.diff
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${LIBDIR}/ispc -Wno-dev ${DEFAULT_CMAKE_FLAGS} ${ISPC_EXTRA_ARGS} ${BUILD_DIR}/ispc/src/external_ispc
