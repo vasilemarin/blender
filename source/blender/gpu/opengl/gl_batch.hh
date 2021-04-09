@@ -100,6 +100,7 @@ class GLBatch : public Batch {
   ~GLBatch();
 
   void draw(int v_first, int v_count, int i_first, int i_count) override;
+  void compute(uint group_x_len, uint group_y_len, uint group_z_len) override;
   void bind(int i_first);
 
   /* Convenience getters. */

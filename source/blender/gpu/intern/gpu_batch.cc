@@ -73,7 +73,7 @@ void GPU_batch_init_ex(GPUBatch *batch,
                        GPUIndexBuf *elem,
                        eGPUBatchFlag owns_flag)
 {
-  BLI_assert(verts != nullptr);
+  BLI_assert(verts != nullptr || prim_type == GPU_PRIM_NONE);
   /* Do not pass any other flag */
   BLI_assert((owns_flag & ~(GPU_BATCH_OWNS_VBO | GPU_BATCH_OWNS_INDEX)) == 0);
 
@@ -280,6 +280,24 @@ void GPU_batch_draw_advanced(
   }
 
   batch->draw(v_first, v_count, i_first, i_count);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Drawing / Drawcall functions
+ * \{ */
+
+void GPU_batch_compute(GPUBatch *gpu_batch, uint group_x_len, uint group_y_len, uint group_z_len)
+{
+  BLI_assert(gpu_batch);
+  Batch *batch = static_cast<Batch *>(gpu_batch);
+
+  BLI_assert(batch->prim_type == GPU_PRIM_NONE);
+  BLI_assert(Context::get()->shader != nullptr);
+
+  GPU_shader_bind(batch->shader);
+  batch->compute(group_x_len, group_y_len, group_z_len);
 }
 
 /** \} */

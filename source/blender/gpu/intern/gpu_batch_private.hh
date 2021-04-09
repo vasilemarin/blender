@@ -46,6 +46,7 @@ class Batch : public GPUBatch {
   virtual ~Batch(){};
 
   virtual void draw(int v_first, int v_count, int i_first, int i_count) = 0;
+  virtual void compute(uint group_x_len, uint group_y_len, uint group_z_len) = 0;
 
   /* Convenience casts. */
   IndexBuf *elem_(void) const

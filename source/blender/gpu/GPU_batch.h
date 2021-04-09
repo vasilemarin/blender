@@ -105,6 +105,8 @@ void GPU_batch_init_ex(GPUBatch *batch,
 void GPU_batch_copy(GPUBatch *batch_dst, GPUBatch *batch_src);
 
 #define GPU_batch_create(prim, verts, elem) GPU_batch_create_ex(prim, verts, elem, 0)
+#define GPU_batch_compute_create() \
+  GPU_batch_create_ex(GPU_PRIM_NONE, NULL, NULL, GPU_BATCH_OWNS_NONE)
 #define GPU_batch_init(batch, prim, verts, elem) GPU_batch_init_ex(batch, prim, verts, elem, 0)
 
 /* Same as discard but does not free. (does not call free callback). */
@@ -148,10 +150,14 @@ void GPU_batch_program_set_builtin_with_config(GPUBatch *batch,
   GPU_shader_uniform_mat4((batch)->shader, name, val);
 #define GPU_batch_texture_bind(batch, name, tex) \
   GPU_texture_bind(tex, GPU_shader_get_texture_binding((batch)->shader, name));
+#define GPU_batch_texture_image_bind(batch, name, tex) \
+  GPU_texture_image_bind(tex, GPU_shader_get_texture_binding((batch)->shader, name));
 
 void GPU_batch_draw(GPUBatch *batch);
 void GPU_batch_draw_range(GPUBatch *batch, int v_first, int v_count);
 void GPU_batch_draw_instanced(GPUBatch *batch, int i_count);
+
+void GPU_batch_compute(GPUBatch *batch, uint group_x_len, uint group_y_len, uint group_z_len);
 
 /* This does not bind/unbind shader and does not call GPU_matrix_bind() */
 void GPU_batch_draw_advanced(GPUBatch *, int v_first, int v_count, int i_first, int i_count);
