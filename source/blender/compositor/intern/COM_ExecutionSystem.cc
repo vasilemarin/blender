@@ -33,8 +33,6 @@
 #include "COM_ReadBufferOperation.h"
 #include "COM_WorkScheduler.h"
 
-#include <thread>
-
 #ifdef WITH_CXX_GUARDEDALLOC
 #  include "MEM_guardedalloc.h"
 #endif
@@ -273,26 +271,41 @@ void ExecutionSystem::execute()
   }
 }
 
-static bool is_completed(Vector<ExecutionGroup *> &groups)
+static bool is_completed(ExecutionGroup *group)
 {
-  for (ExecutionGroup *group : groups) {
-    for (WorkPackage &work_package : group->get_work_packages()) {
-      if (work_package.state != eWorkPackageState::Executed) {
-        return false;
-      }
+  for (const WorkPackage &work_package : group->get_work_packages()) {
+    if (work_package.priority != eCompositorPriority::Unset &&
+        work_package.state != eWorkPackageState::Executed) {
+      return false;
     }
   }
   return true;
 }
 
-static void wait_for_completion(const bNodeTree *node_tree, Vector<ExecutionGroup *> &groups)
+/* NOTE: function changes `uncompleted_groups` parameter. */
+static bool is_completed(Vector<ExecutionGroup *> &uncompleted_groups)
 {
-  while (!is_completed(groups)) {
+  while (uncompleted_groups.size()) {
+    ExecutionGroup *group = uncompleted_groups.last();
+    if (is_completed(group)) {
+      uncompleted_groups.remove_last();
+    }
+    else {
+      return false;
+    }
+  }
+  return true;
+}
+
+static void wait_for_completion(const bNodeTree *node_tree, const Vector<ExecutionGroup *> &groups)
+{
+  Vector<ExecutionGroup *> uncompleted_groups = groups;
+
+  while (!is_completed(uncompleted_groups)) {
     if (node_tree->test_break && node_tree->test_break(node_tree->tbh)) {
       break;
     }
-    /* TODO: Wrap this in a function in BLI. */
-    std::this_thread::yield();
+    BLI_thread_yield();
   }
 }
 

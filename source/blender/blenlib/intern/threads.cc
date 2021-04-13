@@ -24,6 +24,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 
 #include "MEM_guardedalloc.h"
 
@@ -813,6 +814,11 @@ void BLI_thread_queue_wait_finish(ThreadQueue *queue)
   }
 
   pthread_mutex_unlock(&queue->mutex);
+}
+
+void BLI_thread_yield(void)
+{
+  std::this_thread::yield();
 }
 
 /* **** Special functions to help performance on crazy NUMA setups. **** */
