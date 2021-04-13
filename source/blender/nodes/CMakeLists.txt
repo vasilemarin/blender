@@ -156,6 +156,7 @@ set(SRC
   geometry/nodes/node_geo_attribute_separate_xyz.cc
   geometry/nodes/node_geo_attribute_vector_math.cc
   geometry/nodes/node_geo_boolean.cc
+  geometry/nodes/node_geo_bounding_box.cc
   geometry/nodes/node_geo_collection_info.cc
   geometry/nodes/node_geo_common.cc
   geometry/nodes/node_geo_edge_split.cc
@@ -389,6 +390,10 @@ endif()
 
 if(WITH_OPENSUBDIV)
   add_definitions(-DWITH_OPENSUBDIV)
+endif()
+
+if(WITH_GMP)
+  add_definitions(-DWITH_GMP)
 endif()
 
 if(WITH_OPENVDB)
