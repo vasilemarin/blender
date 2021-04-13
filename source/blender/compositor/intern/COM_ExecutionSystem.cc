@@ -285,10 +285,12 @@ static bool is_completed(Vector<ExecutionGroup *> &groups)
   return true;
 }
 
-static void wait_for_completion(Vector<ExecutionGroup *> &groups)
+static void wait_for_completion(const bNodeTree *node_tree, Vector<ExecutionGroup *> &groups)
 {
-  /* TODO: check for break! */
   while (!is_completed(groups)) {
+    if (node_tree->test_break && node_tree->test_break(node_tree->tbh)) {
+      break;
+    }
     /* TODO: Wrap this in a function in BLI. */
     std::this_thread::yield();
   }
@@ -309,7 +311,7 @@ void ExecutionSystem::execute_groups(eCompositorPriority priority)
         }
       }
       schedule_root_work_packages(m_groups);
-      wait_for_completion(groups);
+      wait_for_completion(m_context.getbNodeTree(), groups);
       break;
     }
     case eSchedulingMode::OutputToInput: {
