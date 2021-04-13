@@ -27,10 +27,9 @@ extern "C" {
 
 struct bContext;
 struct Object;
+struct CacheArchiveHandle;
 struct CacheReader;
 struct CacheFile;
-
-typedef struct USDStageHandle USDStageHandle;
 
 typedef enum USD_global_forward_axis {
   USD_GLOBAL_FORWARD_X = 0,
@@ -153,11 +152,11 @@ int USD_get_version(void);
 
 // ----- USD Import and Mesh Cache interface
 
-USDStageHandle *USD_create_handle(struct Main *bmain,
-                                  const char *filename,
-                                  struct ListBase *object_paths);
+struct CacheArchiveHandle *USD_create_handle(struct Main *bmain,
+                                             const char *filename,
+                                             struct ListBase *object_paths);
 
-void USD_free_handle(USDStageHandle *handle);
+void USD_free_handle(struct CacheArchiveHandle *handle);
 
 void USD_get_transform(struct CacheReader *reader, float r_mat[4][4], float time, float scale);
 
@@ -176,13 +175,13 @@ bool USD_mesh_topology_changed(struct CacheReader *reader,
                                const float time,
                                const char **err_str);
 
-struct CacheReader *CacheReader_open_usd_object(struct USDStageHandle *handle,
+struct CacheReader *CacheReader_open_usd_object(struct CacheArchiveHandle *handle,
                                                 struct CacheReader *reader,
                                                 struct Object *object,
                                                 const char *object_path);
 
-void USDCacheReader_incref(struct CacheReader *reader);
-void USDCacheReader_free(struct CacheReader *reader);
+void USD_CacheReader_incref(struct CacheReader *reader);
+void USD_CacheReader_free(struct CacheReader *reader);
 
 #ifdef __cplusplus
 }
