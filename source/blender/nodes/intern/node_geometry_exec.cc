@@ -93,7 +93,7 @@ ReadAttributePtr GeoNodeExecParams::get_input_attribute(const StringRef name,
         domain, CD_PROP_FLOAT3, type, &value);
   }
   if (found_socket->type == SOCK_RGBA) {
-    const Color4f value = this->get_input<Color4f>(found_socket->identifier);
+    const ColorGeometry value = this->get_input<ColorGeometry>(found_socket->identifier);
     return component.attribute_get_constant_for_read_converted(
         domain, CD_PROP_COLOR, type, &value);
   }

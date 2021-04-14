@@ -46,7 +46,7 @@ void convert_to_static_type(const CustomDataType data_type, const Func &func)
       func(bool());
       break;
     case CD_PROP_COLOR:
-      func(Color4f());
+      func(ColorGeometry());
       break;
     default:
       BLI_assert_unreachable();
@@ -91,9 +91,12 @@ inline float3 mix3(const float3 &weights, const float3 &v0, const float3 &v1, co
 }
 
 template<>
-inline Color4f mix3(const float3 &weights, const Color4f &v0, const Color4f &v1, const Color4f &v2)
+inline ColorGeometry mix3(const float3 &weights,
+                          const ColorGeometry &v0,
+                          const ColorGeometry &v1,
+                          const ColorGeometry &v2)
 {
-  Color4f result;
+  ColorGeometry result;
   interp_v4_v4v4v4(result, v0, v1, v2, weights);
   return result;
 }
@@ -198,15 +201,16 @@ class SimpleMixerWithAccumulationType {
   }
 };
 
-class Color4fMixer {
+class ColorGeometryMixer {
  private:
-  MutableSpan<Color4f> buffer_;
-  Color4f default_color_;
+  MutableSpan<ColorGeometry> buffer_;
+  ColorGeometry default_color_;
   Array<float> total_weights_;
 
  public:
-  Color4fMixer(MutableSpan<Color4f> buffer, Color4f default_color = {0, 0, 0, 1});
-  void mix_in(const int64_t index, const Color4f &color, const float weight = 1.0f);
+  ColorGeometryMixer(MutableSpan<ColorGeometry> buffer,
+                     ColorGeometry default_color = {0, 0, 0, 1});
+  void mix_in(const int64_t index, const ColorGeometry &color, const float weight = 1.0f);
   void finalize();
 };
 
@@ -223,10 +227,10 @@ template<> struct DefaultMixerStruct<float2> {
 template<> struct DefaultMixerStruct<float3> {
   using type = SimpleMixer<float3>;
 };
-template<> struct DefaultMixerStruct<Color4f> {
-  /* Use a special mixer for colors. Color4f can't be added/multiplied, because this is not
+template<> struct DefaultMixerStruct<ColorGeometry> {
+  /* Use a special mixer for colors. ColorGeometry can't be added/multiplied, because this is not
    * something one should usually do with colors.  */
-  using type = Color4fMixer;
+  using type = ColorGeometryMixer;
 };
 template<> struct DefaultMixerStruct<int> {
   static int double_to_int(const double &value)

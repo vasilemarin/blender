@@ -113,8 +113,9 @@ static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams
       break;
     }
     case CD_PROP_COLOR: {
-      const Color4f value = params.get_input<Color4f>("Value_002");
-      MutableSpan<Color4f> attribute_span = attribute->get_span_for_write_only<Color4f>();
+      const ColorGeometry value = params.get_input<ColorGeometry>("Value_002");
+      MutableSpan<ColorGeometry> attribute_span =
+          attribute->get_span_for_write_only<ColorGeometry>();
       attribute_span.fill(value);
       break;
     }

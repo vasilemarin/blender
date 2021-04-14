@@ -22,7 +22,48 @@
 
 namespace blender {
 
-struct Color4f {
+/* Spaces are defined as classes to be extended with meta-data in the future.
+ * The meta data could contain CIE mapping and whitepoints. */
+class Srgb {
+};
+class LinearRGB {
+};
+
+/* Enumeration containing the different alpha modes. */
+enum class eAlpha : uint8_t {
+  /* Alpha is unassociated (color is straight). */
+  Straight,
+  /* Alpha is associated (color is premultiplied with alpha). */
+  Premultiplied,
+};
+
+template<typename Space, eAlpha Alpha> struct Color4f;
+template<typename Space, eAlpha Alpha> struct Color4b;
+
+/* Internal roles. To shorten the type names and hide complexity in areas where transformations are
+ * unlikely to happen. */
+using ColorRender = Color4f<LinearRGB, eAlpha::Premultiplied>;
+using ColorReference = Color4f<LinearRGB, eAlpha::Premultiplied>;
+using ColorCompositor = Color4f<LinearRGB, eAlpha::Premultiplied>;
+using ColorTheme = Color4b<Srgb, eAlpha::Straight>;
+using ColorGeometry = Color4f<LinearRGB, eAlpha::Premultiplied>;
+
+MINLINE void associate_alpha(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
+MINLINE void unassociate_alpha(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                               Color4f<LinearRGB, eAlpha::Straight> &r_out);
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4f<Srgb, eAlpha::Straight> &r_out);
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4f<LinearRGB, eAlpha::Straight> &r_out);
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4b<Srgb, eAlpha::Straight> &r_out);
+MINLINE void transfer_color(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                            Color4b<Srgb, eAlpha::Straight> &r_out);
+
+template<typename Space, eAlpha Alpha> struct Color4f {
   float r, g, b, a;
 
   Color4f() = default;
@@ -33,6 +74,12 @@ struct Color4f {
 
   Color4f(float r, float g, float b, float a) : r(r), g(g), b(b), a(a)
   {
+  }
+
+  template<typename OtherSpace, eAlpha OtherAlpha>
+  Color4f(const Color4b<OtherSpace, OtherAlpha> &src)
+  {
+    transfer_color(src, *this);
   }
 
   operator float *()
@@ -51,12 +98,12 @@ struct Color4f {
     return stream;
   }
 
-  friend bool operator==(const Color4f &a, const Color4f &b)
+  friend bool operator==(const Color4f<Space, Alpha> &a, const Color4f<Space, Alpha> &b)
   {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
   }
 
-  friend bool operator!=(const Color4f &a, const Color4f &b)
+  friend bool operator!=(const Color4f<Space, Alpha> &a, const Color4f<Space, Alpha> &b)
   {
     return !(a == b);
   }
@@ -71,7 +118,7 @@ struct Color4f {
   }
 };
 
-struct Color4b {
+template<typename Space, eAlpha Alpha> struct Color4b {
   uint8_t r, g, b, a;
 
   Color4b() = default;
@@ -80,16 +127,10 @@ struct Color4b {
   {
   }
 
-  Color4b(Color4f other)
+  template<typename OtherSpace, eAlpha OtherAlpha>
+  Color4b(const Color4f<OtherSpace, OtherAlpha> &src)
   {
-    rgba_float_to_uchar(*this, other);
-  }
-
-  operator Color4f() const
-  {
-    Color4f result;
-    rgba_uchar_to_float(result, *this);
-    return result;
+    transfer_color(src, *this);
   }
 
   operator uint8_t *()
@@ -108,12 +149,12 @@ struct Color4b {
     return stream;
   }
 
-  friend bool operator==(const Color4b &a, const Color4b &b)
+  friend bool operator==(const Color4b<Space, Alpha> &a, const Color4b<Space, Alpha> &b)
   {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
   }
 
-  friend bool operator!=(const Color4b &a, const Color4b &b)
+  friend bool operator!=(const Color4b<Space, Alpha> &a, const Color4b<Space, Alpha> &b)
   {
     return !(a == b);
   }
@@ -124,5 +165,59 @@ struct Color4b {
            static_cast<uint64_t>(b * 735391) ^ static_cast<uint64_t>(a * 442319);
   }
 };
+
+/* These functions should invoke a BLI_math_color macro or perform a OCIO color transfer. */
+MINLINE void associate_alpha(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
+{
+  straight_to_premul_v4_v4(r_out, src);
+}
+
+MINLINE void unassociate_alpha(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                               Color4f<LinearRGB, eAlpha::Straight> &r_out)
+{
+  premul_to_straight_v4_v4(r_out, src);
+}
+
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4f<Srgb, eAlpha::Straight> &r_out)
+{
+  rgba_uchar_to_float(r_out, src);
+}
+
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
+{
+  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
+  associate_alpha(intermediate, r_out);
+}
+
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4b<Srgb, eAlpha::Straight> &r_out)
+{
+  r_out.r = src.r;
+  r_out.b = src.b;
+  r_out.g = src.g;
+  r_out.a = src.a;
+}
+
+MINLINE void transfer_color(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                            Color4f<LinearRGB, eAlpha::Straight> &r_out)
+{
+  unassociate_alpha(src, r_out);
+}
+
+MINLINE void transfer_color(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                            Color4b<Srgb, eAlpha::Straight> &r_out)
+{
+  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
+  transfer_color(intermediate, r_out);
+}
+
+MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
+                            Color4f<LinearRGB, eAlpha::Straight> &r_out)
+{
+  srgb_to_linearrgb_uchar4(r_out, src);
+}
 
 }  // namespace blender
