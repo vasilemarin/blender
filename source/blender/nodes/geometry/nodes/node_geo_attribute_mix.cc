@@ -92,15 +92,15 @@ static void do_mix_operation_float3(const int blend_mode,
 
 static void do_mix_operation_color4f(const int blend_mode,
                                      const FloatReadAttribute &factors,
-                                     const Color4fReadAttribute &inputs_a,
-                                     const Color4fReadAttribute &inputs_b,
-                                     Color4fWriteAttribute results)
+                                     const ColorGeometryReadAttribute &inputs_a,
+                                     const ColorGeometryReadAttribute &inputs_b,
+                                     ColorGeometryWriteAttribute results)
 {
   const int size = results.size();
   for (const int i : IndexRange(size)) {
     const float factor = factors[i];
-    Color4f a = inputs_a[i];
-    const Color4f b = inputs_b[i];
+    ColorGeometry a = inputs_a[i];
+    const ColorGeometry b = inputs_b[i];
     ramp_blend(blend_mode, a, factor, b);
     results.set(i, a);
   }

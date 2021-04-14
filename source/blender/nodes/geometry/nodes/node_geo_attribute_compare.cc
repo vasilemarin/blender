@@ -134,16 +134,16 @@ static void do_equal_operation_float3(const Float3ReadAttribute &input_a,
   }
 }
 
-static void do_equal_operation_color4f(const Color4fReadAttribute &input_a,
-                                       const Color4fReadAttribute &input_b,
+static void do_equal_operation_color4f(const ColorGeometryReadAttribute &input_a,
+                                       const ColorGeometryReadAttribute &input_b,
                                        const float threshold,
                                        MutableSpan<bool> span_result)
 {
   const float threshold_squared = pow2f(threshold);
   const int size = input_a.size();
   for (const int i : IndexRange(size)) {
-    const Color4f a = input_a[i];
-    const Color4f b = input_b[i];
+    const ColorGeometry a = input_a[i];
+    const ColorGeometry b = input_b[i];
     span_result[i] = len_squared_v4v4(a, b) < threshold_squared;
   }
 }
@@ -188,16 +188,16 @@ static void do_not_equal_operation_float3(const Float3ReadAttribute &input_a,
   }
 }
 
-static void do_not_equal_operation_color4f(const Color4fReadAttribute &input_a,
-                                           const Color4fReadAttribute &input_b,
+static void do_not_equal_operation_color4f(const ColorGeometryReadAttribute &input_a,
+                                           const ColorGeometryReadAttribute &input_b,
                                            const float threshold,
                                            MutableSpan<bool> span_result)
 {
   const float threshold_squared = pow2f(threshold);
   const int size = input_a.size();
   for (const int i : IndexRange(size)) {
-    const Color4f a = input_a[i];
-    const Color4f b = input_b[i];
+    const ColorGeometry a = input_a[i];
+    const ColorGeometry b = input_b[i];
     span_result[i] = len_squared_v4v4(a, b) >= threshold_squared;
   }
 }

@@ -244,7 +244,7 @@ const blender::fn::CPPType *custom_data_type_to_cpp_type(const CustomDataType ty
     case CD_PROP_INT32:
       return &CPPType::get<int>();
     case CD_PROP_COLOR:
-      return &CPPType::get<Color4f>();
+      return &CPPType::get<ColorGeometry>();
     case CD_PROP_BOOL:
       return &CPPType::get<bool>();
     default:
@@ -267,7 +267,7 @@ CustomDataType cpp_type_to_custom_data_type(const blender::fn::CPPType &type)
   if (type.is<int>()) {
     return CD_PROP_INT32;
   }
-  if (type.is<Color4f>()) {
+  if (type.is<ColorGeometry>()) {
     return CD_PROP_COLOR;
   }
   if (type.is<bool>()) {
@@ -484,7 +484,7 @@ ReadAttributePtr CustomDataAttributeProvider::try_get_for_read(
       case CD_PROP_INT32:
         return this->layer_to_read_attribute<int>(layer, domain_size);
       case CD_PROP_COLOR:
-        return this->layer_to_read_attribute<Color4f>(layer, domain_size);
+        return this->layer_to_read_attribute<ColorGeometry>(layer, domain_size);
       case CD_PROP_BOOL:
         return this->layer_to_read_attribute<bool>(layer, domain_size);
       default:
@@ -518,7 +518,7 @@ WriteAttributePtr CustomDataAttributeProvider::try_get_for_write(
       case CD_PROP_INT32:
         return this->layer_to_write_attribute<int>(layer, domain_size);
       case CD_PROP_COLOR:
-        return this->layer_to_write_attribute<Color4f>(layer, domain_size);
+        return this->layer_to_write_attribute<ColorGeometry>(layer, domain_size);
       case CD_PROP_BOOL:
         return this->layer_to_write_attribute<bool>(layer, domain_size);
       default:

@@ -94,7 +94,7 @@ static void execute_on_component(GeometryComponent &component, const GeoNodeExec
   Float3ReadAttribute mapping_attribute = component.attribute_get_for_read<float3>(
       mapping_name, result_domain, {0, 0, 0});
 
-  MutableSpan<Color4f> colors = attribute_out->get_span<Color4f>();
+  MutableSpan<ColorGeometry> colors = attribute_out->get_span<ColorGeometry>();
   for (const int i : IndexRange(mapping_attribute.size())) {
     TexResult texture_result = {0};
     const float3 position = mapping_attribute[i];

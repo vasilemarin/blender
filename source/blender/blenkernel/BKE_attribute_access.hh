@@ -307,12 +307,12 @@ using FloatReadAttribute = TypedReadAttribute<float>;
 using Float2ReadAttribute = TypedReadAttribute<float2>;
 using Float3ReadAttribute = TypedReadAttribute<float3>;
 using Int32ReadAttribute = TypedReadAttribute<int>;
-using Color4fReadAttribute = TypedReadAttribute<Color4f>;
+using ColorGeometryReadAttribute = TypedReadAttribute<ColorGeometry>;
 using BooleanWriteAttribute = TypedWriteAttribute<bool>;
 using FloatWriteAttribute = TypedWriteAttribute<float>;
 using Float2WriteAttribute = TypedWriteAttribute<float2>;
 using Float3WriteAttribute = TypedWriteAttribute<float3>;
 using Int32WriteAttribute = TypedWriteAttribute<int>;
-using Color4fWriteAttribute = TypedWriteAttribute<Color4f>;
+using ColorGeometryWriteAttribute = TypedWriteAttribute<ColorGeometry>;
 
 }  // namespace blender::bke

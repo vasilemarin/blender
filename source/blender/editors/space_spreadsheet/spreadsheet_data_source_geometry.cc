@@ -147,7 +147,7 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
           name,
           domain_size,
           [attribute, axis = column_id.index](int index, CellValue &r_cell_value) {
-            Color4f value;
+            ColorGeometry value;
             attribute->get(index, &value);
             r_cell_value.value_float = value[axis];
           });
