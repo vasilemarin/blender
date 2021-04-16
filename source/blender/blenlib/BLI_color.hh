@@ -25,9 +25,11 @@ namespace blender {
 /**
  * CPP based color structures.
  *
- * The color structures are explicitly typed with its space and alpha association
- * to increase the readability and visibility of typically common mistakes when
+ * Strongly typed color storage structures with space and alpha association.
+ * Will increase readability and visibility of typically mistakes when
  * working with colors.
+ *
+ * The storage structs can hold 4 bytes (Color4b) or 4 floats (Color4f).
  *
  * Usage:
  *
@@ -44,21 +46,24 @@ namespace blender {
  *   bright or dark.
  * - Ignoring premultiplied or straight alpha.
  *
- * The underlying storage structs can be 4 bytes (Color4b) or 4 floats (Color4f).
- *
  * Extending this file:
  * - This file can be extended with `ColorHex/Hsl/Hsv` for other
  *   representation of rgb based colors.
+ * - Add ColorXyz.
  */
 
 /* Spaces are defined as classes to be extended with meta-data in the future.
- * The meta data could contain CIE mapping and whitepoints. */
+ * The meta data could contain CIE 1931 coordinates of whitepoints and the
+ * individual components.
+ */
 class Srgb {
 };
 
-// TOTO(jbakker): Should we rename this to the actual color space name (Rec709)?
-class LinearRGB {
+class Rec709 {
 };
+
+/* Primary linear colorspace used in Blender. */
+using LinearRGB = Rec709;
 
 /* Enumeration containing the different alpha modes. */
 enum class eAlpha : uint8_t {
@@ -83,27 +88,23 @@ namespace color_transfers_ {
 
 /**
  * Predefinition of transfer_color_ functions.
- * 
- * These functions will be called from the explicit template constructors.
- * It isn't intended to be called from outside this header file.
+ *
+ * These functions will be called from the template constructors.
+ * They shouldn't be used directly.
  *
  * The defined transfer_color_ function will drive which storage classes are
- * suitable. Therefore there is no LinearRGB that uses Color4b.
+ * suitable. For example Color4b<LinearRGB,...> isn't possible to create.
  */
-/* Srgb byte <=> float. */
 MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
                              Color4f<Srgb, eAlpha::Straight> &r_out);
 MINLINE void transfer_color_(const Color4f<Srgb, eAlpha::Straight> &src,
                              Color4b<Srgb, eAlpha::Straight> &r_out);
-
-/* Srgb <=> LinearRGB straight. */
 MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
                              Color4f<LinearRGB, eAlpha::Straight> &r_out);
 MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
                              Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
 MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
                              Color4b<Srgb, eAlpha::Straight> &r_out);
-
 MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
                              Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
 MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
@@ -266,8 +267,8 @@ MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
                              Color4b<Srgb, eAlpha::Straight> &r_out)
 {
   r_out.r = src.r;
-  r_out.b = src.b;
   r_out.g = src.g;
+  r_out.b = src.b;
   r_out.a = src.a;
 }
 
