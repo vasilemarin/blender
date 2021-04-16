@@ -22,10 +22,41 @@
 
 namespace blender {
 
+/**
+ * CPP based color structures.
+ *
+ * The color structures are explicitly typed with its space and alpha association
+ * to increase the readability and visibility of typically common mistakes when
+ * working with colors.
+ *
+ * Usage:
+ *
+ * Convert an srgb byte color to a linearrgb premultiplied.
+ * ```
+ * Color4b<Srgb, eAlpha::Straight> srgb_color;
+ * Color4f<LinearRGB, eAlpha::Premultiplied> linearrgb_color(srgb_color);
+ * ```
+ *
+ * Common mistakes are:
+ * - Storing linear colors in 4 bytes. Reducing the bit depth leads to banding
+ *   artifacts.
+ * - Missing conversion between Srgb/linearrgb color spaces. Colors are to
+ *   bright or dark.
+ * - Ignoring premultiplied or straight alpha.
+ *
+ * The underlying storage structs can be 4 bytes (Color4b) or 4 floats (Color4f).
+ *
+ * Extending this file:
+ * - This file can be extended with `ColorHex/Hsl/Hsv` for other
+ *   representation of rgb based colors.
+ */
+
 /* Spaces are defined as classes to be extended with meta-data in the future.
  * The meta data could contain CIE mapping and whitepoints. */
 class Srgb {
 };
+
+// TOTO(jbakker): Should we rename this to the actual color space name (Rec709)?
 class LinearRGB {
 };
 
@@ -40,28 +71,53 @@ enum class eAlpha : uint8_t {
 template<typename Space, eAlpha Alpha> struct Color4f;
 template<typename Space, eAlpha Alpha> struct Color4b;
 
-/* Internal roles. To shorten the type names and hide complexity in areas where transformations are
- * unlikely to happen. */
+/* Internal roles. For convenience to shorten the type names and hide complexity
+ * in areas where transformations are unlikely to happen. */
 using ColorRender = Color4f<LinearRGB, eAlpha::Premultiplied>;
 using ColorReference = Color4f<LinearRGB, eAlpha::Premultiplied>;
 using ColorCompositor = Color4f<LinearRGB, eAlpha::Premultiplied>;
 using ColorTheme = Color4b<Srgb, eAlpha::Straight>;
 using ColorGeometry = Color4f<LinearRGB, eAlpha::Premultiplied>;
 
-MINLINE void associate_alpha(const Color4f<LinearRGB, eAlpha::Straight> &src,
+namespace color_transfers_ {
+
+/**
+ * Predefinition of transfer_color_ functions.
+ * 
+ * These functions will be called from the explicit template constructors.
+ * It isn't intended to be called from outside this header file.
+ *
+ * The defined transfer_color_ function will drive which storage classes are
+ * suitable. Therefore there is no LinearRGB that uses Color4b.
+ */
+/* Srgb byte <=> float. */
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
+                             Color4f<Srgb, eAlpha::Straight> &r_out);
+MINLINE void transfer_color_(const Color4f<Srgb, eAlpha::Straight> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out);
+
+/* Srgb <=> LinearRGB straight. */
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Straight> &r_out);
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
                              Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
-MINLINE void unassociate_alpha(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                               Color4f<LinearRGB, eAlpha::Straight> &r_out);
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4f<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4f<LinearRGB, eAlpha::Straight> &r_out);
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4b<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                            Color4b<Srgb, eAlpha::Straight> &r_out);
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out);
+
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                             Color4f<LinearRGB, eAlpha::Straight> &r_out);
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out);
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                             Color4f<Srgb, eAlpha::Straight> &r_out);
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out);
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4f<Srgb, eAlpha::Straight> &r_out);
+
+}  // namespace color_transfers_
 
 template<typename Space, eAlpha Alpha> struct Color4f {
   float r, g, b, a;
@@ -77,9 +133,15 @@ template<typename Space, eAlpha Alpha> struct Color4f {
   }
 
   template<typename OtherSpace, eAlpha OtherAlpha>
-  Color4f(const Color4b<OtherSpace, OtherAlpha> &src)
+  explicit Color4f(const Color4b<OtherSpace, OtherAlpha> &src)
   {
-    transfer_color(src, *this);
+    color_transfers_::transfer_color_(src, *this);
+  }
+
+  template<typename OtherSpace, eAlpha OtherAlpha>
+  explicit Color4f(const Color4f<OtherSpace, OtherAlpha> &src)
+  {
+    color_transfers_::transfer_color_(src, *this);
   }
 
   operator float *()
@@ -128,9 +190,9 @@ template<typename Space, eAlpha Alpha> struct Color4b {
   }
 
   template<typename OtherSpace, eAlpha OtherAlpha>
-  Color4b(const Color4f<OtherSpace, OtherAlpha> &src)
+  explicit Color4b(const Color4f<OtherSpace, OtherAlpha> &src)
   {
-    transfer_color(src, *this);
+    color_transfers_::transfer_color_(src, *this);
   }
 
   operator uint8_t *()
@@ -166,34 +228,42 @@ template<typename Space, eAlpha Alpha> struct Color4b {
   }
 };
 
-/* These functions should invoke a BLI_math_color macro or perform a OCIO color transfer. */
-MINLINE void associate_alpha(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
+namespace color_transfers_ {
+
+MINLINE void associate_alpha_(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                              Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
 {
   straight_to_premul_v4_v4(r_out, src);
 }
 
-MINLINE void unassociate_alpha(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                               Color4f<LinearRGB, eAlpha::Straight> &r_out)
+MINLINE void unassociate_alpha_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                                Color4f<LinearRGB, eAlpha::Straight> &r_out)
 {
   premul_to_straight_v4_v4(r_out, src);
 }
 
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4f<Srgb, eAlpha::Straight> &r_out)
+/* Srgb byte <=> float. */
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
+                             Color4f<Srgb, eAlpha::Straight> &r_out)
 {
   rgba_uchar_to_float(r_out, src);
 }
 
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
+MINLINE void transfer_color_(const Color4f<Srgb, eAlpha::Straight> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out)
 {
-  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
-  associate_alpha(intermediate, r_out);
+  rgba_float_to_uchar(r_out, src);
 }
 
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4b<Srgb, eAlpha::Straight> &r_out)
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
+{
+  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
+  associate_alpha_(intermediate, r_out);
+}
+
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out)
 {
   r_out.r = src.r;
   r_out.b = src.b;
@@ -201,23 +271,56 @@ MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
   r_out.a = src.a;
 }
 
-MINLINE void transfer_color(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                            Color4f<LinearRGB, eAlpha::Straight> &r_out)
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                             Color4f<LinearRGB, eAlpha::Straight> &r_out)
 {
-  unassociate_alpha(src, r_out);
+  unassociate_alpha_(src, r_out);
 }
 
-MINLINE void transfer_color(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                            Color4b<Srgb, eAlpha::Straight> &r_out)
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
+{
+  associate_alpha_(src, r_out);
+}
+
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out)
+{
+  linearrgb_to_srgb_uchar4(r_out, src);
+}
+
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                             Color4b<Srgb, eAlpha::Straight> &r_out)
 {
   Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
-  transfer_color(intermediate, r_out);
+  transfer_color_(intermediate, r_out);
 }
 
-MINLINE void transfer_color(const Color4b<Srgb, eAlpha::Straight> &src,
-                            Color4f<LinearRGB, eAlpha::Straight> &r_out)
+MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Straight> &r_out)
 {
   srgb_to_linearrgb_uchar4(r_out, src);
 }
+
+MINLINE void transfer_color_(const Color4f<Srgb, eAlpha::Straight> &src,
+                             Color4f<LinearRGB, eAlpha::Straight> &r_out)
+{
+  srgb_to_linearrgb_v4(r_out, src);
+}
+
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
+                             Color4f<Srgb, eAlpha::Straight> &r_out)
+{
+  linearrgb_to_srgb_v4(r_out, src);
+}
+
+MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
+                             Color4f<Srgb, eAlpha::Straight> &r_out)
+{
+  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
+  transfer_color_(intermediate, r_out);
+}
+
+}  // namespace color_transfers_
 
 }  // namespace blender
