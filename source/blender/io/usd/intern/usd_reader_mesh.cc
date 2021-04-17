@@ -167,7 +167,7 @@ static void assign_materials(Main *bmain,
 
 }  // namespace utils
 
-static void *add_customdata_cb(Mesh *mesh, const char *name, int data_type)
+static void *add_customdata_cb(Mesh *mesh, const char *name, const int data_type)
 {
   CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
   void *cd_ptr;
@@ -203,11 +203,11 @@ USDMeshReader::USDMeshReader(const pxr::UsdPrim &prim,
       last_num_positions_(-1),
       has_uvs_(false),
       is_time_varying_(false),
-      is_initial_load_(false)
+      is_initial_load_(true)
 {
 }
 
-void USDMeshReader::create_object(Main *bmain, double motionSampleTime)
+void USDMeshReader::create_object(Main *bmain, const double /* motionSampleTime */)
 {
   Mesh *mesh = BKE_mesh_add(bmain, name_.c_str());
 
@@ -215,7 +215,7 @@ void USDMeshReader::create_object(Main *bmain, double motionSampleTime)
   object_->data = mesh;
 }
 
-void USDMeshReader::read_object_data(Main *bmain, double motionSampleTime)
+void USDMeshReader::read_object_data(Main *bmain, const double motionSampleTime)
 {
   Mesh *mesh = (Mesh *)object_->data;
 
@@ -259,8 +259,10 @@ bool USDMeshReader::valid() const
   return static_cast<bool>(mesh_prim_);
 }
 
-bool USDMeshReader::topology_changed(Mesh *existing_mesh, double motionSampleTime)
+bool USDMeshReader::topology_changed(Mesh *existing_mesh, const double motionSampleTime)
 {
+  /* TODO(makowalski): Is it the best strategy to cache the mesh
+   * geometry in this function?  This needs to be revisited. */
   pxr::UsdAttribute faceVertCountsAttr = mesh_prim_.GetFaceVertexCountsAttr();
   pxr::UsdAttribute faceVertIndicesAttr = mesh_prim_.GetFaceVertexIndicesAttr();
   pxr::UsdAttribute pointsAttr = mesh_prim_.GetPointsAttr();
@@ -281,6 +283,9 @@ bool USDMeshReader::topology_changed(Mesh *existing_mesh, double motionSampleTim
     normal_interpolation_ = mesh_prim_.GetNormalsInterpolation();
   }
 
+  /* TODO(makowalski): Why aren't we comparing positions_.size()
+   * against the number of points of the existing_mesh?
+   * Why keep track of the last_num_positons_ at all? */
   if (last_num_positions_ != positions_.size()) {
     last_num_positions_ = positions_.size();
     return true;
@@ -289,24 +294,18 @@ bool USDMeshReader::topology_changed(Mesh *existing_mesh, double motionSampleTim
   return false;
 }
 
-void USDMeshReader::read_mpolys(Mesh *mesh, pxr::UsdGeomMesh mesh_prim_, double motionSampleTime)
+void USDMeshReader::read_mpolys(Mesh *mesh,
+                                pxr::UsdGeomMesh mesh_prim_,
+                                const double motionSampleTime)
 {
   MPoly *mpolys = mesh->mpoly;
   MLoop *mloops = mesh->mloop;
 
-  pxr::UsdAttribute faceVertCountsAttr = mesh_prim_.GetFaceVertexCountsAttr();
-  pxr::UsdAttribute faceVertIndicesAttr = mesh_prim_.GetFaceVertexIndicesAttr();
+  int loop_index = 0;
+  int rev_loop_index = 0;
 
-  pxr::VtIntArray face_counts;
-  faceVertCountsAttr.Get(&face_counts, motionSampleTime);
-  pxr::VtIntArray face_indices;
-  faceVertIndicesAttr.Get(&face_indices, motionSampleTime);
-
-  unsigned int loop_index = 0;
-  unsigned int rev_loop_index = 0;
-
-  for (int i = 0; i < face_counts.size(); i++) {
-    const int face_size = face_counts[i];
+  for (int i = 0; i < face_counts_.size(); i++) {
+    const int face_size = face_counts_[i];
 
     MPoly &poly = mpolys[i];
     poly.loopstart = loop_index;
@@ -322,9 +321,9 @@ void USDMeshReader::read_mpolys(Mesh *mesh, pxr::UsdGeomMesh mesh_prim_, double 
     for (int f = 0; f < face_size; f++, loop_index++, rev_loop_index--) {
       MLoop &loop = mloops[loop_index];
       if (is_left_handed_)
-        loop.v = face_indices[rev_loop_index];
+        loop.v = face_indices_[rev_loop_index];
       else
-        loop.v = face_indices[loop_index];
+        loop.v = face_indices_[loop_index];
     }
   }
 
@@ -333,8 +332,8 @@ void USDMeshReader::read_mpolys(Mesh *mesh, pxr::UsdGeomMesh mesh_prim_, double 
 
 void USDMeshReader::read_uvs(Mesh *mesh,
                              pxr::UsdGeomMesh mesh_prim_,
-                             double motionSampleTime,
-                             bool load_uvs)
+                             const double motionSampleTime,
+                             const bool load_uvs)
 {
   unsigned int loop_index = 0;
   unsigned int rev_loop_index = 0;
@@ -434,11 +433,12 @@ void USDMeshReader::read_uvs(Mesh *mesh,
         }
 
         MLoopUV *mloopuv = static_cast<MLoopUV *>(layer->data);
-        if (is_left_handed_)
+        if (is_left_handed_) {
           uv_index = rev_loop_index;
-        else
+        }
+        else {
           uv_index = loop_index;
-
+        }
         mloopuv[uv_index].uv[0] = sample.uvs[usd_uv_index][0];
         mloopuv[uv_index].uv[1] = sample.uvs[usd_uv_index][1];
       }
@@ -448,7 +448,7 @@ void USDMeshReader::read_uvs(Mesh *mesh,
 
 void USDMeshReader::read_colors(Mesh *mesh,
                                 const pxr::UsdGeomMesh &mesh_prim_,
-                                double motionSampleTime)
+                                const double motionSampleTime)
 {
   if (!(mesh && mesh_prim_ && mesh->totloop > 0)) {
     return;
@@ -628,14 +628,9 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
                                      ImportSettings *settings,
                                      Mesh *mesh,
                                      const pxr::UsdGeomMesh &mesh_prim_,
-                                     double motionSampleTime,
-                                     bool new_mesh)
+                                     const double motionSampleTime,
+                                     const bool new_mesh)
 {
-
-  pxr::UsdAttribute normalsAttr = mesh_prim_.GetNormalsAttr();
-  std::vector<pxr::UsdGeomPrimvar> primvars = mesh_prim_.GetPrimvars();
-  pxr::UsdAttribute subdivSchemeAttr = mesh_prim_.GetSubdivisionSchemeAttr();
-
   // Note that for new meshes we always want to read verts and polys,
   // regradless of the value of the read_flag, to avoid a crash downstream
   // in code that expect this data to be there.
@@ -683,7 +678,7 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
 
 void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
                                              MPoly *mpoly,
-                                             int totpoly,
+                                             const int totpoly,
                                              std::map<pxr::SdfPath, int> &r_mat_map)
 {
   /* Find the geom subsets that have bound materials.
@@ -756,18 +751,19 @@ void USDMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, const double mot
 }
 
 Mesh *USDMeshReader::read_mesh(Mesh *existing_mesh,
-                               double motionSampleTime,
-                               int read_flag,
-                               float vel_scale,
-                               const char **err_str)
+                               const double motionSampleTime,
+                               const int read_flag,
+                               const float vel_scale,
+                               const char ** /* err_str */)
 {
   if (!mesh_prim_) {
     return existing_mesh;
   }
 
   mesh_prim_.GetOrientationAttr().Get(&orientation_);
-  if (orientation_ == pxr::UsdGeomTokens->leftHanded)
+  if (orientation_ == pxr::UsdGeomTokens->leftHanded) {
     is_left_handed_ = true;
+  }
 
   std::vector<pxr::TfToken> uv_tokens;
 

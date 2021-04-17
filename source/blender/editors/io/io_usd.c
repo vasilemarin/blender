@@ -276,7 +276,7 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
     params.frame_end = EFRA;
   }
 
-  bool ok = USD_export(C, filename, &params, as_background_job);
+  const bool ok = USD_export(C, filename, &params, as_background_job);
 
   return as_background_job || ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
@@ -689,9 +689,10 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
 
 static int wm_usd_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  if (!RNA_struct_property_is_set(op->ptr, "as_background_job")) {
-    RNA_boolean_set(op->ptr, "as_background_job", true);
-  }
+  eUSDOperatorOptions *options = MEM_callocN(sizeof(eUSDOperatorOptions), "eUSDOperatorOptions");
+  options->as_background_job = true;
+  op->customdata = options;
+
   return WM_operator_filesel(C, op, event);
 }
 
@@ -705,13 +706,14 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
   char filename[FILE_MAX];
   RNA_string_get(op->ptr, "filepath", filename);
 
-  const float scale = RNA_float_get(op->ptr, "scale");
-  const bool is_sequence = RNA_boolean_get(op->ptr, "is_sequence");
-  const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
-  const bool validate_meshes = RNA_boolean_get(op->ptr, "validate_meshes");
-  const bool as_background_job = RNA_boolean_get(op->ptr, "as_background_job");
-  const char global_read_flag = RNA_enum_get(op->ptr, "global_read_flag");
+  eUSDOperatorOptions *options = (eUSDOperatorOptions *)op->customdata;
+  const bool as_background_job = (options != NULL && options->as_background_job);
+  MEM_SAFE_FREE(op->customdata);
 
+  const float scale = RNA_float_get(op->ptr, "scale");
+
+  const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
+  const char global_read_flag = RNA_enum_get(op->ptr, "global_read_flag");
   const bool import_cameras = RNA_boolean_get(op->ptr, "import_cameras");
   const bool import_curves = RNA_boolean_get(op->ptr, "import_curves");
   const bool import_lights = RNA_boolean_get(op->ptr, "import_lights");
@@ -743,23 +745,18 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
 
   const float light_intensity_scale = RNA_float_get(op->ptr, "light_intensity_scale");
 
+  /* TODO(makowalski): Add support for sequences. */
+  const bool is_sequence = false;
   int offset = 0;
   int sequence_len = 1;
-
-  if (is_sequence) {
-    // @TODO: Not Implemented
-    /*sequence_len = get_sequence_len(filename, &offset);
-    if (sequence_len < 0) {
-      BKE_report(op->reports, RPT_ERROR, "Unable to determine ABC sequence length");
-      return OPERATOR_CANCELLED;
-    }*/
-  }
 
   /* Switch out of edit mode to avoid being stuck in it (T54326). */
   Object *obedit = CTX_data_edit_object(C);
   if (obedit) {
     ED_object_mode_set(C, OB_MODE_EDIT);
   }
+
+  const bool validate_meshes = false;
 
   struct USDImportParams params = {scale,
                                    is_sequence,
@@ -788,7 +785,7 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
                                    convert_to_z_up,
                                    light_intensity_scale};
 
-  bool ok = USD_import(C, filename, &params, as_background_job);
+  const bool ok = USD_import(C, filename, &params, as_background_job);
 
   return as_background_job || ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
@@ -824,13 +821,6 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
 
   row = uiLayoutRow(box, false);
   uiItemR(row, ptr, "set_frame_range", 0, NULL, ICON_NONE);
-
-  // TODO: Not supported
-  // row = uiLayoutRow(box, false);
-  // uiItemR(row, ptr, "is_sequence", 0, NULL, ICON_NONE);
-
-  // row = uiLayoutRow(box, false);
-  // uiItemR(row, ptr, "validate_meshes", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, ptr, "import_subdiv", 0, NULL, ICON_NONE);
@@ -918,27 +908,6 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
       "Set Frame Range",
       "If checked, update scene's start and end frame to match those of the USD archive");
 
-  RNA_def_boolean(ot->srna,
-                  "validate_meshes",
-                  0,
-                  "Validate Meshes",
-                  "Check imported mesh objects for invalid data (slow)");
-
-  RNA_def_boolean(ot->srna,
-                  "is_sequence",
-                  false,
-                  "Is Sequence",
-                  "Only set to true if the cache is split into separate files. (UNSUPPORTED)");
-
-  RNA_def_boolean(
-      ot->srna,
-      "as_background_job",
-      false,
-      "Run as Background Job",
-      "Enable this to run the export in the background, disable to block Blender while exporting. "
-      "This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it "
-      "to run as a background job");
-
   RNA_def_boolean(
       ot->srna, "import_cameras", true, "Cameras", "When checked, all cameras will be imported");
   RNA_def_boolean(
@@ -970,7 +939,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   true,
                   "Import Instance Proxies",
                   "If enabled, USD instances will be traversed with instance proxies, "
-                  "creating a unique Blender object for each instance.  Note that "
+                  "creating a unique Blender object for each instance. Note that "
                   "this option is ignored if the Instancing option is also checked");
 
   RNA_def_boolean(ot->srna,
@@ -978,21 +947,21 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   true,
                   "Visible Prims Only",
                   "If enabled, invisible USD prims won't be imported. "
-                  "Only applies to prims with a non-animating visibility attribute.  "
+                  "Only applies to prims with a non-animating visibility attribute. "
                   "Prims with animating visibility will always be imported");
 
   RNA_def_boolean(ot->srna,
                   "create_collection",
                   false,
                   "Create Collection",
-                  "If enabled, all import objects will be added to a new collection");
+                  "If enabled, all imported objects will be added to a new collection");
 
   prop = RNA_def_enum(ot->srna,
                       "global_read_flag",
                       rna_enum_usd_import_read_flags,
                       0,
                       "Flags",
-                      "Set read flag for all usd import mesh sequence cache modifiers");
+                      "Set read flag for all USD import mesh sequence cache modifiers");
 
   RNA_def_property_flag(prop, PROP_ENUM_FLAG);
   RNA_def_property_enum_default(
@@ -1017,7 +986,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
       "use_instancing",
       false,
       "Instancing",
-      "When checked, USD scenegraph instances are imported as collection instances in Blender.  "
+      "When checked, USD scenegraph instances are imported as collection instances in Blender. "
       "Note that point instancers are not yet handled by this option");
 
   RNA_def_boolean(
@@ -1040,7 +1009,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   true,
                   "Convert to Z Up",
                   "When checked and if the USD stage up-axis is Y, apply a rotation "
-                  "to the imported objects to convert their orientation to Z up ");
+                  "to the imported objects to convert their orientation to Z up");
 
   RNA_def_float(ot->srna,
                 "light_intensity_scale",

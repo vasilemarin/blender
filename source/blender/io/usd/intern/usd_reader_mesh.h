@@ -30,6 +30,9 @@ class USDMeshReader : public USDGeomReader {
   std::unordered_map<std::string, pxr::TfToken> uv_token_map_;
   std::map<const pxr::TfToken, bool> primvar_varying_map_;
 
+  /* TODO(makowalski): Is it the best strategy to cache the
+   * mesh geometry in the following members? It appears these
+   * arrays are never cleared, so this might bloat memory. */
   pxr::VtIntArray face_indices_;
   pxr::VtIntArray face_counts_;
   pxr::VtVec3fArray positions_;
@@ -61,8 +64,9 @@ class USDMeshReader : public USDGeomReader {
                          double motionSampleTime,
                          int read_flag,
                          float vel_scale,
-                         const char **err_str);
-  bool topology_changed(Mesh *existing_mesh, double motionSampleTime);
+                         const char **err_str) override;
+
+  bool topology_changed(Mesh *existing_mesh, double motionSampleTime) override;
 
  private:
   void process_normals_vertex_varying(Mesh *mesh);

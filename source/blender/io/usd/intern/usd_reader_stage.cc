@@ -126,18 +126,20 @@ USDPrimReader *USDStageReader::create_reader(const USDStageReader *archive,
 
 /* Returns true if the given prim should be excluded from the
  * traversal because it's invisible. */
-bool _prune_by_visibility(const pxr::UsdGeomImageable &imageable, const USDImportParams &params)
+static bool _prune_by_visibility(const pxr::UsdGeomImageable &imageable,
+                                 const USDImportParams &params)
 {
-  if (imageable && params.import_visible_only) {
-    if (pxr::UsdAttribute visibility_attr = imageable.GetVisibilityAttr()) {
+  if (!(imageable && params.import_visible_only)) {
+    return false;
+  }
 
-      // Prune if the prim has a non-animating visibility attribute and is
-      // invisible.
-      if (!visibility_attr.ValueMightBeTimeVarying()) {
-        pxr::TfToken visibility;
-        visibility_attr.Get(&visibility);
-        return visibility == pxr::UsdGeomTokens->invisible;
-      }
+  if (pxr::UsdAttribute visibility_attr = imageable.GetVisibilityAttr()) {
+    // Prune if the prim has a non-animating visibility attribute and is
+    // invisible.
+    if (!visibility_attr.ValueMightBeTimeVarying()) {
+      pxr::TfToken visibility;
+      visibility_attr.Get(&visibility);
+      return visibility == pxr::UsdGeomTokens->invisible;
     }
   }
 
@@ -148,7 +150,8 @@ bool _prune_by_visibility(const pxr::UsdGeomImageable &imageable, const USDImpor
  * traversal because it has a purpose which was not requested
  * by the user; e.g., the prim represents guide geometry and
  * the import_guide parameter is toggled off. */
-bool _prune_by_purpose(const pxr::UsdGeomImageable &imageable, const USDImportParams &params)
+static bool _prune_by_purpose(const pxr::UsdGeomImageable &imageable,
+                              const USDImportParams &params)
 {
   if (!imageable) {
     return false;
@@ -204,8 +207,10 @@ static USDPrimReader *_handlePrim(Main *bmain,
   // from being added.
   if (!(prim.IsPseudoRoot() || prim.IsMaster())) {
     reader = USDStageReader::create_reader(prim, params, settings);
-    if (reader == NULL)
+
+    if (reader == NULL) {
       return NULL;
+    }
 
     reader->parent(parent_reader);
     reader->create_object(bmain, 0.0);
