@@ -36,7 +36,7 @@ namespace blender {
  * Convert an srgb byte color to a linearrgb premultiplied.
  * ```
  * Color4b<Srgb, eAlpha::Straight> srgb_color;
- * Color4f<LinearRGB, eAlpha::Premultiplied> linearrgb_color(srgb_color);
+ * Color4f<SceneLinear, eAlpha::Premultiplied> linearrgb_color(srgb_color);
  * ```
  *
  * Common mistakes are:
@@ -52,19 +52,6 @@ namespace blender {
  * - Add ColorXyz.
  */
 
-/* Spaces are defined as classes to be extended with meta-data in the future.
- * The meta data could contain CIE 1931 coordinates of whitepoints and the
- * individual components.
- */
-class Srgb {
-};
-
-class Rec709 {
-};
-
-/* Primary linear colorspace used in Blender. */
-using LinearRGB = Rec709;
-
 /* Enumeration containing the different alpha modes. */
 enum class eAlpha : uint8_t {
   /* Alpha is unassociated (color is straight). */
@@ -76,49 +63,54 @@ enum class eAlpha : uint8_t {
 template<typename Space, eAlpha Alpha> struct Color4f;
 template<typename Space, eAlpha Alpha> struct Color4b;
 
-/* Internal roles. For convenience to shorten the type names and hide complexity
- * in areas where transformations are unlikely to happen. */
-using ColorRender = Color4f<LinearRGB, eAlpha::Premultiplied>;
-using ColorReference = Color4f<LinearRGB, eAlpha::Premultiplied>;
-using ColorCompositor = Color4f<LinearRGB, eAlpha::Premultiplied>;
-using ColorTheme = Color4b<Srgb, eAlpha::Straight>;
-using ColorGeometry4f = Color4f<LinearRGB, eAlpha::Premultiplied>;
+/* Predefinition of Spaces. */
+class Srgb;
+class SceneLinear;
 
-namespace color_transfers_ {
-
-/**
- * Predefinition of transfer_color_ functions.
- *
- * These functions will be called from the template constructors.
- * They shouldn't be used directly.
- *
- * The defined transfer_color_ function will drive which storage classes are
- * suitable. For example Color4b<LinearRGB,...> isn't possible to create.
+/* Spaces are defined as classes to be extended with meta-data in the future.
+ * The meta data could contain CIE 1931 coordinates of whitepoints and the
+ * individual components.
  */
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4f<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4f<Srgb, eAlpha::Straight> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out);
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                             Color4f<LinearRGB, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                             Color4f<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out);
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                             Color4f<Srgb, eAlpha::Straight> &r_out);
 
-}  // namespace color_transfers_
+class ByteEncodingNotSupported;
+
+class Srgb {
+ public:
+  using ByteEncodedSpace = ByteEncodingNotSupported;
+};
+
+BLI_INLINE void convert_space(const Color4f<Srgb, eAlpha::Straight> src,
+                              Color4f<SceneLinear, eAlpha::Straight> &dst);
+
+class SceneLinearByteEncoded {
+};
+/* Primary linear colorspace used in Blender.
+ * Float precision color corresponding to the scene linear role in the OpenColorIO config.
+ */
+class SceneLinear {
+ public:
+  using ByteEncodedSpace = SceneLinearByteEncoded;
+
+  BLI_INLINE void byte_encode(const float *decoded, uint8_t *r_byte_encoded)
+  {
+    float float_encoded[4];
+    linearrgb_to_srgb_v4(float_encoded, decoded);
+    rgba_float_to_uchar(r_byte_encoded, float_encoded);
+  }
+
+  BLI_INLINE void byte_decode(const uint8_t *byte_encoded, float *r_decoded)
+  {
+    float float_encoded[4];
+    rgba_uchar_to_float(float_encoded, byte_encoded);
+    srgb_to_linearrgb_v4(r_decoded, float_encoded);
+  }
+};
+BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
+                              Color4b<Srgb, eAlpha::Straight> &dst);
+BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
+                              Color4f<Srgb, eAlpha::Straight> &dst);
+BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Premultiplied> src,
+                              Color4f<SceneLinear, eAlpha::Premultiplied> &dst);
 
 template<typename Space, eAlpha Alpha> struct Color4f {
   float r, g, b, a;
@@ -133,16 +125,70 @@ template<typename Space, eAlpha Alpha> struct Color4f {
   {
   }
 
-  template<typename OtherSpace, eAlpha OtherAlpha>
-  explicit Color4f(const Color4b<OtherSpace, OtherAlpha> &src)
+  template<typename OtherSpace> explicit Color4f(Color4f<OtherSpace, Alpha> &src)
   {
-    color_transfers_::transfer_color_(src, *this);
+    convert_space(src, *this);
   }
 
-  template<typename OtherSpace, eAlpha OtherAlpha>
-  explicit Color4f(const Color4f<OtherSpace, OtherAlpha> &src)
+  /**
+   * Convert to another space.
+   *
+   * Doesn't allow altering of alpha mode. This needs to be done separately by calling
+   * premultiply/straight_alpha. Supported space conversions are implementing in the
+   *
+   * Usage:
+   */
+  // template<typename OtherSpace> Color4f<OtherSpace, Alpha> convert_space() const
+  // {
+  //   Color4f<OtherSpace, Alpha> result;
+  //   convert_space(*this, result);
+  //   return result;
+  // }
+
+  // template<typename OtherSpace> Color4b<OtherSpace, Alpha> convert_space() const
+  // {
+  //   Color4b<OtherSpace, Alpha> result;
+  //   convert_space(*this, result);
+  //   return result;
+  // }
+
+  Color4f<Space, eAlpha::Premultiplied> premultiply_alpha() const
   {
-    color_transfers_::transfer_color_(src, *this);
+    BLI_assert(Alpha == eAlpha::Straight);
+    Color4f<Space, eAlpha::Premultiplied> premultiplied_alpha;
+    straight_to_premul_v4_v4(premultiplied_alpha, *this);
+    return premultiplied_alpha;
+  }
+
+  Color4f<Space, eAlpha::Straight> straight_alpha() const
+  {
+    BLI_assert(Alpha == eAlpha::Premultiplied);
+    Color4f<Space, eAlpha::Straight> straight_alpha;
+    premul_to_straight_v4_v4(straight_alpha, *this);
+    return straight_alpha;
+  }
+
+  /* Encode linear colors into 4 bytes.
+   * Only relevant spaces support byte encoding/decoding. */
+  Color4b<typename Space::ByteEncodedSpace, Alpha> encode() const
+  {
+    Color4b<typename Space::ByteEncodedSpace, Alpha> result;
+    Space::byte_encode(*this, result);
+    return result;
+  }
+
+  /* Decode byte encoded spaces.
+   * Only relevant spaces support byte encoding/decoding. */
+  void decode(const Color4b<typename Space::ByteEncodedSpace, Alpha> &encoded)
+  {
+    Space::byte_decode(encoded, *this);
+  }
+
+  Color4b<Space, Alpha> to_color4b() const
+  {
+    Color4b<Space, Alpha> result;
+    rgba_float_to_uchar(result, *this);
+    return result;
   }
 
   operator float *()
@@ -190,10 +236,18 @@ template<typename Space, eAlpha Alpha> struct Color4b {
   {
   }
 
-  template<typename OtherSpace, eAlpha OtherAlpha>
-  explicit Color4b(const Color4f<OtherSpace, OtherAlpha> &src)
+  template<typename OtherSpace> Color4f<OtherSpace, Alpha> convert_space() const
   {
-    color_transfers_::transfer_color_(src, *this);
+    Color4f<OtherSpace, Alpha> result;
+    convert_space(this, result);
+    return result;
+  }
+
+  Color4f<Space, Alpha> to_color4f() const
+  {
+    Color4f<Space, Alpha> result;
+    rgba_uchar_to_float(result, *this);
+    return result;
   }
 
   operator uint8_t *()
@@ -229,99 +283,39 @@ template<typename Space, eAlpha Alpha> struct Color4b {
   }
 };
 
-namespace color_transfers_ {
-
-MINLINE void associate_alpha_(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                              Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
+BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
+                              Color4b<Srgb, eAlpha::Straight> &dst)
 {
-  straight_to_premul_v4_v4(r_out, src);
+  linearrgb_to_srgb_uchar4(dst, src);
 }
 
-MINLINE void unassociate_alpha_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                                Color4f<LinearRGB, eAlpha::Straight> &r_out)
+BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
+                              Color4f<Srgb, eAlpha::Straight> &dst)
 {
-  premul_to_straight_v4_v4(r_out, src);
+  linearrgb_to_srgb_v4(dst, src);
+}
+BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Premultiplied> src,
+                              Color4f<SceneLinear, eAlpha::Premultiplied> &dst)
+{
+  dst.r = src.r;
+  dst.g = src.g;
+  dst.b = src.b;
+  dst.a = src.a;
 }
 
-/* Srgb byte <=> float. */
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4f<Srgb, eAlpha::Straight> &r_out)
+BLI_INLINE void convert_space(const Color4f<Srgb, eAlpha::Straight> src,
+                              Color4f<SceneLinear, eAlpha::Straight> &dst)
 {
-  rgba_uchar_to_float(r_out, src);
+  srgb_to_linearrgb_v4(dst, src);
 }
 
-MINLINE void transfer_color_(const Color4f<Srgb, eAlpha::Straight> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out)
-{
-  rgba_float_to_uchar(r_out, src);
-}
-
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
-{
-  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
-  associate_alpha_(intermediate, r_out);
-}
-
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out)
-{
-  r_out.r = src.r;
-  r_out.g = src.g;
-  r_out.b = src.b;
-  r_out.a = src.a;
-}
-
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                             Color4f<LinearRGB, eAlpha::Straight> &r_out)
-{
-  unassociate_alpha_(src, r_out);
-}
-
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Premultiplied> &r_out)
-{
-  associate_alpha_(src, r_out);
-}
-
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out)
-{
-  linearrgb_to_srgb_uchar4(r_out, src);
-}
-
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                             Color4b<Srgb, eAlpha::Straight> &r_out)
-{
-  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
-  transfer_color_(intermediate, r_out);
-}
-
-MINLINE void transfer_color_(const Color4b<Srgb, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Straight> &r_out)
-{
-  srgb_to_linearrgb_uchar4(r_out, src);
-}
-
-MINLINE void transfer_color_(const Color4f<Srgb, eAlpha::Straight> &src,
-                             Color4f<LinearRGB, eAlpha::Straight> &r_out)
-{
-  srgb_to_linearrgb_v4(r_out, src);
-}
-
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Straight> &src,
-                             Color4f<Srgb, eAlpha::Straight> &r_out)
-{
-  linearrgb_to_srgb_v4(r_out, src);
-}
-
-MINLINE void transfer_color_(const Color4f<LinearRGB, eAlpha::Premultiplied> &src,
-                             Color4f<Srgb, eAlpha::Straight> &r_out)
-{
-  Color4f<LinearRGB, eAlpha::Straight> intermediate(src);
-  transfer_color_(intermediate, r_out);
-}
-
-}  // namespace color_transfers_
+/* Internal roles. For convenience to shorten the type names and hide complexity
+ * in areas where transformations are unlikely to happen. */
+using ColorSceneReference4f = Color4f<SceneLinear, eAlpha::Premultiplied>;
+using ColorSceneReference4b =
+    Color4b<typename SceneLinear::ByteEncodedSpace, eAlpha::Premultiplied>;
+using ColorTheme4b = Color4b<Srgb, eAlpha::Straight>;
+using ColorGeometry4f = ColorSceneReference4f;
+using ColorGeometry4b = ColorSceneReference4b;
 
 }  // namespace blender
