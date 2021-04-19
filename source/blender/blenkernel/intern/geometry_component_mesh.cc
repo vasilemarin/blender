@@ -787,16 +787,19 @@ static void set_loop_uv(MLoopUV &uv, float2 co)
 
 static ColorGeometry4f get_loop_color(const MLoopCol &col)
 {
-  ColorGeometry4f srgb_color;
-  rgba_uchar_to_float(srgb_color, &col.r);
+  ColorGeometry4b encoded_color(col.r, col.g, col.b, col.a);
   ColorGeometry4f linear_color;
-  srgb_to_linearrgb_v4(linear_color, srgb_color);
+  linear_color.decode(encoded_color);
   return linear_color;
 }
 
 static void set_loop_color(MLoopCol &col, ColorGeometry4f linear_color)
 {
-  linearrgb_to_srgb_uchar4(&col.r, linear_color);
+  ColorGeometry4b encoded_color = linear_color.encode();
+  col.r = encoded_color.r;
+  col.g = encoded_color.g;
+  col.b = encoded_color.b;
+  col.a = encoded_color.a;
 }
 
 static float get_crease(const MEdge &edge)
