@@ -92,15 +92,15 @@ static void do_mix_operation_float3(const int blend_mode,
 
 static void do_mix_operation_color4f(const int blend_mode,
                                      const VArray<float> &factors,
-                                     const VArray<ColorGeometry> &inputs_a,
-                                     const VArray<ColorGeometry> &inputs_b,
-                                     VMutableArray<ColorGeometry> &results)
+                                     const VArray<ColorGeometry4f> &inputs_a,
+                                     const VArray<ColorGeometry4f> &inputs_b,
+                                     VMutableArray<ColorGeometry4f> &results)
 {
   const int size = results.size();
   for (const int i : IndexRange(size)) {
     const float factor = factors[i];
-    ColorGeometry a = inputs_a[i];
-    const ColorGeometry b = inputs_b[i];
+    ColorGeometry4f a = inputs_a[i];
+    const ColorGeometry4f b = inputs_b[i];
     ramp_blend(blend_mode, a, factor, b);
     results.set(i, a);
   }
@@ -130,9 +130,9 @@ static void do_mix_operation(const CustomDataType result_type,
   else if (result_type == CD_PROP_COLOR) {
     do_mix_operation_color4f(blend_mode,
                              attribute_factor,
-                             attribute_a.typed<ColorGeometry>(),
-                             attribute_b.typed<ColorGeometry>(),
-                             attribute_result.typed<ColorGeometry>());
+                             attribute_a.typed<ColorGeometry4f>(),
+                             attribute_b.typed<ColorGeometry4f>(),
+                             attribute_result.typed<ColorGeometry4f>());
   }
 }
 

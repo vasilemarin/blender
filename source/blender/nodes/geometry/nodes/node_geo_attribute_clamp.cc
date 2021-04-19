@@ -102,11 +102,11 @@ template<> inline float3 clamp_value(const float3 val, const float3 min, const f
 }
 
 template<>
-inline ColorGeometry clamp_value(const ColorGeometry val,
-                                 const ColorGeometry min,
-                                 const ColorGeometry max)
+inline ColorGeometry4f clamp_value(const ColorGeometry4f val,
+                                   const ColorGeometry4f min,
+                                   const ColorGeometry4f max)
 {
-  ColorGeometry tmp;
+  ColorGeometry4f tmp;
   tmp.r = std::min(std::max(val.r, min.r), max.r);
   tmp.g = std::min(std::max(val.g, min.g), max.g);
   tmp.b = std::min(std::max(val.b, min.b), max.b);
@@ -217,8 +217,8 @@ static void clamp_attribute(GeometryComponent &component, const GeoNodeExecParam
       break;
     }
     case CD_PROP_COLOR: {
-      ColorGeometry min = params.get_input<ColorGeometry>("Min_003");
-      ColorGeometry max = params.get_input<ColorGeometry>("Max_003");
+      ColorGeometry4f min = params.get_input<ColorGeometry4f>("Min_003");
+      ColorGeometry4f max = params.get_input<ColorGeometry4f>("Max_003");
       if (operation == NODE_CLAMP_RANGE) {
         if (min.r > max.r) {
           std::swap(min.r, max.r);
@@ -233,8 +233,9 @@ static void clamp_attribute(GeometryComponent &component, const GeoNodeExecParam
           std::swap(min.a, max.a);
         }
       }
-      MutableSpan<ColorGeometry> results = attribute_result.as_span<ColorGeometry>();
-      clamp_attribute<ColorGeometry>(attribute_input->typed<ColorGeometry>(), results, min, max);
+      MutableSpan<ColorGeometry4f> results = attribute_result.as_span<ColorGeometry4f>();
+      clamp_attribute<ColorGeometry4f>(
+          attribute_input->typed<ColorGeometry4f>(), results, min, max);
       break;
     }
     default: {

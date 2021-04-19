@@ -82,7 +82,7 @@ using ColorRender = Color4f<LinearRGB, eAlpha::Premultiplied>;
 using ColorReference = Color4f<LinearRGB, eAlpha::Premultiplied>;
 using ColorCompositor = Color4f<LinearRGB, eAlpha::Premultiplied>;
 using ColorTheme = Color4b<Srgb, eAlpha::Straight>;
-using ColorGeometry = Color4f<LinearRGB, eAlpha::Premultiplied>;
+using ColorGeometry4f = Color4f<LinearRGB, eAlpha::Premultiplied>;
 
 namespace color_transfers_ {
 

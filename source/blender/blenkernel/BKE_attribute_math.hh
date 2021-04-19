@@ -46,7 +46,7 @@ void convert_to_static_type(const CustomDataType data_type, const Func &func)
       func(bool());
       break;
     case CD_PROP_COLOR:
-      func(ColorGeometry());
+      func(ColorGeometry4f());
       break;
     default:
       BLI_assert_unreachable();
@@ -91,12 +91,12 @@ inline float3 mix3(const float3 &weights, const float3 &v0, const float3 &v1, co
 }
 
 template<>
-inline ColorGeometry mix3(const float3 &weights,
-                          const ColorGeometry &v0,
-                          const ColorGeometry &v1,
-                          const ColorGeometry &v2)
+inline ColorGeometry4f mix3(const float3 &weights,
+                            const ColorGeometry4f &v0,
+                            const ColorGeometry4f &v1,
+                            const ColorGeometry4f &v2)
 {
-  ColorGeometry result;
+  ColorGeometry4f result;
   interp_v4_v4v4v4(result, v0, v1, v2, weights);
   return result;
 }
@@ -203,14 +203,14 @@ class SimpleMixerWithAccumulationType {
 
 class ColorGeometryMixer {
  private:
-  MutableSpan<ColorGeometry> buffer_;
-  ColorGeometry default_color_;
+  MutableSpan<ColorGeometry4f> buffer_;
+  ColorGeometry4f default_color_;
   Array<float> total_weights_;
 
  public:
-  ColorGeometryMixer(MutableSpan<ColorGeometry> buffer,
-                     ColorGeometry default_color = {0, 0, 0, 1});
-  void mix_in(const int64_t index, const ColorGeometry &color, const float weight = 1.0f);
+  ColorGeometryMixer(MutableSpan<ColorGeometry4f> buffer,
+                     ColorGeometry4f default_color = {0, 0, 0, 1});
+  void mix_in(const int64_t index, const ColorGeometry4f &color, const float weight = 1.0f);
   void finalize();
 };
 
@@ -227,8 +227,8 @@ template<> struct DefaultMixerStruct<float2> {
 template<> struct DefaultMixerStruct<float3> {
   using type = SimpleMixer<float3>;
 };
-template<> struct DefaultMixerStruct<ColorGeometry> {
-  /* Use a special mixer for colors. ColorGeometry can't be added/multiplied, because this is not
+template<> struct DefaultMixerStruct<ColorGeometry4f> {
+  /* Use a special mixer for colors. ColorGeometry4f can't be added/multiplied, because this is not
    * something one should usually do with colors.  */
   using type = ColorGeometryMixer;
 };
