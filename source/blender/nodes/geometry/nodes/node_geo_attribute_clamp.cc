@@ -115,10 +115,13 @@ inline ColorGeometry clamp_value(const ColorGeometry val,
 }
 
 template<typename T>
-static void clamp_attribute(Span<T> read_span, MutableSpan<T> span, const T min, const T max)
+static void clamp_attribute(const VArray<T> &inputs,
+                            const MutableSpan<T> outputs,
+                            const T min,
+                            const T max)
 {
-  for (const int i : span.index_range()) {
-    span[i] = clamp_value<T>(read_span[i], min, max);
+  for (const int i : IndexRange(outputs.size())) {
+    outputs[i] = clamp_value<T>(inputs[i], min, max);
   }
 }
 
@@ -126,13 +129,13 @@ static AttributeDomain get_result_domain(const GeometryComponent &component,
                                          StringRef source_name,
                                          StringRef result_name)
 {
-  ReadAttributePtr result_attribute = component.attribute_try_get_for_read(result_name);
+  ReadAttributeLookup result_attribute = component.attribute_try_get_for_read(result_name);
   if (result_attribute) {
-    return result_attribute->domain();
+    return result_attribute.domain;
   }
-  ReadAttributePtr source_attribute = component.attribute_try_get_for_read(source_name);
+  ReadAttributeLookup source_attribute = component.attribute_try_get_for_read(source_name);
   if (source_attribute) {
-    return source_attribute->domain();
+    return source_attribute.domain;
   }
   return ATTR_DOMAIN_POINT;
 }
@@ -157,10 +160,10 @@ static void clamp_attribute(GeometryComponent &component, const GeoNodeExecParam
   const AttributeDomain domain = get_result_domain(component, attribute_name, result_name);
   const int operation = static_cast<int>(storage.operation);
 
-  ReadAttributePtr attribute_input = component.attribute_try_get_for_read(
+  GVArrayPtr attribute_input = component.attribute_try_get_for_read(
       attribute_name, domain, data_type);
 
-  OutputAttributePtr attribute_result = component.attribute_try_get_for_output(
+  OutputAttribute attribute_result = component.attribute_try_get_for_output_only(
       result_name, domain, data_type);
 
   if (!attribute_result) {
@@ -172,8 +175,6 @@ static void clamp_attribute(GeometryComponent &component, const GeoNodeExecParam
 
   switch (data_type) {
     case CD_PROP_FLOAT3: {
-      Span<float3> read_span = attribute_input->get_span<float3>();
-      MutableSpan<float3> span = attribute_result->get_span_for_write_only<float3>();
       float3 min = params.get_input<float3>("Min");
       float3 max = params.get_input<float3>("Max");
       if (operation == NODE_CLAMP_RANGE) {
@@ -187,38 +188,35 @@ static void clamp_attribute(GeometryComponent &component, const GeoNodeExecParam
           std::swap(min.z, max.z);
         }
       }
-      clamp_attribute<float3>(read_span, span, min, max);
+      MutableSpan<float3> results = attribute_result.as_span<float3>();
+      clamp_attribute<float3>(attribute_input->typed<float3>(), results, min, max);
       break;
     }
     case CD_PROP_FLOAT: {
-      Span<float> read_span = attribute_input->get_span<float>();
-      MutableSpan<float> span = attribute_result->get_span_for_write_only<float>();
       const float min = params.get_input<float>("Min_001");
       const float max = params.get_input<float>("Max_001");
+      MutableSpan<float> results = attribute_result.as_span<float>();
       if (operation == NODE_CLAMP_RANGE && min > max) {
-        clamp_attribute<float>(read_span, span, max, min);
+        clamp_attribute<float>(attribute_input->typed<float>(), results, max, min);
       }
       else {
-        clamp_attribute<float>(read_span, span, min, max);
+        clamp_attribute<float>(attribute_input->typed<float>(), results, min, max);
       }
       break;
     }
     case CD_PROP_INT32: {
-      Span<int> read_span = attribute_input->get_span<int>();
-      MutableSpan<int> span = attribute_result->get_span_for_write_only<int>();
       const int min = params.get_input<int>("Min_002");
       const int max = params.get_input<int>("Max_002");
+      MutableSpan<int> results = attribute_result.as_span<int>();
       if (operation == NODE_CLAMP_RANGE && min > max) {
-        clamp_attribute<int>(read_span, span, max, min);
+        clamp_attribute<int>(attribute_input->typed<int>(), results, max, min);
       }
       else {
-        clamp_attribute<int>(read_span, span, min, max);
+        clamp_attribute<int>(attribute_input->typed<int>(), results, min, max);
       }
       break;
     }
     case CD_PROP_COLOR: {
-      Span<ColorGeometry> read_span = attribute_input->get_span<ColorGeometry>();
-      MutableSpan<ColorGeometry> span = attribute_result->get_span_for_write_only<ColorGeometry>();
       ColorGeometry min = params.get_input<ColorGeometry>("Min_003");
       ColorGeometry max = params.get_input<ColorGeometry>("Max_003");
       if (operation == NODE_CLAMP_RANGE) {
@@ -235,7 +233,8 @@ static void clamp_attribute(GeometryComponent &component, const GeoNodeExecParam
           std::swap(min.a, max.a);
         }
       }
-      clamp_attribute<ColorGeometry>(read_span, span, min, max);
+      MutableSpan<ColorGeometry> results = attribute_result.as_span<ColorGeometry>();
+      clamp_attribute<ColorGeometry>(attribute_input->typed<ColorGeometry>(), results, min, max);
       break;
     }
     default: {
@@ -244,7 +243,7 @@ static void clamp_attribute(GeometryComponent &component, const GeoNodeExecParam
     }
   }
 
-  attribute_result.apply_span_and_save();
+  attribute_result.save();
 }
 
 static void geo_node_attribute_clamp_exec(GeoNodeExecParams params)
