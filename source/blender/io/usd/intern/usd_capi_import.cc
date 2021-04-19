@@ -602,7 +602,7 @@ bool USD_import(struct bContext *C,
   return import_ok;
 }
 
-static USDPrimReader *get_usd_reader(CacheReader *reader, Object *ob, const char **err_str)
+static USDPrimReader *get_usd_reader(CacheReader *reader, Object * /* ob */, const char **err_str)
 {
   USDPrimReader *usd_reader = reinterpret_cast<USDPrimReader *>(reader);
   pxr::UsdPrim iobject = usd_reader->prim();
