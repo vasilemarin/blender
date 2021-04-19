@@ -574,9 +574,32 @@ static IMB_Proxy_Size seq_get_proxy_size_flags(bContext *C)
   return proxy_sizes;
 }
 
+#include "PIL_time.h"
+
+static bool movie_decoding_is_slow(Sequence *seq)
+{
+  const int strip_length = seq->len;
+  const StripAnim *sanim = seq->anims.first;
+
+  if (strip_length <= 1 || sanim == NULL) {
+    return false;
+  }
+
+  return IMB_get_gop_decode_time(sanim->anim);
+}
+
 static void seq_build_proxy(bContext *C, Sequence *seq)
 {
   if (U.sequencer_proxy_setup != USER_SEQ_PROXY_SETUP_AUTOMATIC) {
+    return;
+  }
+
+  const bool is_slow = movie_decoding_is_slow(seq);
+  const char *str = is_slow ? "slow" : "fast";
+  printf("Automatic proxy building thinks, that added strip is %s.\n", str);
+
+
+  if ((U.sequencer_proxy_setup_flag & USER_SEQ_PROXY_FOR_SLOW_MOVIES) && !is_slow) {
     return;
   }
 

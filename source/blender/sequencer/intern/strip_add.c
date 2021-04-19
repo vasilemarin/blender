@@ -562,7 +562,7 @@ Sequence *SEQ_add_movie_strip(Main *bmain, Scene *scene, ListBase *seqbase, SeqL
   seq_add_set_name(seq, load_data);
   seq_add_generic_update(scene, seqbase, seq);
 
-  MEM_freeN(anim_arr);
+  //MEM_freeN(anim_arr);
   return seq;
 }
 

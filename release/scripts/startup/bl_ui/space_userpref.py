@@ -658,6 +658,7 @@ class USERPREF_PT_system_video_sequencer(SystemPanel, CenterAlignMixIn, Panel):
         layout.separator()
 
         layout.prop(system, "sequencer_proxy_setup")
+        layout.prop(system, "sequencer_proxy_for_slow_movies")
 
 
 # -----------------------------------------------------------------------------

@@ -5462,6 +5462,14 @@ static void rna_def_userdef_system(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, NULL, "sequencer_proxy_setup");
   RNA_def_property_ui_text(prop, "Proxy Setup", "When and how proxies are created");
 
+  prop = RNA_def_property(srna, "sequencer_proxy_for_slow_movies", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, NULL, "sequencer_proxy_setup_flag", USER_SEQ_PROXY_FOR_SLOW_MOVIES);
+  RNA_def_property_ui_text(prop,
+                           "Build Proxy for Slow Movies",
+                           "Analyze worst-case scenario and build proxies only when movie is not "
+                           "optimal for scrubbing");
+
   prop = RNA_def_property(srna, "scrollback", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, NULL, "scrollback");
   RNA_def_property_range(prop, 32, 32768);

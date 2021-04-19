@@ -1613,3 +1613,46 @@ int IMB_anim_get_image_height(struct anim *anim)
 {
   return anim->y;
 }
+
+#include "PIL_time.h"
+
+bool IMB_get_gop_decode_time(struct anim *anim)
+{
+
+  if (anim == NULL) {
+    return false;
+  }
+
+  /* Ensure, that file isn't cold read. */
+  ffmpeg_decode_video_frame(anim);
+  /* Seek back to beginning. */
+  av_seek_frame(anim->pFormatCtx, -1, 0, AVSEEK_FLAG_BACKWARD);
+  avcodec_flush_buffers(anim->pCodecCtx);
+  anim->curposition = -1;
+
+  const double start = PIL_check_seconds_timer();
+  const double time_to_decode_max = 0.05;
+  double time_to_decode = 0;
+
+  while (ffmpeg_decode_video_frame(anim)) {
+    const double end = PIL_check_seconds_timer();
+    time_to_decode = end - start;
+
+    if (anim->next_packet.flags & AV_PKT_FLAG_KEY) {
+      printf("GOP decoded completely within time constraints.\n");
+      break;
+    }
+
+    if (time_to_decode > time_to_decode_max) {
+      printf("Decode time analysis timeout.\n");
+      break;
+    }
+  }
+
+  av_seek_frame(anim->pFormatCtx, -1, 0, AVSEEK_FLAG_BACKWARD);
+  avcodec_flush_buffers(anim->pCodecCtx);
+  anim->curposition = -1;
+
+  printf("Time to decode: %f\n", time_to_decode);
+  return time_to_decode > time_to_decode_max;
+}
