@@ -12,8 +12,8 @@ namespace blender::tests {
 
 TEST(color, SrgbStraightByteToFloat)
 {
-  Color4b<Srgb, eAlpha::Straight> srgb_byte(192, 128, 64, 128);
-  Color4f<Srgb, eAlpha::Straight> srgb_float = srgb_byte.to_color4f();
+  ColorSrgb4b srgb_byte(192, 128, 64, 128);
+  ColorSrgb4f srgb_float = srgb_byte.to_srgb4f();
   EXPECT_NEAR(0.75f, srgb_float.r, 0.01f);
   EXPECT_NEAR(0.5f, srgb_float.g, 0.01f);
   EXPECT_NEAR(0.25f, srgb_float.b, 0.01f);
@@ -22,8 +22,8 @@ TEST(color, SrgbStraightByteToFloat)
 
 TEST(color, SrgbStraightFloatToByte)
 {
-  Color4f<Srgb, eAlpha::Straight> srgb_float(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4b<Srgb, eAlpha::Straight> srgb_byte = srgb_float.to_color4b();
+  ColorSrgb4f srgb_float(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSrgb4b srgb_byte = srgb_float.to_srgb4b();
   EXPECT_EQ(191, srgb_byte.r);
   EXPECT_EQ(128, srgb_byte.g);
   EXPECT_EQ(64, srgb_byte.b);
@@ -33,10 +33,10 @@ TEST(color, SrgbStraightFloatToByte)
 TEST(color, SrgbStraightToSceneLinearPremultiplied)
 {
   BLI_init_srgb_conversion();
-  Color4b<Srgb, eAlpha::Straight> srgb(192, 128, 64, 128);
-  Color4f<Srgb, eAlpha::Straight> srgb_4f = srgb.to_color4f();
-  Color4f<SceneLinear, eAlpha::Straight> linear_straight(srgb_4f);
-  Color4f<SceneLinear, eAlpha::Premultiplied> linear = linear_straight.premultiply_alpha();
+
+  ColorSrgb4b srgb(192, 128, 64, 128);
+  ColorSceneLinear4f<eAlpha::Premultiplied> linear =
+      BLI_color_convert_to_scene_linear(srgb).to_premultiplied_alpha();
   EXPECT_NEAR(0.26f, linear.r, 0.01f);
   EXPECT_NEAR(0.11f, linear.g, 0.01f);
   EXPECT_NEAR(0.02f, linear.b, 0.01f);
@@ -45,8 +45,8 @@ TEST(color, SrgbStraightToSceneLinearPremultiplied)
 
 TEST(color, SceneLinearStraightToPremultiplied)
 {
-  Color4f<SceneLinear, eAlpha::Straight> straight(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4f<SceneLinear, eAlpha::Premultiplied> premultiplied = straight.premultiply_alpha();
+  ColorSceneLinear4f<eAlpha::Straight> straight(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied = straight.to_premultiplied_alpha();
   EXPECT_NEAR(0.37f, premultiplied.r, 0.01f);
   EXPECT_NEAR(0.25f, premultiplied.g, 0.01f);
   EXPECT_NEAR(0.12f, premultiplied.b, 0.01f);
@@ -55,8 +55,8 @@ TEST(color, SceneLinearStraightToPremultiplied)
 
 TEST(color, SceneLinearPremultipliedToStraight)
 {
-  Color4f<SceneLinear, eAlpha::Premultiplied> premultiplied(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4f<SceneLinear, eAlpha::Straight> straight = premultiplied.straight_alpha();
+  ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSceneLinear4f<eAlpha::Straight> straight = premultiplied.to_straight_alpha();
   EXPECT_NEAR(1.5f, straight.r, 0.01f);
   EXPECT_NEAR(1.0f, straight.g, 0.01f);
   EXPECT_NEAR(0.5f, straight.b, 0.01f);
@@ -66,8 +66,8 @@ TEST(color, SceneLinearPremultipliedToStraight)
 TEST(color, SceneLinearStraightSrgbFloat)
 {
   BLI_init_srgb_conversion();
-  Color4f<SceneLinear, eAlpha::Straight> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4f<Srgb, eAlpha::Straight> srgb(linear);
+  ColorSceneLinear4f<eAlpha::Straight> linear(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSrgb4f srgb = BLI_color_convert_to_srgb4f(linear);
   EXPECT_NEAR(0.88f, srgb.r, 0.01);
   EXPECT_NEAR(0.73f, srgb.g, 0.01);
   EXPECT_NEAR(0.53f, srgb.b, 0.01);
@@ -77,9 +77,9 @@ TEST(color, SceneLinearStraightSrgbFloat)
 TEST(color, SceneLinearPremultipliedToSrgbFloat)
 {
   BLI_init_srgb_conversion();
-  Color4f<SceneLinear, eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4f<SceneLinear, eAlpha::Straight> linear_straight = linear.straight_alpha();
-  Color4f<Srgb, eAlpha::Straight> srgb(linear_straight);
+  ColorSceneLinear4f<eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSrgb4f srgb = BLI_color_convert_to_srgb4f(linear.to_straight_alpha());
+
   EXPECT_NEAR(1.19f, srgb.r, 0.01);
   EXPECT_NEAR(1.0f, srgb.g, 0.01);
   EXPECT_NEAR(0.74f, srgb.b, 0.01);
@@ -89,9 +89,8 @@ TEST(color, SceneLinearPremultipliedToSrgbFloat)
 TEST(color, SceneLinearStraightSrgbByte)
 {
   BLI_init_srgb_conversion();
-  Color4f<SceneLinear, eAlpha::Straight> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4f<Srgb, eAlpha::Straight> srgb_4f(linear);
-  Color4b<Srgb, eAlpha::Straight> srgb = srgb_4f.to_color4b();
+  ColorSceneLinear4f<eAlpha::Straight> linear(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSrgb4b srgb = BLI_color_convert_to_srgb4b(linear);
   EXPECT_EQ(225, srgb.r);
   EXPECT_EQ(188, srgb.g);
   EXPECT_EQ(137, srgb.b);
@@ -101,10 +100,8 @@ TEST(color, SceneLinearStraightSrgbByte)
 TEST(color, SceneLinearPremultipliedToSrgbByte)
 {
   BLI_init_srgb_conversion();
-  Color4f<SceneLinear, eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4f<SceneLinear, eAlpha::Straight> linear_straight = linear.straight_alpha();
-  Color4f<Srgb, eAlpha::Straight> srgb_4f(linear_straight);
-  Color4b<Srgb, eAlpha::Straight> srgb = srgb_4f.to_color4b();
+  ColorSceneLinear4f<eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSrgb4b srgb = BLI_color_convert_to_srgb4b(linear.to_straight_alpha());
   EXPECT_EQ(255, srgb.r);
   EXPECT_EQ(255, srgb.g);
   EXPECT_EQ(188, srgb.b);
@@ -113,8 +110,8 @@ TEST(color, SceneLinearPremultipliedToSrgbByte)
 
 TEST(color, SceneLinearByteEncoding)
 {
-  Color4f<SceneLinear, eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  Color4b<SceneLinearByteEncoded, eAlpha::Premultiplied> encoded = linear.encode();
+  ColorSceneLinear4f<eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
+  ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied> encoded = linear.to_byte_encoded();
   EXPECT_EQ(225, encoded.r);
   EXPECT_EQ(188, encoded.g);
   EXPECT_EQ(137, encoded.b);
@@ -123,9 +120,8 @@ TEST(color, SceneLinearByteEncoding)
 
 TEST(color, SceneLinearByteDecoding)
 {
-  Color4b<SceneLinearByteEncoded, eAlpha::Premultiplied> encoded(225, 188, 137, 128);
-  Color4f<SceneLinear, eAlpha::Premultiplied> decoded;
-  decoded.decode(encoded);
+  ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied> encoded(225, 188, 137, 128);
+  ColorSceneLinear4f<eAlpha::Premultiplied> decoded = encoded.to_byte_decoded();
   EXPECT_NEAR(0.75f, decoded.r, 0.01f);
   EXPECT_NEAR(0.5f, decoded.g, 0.01f);
   EXPECT_NEAR(0.25f, decoded.b, 0.01f);

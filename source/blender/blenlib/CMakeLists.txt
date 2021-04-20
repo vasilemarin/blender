@@ -39,6 +39,7 @@ set(SRC
   intern/BLI_args.c
   intern/BLI_array.c
   intern/BLI_assert.c
+  intern/BLI_color.cc
   intern/BLI_dial_2d.c
   intern/BLI_dynstr.c
   intern/BLI_filelist.c

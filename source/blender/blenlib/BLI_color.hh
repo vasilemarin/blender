@@ -29,190 +29,115 @@ namespace blender {
  * Will increase readability and visibility of typically mistakes when
  * working with colors.
  *
- * The storage structs can hold 4 bytes (Color4b) or 4 floats (Color4f).
+ * The storage structs can hold 4 channels (r, g, b and a).
  *
  * Usage:
  *
  * Convert an srgb byte color to a linearrgb premultiplied.
  * ```
- * Color4b<Srgb, eAlpha::Straight> srgb_color;
- * Color4f<SceneLinear, eAlpha::Premultiplied> linearrgb_color(srgb_color);
+ * ColorSrgb4b srgb_color;
+ * ColorSceneLinear4f<eAlpha::Premultiplied> linearrgb_color =
+ *     BLI_color_convert_to_linear(srgb_color).to_premultiplied_alpha();
  * ```
  *
- * Common mistakes are:
- * - Storing linear colors in 4 bytes. Reducing the bit depth leads to banding
- *   artifacts.
- * - Missing conversion between Srgb/linearrgb color spaces. Colors are to
- *   bright or dark.
- * - Ignoring premultiplied or straight alpha.
+ * The API is structured to make most use of inlining. Most notably is that space
+ * conversions must be done via `BLI_color_convert_to*` functions.
+ *
+ * - Conversions between spaces (srgb <=> scene linear) should always be done by
+ *   invoking the `BLI_color_convert_to*` methods.
+ * - Encoding colors (compressing to store colors inside a less precision storage)
+ *   should be done by invoking the `encode` and `decode` methods.
+ * - Changing alpha association should be done by invoking `to_multiplied_alpha` or
+ *   `to_straight_alpha` methods.
+ *
+ * # Encoding.
+ *
+ * Color encoding is used to store colors with less precision using uint8_t in
+ * stead of floats. This encoding is supported for the `eSpace::SceneLinear`.
+ * To make this clear to the developer the a `eSpace::SceneLinearByteEncoded`
+ * space is added.
+ *
+ * # sRGB precision
+ *
+ * The sRGB colors can be stored using `uint8_t` or `float` colors. The conversion
+ * between the two precisions are available as methods. (`to_srgb4b` and
+ * `to_srgb4f`).
+ *
+ * # Alpha conversion
+ *
+ * Alpha conversion is only supported in SceneLinear space.
  *
  * Extending this file:
- * - This file can be extended with `ColorHex/Hsl/Hsv` for other
- *   representation of rgb based colors.
+ * - This file can be extended with `ColorHex/Hsl/Hsv` for different representations
+ *   of rgb based colors.
  * - Add ColorXyz.
  */
 
 /* Enumeration containing the different alpha modes. */
-enum class eAlpha : uint8_t {
-  /* Alpha is unassociated (color is straight). */
+enum class eAlpha {
+  /* Color and alpha are unassociated. */
   Straight,
-  /* Alpha is associated (color is premultiplied with alpha). */
+  /* Color and alpha are associated. */
   Premultiplied,
 };
+std::ostream &operator<<(std::ostream &stream, const eAlpha &space);
 
-template<typename Space, eAlpha Alpha> struct Color4f;
-template<typename Space, eAlpha Alpha> struct Color4b;
+/* Enumeration containing internal spaces. */
+enum class eSpace {
+  /* sRGB color space. */
+  Srgb,
+  /* Blender internal scene linear color space (maps to SceneReference role in OCIO). */
+  SceneLinear,
+  /* Blender internal scene linear color space compressed to be stored in 4 uint8_t. */
+  SceneLinearByteEncoded,
+};
+std::ostream &operator<<(std::ostream &stream, const eSpace &space);
 
-/* Predefinition of Spaces. */
-class Srgb;
-class SceneLinear;
-
-/* Spaces are defined as classes to be extended with meta-data in the future.
- * The meta data could contain CIE 1931 coordinates of whitepoints and the
- * individual components.
- */
-
-class ByteEncodingNotSupported;
-
-class Srgb {
+/* Template class to store RGBA values with different precision, space and alpha association. */
+template<typename ChannelStorageType, eSpace Space, eAlpha Alpha> class ColorRGBA {
  public:
-  using ByteEncodedSpace = ByteEncodingNotSupported;
-};
+  ChannelStorageType r, g, b, a;
+  constexpr ColorRGBA() = default;
 
-BLI_INLINE void convert_space(const Color4f<Srgb, eAlpha::Straight> src,
-                              Color4f<SceneLinear, eAlpha::Straight> &dst);
-
-class SceneLinearByteEncoded {
-};
-/* Primary linear colorspace used in Blender.
- * Float precision color corresponding to the scene linear role in the OpenColorIO config.
- */
-class SceneLinear {
- public:
-  using ByteEncodedSpace = SceneLinearByteEncoded;
-
-  BLI_INLINE void byte_encode(const float *decoded, uint8_t *r_byte_encoded)
-  {
-    float float_encoded[4];
-    linearrgb_to_srgb_v4(float_encoded, decoded);
-    rgba_float_to_uchar(r_byte_encoded, float_encoded);
-  }
-
-  BLI_INLINE void byte_decode(const uint8_t *byte_encoded, float *r_decoded)
-  {
-    float float_encoded[4];
-    rgba_uchar_to_float(float_encoded, byte_encoded);
-    srgb_to_linearrgb_v4(r_decoded, float_encoded);
-  }
-};
-BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
-                              Color4b<Srgb, eAlpha::Straight> &dst);
-BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
-                              Color4f<Srgb, eAlpha::Straight> &dst);
-BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Premultiplied> src,
-                              Color4f<SceneLinear, eAlpha::Premultiplied> &dst);
-
-template<typename Space, eAlpha Alpha> struct Color4f {
-  float r, g, b, a;
-
-  Color4f() = default;
-
-  Color4f(const float *rgba) : r(rgba[0]), g(rgba[1]), b(rgba[2]), a(rgba[3])
+  constexpr ColorRGBA(const ChannelStorageType rgba[4])
+      : r(rgba[0]), g(rgba[1]), b(rgba[2]), a(rgba[3])
   {
   }
 
-  Color4f(float r, float g, float b, float a) : r(r), g(g), b(b), a(a)
+  constexpr ColorRGBA(const ChannelStorageType r,
+                      const ChannelStorageType g,
+                      const ChannelStorageType b,
+                      const ChannelStorageType a)
+      : r(r), g(g), b(b), a(a)
   {
   }
 
-  template<typename OtherSpace> explicit Color4f(Color4f<OtherSpace, Alpha> &src)
-  {
-    convert_space(src, *this);
-  }
-
-  /**
-   * Convert to another space.
-   *
-   * Doesn't allow altering of alpha mode. This needs to be done separately by calling
-   * premultiply/straight_alpha. Supported space conversions are implementing in the
-   *
-   * Usage:
-   */
-  // template<typename OtherSpace> Color4f<OtherSpace, Alpha> convert_space() const
-  // {
-  //   Color4f<OtherSpace, Alpha> result;
-  //   convert_space(*this, result);
-  //   return result;
-  // }
-
-  // template<typename OtherSpace> Color4b<OtherSpace, Alpha> convert_space() const
-  // {
-  //   Color4b<OtherSpace, Alpha> result;
-  //   convert_space(*this, result);
-  //   return result;
-  // }
-
-  Color4f<Space, eAlpha::Premultiplied> premultiply_alpha() const
-  {
-    BLI_assert(Alpha == eAlpha::Straight);
-    Color4f<Space, eAlpha::Premultiplied> premultiplied_alpha;
-    straight_to_premul_v4_v4(premultiplied_alpha, *this);
-    return premultiplied_alpha;
-  }
-
-  Color4f<Space, eAlpha::Straight> straight_alpha() const
-  {
-    BLI_assert(Alpha == eAlpha::Premultiplied);
-    Color4f<Space, eAlpha::Straight> straight_alpha;
-    premul_to_straight_v4_v4(straight_alpha, *this);
-    return straight_alpha;
-  }
-
-  /* Encode linear colors into 4 bytes.
-   * Only relevant spaces support byte encoding/decoding. */
-  Color4b<typename Space::ByteEncodedSpace, Alpha> encode() const
-  {
-    Color4b<typename Space::ByteEncodedSpace, Alpha> result;
-    Space::byte_encode(*this, result);
-    return result;
-  }
-
-  /* Decode byte encoded spaces.
-   * Only relevant spaces support byte encoding/decoding. */
-  void decode(const Color4b<typename Space::ByteEncodedSpace, Alpha> &encoded)
-  {
-    Space::byte_decode(encoded, *this);
-  }
-
-  Color4b<Space, Alpha> to_color4b() const
-  {
-    Color4b<Space, Alpha> result;
-    rgba_float_to_uchar(result, *this);
-    return result;
-  }
-
-  operator float *()
+  operator ChannelStorageType *()
   {
     return &r;
   }
 
-  operator const float *() const
+  operator const ChannelStorageType *() const
   {
     return &r;
   }
 
-  friend std::ostream &operator<<(std::ostream &stream, Color4f c)
+  friend std::ostream &operator<<(std::ostream &stream,
+                                  const ColorRGBA<ChannelStorageType, Space, Alpha> &c)
   {
-    stream << "(" << c.r << ", " << c.g << ", " << c.b << ", " << c.a << ")";
+
+    stream << Space << Alpha << "(" << c.r << ", " << c.g << ", " << c.b << ", " << c.a << ")";
     return stream;
   }
 
-  friend bool operator==(const Color4f<Space, Alpha> &a, const Color4f<Space, Alpha> &b)
+  friend bool operator==(const ColorRGBA<ChannelStorageType, Space, Alpha> &a,
+                         const ColorRGBA<ChannelStorageType, Space, Alpha> &b)
   {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
   }
 
-  friend bool operator!=(const Color4f<Space, Alpha> &a, const Color4f<Space, Alpha> &b)
+  friend bool operator!=(const ColorRGBA<ChannelStorageType, Space, Alpha> &a,
+                         const ColorRGBA<ChannelStorageType, Space, Alpha> &b)
   {
     return !(a == b);
   }
@@ -227,95 +152,198 @@ template<typename Space, eAlpha Alpha> struct Color4f {
   }
 };
 
-template<typename Space, eAlpha Alpha> struct Color4b {
-  uint8_t r, g, b, a;
+/* Forward declarations of concrete color classes. */
+template<eAlpha Alpha> class ColorSceneLinear4f;
+template<eAlpha Alpha> class ColorSceneLinearByteEncoded4b;
+template<typename ChannelStorageType> class ColorSrgb4;
 
-  Color4b() = default;
+/* Forward declation of precision conversion methods. */
+BLI_INLINE ColorSrgb4<float> BLI_color_convert_to_srgb4f(const ColorSrgb4<uint8_t> &srgb4b);
+BLI_INLINE ColorSrgb4<uint8_t> BLI_color_convert_to_srgb4b(const ColorSrgb4<float> &srgb4f);
 
-  Color4b(uint8_t r, uint8_t g, uint8_t b, uint8_t a) : r(r), g(g), b(b), a(a)
+template<eAlpha Alpha>
+class ColorSceneLinear4f : public ColorRGBA<float, eSpace::SceneLinear, Alpha> {
+ public:
+  constexpr ColorSceneLinear4f<Alpha>() : ColorRGBA<float, eSpace::SceneLinear, Alpha>()
   {
   }
 
-  template<typename OtherSpace> Color4f<OtherSpace, Alpha> convert_space() const
+  constexpr ColorSceneLinear4f<Alpha>(const float *rgba)
+      : ColorRGBA<float, eSpace::SceneLinear, Alpha>(rgba)
   {
-    Color4f<OtherSpace, Alpha> result;
-    convert_space(this, result);
-    return result;
   }
 
-  Color4f<Space, Alpha> to_color4f() const
+  constexpr ColorSceneLinear4f<Alpha>(float r, float g, float b, float a)
+      : ColorRGBA<float, eSpace::SceneLinear, Alpha>(r, g, b, a)
   {
-    Color4f<Space, Alpha> result;
-    rgba_uchar_to_float(result, *this);
-    return result;
   }
 
-  operator uint8_t *()
+  /**
+   * Convert to its byte encoded counter space.
+   **/
+  ColorSceneLinearByteEncoded4b<Alpha> to_byte_encoded() const
   {
-    return &r;
+    ColorSceneLinearByteEncoded4b<Alpha> encoded;
+    linearrgb_to_srgb_uchar4(encoded, *this);
+    return encoded;
   }
 
-  operator const uint8_t *() const
+  /**
+   * Convert color and alpha association to premultiplied alpha.
+   *
+   * Will assert when called on a color premultiplied with alpha.
+   */
+  ColorSceneLinear4f<eAlpha::Premultiplied> to_premultiplied_alpha() const
   {
-    return &r;
+    BLI_assert(Alpha == eAlpha::Straight);
+    ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied;
+    straight_to_premul_v4_v4(premultiplied, *this);
+    return premultiplied;
   }
 
-  friend std::ostream &operator<<(std::ostream &stream, Color4b c)
+  /**
+   * Convert color and alpha association to straight alpha.
+   *
+   * Will assert when called on a color with straight alpha..
+   */
+  ColorSceneLinear4f<eAlpha::Straight> to_straight_alpha() const
   {
-    stream << "(" << c.r << ", " << c.g << ", " << c.b << ", " << c.a << ")";
-    return stream;
-  }
-
-  friend bool operator==(const Color4b<Space, Alpha> &a, const Color4b<Space, Alpha> &b)
-  {
-    return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
-  }
-
-  friend bool operator!=(const Color4b<Space, Alpha> &a, const Color4b<Space, Alpha> &b)
-  {
-    return !(a == b);
-  }
-
-  uint64_t hash() const
-  {
-    return static_cast<uint64_t>(r * 1283591) ^ static_cast<uint64_t>(g * 850177) ^
-           static_cast<uint64_t>(b * 735391) ^ static_cast<uint64_t>(a * 442319);
+    BLI_assert(Alpha == eAlpha::Premultiplied);
+    ColorSceneLinear4f<eAlpha::Straight> straighten;
+    premul_to_straight_v4_v4(straighten, *this);
+    return straighten;
   }
 };
 
-BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
-                              Color4b<Srgb, eAlpha::Straight> &dst)
+template<eAlpha Alpha>
+class ColorSceneLinearByteEncoded4b
+    : public ColorRGBA<uint8_t, eSpace::SceneLinearByteEncoded, Alpha> {
+ public:
+  constexpr ColorSceneLinearByteEncoded4b() = default;
+
+  constexpr ColorSceneLinearByteEncoded4b(const float *rgba)
+      : ColorRGBA<uint8_t, eSpace::SceneLinearByteEncoded, Alpha>(rgba)
+  {
+  }
+
+  constexpr ColorSceneLinearByteEncoded4b(float r, float g, float b, float a)
+      : ColorRGBA<uint8_t, eSpace::SceneLinearByteEncoded, Alpha>(r, g, b, a)
+  {
+  }
+
+  /**
+   * Convert to back to float color.
+   **/
+  ColorSceneLinear4f<Alpha> to_byte_decoded() const
+  {
+    ColorSceneLinear4f<Alpha> decoded;
+    srgb_to_linearrgb_uchar4(decoded, *this);
+    return decoded;
+  }
+};
+
+/**
+ * Srgb color template class. Should not be used directly. When needed please use
+ * the convenience `ColorSrgb4b` and `ColorSrgb4f` declarations.
+ */
+template<typename ChannelStorageType>
+class ColorSrgb4 : public ColorRGBA<ChannelStorageType, eSpace::Srgb, eAlpha::Straight> {
+ public:
+  constexpr ColorSrgb4() : ColorRGBA<ChannelStorageType, eSpace::Srgb, eAlpha::Straight>()
+  {
+  }
+
+  constexpr ColorSrgb4(const ChannelStorageType *rgba)
+      : ColorRGBA<ChannelStorageType, eSpace::Srgb, eAlpha::Straight>(rgba)
+  {
+  }
+
+  constexpr ColorSrgb4(ChannelStorageType r,
+                       ChannelStorageType g,
+                       ChannelStorageType b,
+                       ChannelStorageType a)
+      : ColorRGBA<ChannelStorageType, eSpace::Srgb, eAlpha::Straight>(r, g, b, a)
+  {
+  }
+
+  /**
+   * Change precision of color to float.
+   *
+   * Will fail to compile when invoked on a float color.
+   */
+  ColorSrgb4<float> to_srgb4f() const
+  {
+    BLI_assert(typeof(r) == uint8_t);
+    return BLI_color_convert_to_srgb4f(*this);
+  }
+
+  /**
+   * Change precision of color to uint8_t.
+   *
+   * Will fail to compile when invoked on a uint8_t color.
+   */
+  ColorSrgb4<uint8_t> to_srgb4b() const
+  {
+    BLI_assert(typeof(r) == float);
+    return BLI_color_convert_to_srgb4b(*this);
+  }
+};
+
+using ColorSrgb4f = ColorSrgb4<float>;
+using ColorSrgb4b = ColorSrgb4<uint8_t>;
+
+BLI_INLINE ColorSrgb4b BLI_color_convert_to_srgb4b(const ColorSrgb4f &srgb4f)
 {
-  linearrgb_to_srgb_uchar4(dst, src);
+  ColorSrgb4b srgb4b;
+  rgba_float_to_uchar(srgb4b, srgb4f);
+  return srgb4b;
 }
 
-BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Straight> src,
-                              Color4f<Srgb, eAlpha::Straight> &dst)
+BLI_INLINE ColorSrgb4f BLI_color_convert_to_srgb4f(const ColorSrgb4b &srgb4b)
 {
-  linearrgb_to_srgb_v4(dst, src);
-}
-BLI_INLINE void convert_space(const Color4f<SceneLinear, eAlpha::Premultiplied> src,
-                              Color4f<SceneLinear, eAlpha::Premultiplied> &dst)
-{
-  dst.r = src.r;
-  dst.g = src.g;
-  dst.b = src.b;
-  dst.a = src.a;
+  ColorSrgb4f srgb4f;
+  rgba_uchar_to_float(srgb4f, srgb4b);
+  return srgb4f;
 }
 
-BLI_INLINE void convert_space(const Color4f<Srgb, eAlpha::Straight> src,
-                              Color4f<SceneLinear, eAlpha::Straight> &dst)
+BLI_INLINE ColorSceneLinear4f<eAlpha::Straight> BLI_color_convert_to_scene_linear(
+    const ColorSrgb4f &srgb4f)
 {
-  srgb_to_linearrgb_v4(dst, src);
+  ColorSceneLinear4f<eAlpha::Straight> scene_linear;
+  srgb_to_linearrgb_v4(scene_linear, srgb4f);
+  return scene_linear;
+}
+
+BLI_INLINE ColorSceneLinear4f<eAlpha::Straight> BLI_color_convert_to_scene_linear(
+    const ColorSrgb4b &srgb4b)
+{
+  ColorSceneLinear4f<eAlpha::Straight> scene_linear;
+  srgb_to_linearrgb_uchar4(scene_linear, srgb4b);
+  return scene_linear;
+}
+
+BLI_INLINE ColorSrgb4f
+BLI_color_convert_to_srgb4f(const ColorSceneLinear4f<eAlpha::Straight> &scene_linear)
+{
+  ColorSrgb4f srgb4f;
+  linearrgb_to_srgb_v4(srgb4f, scene_linear);
+  return srgb4f;
+}
+
+BLI_INLINE ColorSrgb4b
+BLI_color_convert_to_srgb4b(const ColorSceneLinear4f<eAlpha::Straight> &scene_linear)
+{
+  ColorSrgb4b srgb4b;
+  linearrgb_to_srgb_uchar4(srgb4b, scene_linear);
+  return srgb4b;
 }
 
 /* Internal roles. For convenience to shorten the type names and hide complexity
  * in areas where transformations are unlikely to happen. */
-using ColorSceneReference4f = Color4f<SceneLinear, eAlpha::Premultiplied>;
-using ColorSceneReference4b =
-    Color4b<typename SceneLinear::ByteEncodedSpace, eAlpha::Premultiplied>;
-using ColorTheme4b = Color4b<Srgb, eAlpha::Straight>;
+using ColorSceneReference4f = ColorSceneLinear4f<eAlpha::Premultiplied>;
+using ColorSceneReference4b = ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied>;
+using ColorTheme4b = ColorSrgb4b;
 using ColorGeometry4f = ColorSceneReference4f;
-using ColorGeometry4b = ColorSceneReference4b;
+using ColorGeometry4b = ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied>;
 
 }  // namespace blender

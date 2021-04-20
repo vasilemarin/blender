@@ -24,7 +24,7 @@ ColorGeometryMixer::ColorGeometryMixer(MutableSpan<ColorGeometry4f> output_buffe
       default_color_(default_color),
       total_weights_(output_buffer.size(), 0.0f)
 {
-  buffer_.fill(ColorGeometry4f(0, 0, 0, 0));
+  buffer_.fill(ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
 }
 
 void ColorGeometryMixer::mix_in(const int64_t index,

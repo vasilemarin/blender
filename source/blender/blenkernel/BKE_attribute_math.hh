@@ -209,7 +209,7 @@ class ColorGeometryMixer {
 
  public:
   ColorGeometryMixer(MutableSpan<ColorGeometry4f> buffer,
-                     ColorGeometry4f default_color = {0, 0, 0, 1});
+                     ColorGeometry4f default_color = ColorGeometry4f(0.0f, 0.0f, 0.0f, 1.0f));
   void mix_in(const int64_t index, const ColorGeometry4f &color, const float weight = 1.0f);
   void finalize();
 };

@@ -787,15 +787,14 @@ static void set_loop_uv(MLoopUV &uv, float2 co)
 
 static ColorGeometry4f get_loop_color(const MLoopCol &col)
 {
-  ColorGeometry4b encoded_color(col.r, col.g, col.b, col.a);
-  ColorGeometry4f linear_color;
-  linear_color.decode(encoded_color);
+  ColorGeometry4b encoded_color = ColorGeometry4b(col.r, col.g, col.b, col.a);
+  ColorGeometry4f linear_color = encoded_color.to_byte_decoded();
   return linear_color;
 }
 
 static void set_loop_color(MLoopCol &col, ColorGeometry4f linear_color)
 {
-  ColorGeometry4b encoded_color = linear_color.encode();
+  ColorGeometry4b encoded_color = linear_color.to_byte_encoded();
   col.r = encoded_color.r;
   col.g = encoded_color.g;
   col.b = encoded_color.b;
