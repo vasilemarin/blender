@@ -162,7 +162,7 @@ BLI_INLINE ColorSrgb4<float> BLI_color_convert_to_srgb4f(const ColorSrgb4<uint8_
 BLI_INLINE ColorSrgb4<uint8_t> BLI_color_convert_to_srgb4b(const ColorSrgb4<float> &srgb4f);
 
 template<eAlpha Alpha>
-class ColorSceneLinear4f : public ColorRGBA<float, eSpace::SceneLinear, Alpha> {
+class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Alpha> {
  public:
   constexpr ColorSceneLinear4f<Alpha>() : ColorRGBA<float, eSpace::SceneLinear, Alpha>()
   {
@@ -216,7 +216,7 @@ class ColorSceneLinear4f : public ColorRGBA<float, eSpace::SceneLinear, Alpha> {
 };
 
 template<eAlpha Alpha>
-class ColorSceneLinearByteEncoded4b
+class ColorSceneLinearByteEncoded4b final
     : public ColorRGBA<uint8_t, eSpace::SceneLinearByteEncoded, Alpha> {
  public:
   constexpr ColorSceneLinearByteEncoded4b() = default;
@@ -247,7 +247,7 @@ class ColorSceneLinearByteEncoded4b
  * the convenience `ColorSrgb4b` and `ColorSrgb4f` declarations.
  */
 template<typename ChannelStorageType>
-class ColorSrgb4 : public ColorRGBA<ChannelStorageType, eSpace::Srgb, eAlpha::Straight> {
+class ColorSrgb4 final : public ColorRGBA<ChannelStorageType, eSpace::Srgb, eAlpha::Straight> {
  public:
   constexpr ColorSrgb4() : ColorRGBA<ChannelStorageType, eSpace::Srgb, eAlpha::Straight>()
   {
