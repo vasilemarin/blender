@@ -211,19 +211,7 @@ void USDLightWriter::do_write(HierarchyContext &context)
       BLI_assert(!"is_supported() returned true for unsupported light type");
   }
 
-  // TODO(makowalski): Is following light scaling still valid, or has Tangent deliberately
-  // removed this logic?
-  /* Scale factor to get to somewhat-similar illumination. Since the USDViewer had similar
-   * over-exposure as Blender Internal with the same values, this code applies the reverse of the
-   * versioning code in light_emission_unify(). */
-  float usd_intensity;
-  if (light->type == LA_SUN) {
-    /* Untested, as the Hydra GL viewport of USDViewer doesn't support distant lights. */
-    usd_intensity = light->energy;
-  }
-  else {
-    usd_intensity = light->energy / 100.0f;
-  }
+  float usd_intensity = light->energy * usd_export_context_.export_params.light_intensity_scale;
 
   usd_light.CreateIntensityAttr().Set(usd_intensity, timecode);
 

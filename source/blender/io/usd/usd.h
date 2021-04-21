@@ -99,6 +99,7 @@ struct USDExportParams {
   bool export_textures;
   bool relative_texture_paths;
   bool backward_compatible;
+  float light_intensity_scale;
 };
 
 struct USDImportParams {

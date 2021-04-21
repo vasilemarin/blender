@@ -225,6 +225,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const bool backward_compatible = true;
 
+  const float light_intensity_scale = RNA_float_get(op->ptr, "light_intensity_scale");
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -268,7 +270,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    shutter_close,
                                    export_textures,
                                    relative_texture_paths,
-                                   backward_compatible};
+                                   backward_compatible,
+                                   light_intensity_scale};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -327,6 +330,10 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
   if (RNA_boolean_get(ptr, "export_vertex_colors") ||
       RNA_boolean_get(ptr, "export_vertex_groups")) {
     uiItemR(box, ptr, "vertex_data_as_face_varying", 0, NULL, ICON_NONE);
+  }
+
+  if (RNA_boolean_get(ptr, "export_lights")) {
+    uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
   }
 
   box = uiLayoutBox(layout);
@@ -686,6 +693,16 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
       false,
       "Relative Texture Paths",
       "When checked, material texture asset paths will be saved as relative paths in the USD.");
+
+  RNA_def_float(ot->srna,
+                "light_intensity_scale",
+                1.0f,
+                0.0001f,
+                10000.0f,
+                "Light Intensity Scale",
+                "Value by which to scale the intensity of exported lights",
+                0.0001f,
+                1000.0f);
 }
 
 /* ====== USD Import ====== */
