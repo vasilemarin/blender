@@ -98,6 +98,7 @@ struct USDExportParams {
   double shutter_close;
   bool export_textures;
   bool relative_texture_paths;
+  bool backward_compatible;
 };
 
 struct USDImportParams {

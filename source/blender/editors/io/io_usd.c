@@ -223,6 +223,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   bool relative_texture_paths = RNA_boolean_get(op->ptr, "relative_texture_paths");
 
+  const bool backward_compatible = true;
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -265,7 +267,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    shutter_open,
                                    shutter_close,
                                    export_textures,
-                                   relative_texture_paths};
+                                   relative_texture_paths,
+                                   backward_compatible};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
