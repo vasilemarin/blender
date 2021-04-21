@@ -120,7 +120,7 @@ static void export_startjob(void *customdata,
      * the USD library doesn't know it has the functionality to write USDA and
      * USDC files, and creating a new UsdStage fails. */
     WM_reportf(
-      RPT_ERROR, "USD Export: unable to find suitable USD plugin to write %s", data->filename);
+        RPT_ERROR, "USD Export: unable to find suitable USD plugin to write %s", data->filename);
     data->export_ok = false;
     return;
   }
@@ -132,7 +132,7 @@ static void export_startjob(void *customdata,
   //        - transform
   //        - no blender specific nodes used
   if (data->params.export_lights && scene && scene->world && scene->world->use_nodes &&
-    !data->params.selected_objects_only) {
+      !data->params.selected_objects_only) {
 
     float world_color[3];
     float world_intensity = 0.0f;
@@ -142,11 +142,11 @@ static void export_startjob(void *customdata,
     bool background_found = false;
     bool env_tex_found = false;
     pxr::SdfPath environment_light_path(std::string(data->params.root_prim_path) +
-      "/lights/environment");
+                                        "/lights/environment");
 
     // Store Light node tree
     pxr::UsdShadeMaterial world_mat = pxr::UsdShadeMaterial::Define(
-      usd_stage, environment_light_path.AppendChild(pxr::TfToken("world_material")));
+        usd_stage, environment_light_path.AppendChild(pxr::TfToken("world_material")));
     create_usd_cycles_material(usd_stage, scene->world->nodetree, world_mat, data->params);
 
     // Convert node graph to USD Dome Light
@@ -157,10 +157,10 @@ static void export_startjob(void *customdata,
       if (ELEM(node->type, SH_NODE_BACKGROUND)) {
 
         bNodeSocketValueRGBA *color_data =
-          (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&node->inputs, 0))->default_value;
+            (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&node->inputs, 0))->default_value;
         bNodeSocketValueFloat *strength_data =
-          (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(&node->inputs, 1))
-          ->default_value;
+            (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(&node->inputs, 1))
+                ->default_value;
 
         background_found = true;
         world_intensity = strength_data->value;
@@ -186,7 +186,7 @@ static void export_startjob(void *customdata,
     if (background_found) {
 
       pxr::UsdLuxDomeLight dome_light = pxr::UsdLuxDomeLight::Define(usd_stage,
-        environment_light_path);
+                                                                     environment_light_path);
 
       pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(dome_light.GetPrim());
       api.Bind(world_mat);
@@ -201,7 +201,7 @@ static void export_startjob(void *customdata,
         dome_light.CreateTextureFileAttr().Set(pxr::SdfAssetPath(filepath));
       else
         dome_light.CreateColorAttr().Set(
-          pxr::VtValue(pxr::GfVec3f(world_color[0], world_color[1], world_color[2])));
+            pxr::VtValue(pxr::GfVec3f(world_color[0], world_color[1], world_color[2])));
       dome_light.CreateIntensityAttr().Set(pxr::VtValue(world_intensity));
     }
   }
@@ -209,7 +209,7 @@ static void export_startjob(void *customdata,
   // Define material prim path as a scope
   if (data->params.export_materials)
     blender::io::usd::usd_define_or_over<pxr::UsdGeomScope>(
-      usd_stage, pxr::SdfPath(data->params.material_prim_path), data->params.export_as_overs);
+        usd_stage, pxr::SdfPath(data->params.material_prim_path), data->params.export_as_overs);
 
   pxr::VtValue upAxis = pxr::VtValue(pxr::UsdGeomTokens->z);
   if (data->params.convert_orientation) {
@@ -221,9 +221,9 @@ static void export_startjob(void *customdata,
 
   usd_stage->SetMetadata(pxr::UsdGeomTokens->upAxis, upAxis);
   usd_stage->SetMetadata(pxr::UsdGeomTokens->metersPerUnit,
-    pxr::VtValue(scene->unit.scale_length));
+                         pxr::VtValue(scene->unit.scale_length));
   usd_stage->GetRootLayer()->SetDocumentation(std::string("Blender ") +
-    BKE_blender_version_string());
+                                              BKE_blender_version_string());
 
   /* Set up the stage for animated data. */
   if (data->params.export_animation) {
@@ -243,12 +243,12 @@ static void export_startjob(void *customdata,
 
     // Writing the animated frames is not 100% of the work, but it's our best guess.
     float progress_per_frame = 1.0f / std::max(1.0f,
-      (float)(data->params.frame_end -
-        data->params.frame_start + 1.0) /
-      data->params.frame_step);
+                                               (float)(data->params.frame_end -
+                                                       data->params.frame_start + 1.0) /
+                                                   data->params.frame_step);
 
     for (float frame = data->params.frame_start; frame <= data->params.frame_end;
-      frame += data->params.frame_step) {
+         frame += data->params.frame_step) {
       if (G.is_break || (stop != nullptr && *stop)) {
         break;
       }
@@ -275,7 +275,7 @@ static void export_startjob(void *customdata,
   // Set Stage Default Prim Path
   if (strlen(data->params.default_prim_path) > 0) {
     std::string valid_default_prim_path = pxr::TfMakeValidIdentifier(
-      data->params.default_prim_path);
+        data->params.default_prim_path);
 
     if (valid_default_prim_path[0] == '_') {
       valid_default_prim_path[0] = '/';
