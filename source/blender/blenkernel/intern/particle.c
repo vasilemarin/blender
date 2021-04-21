@@ -2417,14 +2417,15 @@ int do_guides(Depsgraph *depsgraph,
       cu = (Curve *)eff->ob->data;
 
       if (pd->flag & PFIELD_GUIDE_PATH_ADD) {
-        if (where_on_path(
+        if (BKE_where_on_path(
                 eff->ob, data->strength * guidetime, guidevec, guidedir, NULL, &radius, &weight) ==
             0) {
           return 0;
         }
       }
       else {
-        if (where_on_path(eff->ob, guidetime, guidevec, guidedir, NULL, &radius, &weight) == 0) {
+        if (BKE_where_on_path(eff->ob, guidetime, guidevec, guidedir, NULL, &radius, &weight) ==
+            0) {
           return 0;
         }
       }
@@ -3925,7 +3926,7 @@ static ModifierData *object_add_or_copy_particle_system(
   }
 
   if (name == NULL) {
-    name = (psys_orig != NULL) ? psys_orig->name : DATA_("ParticleSettings");
+    name = (psys_orig != NULL) ? psys_orig->name : DATA_("ParticleSystem");
   }
 
   psys = ob->particlesystem.first;
@@ -3943,7 +3944,7 @@ static ModifierData *object_add_or_copy_particle_system(
     id_us_plus(&psys->part->id);
   }
   else {
-    psys->part = BKE_particlesettings_add(bmain, psys->name);
+    psys->part = BKE_particlesettings_add(bmain, DATA_("ParticleSettings"));
   }
   md = BKE_modifier_new(eModifierType_ParticleSystem);
   BLI_strncpy(md->name, psys->name, sizeof(md->name));

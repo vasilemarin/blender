@@ -30,7 +30,6 @@
 
 #include "MEM_guardedalloc.h"
 #include "RNA_access.h"
-#include "RNA_blender_cpp.h"
 #include "RNA_types.h"
 
 namespace blender::io::usd {
@@ -100,13 +99,8 @@ void USDCameraWriter::do_write(HierarchyContext &context)
   usd_camera.CreateHorizontalApertureOffsetAttr().Set(aperture_x * camera->shiftx, timecode);
   usd_camera.CreateVerticalApertureOffsetAttr().Set(aperture_y * camera->shifty * film_aspect,
                                                     timecode);
-
-  PointerRNA id_ptr;
-  RNA_id_pointer_create(&scene->id, &id_ptr);
-  BL::Scene test_scene(id_ptr);
-  BL::RenderSettings r = test_scene.render();
-
-  float shutter_length = r.motion_blur_shutter() / 2.0f;
+  /* TODO(makowalsk): confirm this is the correct way to get the shutter. */
+  float shutter_length = scene->eevee.motion_blur_shutter / 2.0f;
 
   double shutter_open = -shutter_length;
   double shutter_close = shutter_length;

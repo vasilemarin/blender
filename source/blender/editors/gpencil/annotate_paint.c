@@ -660,10 +660,14 @@ static short annotation_stroke_addpoint(tGPsdata *p,
         View3D *v3d = p->area->spacedata.first;
 
         view3d_region_operator_needs_opengl(p->win, p->region);
-        ED_view3d_autodist_init(p->depsgraph,
-                                p->region,
-                                v3d,
-                                (ts->annotate_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
+        ED_view3d_depth_override(p->depsgraph,
+                                 p->region,
+                                 v3d,
+                                 NULL,
+                                 (ts->annotate_v3d_align & GP_PROJECT_DEPTH_STROKE) ?
+                                     V3D_DEPTH_GPENCIL_ONLY :
+                                     V3D_DEPTH_NO_GPENCIL,
+                                 false);
       }
 
       /* convert screen-coordinates to appropriate coordinates (and store them) */
@@ -1222,7 +1226,7 @@ static void annotation_stroke_doeraser(tGPsdata *p)
     if (p->flags & GP_PAINTFLAG_V3D_ERASER_DEPTH) {
       View3D *v3d = p->area->spacedata.first;
       view3d_region_operator_needs_opengl(p->win, p->region);
-      ED_view3d_autodist_init(p->depsgraph, p->region, v3d, 0);
+      ED_view3d_depth_override(p->depsgraph, p->region, v3d, NULL, V3D_DEPTH_NO_GPENCIL, false);
     }
   }
 
@@ -1695,8 +1699,14 @@ static void annotation_paint_strokeend(tGPsdata *p)
 
     /* need to restore the original projection settings before packing up */
     view3d_region_operator_needs_opengl(p->win, p->region);
-    ED_view3d_autodist_init(
-        p->depsgraph, p->region, v3d, (ts->annotate_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
+    ED_view3d_depth_override(p->depsgraph,
+                             p->region,
+                             v3d,
+                             NULL,
+                             (ts->annotate_v3d_align & GP_PROJECT_DEPTH_STROKE) ?
+                                 V3D_DEPTH_GPENCIL_ONLY :
+                                 V3D_DEPTH_NO_GPENCIL,
+                             false);
   }
 
   /* check if doing eraser or not */
@@ -2093,7 +2103,7 @@ static void annotation_draw_apply_event(
   p->mval[1] = (float)event->mval[1] - y;
 
   /* Key to toggle stabilization. */
-  if (event->shift > 0 && p->paintmode == GP_PAINTMODE_DRAW) {
+  if (event->shift && p->paintmode == GP_PAINTMODE_DRAW) {
     /* Using permanent stabilization, shift will deactivate the flag. */
     if (p->flags & GP_PAINTFLAG_USE_STABILIZER) {
       if (p->flags & GP_PAINTFLAG_USE_STABILIZER_TEMP) {
@@ -2108,7 +2118,7 @@ static void annotation_draw_apply_event(
     }
   }
   /* verify key status for straight lines */
-  else if ((event->ctrl > 0) || (event->alt > 0)) {
+  else if (event->ctrl || event->alt) {
     if (p->straight[0] == 0) {
       int dx = abs((int)(p->mval[0] - p->mvalo[0]));
       int dy = abs((int)(p->mval[1] - p->mvalo[1]));
@@ -2348,7 +2358,7 @@ static int annotation_draw_invoke(bContext *C, wmOperator *op, const wmEvent *ev
       p->flags |= GP_PAINTFLAG_USE_STABILIZER | GP_PAINTFLAG_USE_STABILIZER_TEMP;
       annotation_draw_toggle_stabilizer_cursor(p, true);
     }
-    else if (event->shift > 0) {
+    else if (event->shift) {
       p->flags |= GP_PAINTFLAG_USE_STABILIZER_TEMP;
       annotation_draw_toggle_stabilizer_cursor(p, true);
     }

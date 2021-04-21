@@ -25,7 +25,6 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
     FloatProperty,
-    FloatVectorProperty,
     IntProperty,
 )
 
@@ -442,6 +441,7 @@ class QuickSmoke(ObjectModeOperator, Operator):
 
 
 class QuickLiquid(Operator):
+    """Make selected objects liquid"""
     bl_idname = "object.quick_liquid"
     bl_label = "Quick Liquid"
     bl_options = {'REGISTER', 'UNDO'}

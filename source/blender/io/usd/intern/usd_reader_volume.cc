@@ -16,7 +16,6 @@
 
 #include "usd_reader_volume.h"
 
-extern "C" {
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_constraint_types.h"
@@ -46,7 +45,6 @@ extern "C" {
 
 #include "WM_api.h"
 #include "WM_types.h"
-}
 
 #include <pxr/pxr.h>
 #include <pxr/usd/usdVol/openVDBAsset.h>
@@ -56,7 +54,7 @@ extern "C" {
 
 namespace blender::io::usd {
 
-void USDVolumeReader::create_object(Main *bmain, double motionSampleTime)
+void USDVolumeReader::create_object(Main *bmain, const double /* motionSampleTime */)
 {
   Volume *volume = (Volume *)BKE_volume_add(bmain, name_.c_str());
   id_us_min(&volume->id);
@@ -65,7 +63,7 @@ void USDVolumeReader::create_object(Main *bmain, double motionSampleTime)
   object_->data = volume;
 }
 
-void USDVolumeReader::read_object_data(Main *bmain, double motionSampleTime)
+void USDVolumeReader::read_object_data(Main *bmain, const double motionSampleTime)
 {
   if (!volume_) {
     return;
@@ -75,8 +73,7 @@ void USDVolumeReader::read_object_data(Main *bmain, double motionSampleTime)
 
   std::string filepath;
 
-  Volume *volume = (Volume *)object_->data;
-  VolumeGrid *defaultGrid = BKE_volume_grid_active_get(volume);
+  Volume *volume = static_cast<Volume *>(object_->data);
 
   for (auto it = fields.begin(); it != fields.end(); ++it) {
 
@@ -95,7 +92,7 @@ void USDVolumeReader::read_object_data(Main *bmain, double motionSampleTime)
 
         // A Blender volume creates density by default
         if (fieldName != "density") {
-          defaultGrid = BKE_volume_grid_add(volume, fieldName.c_str(), VOLUME_GRID_FLOAT);
+          BKE_volume_grid_add(volume, fieldName.c_str(), VOLUME_GRID_FLOAT);
         }
       }
 

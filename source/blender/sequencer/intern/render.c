@@ -203,34 +203,6 @@ void SEQ_render_pixel_from_sequencer_space_v4(struct Scene *scene, float pixel[4
   }
 }
 
-void SEQ_render_init_colorspace(Sequence *seq)
-{
-  if (seq->strip && seq->strip->stripdata) {
-    char name[FILE_MAX];
-    ImBuf *ibuf;
-
-    BLI_join_dirfile(name, sizeof(name), seq->strip->dir, seq->strip->stripdata->name);
-    BLI_path_abs(name, BKE_main_blendfile_path_from_global());
-
-    /* initialize input color space */
-    if (seq->type == SEQ_TYPE_IMAGE) {
-      ibuf = IMB_loadiffname(
-          name, IB_test | IB_alphamode_detect, seq->strip->colorspace_settings.name);
-
-      /* byte images are default to straight alpha, however sequencer
-       * works in premul space, so mark strip to be premultiplied first
-       */
-      seq->alpha_mode = SEQ_ALPHA_STRAIGHT;
-      if (ibuf) {
-        if (ibuf->flags & IB_alphamode_premul) {
-          seq->alpha_mode = IMA_ALPHA_PREMUL;
-        }
-
-        IMB_freeImBuf(ibuf);
-      }
-    }
-  }
-}
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -611,6 +583,7 @@ static bool seq_need_scale_to_render_size(const Sequence *seq, bool is_proxy_ima
     return true;
   }
   if ((seq->type & SEQ_TYPE_EFFECT) != 0 || seq->type == SEQ_TYPE_MASK ||
+      seq->type == SEQ_TYPE_META ||
       (seq->type == SEQ_TYPE_SCENE && ((seq->flag & SEQ_SCENE_STRIPS) != 0))) {
     return true;
   }
@@ -1050,8 +1023,6 @@ static ImBuf *seq_render_image_strip(const SeqRenderData *context,
   /* Try to get a proxy image. */
   ibuf = seq_proxy_fetch(context, seq, timeline_frame);
   if (ibuf != NULL) {
-    s_elem->orig_width = ibuf->x;
-    s_elem->orig_height = ibuf->y;
     *r_is_proxy_image = true;
     return ibuf;
   }
@@ -1148,7 +1119,7 @@ static ImBuf *seq_render_movie_strip_view(const SeqRenderData *context,
 
   IMB_anim_set_preseek(sanim->anim, seq->anim_preseek);
 
-  if (SEQ_can_use_proxy(seq, psize)) {
+  if (SEQ_can_use_proxy(context, seq, psize)) {
     /* Try to get a proxy image.
      * Movie proxies are handled by ImBuf module with exception of `custom file` setting. */
     if (context->scene->ed->proxy_storage != SEQ_EDIT_PROXY_DIR_STORAGE &&
@@ -1258,8 +1229,10 @@ static ImBuf *seq_render_movie_strip(const SeqRenderData *context,
     return NULL;
   }
 
-  seq->strip->stripdata->orig_width = ibuf->x;
-  seq->strip->stripdata->orig_height = ibuf->y;
+  if (*r_is_proxy_image == false) {
+    seq->strip->stripdata->orig_width = ibuf->x;
+    seq->strip->stripdata->orig_height = ibuf->y;
+  }
 
   return ibuf;
 }
@@ -1820,7 +1793,8 @@ ImBuf *seq_render_strip(const SeqRenderData *context,
   }
 
   /* Proxies are not stored in cache. */
-  if (!SEQ_can_use_proxy(seq, SEQ_rendersize_to_proxysize(context->preview_render_size))) {
+  if (!SEQ_can_use_proxy(
+          context, seq, SEQ_rendersize_to_proxysize(context->preview_render_size))) {
     ibuf = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_RAW);
   }
 

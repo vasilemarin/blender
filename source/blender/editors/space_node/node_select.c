@@ -370,6 +370,11 @@ static int node_select_grouped_exec(bContext *C, wmOperator *op)
 {
   SpaceNode *snode = CTX_wm_space_node(C);
   bNode *node_act = nodeGetActive(snode->edittree);
+
+  if (node_act == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
   bNode *node;
   bool changed = false;
   const bool extend = RNA_boolean_get(op->ptr, "extend");
@@ -563,11 +568,19 @@ static int node_mouse_select(bContext *C,
       }
     }
     else if (deselect_all && node == NULL) {
-      /* Deselect in empty space. */
-      for (tnode = snode->edittree->nodes.first; tnode; tnode = tnode->next) {
-        nodeSetSelected(tnode, false);
+      /* Rather than deselecting others, users may want to drag to box-select (drag from empty
+       * space) or tweak-translate an already selected item. If these cases may apply, delay
+       * deselection. */
+      if (wait_to_deselect_others) {
+        ret_value = OPERATOR_RUNNING_MODAL;
       }
-      ret_value = OPERATOR_FINISHED;
+      else {
+        /* Deselect in empty space. */
+        for (tnode = snode->edittree->nodes.first; tnode; tnode = tnode->next) {
+          nodeSetSelected(tnode, false);
+        }
+        ret_value = OPERATOR_FINISHED;
+      }
     }
     else if (node != NULL) {
       /* When clicking on an already selected node, we want to wait to deselect
@@ -1178,7 +1191,8 @@ static void node_find_create_label(const bNode *node, char *str, int maxlen)
 static void node_find_update_fn(const struct bContext *C,
                                 void *UNUSED(arg),
                                 const char *str,
-                                uiSearchItems *items)
+                                uiSearchItems *items,
+                                const bool UNUSED(is_first))
 {
   SpaceNode *snode = CTX_wm_space_node(C);
 

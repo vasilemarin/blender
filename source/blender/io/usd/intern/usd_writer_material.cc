@@ -59,11 +59,11 @@ extern "C" {
 
 #include "MEM_guardedalloc.h"
 #include "RNA_access.h"
-#include "RNA_blender_cpp.h"
 #include "RNA_types.h"
 
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 #include <string>
 #include <utility>
 
@@ -100,6 +100,9 @@ static const pxr::TfToken normal("normal", pxr::TfToken::Immortal);
 static const pxr::TfToken ior("ior", pxr::TfToken::Immortal);
 static const pxr::TfToken file("file", pxr::TfToken::Immortal);
 static const pxr::TfToken preview("preview", pxr::TfToken::Immortal);
+static const pxr::TfToken raw("raw", pxr::TfToken::Immortal);
+static const pxr::TfToken sRGB("sRGB", pxr::TfToken::Immortal);
+static const pxr::TfToken sourceColorSpace("sourceColorSpace", pxr::TfToken::Immortal);
 }  // namespace usdtokens
 
 /* Cycles specific tokens (Blender Importer and HdCycles) */
@@ -118,6 +121,21 @@ static const pxr::TfToken vector("vector", pxr::TfToken::Immortal);
 }  // namespace cyclestokens
 
 namespace blender::io::usd {
+
+/* Replace backslaches with forward slashes.
+ * Assumes buf is null terminated. */
+static void ensure_forward_slashes(char *buf, int size)
+{
+  if (!buf) {
+    return;
+  }
+  int i = 0;
+  for (char *p = buf; *p != '0' && i < size; ++p, ++i) {
+    if (*p == '\\') {
+      *p = '/';
+    }
+  }
+}
 
 /* ===== Functions copied from inacessible source file
  * blender/nodes/shader/node_shader_tree.c */
@@ -471,6 +489,120 @@ static std::string get_node_tex_image_filepath(bNode *node)
   }
 
   return std::string(filepath);
+}
+
+/* Gets a NodeTexImage's filepath, returning a path in the texture export directory or a relative
+ * path, if the export parameters require it.
+ */
+static std::string get_node_tex_image_filepath(bNode *node,
+                                               const pxr::UsdStageRefPtr stage,
+                                               const USDExportParams &export_params)
+{
+  std::string image_path = get_node_tex_image_filepath(node);
+
+  if (image_path.empty()) {
+    return image_path;
+  }
+
+  if (!stage) {
+    return image_path;
+  }
+
+  if (!(export_params.relative_texture_paths || export_params.export_textures)) {
+    return image_path;
+  }
+
+  // TODO(makowalski): avoid recomputing the USD path, if possible.
+  pxr::SdfLayerHandle layer = stage->GetRootLayer();
+
+  std::string stage_path = layer->GetRealPath();
+
+  if (stage_path.empty()) {
+    return image_path;
+  }
+
+  /* If we are exporting textures, set the textures directory in the path. */
+  if (export_params.export_textures) {
+    char dir_path[FILE_MAX];
+    char file_path[FILE_MAX];
+    BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
+    BLI_split_file_part(image_path.c_str(), file_path, FILE_MAX);
+
+    ensure_forward_slashes(dir_path, FILE_MAX);
+
+    if (export_params.relative_texture_paths) {
+      image_path = "./textures/";
+    }
+    else {
+      image_path = std::string(dir_path);
+      if (image_path.back() != '/' && image_path.back() != '\\') {
+        image_path += "/";
+      }
+      image_path += "textures/";
+    }
+
+    image_path += std::string(file_path);
+    return image_path;
+  }
+
+  // Get the path relative to the USD.
+  char rel_path[FILE_MAX];
+
+  strcpy(rel_path, image_path.c_str());
+
+  BLI_path_rel(rel_path, stage_path.c_str());
+
+  /* BLI_path_rel adds '//' as a prefix to the path, if
+   * generating the relative path was successful. */
+  if (rel_path[0] != '/' || rel_path[1] != '/') {
+    /* No relative path generated. */
+    return image_path;
+  }
+
+  int offset = 0;
+
+  if (rel_path[2] != '.') {
+    rel_path[0] = '.';
+  }
+  else {
+    offset = 2;
+  }
+
+  ensure_forward_slashes(rel_path, FILE_MAX);
+
+  image_path = std::string(rel_path + offset);
+
+  return image_path;
+}
+
+static pxr::TfToken get_node_tex_image_color_space(bNode *node)
+{
+  if (node->type != SH_NODE_TEX_IMAGE) {
+    std::cout << "get_node_tex_image_color_space() called with unexpected type.\n";
+    return pxr::TfToken();
+  }
+
+  if (node->id == nullptr) {
+    return pxr::TfToken();
+  }
+
+  NodeTexImage *tex_original = (NodeTexImage *)node->storage;
+
+  Image *ima = reinterpret_cast<Image *>(node->id);
+
+  pxr::TfToken color_space;
+
+  if (strcmp(ima->colorspace_settings.name, "Raw") == 0) {
+    color_space = usdtokens::raw;
+  }
+  else if (strcmp(ima->colorspace_settings.name, "Non-Color") == 0) {
+    color_space = usdtokens::raw;
+  }
+  else if (strcmp(ima->colorspace_settings.name, "sRGB") == 0) {
+    color_space = usdtokens::sRGB;
+  }
+
+  return color_space;
 }
 
 static const int HD_CYCLES_CURVE_EXPORT_RES = 256;
@@ -935,10 +1067,23 @@ pxr::UsdShadeShader create_usd_preview_shader_node(USDExporterContext const &usd
   switch (type) {
     case SH_NODE_TEX_IMAGE: {
       shader.CreateIdAttr(pxr::VtValue(usdtokens::uv_texture));
-      std::string imagePath = get_node_tex_image_filepath(node);
-      if (imagePath.size() > 0)
+      std::string imagePath = get_node_tex_image_filepath(
+          node, usd_export_context_.stage, usd_export_context_.export_params);
+      if (!imagePath.empty()) {
         shader.CreateInput(usdtokens::file, pxr::SdfValueTypeNames->Asset)
             .Set(pxr::SdfAssetPath(imagePath));
+      }
+
+      pxr::TfToken colorSpace = get_node_tex_image_color_space(node);
+      if (!colorSpace.IsEmpty()) {
+        shader.CreateInput(usdtokens::sourceColorSpace, pxr::SdfValueTypeNames->Token)
+            .Set(colorSpace);
+      }
+
+      if (usd_export_context_.export_params.export_textures) {
+        export_texture(node, usd_export_context_.stage);
+      }
+
       break;
     }
     case SH_NODE_TEX_COORD:
@@ -968,7 +1113,7 @@ pxr::UsdShadeShader create_usd_preview_shader_node(USDExporterContext const &usd
 pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
                                               pxr::SdfPath &shaderPath,
                                               bNode *node,
-                                              bool a_asOvers = false)
+                                              const USDExportParams &export_params)
 {
   pxr::SdfPath primpath = shaderPath.AppendChild(
       pxr::TfToken(pxr::TfMakeValidIdentifier(node->name)));
@@ -977,8 +1122,9 @@ pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
   if (a_stage->GetPrimAtPath(primpath).IsValid())
     return pxr::UsdShadeShader::Get(a_stage, primpath);
 
-  pxr::UsdShadeShader shader = (a_asOvers) ? pxr::UsdShadeShader(a_stage->OverridePrim(primpath)) :
-                                             pxr::UsdShadeShader::Define(a_stage, primpath);
+  pxr::UsdShadeShader shader = (export_params.export_as_overs) ?
+                                   pxr::UsdShadeShader(a_stage->OverridePrim(primpath)) :
+                                   pxr::UsdShadeShader::Define(a_stage, primpath);
 
   // Author Cycles Shader Node ID
   // For now we convert spaces to _ and transform to lowercase.
@@ -1201,7 +1347,7 @@ pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
       NodeTexImage *tex_original = (NodeTexImage *)node->storage;
       if (!tex_original)
         break;
-      std::string imagePath = get_node_tex_image_filepath(node);
+      std::string imagePath = get_node_tex_image_filepath(node, a_stage, export_params);
       if (imagePath.size() > 0)
         shader.CreateInput(cyclestokens::filename, pxr::SdfValueTypeNames->Asset)
             .Set(pxr::SdfAssetPath(imagePath));
@@ -1226,18 +1372,10 @@ pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
                                shader,
                                (int)ima->alpha_mode);
 
-        // Colorspace RNA
-        PointerRNA id_ptr;
-        RNA_id_pointer_create(node->id, &id_ptr);
-        BL::Image b_image(id_ptr);
-        PointerRNA colorspace_ptr = b_image.colorspace_settings().ptr;
-        PropertyRNA *prop = RNA_struct_find_property(&colorspace_ptr, "name");
-        const char *identifier = "";
-        int value = RNA_property_enum_get(&colorspace_ptr, prop);
-        RNA_property_enum_identifier(NULL, &colorspace_ptr, prop, value, &identifier);
-
-        shader.CreateInput(cyclestokens::colorspace, pxr::SdfValueTypeNames->String)
-            .Set(std::string(identifier));
+        if (strlen(ima->colorspace_settings.name) > 0) {
+          shader.CreateInput(cyclestokens::colorspace, pxr::SdfValueTypeNames->String)
+              .Set(std::string(ima->colorspace_settings.name));
+        }
       }
 
       break;
@@ -1271,7 +1409,7 @@ pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
         break;
       // TexMapping tex_mapping;
       // ColorMapping color_mapping;
-      std::string imagePath = get_node_tex_image_filepath(node);
+      std::string imagePath = get_node_tex_image_filepath(node, a_stage, export_params);
       if (imagePath.size() > 0)
         shader.CreateInput(cyclestokens::filename, pxr::SdfValueTypeNames->Asset)
             .Set(pxr::SdfAssetPath(imagePath));
@@ -1694,9 +1832,8 @@ void create_usd_preview_surface_material(USDExporterContext const &usd_export_co
                 .Set(pxr::VtValue(socket_data->value));
           }
         }
-        else if (strncmp(sock->name, "Transmission", 64) == 0) {
-          // -- Transmission
-          // @TODO: We might need to check this, could need one minus
+        else if (strncmp(sock->name, "Alpha", 64) == 0) {
+          // -- Alpha
 
           found_node = traverse_channel(sock);
           if (found_node) {  // Set hardcoded value
@@ -1708,7 +1845,7 @@ void create_usd_preview_surface_material(USDExporterContext const &usd_export_co
           else {  // Set hardcoded value
             bNodeSocketValueFloat *socket_data = (bNodeSocketValueFloat *)sock->default_value;
             previewSurface.CreateInput(usdtokens::opacity, pxr::SdfValueTypeNames->Float)
-                .Set(pxr::VtValue(1.0f - socket_data->value));
+                .Set(pxr::VtValue(socket_data->value));
           }
         }
         else if (strncmp(sock->name, "IOR", 64) == 0) {
@@ -1818,7 +1955,7 @@ void store_cycles_nodes(pxr::UsdStageRefPtr a_stage,
                         bNodeTree *ntree,
                         pxr::SdfPath shader_path,
                         bNode **material_out,
-                        bool a_asOvers)
+                        const USDExportParams &export_params)
 {
   for (bNode *node = (bNode *)ntree->nodes.first; node; node = node->next) {
 
@@ -1832,7 +1969,7 @@ void store_cycles_nodes(pxr::UsdStageRefPtr a_stage,
     }
 
     pxr::UsdShadeShader node_shader = create_cycles_shader_node(
-        a_stage, shader_path, node, a_asOvers);
+        a_stage, shader_path, node, export_params);
   }
 }
 
@@ -1840,7 +1977,7 @@ void link_cycles_nodes(pxr::UsdStageRefPtr a_stage,
                        pxr::UsdShadeMaterial &usd_material,
                        bNodeTree *ntree,
                        pxr::SdfPath shader_path,
-                       bool a_asOvers)
+                       const USDExportParams &export_params)
 {
   // for all links
   for (bNodeLink *link = (bNodeLink *)ntree->links.first; link; link = link->next) {
@@ -1957,15 +2094,15 @@ void link_cycles_nodes(pxr::UsdStageRefPtr a_stage,
 void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
                                 Material *material,
                                 pxr::UsdShadeMaterial &usd_material,
-                                bool a_asOvers = false)
+                                const USDExportParams &export_params)
 {
-  create_usd_cycles_material(a_stage, material->nodetree, usd_material, a_asOvers);
+  create_usd_cycles_material(a_stage, material->nodetree, usd_material, export_params);
 }
 
 void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
                                 bNodeTree *ntree,
                                 pxr::UsdShadeMaterial &usd_material,
-                                bool a_asOvers = false)
+                                const USDExportParams &export_params)
 {
 
   bNode *output = nullptr;
@@ -1978,19 +2115,20 @@ void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
 
   localize(localtree, localtree);
 
-  usd_define_or_over<pxr::UsdGeomScope>(
-      a_stage, usd_material.GetPath().AppendChild(cyclestokens::cycles), a_asOvers);
+  usd_define_or_over<pxr::UsdGeomScope>(a_stage,
+                                        usd_material.GetPath().AppendChild(cyclestokens::cycles),
+                                        export_params.export_as_overs);
 
   store_cycles_nodes(a_stage,
                      localtree,
                      usd_material.GetPath().AppendChild(cyclestokens::cycles),
                      &output,
-                     a_asOvers);
+                     export_params);
   link_cycles_nodes(a_stage,
                     usd_material,
                     localtree,
                     usd_material.GetPath().AppendChild(cyclestokens::cycles),
-                    a_asOvers);
+                    export_params);
 
   ntreeFreeLocalTree(localtree);
   MEM_freeN(localtree);
@@ -2016,6 +2154,96 @@ void create_usd_viewport_material(USDExporterContext const &usd_export_context_,
 
   // Connect the shader and the material together.
   usd_material.CreateSurfaceOutput().ConnectToSource(shader, usdtokens::surface);
+}
+
+/* Based on ImagesExporter::export_UV_Image() */
+void export_texture(bNode *node, pxr::UsdStageRefPtr stage)
+{
+  if (!stage || !node || node->type != SH_NODE_TEX_IMAGE) {
+    return;
+  }
+
+  // Get the path relative to the USD.
+  // TODO(makowalski): avoid recomputing the USD path, if possible.
+  pxr::SdfLayerHandle layer = stage->GetRootLayer();
+
+  std::string stage_path = layer->GetRealPath();
+
+  if (stage_path.empty()) {
+    return;
+  }
+
+  NodeTexImage *tex_image = reinterpret_cast<NodeTexImage *>(node->storage);
+
+  Image *ima = reinterpret_cast<Image *>(node->id);
+
+  if (!ima || sizeof(ima->filepath) == 0) {
+    return;
+  }
+
+  char dir_path[FILE_MAX];
+  BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
+
+  char file_path[FILE_MAX];
+  BLI_split_file_part(ima->filepath, file_path, FILE_MAX);
+
+  std::string export_path(dir_path);
+  export_path += "textures/";
+  export_path += std::string(file_path);
+
+  if (BLI_exists(export_path.c_str())) {
+    std::cout << "WARNING in export_texture(): Texture file " << export_path
+              << " already exists, skipping export." << std::endl;
+    return;
+  }
+
+  ImBuf *imbuf = BKE_image_acquire_ibuf(ima, nullptr, nullptr);
+  if (!imbuf) {
+    return;
+  }
+
+  bool is_dirty = BKE_image_is_dirty(ima);
+
+  ImageFormatData imageFormat;
+  BKE_imbuf_to_image_format(&imageFormat, imbuf);
+
+  short image_source = ima->source;
+  bool is_generated = image_source == IMA_SRC_GENERATED;
+  bool is_packed = BKE_image_has_packedfile(ima);
+
+  BLI_make_existing_file(export_path.c_str());
+
+  if (is_generated || is_dirty || is_packed) {
+
+    /* This image in its current state only exists in Blender memory.
+     * So we have to export it. The export will keep the image state intact,
+     * so the exported file will not be associated with the image. */
+
+    std::cout << "Exporting packed texture to " << export_path << std::endl;
+
+    if (BKE_imbuf_write_as(imbuf, export_path.c_str(), &imageFormat, true) == 0) {
+      std::cout << "WARNING: couldn't export in-memory texture to " << export_path << std::endl;
+      return;
+    }
+  }
+  else {
+    char source_path[FILE_MAX];
+    /* make absolute source path */
+    BLI_strncpy(source_path, ima->filepath, sizeof(source_path));
+    BLI_path_abs(source_path, ID_BLEND_PATH_FROM_GLOBAL(&ima->id));
+    BLI_path_normalize(nullptr, source_path);
+
+    std::cout << "Copying texture from " << source_path << " to " << export_path << std::endl;
+
+    /* Copy the file. */
+    if (BLI_path_cmp(source_path, export_path.c_str()) != 0) {
+      if (BLI_copy(source_path, export_path.c_str()) != 0) {
+        std::cout << "WARNING: couldn't copy texture from " << source_path << " to " << export_path
+                  << std::endl;
+        return;
+      }
+    }
+  }
 }
 
 }  // namespace blender::io::usd

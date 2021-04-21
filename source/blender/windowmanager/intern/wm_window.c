@@ -216,7 +216,7 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
   /* end running jobs, a job end also removes its timer */
   LISTBASE_FOREACH_MUTABLE (wmTimer *, wt, &wm->timers) {
     if (wt->win == win && wt->event_type == TIMERJOBS) {
-      wm_jobs_timer_ended(wm, wt);
+      wm_jobs_timer_end(wm, wt);
     }
   }
 
@@ -520,7 +520,7 @@ void WM_window_set_dpi(const wmWindow *win)
 static void wm_window_update_eventstate(wmWindow *win)
 {
   /* Update mouse position when a window is activated. */
-  wm_get_cursor_position(win, &win->eventstate->x, &win->eventstate->y);
+  wm_cursor_position_get(win, &win->eventstate->x, &win->eventstate->y);
 }
 
 static void wm_window_ensure_eventstate(wmWindow *win)
@@ -701,8 +701,8 @@ void wm_window_ghostwindows_ensure(wmWindowManager *wm)
   if (wm_init_state.size_x == 0) {
     wm_get_screensize(&wm_init_state.size_x, &wm_init_state.size_y);
 
-    /* note!, this isnt quite correct, active screen maybe offset 1000s if PX,
-     * we'd need a wm_get_screensize like function that gives offset,
+    /* NOTE: this isn't quite correct, active screen maybe offset 1000s if PX,
+     * we'd need a #wm_get_screensize like function that gives offset,
      * in practice the window manager will likely move to the correct monitor */
     wm_init_state.start_x = 0;
     wm_init_state.start_y = 0;
@@ -983,15 +983,15 @@ void wm_cursor_position_to_ghost(wmWindow *win, int *x, int *y)
   GHOST_ClientToScreen(win->ghostwin, *x, *y, x, y);
 }
 
-void wm_get_cursor_position(wmWindow *win, int *x, int *y)
+void wm_cursor_position_get(wmWindow *win, int *r_x, int *r_y)
 {
   if (UNLIKELY(G.f & G_FLAG_EVENT_SIMULATE)) {
-    *x = win->eventstate->x;
-    *y = win->eventstate->y;
+    *r_x = win->eventstate->x;
+    *r_y = win->eventstate->y;
     return;
   }
-  GHOST_GetCursorPosition(g_system, x, y);
-  wm_cursor_position_from_ghost(win, x, y);
+  GHOST_GetCursorPosition(g_system, r_x, r_y);
+  wm_cursor_position_from_ghost(win, r_x, r_y);
 }
 
 typedef enum {
@@ -1691,10 +1691,10 @@ void WM_event_remove_timer(wmWindowManager *wm, wmWindow *UNUSED(win), wmTimer *
 
   /* there might be events in queue with this timer as customdata */
   LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
-    LISTBASE_FOREACH (wmEvent *, event, &win->queue) {
+    LISTBASE_FOREACH (wmEvent *, event, &win->event_queue) {
       if (event->customdata == wt) {
         event->customdata = NULL;
-        event->type = EVENT_NONE; /* timer users customdata, dont want NULL == NULL */
+        event->type = EVENT_NONE; /* Timer users customdata, don't want `NULL == NULL`. */
       }
     }
   }
@@ -2174,7 +2174,7 @@ void WM_window_screen_rect_calc(const wmWindow *win, rcti *r_rect)
         screen_rect.ymin += height;
         break;
       default:
-        BLI_assert(0);
+        BLI_assert_unreachable();
         break;
     }
   }

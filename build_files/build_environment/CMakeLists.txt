@@ -31,6 +31,7 @@
 #
 # MAC OS X USAGE:
 #   Install with homebrew: brew install autoconf automake bison cmake libtool pkg-config yasm
+#   Additional requirements for macOS arm64: brew install flex
 #   Run "make deps" from main Blender directory
 #
 # LINUX USAGE:
@@ -46,6 +47,7 @@ include(ExternalProject)
 include(cmake/check_software.cmake)
 include(cmake/options.cmake)
 include(cmake/versions.cmake)
+include(cmake/download.cmake)
 
 if(ENABLE_MINGW64)
   include(cmake/setup_mingw64.cmake)

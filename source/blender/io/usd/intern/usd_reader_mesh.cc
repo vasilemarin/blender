@@ -109,56 +109,65 @@ static void assign_materials(Main *bmain,
     }
   }
 
+  if (!can_assign) {
+    return;
+  }
+
   /* TODO(kevin): use global map? */
   std::map<std::string, Material *> mat_map;
   build_mat_map(bmain, mat_map);
 
-  std::map<std::string, Material *>::iterator mat_iter;
+  blender::io::usd::USDMaterialReader mat_reader(params, bmain);
 
-  if (can_assign) {
-    it = mat_index_map.begin();
+  for (it = mat_index_map.begin(); it != mat_index_map.end(); ++it) {
+    std::string mat_name = it->first.GetName();
 
-    blender::io::usd::USDMaterialReader mat_reader(params, bmain);
+    std::map<std::string, Material *>::iterator mat_iter = mat_map.find(mat_name);
 
-    for (; it != mat_index_map.end(); ++it) {
-      std::string mat_name = it->first.GetName();
-      mat_iter = mat_map.find(mat_name.c_str());
+    Material *assigned_mat = nullptr;
 
-      Material *assigned_mat = nullptr;
+    if (mat_iter == mat_map.end()) {
+      /* Blender material doesn't exist, so create it now. */
 
-      if (mat_iter == mat_map.end()) {
+      /* Look up the USD material. */
+      pxr::UsdPrim prim = stage->GetPrimAtPath(it->first);
+      pxr::UsdShadeMaterial usd_mat(prim);
 
-        // Look up the USD material.
-        pxr::UsdPrim prim = stage->GetPrimAtPath(it->first);
-        pxr::UsdShadeMaterial usd_mat(prim);
-
-        if (usd_mat) {
-          assigned_mat = mat_reader.add_material(usd_mat);
-          if (assigned_mat) {
-            mat_map[mat_name] = assigned_mat;
-          }
-        }
-        else {
-          std::cout << "WARNING: Couldn't get USD material " << it->first << std::endl;
-        }
-      }
-      else {
-        assigned_mat = mat_iter->second;
+      if (!usd_mat) {
+        std::cout << "WARNING: Couldn't construct USD material from prim " << it->first
+                  << std::endl;
+        continue;
       }
 
-      if (assigned_mat) {
-        BKE_object_material_assign(bmain, ob, assigned_mat, it->second, BKE_MAT_ASSIGN_OBDATA);
+      /* Add the Blender material. */
+      assigned_mat = mat_reader.add_material(usd_mat);
+
+      if (!assigned_mat) {
+        std::cout << "WARNING: Couldn't create Blender material from USD material " << it->first
+                  << std::endl;
+        continue;
       }
-      else {
-        std::cout << "WARNING: Couldn't assign material " << mat_name << std::endl;
-      }
+
+      mat_map[mat_name] = assigned_mat;
+    }
+    else {
+      /* We found an existing Blender material. */
+      assigned_mat = mat_iter->second;
+    }
+
+    if (assigned_mat) {
+      BKE_object_material_assign(bmain, ob, assigned_mat, it->second, BKE_MAT_ASSIGN_OBDATA);
+    }
+    else {
+      /* This shouldn't happen. */
+      std::cout << "WARNING: Couldn't assign material " << mat_name << std::endl;
     }
   }
 }
 
 }  // namespace utils
 
-static void *add_customdata_cb(Mesh *mesh, const char *name, int data_type)
+static void *add_customdata_cb(Mesh *mesh, const char *name, const int data_type)
 {
   CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
   void *cd_ptr;
@@ -194,11 +203,11 @@ USDMeshReader::USDMeshReader(const pxr::UsdPrim &prim,
       last_num_positions_(-1),
       has_uvs_(false),
       is_time_varying_(false),
-      is_initial_load_(false)
+      is_initial_load_(true)
 {
 }
 
-void USDMeshReader::create_object(Main *bmain, double motionSampleTime)
+void USDMeshReader::create_object(Main *bmain, const double /* motionSampleTime */)
 {
   Mesh *mesh = BKE_mesh_add(bmain, name_.c_str());
 
@@ -206,7 +215,7 @@ void USDMeshReader::create_object(Main *bmain, double motionSampleTime)
   object_->data = mesh;
 }
 
-void USDMeshReader::read_object_data(Main *bmain, double motionSampleTime)
+void USDMeshReader::read_object_data(Main *bmain, const double motionSampleTime)
 {
   Mesh *mesh = (Mesh *)object_->data;
 
@@ -250,8 +259,10 @@ bool USDMeshReader::valid() const
   return static_cast<bool>(mesh_prim_);
 }
 
-bool USDMeshReader::topology_changed(Mesh *existing_mesh, double motionSampleTime)
+bool USDMeshReader::topology_changed(Mesh *existing_mesh, const double motionSampleTime)
 {
+  /* TODO(makowalski): Is it the best strategy to cache the mesh
+   * geometry in this function?  This needs to be revisited. */
   pxr::UsdAttribute faceVertCountsAttr = mesh_prim_.GetFaceVertexCountsAttr();
   pxr::UsdAttribute faceVertIndicesAttr = mesh_prim_.GetFaceVertexIndicesAttr();
   pxr::UsdAttribute pointsAttr = mesh_prim_.GetPointsAttr();
@@ -272,6 +283,9 @@ bool USDMeshReader::topology_changed(Mesh *existing_mesh, double motionSampleTim
     normal_interpolation_ = mesh_prim_.GetNormalsInterpolation();
   }
 
+  /* TODO(makowalski): Why aren't we comparing positions_.size()
+   * against the number of points of the existing_mesh?
+   * Why keep track of the last_num_positons_ at all? */
   if (last_num_positions_ != positions_.size()) {
     last_num_positions_ = positions_.size();
     return true;
@@ -280,24 +294,18 @@ bool USDMeshReader::topology_changed(Mesh *existing_mesh, double motionSampleTim
   return false;
 }
 
-void USDMeshReader::read_mpolys(Mesh *mesh, pxr::UsdGeomMesh mesh_prim_, double motionSampleTime)
+void USDMeshReader::read_mpolys(Mesh *mesh,
+                                pxr::UsdGeomMesh mesh_prim_,
+                                const double motionSampleTime)
 {
   MPoly *mpolys = mesh->mpoly;
   MLoop *mloops = mesh->mloop;
 
-  pxr::UsdAttribute faceVertCountsAttr = mesh_prim_.GetFaceVertexCountsAttr();
-  pxr::UsdAttribute faceVertIndicesAttr = mesh_prim_.GetFaceVertexIndicesAttr();
+  int loop_index = 0;
+  int rev_loop_index = 0;
 
-  pxr::VtIntArray face_counts;
-  faceVertCountsAttr.Get(&face_counts, motionSampleTime);
-  pxr::VtIntArray face_indices;
-  faceVertIndicesAttr.Get(&face_indices, motionSampleTime);
-
-  unsigned int loop_index = 0;
-  unsigned int rev_loop_index = 0;
-
-  for (int i = 0; i < face_counts.size(); i++) {
-    const int face_size = face_counts[i];
+  for (int i = 0; i < face_counts_.size(); i++) {
+    const int face_size = face_counts_[i];
 
     MPoly &poly = mpolys[i];
     poly.loopstart = loop_index;
@@ -313,9 +321,9 @@ void USDMeshReader::read_mpolys(Mesh *mesh, pxr::UsdGeomMesh mesh_prim_, double 
     for (int f = 0; f < face_size; f++, loop_index++, rev_loop_index--) {
       MLoop &loop = mloops[loop_index];
       if (is_left_handed_)
-        loop.v = face_indices[rev_loop_index];
+        loop.v = face_indices_[rev_loop_index];
       else
-        loop.v = face_indices[loop_index];
+        loop.v = face_indices_[loop_index];
     }
   }
 
@@ -324,8 +332,8 @@ void USDMeshReader::read_mpolys(Mesh *mesh, pxr::UsdGeomMesh mesh_prim_, double 
 
 void USDMeshReader::read_uvs(Mesh *mesh,
                              pxr::UsdGeomMesh mesh_prim_,
-                             double motionSampleTime,
-                             bool load_uvs)
+                             const double motionSampleTime,
+                             const bool load_uvs)
 {
   unsigned int loop_index = 0;
   unsigned int rev_loop_index = 0;
@@ -335,7 +343,6 @@ void USDMeshReader::read_uvs(Mesh *mesh,
 
   struct UVSample {
     pxr::VtVec2fArray uvs;
-    pxr::VtIntArray indices;  // Non-empty for indexed UVs
     pxr::TfToken interpolation;
   };
 
@@ -375,8 +382,7 @@ void USDMeshReader::read_uvs(Mesh *mesh,
       }
 
       if (pxr::UsdGeomPrimvar uv_primvar = mesh_prim_.GetPrimvar(uv_token)) {
-        uv_primvar.Get<pxr::VtVec2fArray>(&uv_primvars[layer_idx].uvs, motionSampleTime);
-        uv_primvar.GetIndices(&uv_primvars[layer_idx].indices, motionSampleTime);
+        uv_primvar.ComputeFlattened(&uv_primvars[layer_idx].uvs, motionSampleTime);
         uv_primvars[layer_idx].interpolation = uv_primvar.GetInterpolation();
       }
     }
@@ -407,24 +413,32 @@ void USDMeshReader::read_uvs(Mesh *mesh,
 
         const UVSample &sample = uv_primvars[layer_idx];
 
+        if (!(sample.interpolation == pxr::UsdGeomTokens->faceVarying ||
+              sample.interpolation == pxr::UsdGeomTokens->vertex)) {
+          /* Shouldn't happen. */
+          std::cerr << "WARNING: unexpected interpolation type " << sample.interpolation
+                    << " for uv " << layer->name << std::endl;
+          continue;
+        }
+
         // For Vertex interpolation, use the vertex index.
         int usd_uv_index = sample.interpolation == pxr::UsdGeomTokens->vertex ?
                                mesh->mloop[loop_index].v :
                                loop_index;
 
-        // Handle indexed UVs.
-        usd_uv_index = sample.indices.empty() ? usd_uv_index : sample.indices[usd_uv_index];
-
         if (usd_uv_index >= sample.uvs.size()) {
+          std::cerr << "WARNING: out of bounds uv index " << usd_uv_index << " for uv "
+                    << layer->name << " of size " << sample.uvs.size() << std::endl;
           continue;
         }
 
         MLoopUV *mloopuv = static_cast<MLoopUV *>(layer->data);
-        if (is_left_handed_)
+        if (is_left_handed_) {
           uv_index = rev_loop_index;
-        else
+        }
+        else {
           uv_index = loop_index;
-
+        }
         mloopuv[uv_index].uv[0] = sample.uvs[usd_uv_index][0];
         mloopuv[uv_index].uv[1] = sample.uvs[usd_uv_index][1];
       }
@@ -434,7 +448,7 @@ void USDMeshReader::read_uvs(Mesh *mesh,
 
 void USDMeshReader::read_colors(Mesh *mesh,
                                 const pxr::UsdGeomMesh &mesh_prim_,
-                                double motionSampleTime)
+                                const double motionSampleTime)
 {
   if (!(mesh && mesh_prim_ && mesh->totloop > 0)) {
     return;
@@ -614,14 +628,9 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
                                      ImportSettings *settings,
                                      Mesh *mesh,
                                      const pxr::UsdGeomMesh &mesh_prim_,
-                                     double motionSampleTime,
-                                     bool new_mesh)
+                                     const double motionSampleTime,
+                                     const bool new_mesh)
 {
-
-  pxr::UsdAttribute normalsAttr = mesh_prim_.GetNormalsAttr();
-  std::vector<pxr::UsdGeomPrimvar> primvars = mesh_prim_.GetPrimvars();
-  pxr::UsdAttribute subdivSchemeAttr = mesh_prim_.GetSubdivisionSchemeAttr();
-
   // Note that for new meshes we always want to read verts and polys,
   // regradless of the value of the read_flag, to avoid a crash downstream
   // in code that expect this data to be there.
@@ -669,11 +678,9 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
 
 void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
                                              MPoly *mpoly,
-                                             int totpoly,
+                                             const int totpoly,
                                              std::map<pxr::SdfPath, int> &r_mat_map)
 {
-  pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(prim_);
-
   /* Find the geom subsets that have bound materials.
    * We don't call pxr::UsdShadeMaterialBindingAPI::GetMaterialBindSubsets()
    * because this function returns only those subsets that are in the 'materialBind'
@@ -686,20 +693,26 @@ void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
   int current_mat = 0;
   if (subsets.size() > 0) {
     for (const pxr::UsdGeomSubset &subset : subsets) {
-      pxr::UsdShadeMaterialBindingAPI subsetAPI = pxr::UsdShadeMaterialBindingAPI(
+      pxr::UsdShadeMaterialBindingAPI subset_api = pxr::UsdShadeMaterialBindingAPI(
           subset.GetPrim());
 
-      pxr::SdfPath materialPath = subsetAPI.GetDirectBinding().GetMaterialPath();
+      pxr::UsdShadeMaterial subset_mtl = subset_api.ComputeBoundMaterial();
 
-      if (materialPath.IsEmpty()) {
+      if (!subset_mtl) {
         continue;
       }
 
-      if (r_mat_map.find(materialPath) == r_mat_map.end()) {
-        r_mat_map[materialPath] = 1 + current_mat++;
+      pxr::SdfPath subset_mtl_path = subset_mtl.GetPath();
+
+      if (subset_mtl_path.IsEmpty()) {
+        continue;
       }
 
-      const int mat_idx = r_mat_map[materialPath] - 1;
+      if (r_mat_map.find(subset_mtl_path) == r_mat_map.end()) {
+        r_mat_map[subset_mtl_path] = 1 + current_mat++;
+      }
+
+      const int mat_idx = r_mat_map[subset_mtl_path] - 1;
 
       pxr::UsdAttribute indicesAttribute = subset.GetIndicesAttr();
       pxr::VtIntArray indices;
@@ -711,10 +724,17 @@ void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
       }
     }
   }
-  else {
-    pxr::SdfPath materialPath = api.GetDirectBinding().GetMaterialPath();
-    if (!materialPath.IsEmpty()) {
-      r_mat_map[materialPath] = 1;
+
+  if (r_mat_map.empty()) {
+    pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(prim_);
+
+    if (pxr::UsdShadeMaterial mtl = api.ComputeBoundMaterial()) {
+
+      pxr::SdfPath mtl_path = mtl.GetPath();
+
+      if (!mtl_path.IsEmpty()) {
+        r_mat_map.insert(std::make_pair(mtl.GetPath(), 1));
+      }
     }
   }
 }
@@ -731,18 +751,19 @@ void USDMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, const double mot
 }
 
 Mesh *USDMeshReader::read_mesh(Mesh *existing_mesh,
-                               double motionSampleTime,
-                               int read_flag,
-                               float vel_scale,
-                               const char **err_str)
+                               const double motionSampleTime,
+                               const int read_flag,
+                               const float vel_scale,
+                               const char ** /* err_str */)
 {
   if (!mesh_prim_) {
     return existing_mesh;
   }
 
   mesh_prim_.GetOrientationAttr().Get(&orientation_);
-  if (orientation_ == pxr::UsdGeomTokens->leftHanded)
+  if (orientation_ == pxr::UsdGeomTokens->leftHanded) {
     is_left_handed_ = true;
+  }
 
   std::vector<pxr::TfToken> uv_tokens;
 
@@ -767,6 +788,13 @@ Mesh *USDMeshReader::read_mesh(Mesh *existing_mesh,
     }
 
     if (is_uv) {
+
+      pxr::TfToken interp = p.GetInterpolation();
+
+      if (!(interp == pxr::UsdGeomTokens->faceVarying || interp == pxr::UsdGeomTokens->vertex)) {
+        continue;
+      }
+
       uv_tokens.push_back(p.GetBaseName());
       has_uvs_ = true;
 

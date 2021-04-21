@@ -123,13 +123,15 @@ class View3DPanel:
 # **************** standard tool clusters ******************
 
 # Used by vertex & weight paint
-def draw_vpaint_symmetry(layout, vpaint, mesh):
+def draw_vpaint_symmetry(layout, vpaint, obj):
     col = layout.column()
     row = col.row(heading="Mirror", align=True)
-    row.prop(mesh, "use_mirror_x", text="X", toggle=True)
-    row.prop(mesh, "use_mirror_y", text="Y", toggle=True)
-    row.prop(mesh, "use_mirror_z", text="Z", toggle=True)
+    row.prop(obj, "use_mesh_mirror_x", text="X", toggle=True)
+    row.prop(obj, "use_mesh_mirror_y", text="Y", toggle=True)
+    row.prop(obj, "use_mesh_mirror_z", text="Z", toggle=True)
 
+    col = layout.column()
+    col.active = not obj.data.use_mirror_vertex_groups
     col.prop(vpaint, "radial_symmetry", text="Radial")
 
 
@@ -198,8 +200,6 @@ class VIEW3D_PT_tools_meshedit_options(View3DPanel, Panel):
         tool_settings = context.tool_settings
         ob = context.active_object
         mesh = ob.data
-
-        split = layout.split()
 
         row = layout.row(align=True, heading="Transform")
         row.prop(tool_settings, "use_transform_correct_face_attributes")
@@ -624,19 +624,25 @@ class VIEW3D_PT_tools_brush_texture(Panel, View3DPaintPanel):
 
     @classmethod
     def poll(cls, context):
-        settings = cls.paint_settings(context)
-        return (settings and settings.brush and
-                (context.sculpt_object or context.image_paint_object or context.vertex_paint_object))
+        if (
+                (settings := cls.paint_settings(context)) and
+                (brush := settings.brush)
+        ):
+            if context.sculpt_object or context.vertex_paint_object:
+                return True
+            elif context.image_paint_object:
+                return (brush.image_tool == 'DRAW')
+        return False
 
     def draw(self, context):
         layout = self.layout
 
         settings = self.paint_settings(context)
         brush = settings.brush
+        tex_slot = brush.texture_slot
 
         col = layout.column()
-
-        col.template_ID_preview(brush, "texture", new="texture.new", rows=3, cols=8)
+        col.template_ID_preview(tex_slot, "texture", new="texture.new", rows=3, cols=8)
 
         brush_texture_settings(col, brush, context.sculpt_object)
 
@@ -660,8 +666,9 @@ class VIEW3D_PT_tools_mask_texture(Panel, View3DPaintPanel, TextureMaskPanel):
         brush = context.tool_settings.image_paint.brush
 
         col = layout.column()
+        mask_tex_slot = brush.mask_texture_slot
 
-        col.template_ID_preview(brush, "mask_texture", new="texture.new", rows=3, cols=8)
+        col.template_ID_preview(mask_tex_slot, "texture", new="texture.new", rows=3, cols=8)
 
         brush_mask_texture_settings(col, brush)
 
@@ -972,12 +979,12 @@ class VIEW3D_PT_tools_weightpaint_symmetry(Panel, View3DPaintPanel):
         wpaint = tool_settings.weight_paint
         mesh = context.object.data
 
-        draw_vpaint_symmetry(layout, wpaint, mesh)
+        layout.prop(mesh, 'use_mirror_vertex_groups')
 
-        col = layout.column(align=True)
-        col.prop(mesh, 'use_mirror_vertex_group_x', text="Vertex Group X")
-        row = col.row()
-        row.active = mesh.use_mirror_vertex_group_x
+        draw_vpaint_symmetry(layout, wpaint, context.object)
+
+        row = layout.row()
+        row.active = mesh.use_mirror_vertex_groups
         row.prop(mesh, "use_mirror_topology")
 
 
@@ -1052,7 +1059,7 @@ class VIEW3D_PT_tools_vertexpaint_symmetry(Panel, View3DPaintPanel):
         tool_settings = context.tool_settings
         vpaint = tool_settings.vertex_paint
 
-        draw_vpaint_symmetry(layout, vpaint, context.object.data)
+        draw_vpaint_symmetry(layout, vpaint, context.object)
 
 
 class VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar(Panel):
@@ -1352,8 +1359,6 @@ class VIEW3D_PT_tools_grease_pencil_brush_select(Panel, View3DPanel, GreasePenci
         if context.mode == 'PAINT_GPENCIL':
             brush = tool_settings.gpencil_paint.brush
             if brush is not None:
-                gp_settings = brush.gpencil_settings
-
                 col.prop(brush, "use_custom_icon", toggle=True, icon='FILE_IMAGE', text="")
 
                 if brush.use_custom_icon:
@@ -1492,8 +1497,9 @@ class VIEW3D_PT_tools_grease_pencil_brush_stroke(Panel, View3DPanel):
         brush = context.tool_settings.gpencil_paint.brush
         return brush is not None and brush.gpencil_tool == 'DRAW'
 
-    def draw(self, context):
-        layout = self.layout
+    def draw(self, _context):
+        # layout = self.layout
+        pass
 
 
 class VIEW3D_PT_tools_grease_pencil_brush_stabilizer(Panel, View3DPanel):
@@ -1850,7 +1856,7 @@ class VIEW3D_PT_tools_grease_pencil_brush_weight_falloff(GreasePencilBrushFallof
         ts = context.tool_settings
         settings = ts.gpencil_weight_paint
         brush = settings.brush
-        return (settings and settings.brush and settings.brush.curve)
+        return (brush and brush.curve)
 
 
 # Grease Pencil vertex painting tools
@@ -1942,7 +1948,6 @@ class VIEW3D_PT_tools_grease_pencil_brush_vertex_color(View3DPanel, Panel):
         ts = context.tool_settings
         settings = ts.gpencil_vertex_paint
         brush = settings.brush
-        gp_settings = brush.gpencil_settings
 
         col = layout.column()
 

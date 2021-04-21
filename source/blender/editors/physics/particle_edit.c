@@ -302,7 +302,7 @@ static void pe_update_hair_particle_edit_pointers(PTCacheEdit *edit)
  *
  * note: this function runs on poll, therefore it can runs many times a second
  * keep it fast! */
-static PTCacheEdit *pe_get_current(Depsgraph *depsgraph, Scene *scene, Object *ob, int create)
+static PTCacheEdit *pe_get_current(Depsgraph *depsgraph, Scene *scene, Object *ob, bool create)
 {
   ParticleEditSettings *pset = PE_settings(scene);
   PTCacheEdit *edit = NULL;
@@ -406,12 +406,12 @@ static PTCacheEdit *pe_get_current(Depsgraph *depsgraph, Scene *scene, Object *o
 
 PTCacheEdit *PE_get_current(Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
-  return pe_get_current(depsgraph, scene, ob, 0);
+  return pe_get_current(depsgraph, scene, ob, false);
 }
 
 PTCacheEdit *PE_create_current(Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
-  return pe_get_current(depsgraph, scene, ob, 1);
+  return pe_get_current(depsgraph, scene, ob, true);
 }
 
 void PE_current_changed(Depsgraph *depsgraph, Scene *scene, Object *ob)
@@ -524,15 +524,13 @@ static void PE_set_view3d_data(bContext *C, PEData *data)
   ED_view3d_viewcontext_init(C, &data->vc, data->depsgraph);
 
   if (!XRAY_ENABLED(data->vc.v3d)) {
-    if (data->vc.v3d->flag & V3D_INVALID_BACKBUF) {
-      /* needed or else the draw matrix can be incorrect */
-      view3d_operator_needs_opengl(C);
-
-      ED_view3d_backbuf_depth_validate(&data->vc);
-      /* we may need to force an update here by setting the rv3d as dirty
-       * for now it seems ok, but take care!:
-       * rv3d->depths->dirty = 1; */
-      ED_view3d_depth_update(data->vc.region);
+    if (!(data->vc.v3d->runtime.flag & V3D_RUNTIME_DEPTHBUF_OVERRIDDEN)) {
+      ED_view3d_depth_override(data->depsgraph,
+                               data->vc.region,
+                               data->vc.v3d,
+                               data->vc.obact,
+                               V3D_DEPTH_OBJECT_ONLY,
+                               true);
     }
   }
 }
@@ -4731,7 +4729,7 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
            (dx != 0 || dy != 0)) ||
       bedit->first) {
     PEData data = bedit->data;
-    data.context = C; /* TODO(mai): why isnt this set in bedit->data? */
+    data.context = C; /* TODO(mai): why isn't this set in bedit->data? */
 
     view3d_operator_needs_opengl(C);
     selected = (short)count_selected_keys(scene, edit);
@@ -5395,6 +5393,9 @@ static void free_all_psys_edit(Object *object)
 
 void ED_object_particle_edit_mode_enter_ex(Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
+  /* Needed so #ParticleSystemModifierData.mesh_final is set. */
+  BKE_scene_graph_evaluated_ensure(depsgraph, G_MAIN);
+
   PTCacheEdit *edit;
 
   ob->mode |= OB_MODE_PARTICLE_EDIT;

@@ -1058,9 +1058,7 @@ static void view3d_interactive_add_begin(bContext *C, wmOperator *op, const wmEv
                                    ipd->region,
                                    ipd->v3d,
                                    G_MAIN->wm.first,
-                                   mval_fl,
-                                   NULL,
-                                   NULL);
+                                   mval_fl);
     }
   }
 
@@ -1438,6 +1436,8 @@ static int view3d_interactive_add_modal(bContext *C, wmOperator *op, const wmEve
         const int cube_verts[3] = {3, 1, 4};
         for (int i = 0; i < 3; i++) {
           scale[i] = len_v3v3(bounds.vec[0], bounds.vec[cube_verts[i]]);
+          /* Primitives have size 2 by default, compensate for this here. */
+          scale[i] /= 2.0f;
         }
 
         wmOperatorType *ot = NULL;
@@ -1499,18 +1499,17 @@ static int view3d_interactive_add_modal(bContext *C, wmOperator *op, const wmEve
     ipd->is_snap_found = false;
     if (ipd->use_snap) {
       if (ipd->snap_gizmo != NULL) {
-        ED_gizmotypes_snap_3d_toggle_set(ipd->snap_gizmo, ipd->use_snap);
+        ED_gizmotypes_snap_3d_flag_set(ipd->snap_gizmo, ED_SNAPGIZMO_TOGGLE_ALWAYS_TRUE);
         if (ED_gizmotypes_snap_3d_update(ipd->snap_gizmo,
                                          CTX_data_ensure_evaluated_depsgraph(C),
                                          ipd->region,
                                          ipd->v3d,
                                          G_MAIN->wm.first,
-                                         mval_fl,
-                                         ipd->snap_co,
-                                         NULL)) {
+                                         mval_fl)) {
+          ED_gizmotypes_snap_3d_data_get(ipd->snap_gizmo, ipd->snap_co, NULL, NULL, NULL);
           ipd->is_snap_found = true;
         }
-        ED_gizmotypes_snap_3d_toggle_clear(ipd->snap_gizmo);
+        ED_gizmotypes_snap_3d_flag_clear(ipd->snap_gizmo, ED_SNAPGIZMO_TOGGLE_ALWAYS_TRUE);
       }
     }
 

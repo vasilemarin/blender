@@ -32,15 +32,11 @@ extern "C" {
 struct GSet;
 
 /* CacheFile::type */
-enum {
-#ifdef WITH_ALEMBIC
+typedef enum {
   CACHEFILE_TYPE_ALEMBIC = 1,
-#endif
-#ifdef WITH_USD
   CACHEFILE_TYPE_USD = 2,
-#endif
   CACHE_FILE_TYPE_INVALID = 0,
-};
+} eCacheFileType;
 
 /* CacheFile::flag */
 enum {
@@ -62,10 +58,6 @@ typedef struct CacheObjectPath {
 
   char path[4096];
 } CacheObjectPath;
-
-typedef struct CacheArchiveHandle {
-  int unused;
-} CacheArchiveHandle;
 
 /* CacheFile::velocity_unit
  * Determines what temporal unit is used to interpret velocity vectors for motion blur effects. */
@@ -99,6 +91,7 @@ typedef struct CacheFile {
   short flag;
   short draw_flag; /* UNUSED */
 
+  /* eCacheFileType enum. */
   char type;
 
   char _pad[2];

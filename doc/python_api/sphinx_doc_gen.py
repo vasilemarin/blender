@@ -75,7 +75,6 @@ def rna_info_BuildRNAInfo_cache():
 rna_info_BuildRNAInfo_cache.ret = None
 # --- end rna_info cache
 
-# import rpdb2; rpdb2.start_embedded_debugger('test')
 import os
 import sys
 import inspect
@@ -254,6 +253,7 @@ else:
         "gpu.select",
         "gpu.shader",
         "gpu.state",
+        "gpu.texture",
         "gpu_extras",
         "idprop.types",
         "mathutils",
@@ -553,7 +553,7 @@ def example_extract_docstring(filepath):
         line_no += 1
     else:
         file.close()
-        return "", 0
+        return "", 0, False
 
     for line in file:
         line_no += 1
@@ -563,15 +563,17 @@ def example_extract_docstring(filepath):
             text.append(line.rstrip())
 
     line_no += 1
+    line_no_has_content = False
 
     # Skip over blank lines so the Python code doesn't have blank lines at the top.
     for line in file:
         if line.strip():
+            line_no_has_content = True
             break
         line_no += 1
 
     file.close()
-    return "\n".join(text), line_no
+    return "\n".join(text), line_no, line_no_has_content
 
 
 def title_string(text, heading_char, double=False):
@@ -590,16 +592,18 @@ def write_example_ref(ident, fw, example_id, ext="py"):
         filepath = os.path.join("..", "examples", "%s.%s" % (example_id, ext))
         filepath_full = os.path.join(os.path.dirname(fw.__self__.name), filepath)
 
-        text, line_no = example_extract_docstring(filepath_full)
+        text, line_no, line_no_has_content = example_extract_docstring(filepath_full)
 
         for line in text.split("\n"):
             fw("%s\n" % (ident + line).rstrip())
         fw("\n")
 
-        fw("%s.. literalinclude:: %s\n" % (ident, filepath))
-        if line_no > 0:
-            fw("%s   :lines: %d-\n" % (ident, line_no))
-        fw("\n")
+        # Some files only contain a doc-string.
+        if line_no_has_content:
+            fw("%s.. literalinclude:: %s\n" % (ident, filepath))
+            if line_no > 0:
+                fw("%s   :lines: %d-\n" % (ident, line_no))
+            fw("\n")
         EXAMPLE_SET_USED.add(example_id)
     else:
         if bpy.app.debug:
@@ -1408,7 +1412,8 @@ def pyrna2sphinx(basepath):
             else:
                 fw("   .. attribute:: %s\n\n" % prop.identifier)
             if prop.description:
-                fw("      %s\n\n" % prop.description)
+                write_indented_lines("      ", fw, prop.description, False)
+                fw("\n")
 
             # special exception, can't use generic code here for enums
             if prop.type == "enum":
@@ -1982,10 +1987,11 @@ def write_rst_importable_modules(basepath):
         "imbuf.types": "Image Buffer Types",
         "gpu": "GPU Shader Module",
         "gpu.types": "GPU Types",
-        "gpu.matrix": "GPU Matrix",
-        "gpu.select": "GPU Select",
-        "gpu.shader": "GPU Shader",
-        "gpu.state": "GPU State",
+        "gpu.matrix": "GPU Matrix Utilities",
+        "gpu.select": "GPU Select Utilities",
+        "gpu.shader": "GPU Shader Utilities",
+        "gpu.state": "GPU State Utilities",
+        "gpu.texture": "GPU Texture Utilities",
         "bmesh": "BMesh Module",
         "bmesh.ops": "BMesh Operators",
         "bmesh.types": "BMesh Types",

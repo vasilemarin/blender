@@ -59,7 +59,7 @@ extern "C" {
 
 namespace blender::io::usd {
 
-void USDCurvesReader::create_object(Main *bmain, double motionSampleTime)
+void USDCurvesReader::create_object(Main *bmain, const double /* motionSampleTime */)
 {
   curve_ = BKE_curve_add(bmain, name_.c_str(), OB_CURVE);
 
@@ -83,7 +83,7 @@ void USDCurvesReader::read_object_data(Main *bmain, double motionSampleTime)
   USDXformReader::read_object_data(bmain, motionSampleTime);
 }
 
-void USDCurvesReader::read_curve_sample(Curve *cu, double motionSampleTime)
+void USDCurvesReader::read_curve_sample(Curve *cu, const double motionSampleTime)
 {
   curve_prim_ = pxr::UsdGeomBasisCurves(prim_);
 
@@ -121,14 +121,14 @@ void USDCurvesReader::read_curve_sample(Curve *cu, double motionSampleTime)
   pxr::VtVec3fArray usdNormals;
   curve_prim_.GetNormalsAttr().Get(&usdNormals, motionSampleTime);
 
-  // If normals, extrude, else bevel
-  // Perhaps to be replaced by Blender/USD Schema
+  /* If normals, extrude, else bevel.
+   * Perhaps to be replaced by Blender/USD Schema. */
   if (usdNormals.size() > 0) {
-    // Set extrusion to 1.0f;
+    // Set extrusion to 1.0f.
     curve_->ext1 = 1.0f;
   }
   else {
-    // Set bevel depth to 1.0f;
+    /* Set bevel depth to 1.0f. */
     curve_->ext2 = 1.0f;
   }
 
@@ -142,7 +142,7 @@ void USDCurvesReader::read_curve_sample(Curve *cu, double motionSampleTime)
       nu->type = CU_NURBS;
     }
     else if (basis == pxr::UsdGeomTokens->bezier) {
-      // TODO: Beziers are not properly imported as beziers...
+      /* TODO(makowalski): Beziers are not properly imported as beziers. */
       nu->type = CU_NURBS;
       nu->flag |= CU_SMOOTH;
       nu->flagu |= CU_NURB_ENDPOINT;
@@ -198,10 +198,10 @@ void USDCurvesReader::read_curve_sample(Curve *cu, double motionSampleTime)
 }
 
 Mesh *USDCurvesReader::read_mesh(struct Mesh *existing_mesh,
-                                 double motionSampleTime,
-                                 int read_flag,
-                                 float vel_scale,
-                                 const char **err_str)
+                                 const double motionSampleTime,
+                                 const int /* read_flag */,
+                                 const float /* vel_scale */,
+                                 const char ** /* err_str */)
 {
   if (!curve_prim_) {
     return existing_mesh;

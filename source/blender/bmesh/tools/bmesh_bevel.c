@@ -6445,7 +6445,7 @@ static bool bev_rebuild_polygon(BMesh *bm, BevelParams *bp, BMFace *f)
             if (bmv) {
               BLI_array_append(vv, bmv);
               BLI_array_append(ee, bme); /* TODO: Maybe better edge here. */
-              if (corner3special && v->ebev && !v->ebev->is_seam && k != vm->seg) {
+              if (corner3special && v->ebev && !bv->any_seam && k != vm->seg) {
                 BLI_array_append(vv_fix, bmv);
               }
             }
@@ -6474,7 +6474,7 @@ static bool bev_rebuild_polygon(BMesh *bm, BevelParams *bp, BMFace *f)
             if (bmv) {
               BLI_array_append(vv, bmv);
               BLI_array_append(ee, bme);
-              if (corner3special && v->ebev && !v->ebev->is_seam && k != 0) {
+              if (corner3special && v->ebev && !bv->any_seam && k != 0) {
                 BLI_array_append(vv_fix, bmv);
               }
             }
@@ -7289,6 +7289,9 @@ static float geometry_collide_offset(BevelParams *bp, EdgeHalf *eb)
     kc = 0.0f;
     ec = NULL;
     /* Find an edge from c that has same face. */
+    if (eb->fnext == NULL) {
+      return no_collide_offset;
+    }
     BMLoop *lb = BM_face_edge_share_loop(eb->fnext, eb->e);
     if (!lb) {
       return no_collide_offset;

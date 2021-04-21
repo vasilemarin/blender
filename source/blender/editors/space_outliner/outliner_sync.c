@@ -326,7 +326,7 @@ static void outliner_sync_selection_from_outliner(Scene *scene,
   LISTBASE_FOREACH (TreeElement *, te, tree) {
     TreeStoreElem *tselem = TREESTORE(te);
 
-    if (tselem->type == 0 && te->idcode == ID_OB) {
+    if ((tselem->type == TSE_SOME_ID) && (te->idcode == ID_OB)) {
       if (sync_types->object) {
         outliner_select_sync_to_object(view_layer, te, tselem, selected_items->objects);
       }
@@ -356,8 +356,11 @@ static void outliner_sync_selection_from_outliner(Scene *scene,
 void ED_outliner_select_sync_from_outliner(bContext *C, SpaceOutliner *space_outliner)
 {
   /* Don't sync if not checked or in certain outliner display modes */
-  if (!(space_outliner->flag & SO_SYNC_SELECT) ||
-      ELEM(space_outliner->outlinevis, SO_LIBRARIES, SO_DATA_API, SO_ID_ORPHANS)) {
+  if (!(space_outliner->flag & SO_SYNC_SELECT) || ELEM(space_outliner->outlinevis,
+                                                       SO_LIBRARIES,
+                                                       SO_OVERRIDES_LIBRARY,
+                                                       SO_DATA_API,
+                                                       SO_ID_ORPHANS)) {
     return;
   }
 
@@ -503,7 +506,7 @@ static void outliner_sync_selection_to_outliner(ViewLayer *view_layer,
   LISTBASE_FOREACH (TreeElement *, te, tree) {
     TreeStoreElem *tselem = TREESTORE(te);
 
-    if (tselem->type == 0 && te->idcode == ID_OB) {
+    if ((tselem->type == TSE_SOME_ID) && te->idcode == ID_OB) {
       if (sync_types->object) {
         outliner_select_sync_from_object(view_layer, active_data->object, te, tselem);
       }
