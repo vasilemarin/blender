@@ -65,14 +65,14 @@ class USDUMM {
    static bool ensure_module_loaded();
    static void test_python();
 
-   bool map_mdl(Material *mtl,
-                const pxr::UsdShadeMaterial &usd_material) const;
+  bool map_material(Material *mtl, const pxr::UsdShadeMaterial &usd_material) const;
 
  protected:
-   bool map_omni_pbr(Material *mtl,
-                     const pxr::UsdShadeShader &usd_shader) const;
+  bool map_material(Material *mtl,
+                    const pxr::UsdShadeShader &usd_shader,
+                    const std::string &source_class) const;
 
-   PyObject *get_omni_pbr_source_data(const pxr::UsdShadeShader &usd_shader) const;
+   PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader) const;
 
    void create_blender_nodes(Material *mtl, PyObject *data_tuple) const;
 

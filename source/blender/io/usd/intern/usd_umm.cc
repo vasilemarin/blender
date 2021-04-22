@@ -255,7 +255,7 @@ void umm_compute_node_loc(
 
 PyObject *USDUMM::s_umm_module = nullptr;
 
-static const char *k_umm_module_name = "omni.universalmaterialmap.core.converter.util";
+static const char *k_umm_module_name = "omni.universalmaterialmap.blender.material";
 static const char *k_omni_pbr_mdl_name = "OmniPBR.mdl";
 static const char *k_omni_pbr_name = "OmniPBR";
 
@@ -308,8 +308,7 @@ void USDUMM::test_python()
   PyGILState_Release(gilstate);
 }
 
-bool USDUMM::map_mdl(Material *mtl,
-                     const pxr::UsdShadeMaterial &usd_material) const
+bool USDUMM::map_material(Material *mtl, const pxr::UsdShadeMaterial &usd_material) const
 {
   if (!(bmain_ && mtl && usd_material)) {
     return false;
@@ -337,18 +336,18 @@ bool USDUMM::map_mdl(Material *mtl,
       path = path.substr(last_slash + 1);
     }
 
-    if (path == k_omni_pbr_mdl_name && source_asset_sub_identifier.GetString() == k_omni_pbr_name) {
-      return map_omni_pbr(mtl, surf_shader);
-    }
+    std::string source_class = path + "|" + source_asset_sub_identifier.GetString();
+    return map_material(mtl, surf_shader, source_class);
   }
 
   return false;
 }
 
-bool USDUMM::map_omni_pbr(Material *mtl,
-                          const pxr::UsdShadeShader &usd_shader) const
+bool USDUMM::map_material(Material *mtl,
+                          const pxr::UsdShadeShader &usd_shader,
+                          const std::string &source_class) const
 {
-  if (!(bmain_ && usd_shader)) {
+  if (!(bmain_ && usd_shader && mtl)) {
     return false;
   }
 
@@ -359,7 +358,7 @@ bool USDUMM::map_omni_pbr(Material *mtl,
     return false;
   }
 
-  const char *func_name = "convert_data_to_data";
+  const char *func_name = "apply_data_to_instance";
 
   if (!PyObject_HasAttrString(s_umm_module, func_name)) {
     std::cerr << "WARNING: UMM module has no attribute " << func_name << std::endl;
@@ -375,7 +374,7 @@ bool USDUMM::map_omni_pbr(Material *mtl,
     return false;
   }
 
-  PyObject *source_data = get_omni_pbr_source_data(usd_shader);
+  PyObject *source_data = get_shader_source_data(usd_shader);
 
   if (!source_data) {
     std::cout << "WARNING:  Couldn't get source data for shader " << usd_shader.GetPath() << std::endl;
@@ -396,9 +395,13 @@ bool USDUMM::map_omni_pbr(Material *mtl,
     return false;
   }
 
-  PyObject *class_name = PyUnicode_FromString("OmniPBR.mdl|OmniPBR");
-  PyDict_SetItemString(kwargs, "class_name", class_name);
-  Py_DECREF(class_name);
+  PyObject *instance_name = PyUnicode_FromString(mtl->id.name + 2);
+  PyDict_SetItemString(kwargs, "instance_name", instance_name);
+  Py_DECREF(instance_name);
+
+  PyObject *source_class_obj = PyUnicode_FromString(source_class.c_str());
+  PyDict_SetItemString(kwargs, "source_class", source_class_obj);
+  Py_DECREF(source_class_obj);
 
   PyObject *render_context = PyUnicode_FromString("Blender");
   PyDict_SetItemString(kwargs, "render_context", render_context);
@@ -418,7 +421,6 @@ bool USDUMM::map_omni_pbr(Material *mtl,
   if (ret) {
     std::cout << "result:\n";
     print_obj(ret);
-    create_blender_nodes(mtl, ret);
     Py_DECREF(ret);
   }
 
@@ -426,10 +428,10 @@ bool USDUMM::map_omni_pbr(Material *mtl,
 
   PyGILState_Release(gilstate);
 
-  return false;
+  return ret != nullptr;
 }
 
-PyObject *USDUMM::get_omni_pbr_source_data(const pxr::UsdShadeShader &usd_shader) const
+PyObject *USDUMM::get_shader_source_data(const pxr::UsdShadeShader &usd_shader) const
 {
   if (!(bmain_ && usd_shader)) {
     return nullptr;
@@ -488,7 +490,15 @@ PyObject *USDUMM::get_omni_pbr_source_data(const pxr::UsdShadeShader &usd_shader
       pxr::SdfAssetPath assetPath = val.Get<pxr::SdfAssetPath>();
 
       std::string resolved_path = assetPath.GetResolvedPath();
-      tup = Py_BuildValue("ss", name.c_str(), resolved_path.c_str());
+
+      pxr::TfToken color_space_tok = usd_attr.GetColorSpace();
+
+      std::string color_space_str = !color_space_tok.IsEmpty() ? color_space_tok.GetString() :
+                                                                 "sRGB";
+
+      PyObject *tex_file_tup = Py_BuildValue("ss", resolved_path.c_str(), color_space_str.c_str());
+
+      tup = Py_BuildValue("sN", name.c_str(), tex_file_tup);
     }
     else if (val.IsHolding<pxr::GfVec3f>()) {
       pxr::GfVec3f v3f = val.UncheckedGet<pxr::GfVec3f>();
@@ -522,23 +532,19 @@ PyObject *USDUMM::get_omni_pbr_source_data(const pxr::UsdShadeShader &usd_shader
     }
   }
 
-  if (!tuple_items.empty()) {
-    PyObject *ret = PyTuple_New(tuple_items.size());
+  PyObject *ret = PyTuple_New(tuple_items.size());
 
-    if (!ret) {
-      return nullptr;
-    }
-
-    for (int i = 0; i < tuple_items.size(); ++i) {
-      if (PyTuple_SetItem(ret, i, tuple_items[i])) {
-        std::cout << "error setting tuple item" << std::endl;
-      }
-    }
-
-    return ret;
+  if (!ret) {
+    return nullptr;
   }
 
-  return nullptr;
+  for (int i = 0; i < tuple_items.size(); ++i) {
+    if (PyTuple_SetItem(ret, i, tuple_items[i])) {
+      std::cout << "error setting tuple item" << std::endl;
+    }
+  }
+
+  return ret;
 }
 
 void USDUMM::create_blender_nodes(Material *mtl, PyObject *data_list) const
