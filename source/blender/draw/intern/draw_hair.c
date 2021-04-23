@@ -51,7 +51,7 @@
 BLI_INLINE bool drw_hair_use_compute_shaders(void)
 {
 #ifdef USE_TRANSFORM_FEEDBACK
-  return false;  // GPU_compute_shader_support();
+  return GPU_compute_shader_support();
 #else
   return false;
 #endif
@@ -165,7 +165,7 @@ static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, con
     DRWShadingGroup *shgrp = DRW_shgroup_create(shader, g_tf_pass);
 
     drw_hair_particle_cache_shgrp_attach_resources(shgrp, cache, subdiv);
-    DRW_shgroup_uniform_image(shgrp, "hairPointOutputBuffer", cache->point_tex);
+    DRW_shgroup_uniform_image(shgrp, "hairPointOutputBuffer", cache->final[subdiv].proc_tex);
     DRW_shgroup_call_compute(shgrp, cache->strands_len, cache->final[subdiv].strands_res, 1);
   }
 }
@@ -218,7 +218,6 @@ static ParticleHairCache *drw_hair_particle_cache_get(
       drw_hair_particle_cache_update_compute(cache, subdiv);
     }
     else {
-
       drw_hair_particle_cache_update_transform_feedback(cache, subdiv);
     }
   }
@@ -424,6 +423,9 @@ void DRW_hair_update(void)
 #else
   /* Just render the pass when using compute shaders or transform feedback. */
   DRW_draw_pass(g_tf_pass);
+  if (drw_hair_use_compute_shaders()) {
+    GPU_memory_barrier(GPU_BARRIER_VERTEX_ATTRIB_ARRAY);
+  }
 #endif
   TIMEIT_END(DRW_hair_update);
 }

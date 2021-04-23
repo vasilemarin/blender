@@ -43,7 +43,7 @@ uniform usamplerBuffer hairStrandSegBuffer; /* R16UI */
 
 /* -- Subdivision stage -- */
 /**
- * We use a transform feedback to preprocess the strands and add more subdivision to it.
+ * We use a transform feedback or compute shader to preprocess the strands and add more subdivision to it.
  * For the moment these are simple smooth interpolation but one could hope to see the full
  * children particle modifiers being evaluated at this stage.
  *
@@ -119,9 +119,8 @@ void hair_get_interp_attrs(
  * For final drawing, the vertex index and the number of vertex per segment
  */
 
-#if !defined(HAIR_PHASE_SUBDIV) && (defined(GPU_VERTEX_SHADER) || defined(GPU_COMPUTE_SHADER))
+#if !defined(HAIR_PHASE_SUBDIV) && defined(GPU_VERTEX_SHADER)
 
-#  ifdef GPU_VERTEX_SHADER
 int hair_get_strand_id(void)
 {
   return gl_VertexID / (hairStrandsRes * hairThicknessRes);
@@ -129,21 +128,8 @@ int hair_get_strand_id(void)
 
 int hair_get_base_id(void)
 {
-  return gl_VertexID / hairStrandsRes;
+  return gl_VertexID / hairThicknessRes;
 }
-#  endif
-
-#  ifdef GPU_COMPUTE_SHADER
-int hair_get_strand_id(void)
-{
-  return int(gl_GlobalInvocationID.x / hairThicknessRes));
-}
-
-int hair_get_base_id(void)
-{
-  return int(gl_GlobalInvocationID.x);
-}
-#  endif
 
 /* Copied from cycles. */
 float hair_shaperadius(float shape, float root, float tip, float time)
