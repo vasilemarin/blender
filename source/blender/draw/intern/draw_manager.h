@@ -187,6 +187,10 @@ typedef enum {
   DRW_CMD_DRAW_INSTANCE = 2,
   DRW_CMD_DRAW_INSTANCE_RANGE = 3,
   DRW_CMD_DRAW_PROCEDURAL = 4,
+
+  /* Compute Commands. */
+  DRW_CMD_COMPUTE = 8,
+
   /* Other Commands */
   DRW_CMD_CLEAR = 12,
   DRW_CMD_DRWSTATE = 13,
@@ -224,6 +228,12 @@ typedef struct DRWCommandDrawInstanceRange {
   uint inst_count;
 } DRWCommandDrawInstanceRange;
 
+typedef struct DRWCommandCompute {
+  int groups_x_len;
+  int groups_y_len;
+  int groups_z_len;
+} DRWCommandCompute;
+
 typedef struct DRWCommandDrawProcedural {
   GPUBatch *batch;
   DRWResourceHandle handle;
@@ -260,6 +270,7 @@ typedef union DRWCommand {
   DRWCommandDrawInstance instance;
   DRWCommandDrawInstanceRange instance_range;
   DRWCommandDrawProcedural procedural;
+  DRWCommandCompute compute;
   DRWCommandSetMutableState state;
   DRWCommandSetStencil stencil;
   DRWCommandSetSelectID select_id;

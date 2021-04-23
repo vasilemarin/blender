@@ -29,6 +29,7 @@
 
 #include "BKE_global.h"
 
+#include "GPU_compute.h"
 #include "GPU_platform.h"
 #include "GPU_shader.h"
 #include "GPU_state.h"
@@ -1049,6 +1050,12 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
                               cmd->instance_range.inst_first,
                               cmd->instance_range.inst_count,
                               false);
+          break;
+        case DRW_CMD_COMPUTE:
+          GPU_compute_dispatch(shgroup->shader,
+                               cmd->compute.groups_x_len,
+                               cmd->compute.groups_y_len,
+                               cmd->compute.groups_z_len);
           break;
       }
     }

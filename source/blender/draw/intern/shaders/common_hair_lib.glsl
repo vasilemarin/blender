@@ -50,6 +50,30 @@ uniform usamplerBuffer hairStrandSegBuffer; /* R16UI */
  * If no more subdivision is needed, we can skip this step.
  */
 
+#ifdef GPU_VERTEX_SHADER
+float hair_get_local_time()
+{
+  return float(gl_VertexID % hairStrandsRes) / float(hairStrandsRes - 1);
+}
+
+int hair_get_id()
+{
+  return gl_VertexID / hairStrandsRes;
+}
+#endif
+
+#ifdef GPU_COMPUTE_SHADER
+float hair_get_local_time()
+{
+  return float(gl_GlobalInvocationID.y) / float(hairStrandsRes - 1);
+}
+
+int hair_get_id()
+{
+  return int(gl_GlobalInvocationID.x);
+}
+#endif
+
 #ifdef HAIR_PHASE_SUBDIV
 int hair_get_base_id(float local_time, int strand_segments, out float interp_time)
 {
@@ -64,9 +88,9 @@ int hair_get_base_id(float local_time, int strand_segments, out float interp_tim
 void hair_get_interp_attrs(
     out vec4 data0, out vec4 data1, out vec4 data2, out vec4 data3, out float interp_time)
 {
-  float local_time = float(gl_VertexID % hairStrandsRes) / float(hairStrandsRes - 1);
+  float local_time = hair_get_local_time();
 
-  int hair_id = gl_VertexID / hairStrandsRes;
+  int hair_id = hair_get_id();
   int strand_offset = int(texelFetch(hairStrandBuffer, hair_id).x);
   int strand_segments = int(texelFetch(hairStrandSegBuffer, hair_id).x);
 
@@ -95,7 +119,9 @@ void hair_get_interp_attrs(
  * For final drawing, the vertex index and the number of vertex per segment
  */
 
-#if !defined(HAIR_PHASE_SUBDIV) && defined(GPU_VERTEX_SHADER)
+#if !defined(HAIR_PHASE_SUBDIV) && (defined(GPU_VERTEX_SHADER) || defined(GPU_COMPUTE_SHADER))
+
+#  ifdef GPU_VERTEX_SHADER
 int hair_get_strand_id(void)
 {
   return gl_VertexID / (hairStrandsRes * hairThicknessRes);
@@ -103,8 +129,21 @@ int hair_get_strand_id(void)
 
 int hair_get_base_id(void)
 {
-  return gl_VertexID / hairThicknessRes;
+  return gl_VertexID / hairStrandsRes;
 }
+#  endif
+
+#  ifdef GPU_COMPUTE_SHADER
+int hair_get_strand_id(void)
+{
+  return int(gl_GlobalInvocationID.x / hairThicknessRes));
+}
+
+int hair_get_base_id(void)
+{
+  return int(gl_GlobalInvocationID.x);
+}
+#  endif
 
 /* Copied from cycles. */
 float hair_shaperadius(float shape, float root, float tip, float time)

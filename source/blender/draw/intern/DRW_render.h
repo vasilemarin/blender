@@ -438,6 +438,10 @@ void DRW_shgroup_call_range(
 void DRW_shgroup_call_instance_range(
     DRWShadingGroup *shgroup, Object *ob, struct GPUBatch *geom, uint i_sta, uint i_ct);
 
+void DRW_shgroup_call_compute(DRWShadingGroup *shgroup,
+                              int groups_x_len,
+                              int groups_y_len,
+                              int groups_z_len);
 void DRW_shgroup_call_procedural_points(DRWShadingGroup *sh, Object *ob, uint point_count);
 void DRW_shgroup_call_procedural_lines(DRWShadingGroup *sh, Object *ob, uint line_count);
 void DRW_shgroup_call_procedural_triangles(DRWShadingGroup *sh, Object *ob, uint tri_count);
