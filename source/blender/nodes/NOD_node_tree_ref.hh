@@ -132,23 +132,31 @@ class SocketRef : NonCopyable, NonMovable {
 
 class InputSocketRef final : public SocketRef {
  public:
+  friend NodeTreeRef;
+
   Span<const OutputSocketRef *> logically_linked_sockets() const;
   Span<const OutputSocketRef *> directly_linked_sockets() const;
 
   bool is_multi_input_socket() const;
 
+ private:
   void foreach_logical_origin(FunctionRef<void(const OutputSocketRef &)> origin_fn,
                               FunctionRef<void(const SocketRef &)> skipped_fn,
-                              bool only_follow_first_input_link = false) const;
+                              bool only_follow_first_input_link,
+                              Vector<const InputSocketRef *> &handled_sockets) const;
 };
 
 class OutputSocketRef final : public SocketRef {
  public:
+  friend NodeTreeRef;
+
   Span<const InputSocketRef *> logically_linked_sockets() const;
   Span<const InputSocketRef *> directly_linked_sockets() const;
 
+ private:
   void foreach_logical_target(FunctionRef<void(const InputSocketRef &)> target_fn,
-                              FunctionRef<void(const SocketRef &)> skipped_fn) const;
+                              FunctionRef<void(const SocketRef &)> skipped_fn,
+                              Vector<const OutputSocketRef *> &handled_sockets) const;
 };
 
 class NodeRef : NonCopyable, NonMovable {
@@ -528,7 +536,7 @@ inline bool NodeRef::is_reroute_node() const
 
 inline bool NodeRef::is_group_node() const
 {
-  return bnode_->type == NODE_GROUP;
+  return bnode_->type == NODE_GROUP || bnode_->type == NODE_CUSTOM_GROUP;
 }
 
 inline bool NodeRef::is_group_input_node() const
