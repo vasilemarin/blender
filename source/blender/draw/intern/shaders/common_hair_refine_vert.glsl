@@ -1,7 +1,16 @@
 
-/* To be compiled with common_hair_lib.glsl */
-
+/*
+ * To be compiled with common_hair_lib.glsl.
+ * Shader can be used as a vertex or a compute shader.
+ */
+#ifdef GPU_VERTEX_SHADER
 out vec4 finalColor;
+#endif
+
+#ifdef GPU_COMPUTE_SHADER
+layout(local_size_x = 1, local_size_y = 1) in;
+layout(rgba32f, binding = 0) uniform image1D hairPointOutputBuffer;
+#endif
 
 vec4 get_weights_cardinal(float t)
 {
@@ -57,9 +66,12 @@ void main(void)
   hair_get_interp_attrs(data0, data1, data2, data3, interp_time);
 
   vec4 weights = get_weights_cardinal(interp_time);
-  finalColor = interp_data(data0, data1, data2, data3, weights);
+  vec4 result = interp_data(data0, data1, data2, data3, weights);
 
-#ifdef TF_WORKAROUND
+#ifdef GPU_VERTEX_SHADER
+  finalColor = result;
+
+#  ifdef TF_WORKAROUND
   int id = gl_VertexID - idOffset;
   gl_Position.x = ((float(id % targetWidth) + 0.5) / float(targetWidth)) * 2.0 - 1.0;
   gl_Position.y = ((float(id / targetWidth) + 0.5) / float(targetHeight)) * 2.0 - 1.0;
@@ -67,5 +79,11 @@ void main(void)
   gl_Position.w = 1.0;
 
   gl_PointSize = 1.0;
+#  endif
+#endif
+
+#ifdef GPU_COMPUTE_SHADER
+  int index = int(gl_GlobalInvocationID.x) * hairStrandsRes;
+  imageStore(hairPointOutputBuffer, index, result);
 #endif
 }
