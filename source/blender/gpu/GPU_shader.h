@@ -88,6 +88,8 @@ void GPU_shader_unbind(void);
 bool GPU_shader_transform_feedback_enable(GPUShader *shader, struct GPUVertBuf *vertbuf);
 void GPU_shader_transform_feedback_disable(GPUShader *shader);
 
+void GPU_shader_attach_vertex_buffer(GPUShader *shader, struct GPUVertBuf *vertbuf, int location);
+
 int GPU_shader_get_program(GPUShader *shader);
 
 typedef enum {

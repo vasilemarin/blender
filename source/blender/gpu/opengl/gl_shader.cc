@@ -26,6 +26,7 @@
 #include "BLI_string.h"
 #include "BLI_vector.hh"
 
+#include "GPU_capabilities.h"
 #include "GPU_platform.h"
 
 #include "gl_backend.hh"
@@ -295,6 +296,21 @@ bool GLShader::transform_feedback_enable(GPUVertBuf *buf_)
 void GLShader::transform_feedback_disable()
 {
   glEndTransformFeedback();
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Attach buffers
+ * \{ */
+
+void GLShader::attach_buffer(GPUVertBuf *vertex_buffer_, unsigned int location)
+{
+  BLI_assert(GPU_compute_shader_support());
+  GLVertBuf *vertex_buffer = static_cast<GLVertBuf *>(unwrap(vertex_buffer_));
+  vertex_buffer->bind();
+  BLI_assert(vertex_buffer->vbo_id_ != 0);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, location, vertex_buffer->vbo_id_);
 }
 
 /** \} */
