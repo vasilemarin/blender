@@ -357,6 +357,9 @@ GPUShader *GPU_shader_create_ex(const char *vertcode,
     if (defines) {
       sources.append(defines);
     }
+    if (libcode) {
+      sources.append(libcode);
+    }
     sources.append(computecode);
 
     shader->compute_shader_from_glsl(sources);
