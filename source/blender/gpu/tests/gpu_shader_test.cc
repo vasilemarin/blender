@@ -178,15 +178,8 @@ void main() {
   /* Construct VBO. */
   static GPUVertFormat format = {0};
   GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
-  /* TODO: Should add a new GPU_USAGE_TYPE. (device only) that won't upload the data. */
-  GPUVertBuf *vbo = GPU_vertbuf_create_with_format_ex(&format, GPU_USAGE_DYNAMIC);
+  GPUVertBuf *vbo = GPU_vertbuf_create_with_format_ex(&format, GPU_USAGE_DEVICE_ONLY);
   GPU_vertbuf_data_alloc(vbo, SIZE);
-  /* Store vbo with known values for easier debugging. */
-  float dummy[4] = {57005.0f, 57005.0f, 57005.0f, 57005.0f};
-  for (int i = 0; i < SIZE; i++) {
-    GPU_vertbuf_vert_set(vbo, i, dummy);
-  }
-
   GPU_shader_attach_vertex_buffer(shader, vbo, 0);
 
   /* Dispatch compute task. */

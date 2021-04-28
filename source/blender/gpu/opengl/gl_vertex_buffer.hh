@@ -66,6 +66,8 @@ static inline GLenum to_gl(GPUUsageType type)
       return GL_DYNAMIC_DRAW;
     case GPU_USAGE_STATIC:
       return GL_STATIC_DRAW;
+    case GPU_USAGE_DEVICE_ONLY:
+      return GL_STATIC_DRAW;
     default:
       BLI_assert(0);
       return GL_STATIC_DRAW;
