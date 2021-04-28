@@ -297,6 +297,8 @@ typedef enum {
   DRW_UNIFORM_BLOCK,
   DRW_UNIFORM_BLOCK_REF,
   DRW_UNIFORM_TFEEDBACK_TARGET,
+  /* Not an actual uniform, but a buffer for compute shaders. */
+  DRW_VERTEX_BUFFER,
   /** Per drawcall uniforms/UBO */
   DRW_UNIFORM_BLOCK_OBMATS,
   DRW_UNIFORM_BLOCK_OBINFOS,

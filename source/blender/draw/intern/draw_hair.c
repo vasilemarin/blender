@@ -97,7 +97,7 @@ static GPUShader *hair_refine_shader_get(ParticleRefineShader sh)
   const bool do_compute = drw_hair_use_compute_shaders();
   if (do_compute) {
     g_refine_shaders[sh] = GPU_shader_create_compute(datatoc_common_hair_refine_vert_glsl,
-                                                     NULL /* datatoc_common_hair_lib_glsl*/,
+                                                     datatoc_common_hair_lib_glsl,
                                                      "#define HAIR_PHASE_SUBDIV\n",
                                                      __func__);
     return g_refine_shaders[sh];
@@ -158,31 +158,34 @@ static void drw_hair_particle_cache_shgrp_attach_resources(DRWShadingGroup *shgr
   DRW_shgroup_uniform_int(shgrp, "hairStrandsRes", &cache->final[subdiv].strands_res, 1);
 }
 
+#if 0
 static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, const int subdiv)
 {
   const int final_points_len = cache->final[subdiv].strands_res * cache->strands_len;
   if (final_points_len > 0) {
     GPUShader *shader = hair_refine_shader_get(PART_REFINE_CATMULL_ROM);
     GPU_shader_bind(shader);
-    // GPU_texture_bind(cache->point_tex, GPU_shader_get_uniform(shader, "hairPointBuffer"));
-    // GPU_texture_bind(cache->strand_tex, GPU_shader_get_uniform(shader, "hairStrandBuffer"));
-    // GPU_texture_bind(cache->strand_seg_tex, GPU_shader_get_uniform(shader,
-    // "hairStrandSegBuffer")); GPU_shader_uniform_1i(shader, "hairStrandsRes",
-    // cache->final[subdiv].strands_res);
-    GPU_texture_image_bind(cache->final[subdiv].proc_tex,
-                           GPU_shader_get_uniform(shader, "hairPointOutputBuffer"));
-    GPU_compute_dispatch(shader, final_points_len, 1, 1);
-    GPU_memory_barrier(GPU_BARRIER_TEXTURE_FETCH);
-    float *data = GPU_texture_read(cache->final[subdiv].proc_tex, GPU_DATA_FLOAT, 0);
-    for (int index = 0; index < final_points_len; index++) {
-      printf("%f, %f, %f, %f\n",
-             data[index * 4],
-             data[index * 4 + 1],
-             data[index * 4 + 2],
-             data[index * 4 + 3]);
-    }
+    GPU_shader_attach_vertex_buffer(shader, cache->final[subdiv].proc_buf, 0);
+    GPU_texture_bind(cache->point_tex, GPU_shader_get_uniform(shader, "hairPointBuffer"));
+    GPU_texture_bind(cache->strand_tex, GPU_shader_get_uniform(shader, "hairStrandBuffer"));
+    GPU_texture_bind(cache->strand_seg_tex, GPU_shader_get_uniform(shader, "hairStrandSegBuffer"));
+    GPU_shader_uniform_1i(shader, "hairStrandsRes", cache->final[subdiv].strands_res);
+    GPU_compute_dispatch(shader, cache->strands_len, cache->final[subdiv].strands_res, 1);
   }
 }
+#else
+static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, const int subdiv)
+{
+  const int final_points_len = cache->final[subdiv].strands_res * cache->strands_len;
+  if (final_points_len > 0) {
+    GPUShader *shader = hair_refine_shader_get(PART_REFINE_CATMULL_ROM);
+    DRWShadingGroup *shgrp = DRW_shgroup_create(shader, g_tf_pass);
+    drw_hair_particle_cache_shgrp_attach_resources(shgrp, cache, subdiv);
+    DRW_shgroup_vertex_buffer(shgrp, 0, cache->final[subdiv].proc_buf);
+    DRW_shgroup_call_compute(shgrp, cache->strands_len, cache->final[subdiv].strands_res, 1);
+  }
+}
+#endif
 
 static void drw_hair_particle_cache_update_transform_feedback(ParticleHairCache *cache,
                                                               const int subdiv)
@@ -438,8 +441,7 @@ void DRW_hair_update(void)
   /* Just render the pass when using compute shaders or transform feedback. */
   DRW_draw_pass(g_tf_pass);
   if (drw_hair_use_compute_shaders()) {
-    GPU_memory_barrier(GPU_BARRIER_VERTEX_ATTRIB_ARRAY);
-    GPU_memory_barrier(GPU_BARRIER_TEXTURE_FETCH);
+    GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
   }
 #endif
   TIMEIT_END(DRW_hair_update);

@@ -673,6 +673,10 @@ static void draw_update_uniforms(DRWShadingGroup *shgroup,
           *use_tfeedback = GPU_shader_transform_feedback_enable(shgroup->shader,
                                                                 ((GPUVertBuf *)uni->pvalue));
           break;
+        case DRW_VERTEX_BUFFER:
+          GPU_shader_attach_vertex_buffer(
+              shgroup->shader, (GPUVertBuf *)uni->pvalue, uni->location);
+          break;
           /* Legacy/Fallback support. */
         case DRW_UNIFORM_BASE_INSTANCE:
           state->baseinst_loc = uni->location;
