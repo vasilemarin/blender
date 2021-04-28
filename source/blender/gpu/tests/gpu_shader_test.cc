@@ -13,6 +13,8 @@
 
 #include "gpu_testing.hh"
 
+#include "GPU_glew.h"
+
 namespace blender::gpu::tests {
 
 TEST_F(GPUTest, gpu_shader_compute_2d)
@@ -179,24 +181,25 @@ void main() {
   GPUVertBuf *vbo = GPU_vertbuf_create_with_format_ex(&format, GPU_USAGE_DYNAMIC);
   GPU_vertbuf_data_alloc(vbo, SIZE);
   /* Store vbo with known values for easier debugging. */
-  float dummy[4] = {0.1f, 0.2f, 0.3f, 0.4f};
+  float dummy[4] = {57005.0f, 57005.0f, 57005.0f, 57005.0f};
   for (int i = 0; i < SIZE; i++) {
     GPU_vertbuf_vert_set(vbo, i, dummy);
   }
   GPU_vertbuf_use(vbo);
+
   GPU_shader_attach_vertex_buffer(shader, vbo, 0);
 
   /* Dispatch compute task. */
   GPU_compute_dispatch(shader, SIZE, 1, 1);
 
   /* Check if compute has been done. */
-  GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE | GPU_BARRIER_TEXTURE_FETCH);
+  GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
 
+  /* Use opengl function to download the vertex buffer. */
+  /* TODO(jbakker): Add function to copy it back to the VertexBuffer data. */
+  float *data = static_cast<float *>(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
+  ASSERT_NE(data, nullptr);
   /* Create texture to load back result. */
-  GPUTexture *texture = GPU_texture_create_from_vertbuf("gpu_shader_compute_vbo", vbo);
-  EXPECT_NE(texture, nullptr);
-  float *data = static_cast<float *>(GPU_texture_read(texture, GPU_DATA_FLOAT, 0));
-  EXPECT_NE(data, nullptr);
   for (int index = 0; index < SIZE; index++) {
     float expected_value = index;
     EXPECT_FLOAT_EQ(data[index * 4 + 0], expected_value);
@@ -204,12 +207,9 @@ void main() {
     EXPECT_FLOAT_EQ(data[index * 4 + 2], expected_value);
     EXPECT_FLOAT_EQ(data[index * 4 + 3], expected_value);
   }
-  MEM_freeN(data);
 
   /* Cleanup. */
   GPU_shader_unbind();
-  GPU_texture_unbind(texture);
-  GPU_texture_free(texture);
   GPU_vertbuf_discard(vbo);
   GPU_shader_free(shader);
 }
