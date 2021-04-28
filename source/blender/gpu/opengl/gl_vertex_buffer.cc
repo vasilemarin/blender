@@ -63,7 +63,7 @@ void GLVertBuf::duplicate_data(VertBuf *dst_)
   BLI_assert(GLContext::get() != nullptr);
   GLVertBuf *src = this;
   GLVertBuf *dst = static_cast<GLVertBuf *>(dst_);
-  /* TODO(jbakker): Device only duplication of vertex buffers not supported yet. */
+  /* TODO(jbakker): Duplication of device only vertex buffers is not supported yet. */
   BLI_assert((src->usage_ != GPU_USAGE_DEVICE_ONLY) && (dst->usage_ != GPU_USAGE_DEVICE_ONLY));
 
   if (src->vbo_id_ != 0) {
