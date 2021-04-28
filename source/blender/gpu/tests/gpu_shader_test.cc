@@ -4,6 +4,7 @@
 
 #include "GPU_capabilities.h"
 #include "GPU_compute.h"
+#include "GPU_index_buffer.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 #include "GPU_vertex_buffer.h"
@@ -185,7 +186,6 @@ void main() {
   for (int i = 0; i < SIZE; i++) {
     GPU_vertbuf_vert_set(vbo, i, dummy);
   }
-  GPU_vertbuf_use(vbo);
 
   GPU_shader_attach_vertex_buffer(shader, vbo, 0);
 
@@ -211,6 +211,141 @@ void main() {
   /* Cleanup. */
   GPU_shader_unbind();
   GPU_vertbuf_discard(vbo);
+  GPU_shader_free(shader);
+}
+
+TEST_F(GPUTest, gpu_shader_compute_ibo_short)
+{
+
+  if (!GPU_compute_shader_support()) {
+    /* We can't test as a the platform does not support compute shaders. */
+    std::cout << "Skipping compute shader test: platform not supported";
+    return;
+  }
+
+  static constexpr uint SIZE = 128;
+
+  /* Build compute shader. */
+  const char *compute_glsl = R"(
+
+layout(local_size_x = 1) in;
+
+layout(std430, binding = 0) buffer outputIboData
+{
+  int Indexes[];
+};
+
+void main() {
+  int store_index = int(gl_GlobalInvocationID.x);
+  int index1 = store_index * 2;
+  int index2 = store_index *2 + 1;
+  int store = ((index2 & 0xFFFF) << 16) | (index1 & 0xFFFF);
+  Indexes[store_index] = store;
+}
+
+)";
+
+  GPUShader *shader = GPU_shader_create_compute(
+      compute_glsl, nullptr, nullptr, "gpu_shader_compute_vbo");
+  EXPECT_NE(shader, nullptr);
+  GPU_shader_bind(shader);
+
+  /* Construct IBO. */
+  GPUIndexBufBuilder ibo_builder;
+  const int max_vertex_index = 65536;
+  GPU_indexbuf_init(&ibo_builder, GPU_PRIM_POINTS, SIZE, max_vertex_index);
+  for (int index = 0; index < SIZE; index++) {
+    GPU_indexbuf_set_point_vert(&ibo_builder, index, 57005);
+  }
+  GPUIndexBuf *ibo = GPU_indexbuf_build(&ibo_builder);
+
+  GPU_shader_attach_index_buffer(shader, ibo, 0);
+
+  /* Dispatch compute task. */
+  GPU_compute_dispatch(shader, SIZE / 2, 1, 1);
+
+  /* Check if compute has been done. */
+  GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
+
+  /* Use opengl function to download the vertex buffer. */
+  /* TODO(jbakker): Add function to copy it back to the IndexBuffer data. */
+  uint16_t *data = static_cast<uint16_t *>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY));
+  ASSERT_NE(data, nullptr);
+  /* Create texture to load back result. */
+  for (int index = 0; index < SIZE; index++) {
+    EXPECT_EQ(data[index], index);
+  }
+
+  /* Cleanup. */
+  GPU_shader_unbind();
+  GPU_indexbuf_discard(ibo);
+  GPU_shader_free(shader);
+}
+
+TEST_F(GPUTest, gpu_shader_compute_ibo_int)
+{
+
+  if (!GPU_compute_shader_support()) {
+    /* We can't test as a the platform does not support compute shaders. */
+    std::cout << "Skipping compute shader test: platform not supported";
+    return;
+  }
+
+  static constexpr uint SIZE = 128;
+
+  /* Build compute shader. */
+  const char *compute_glsl = R"(
+
+layout(local_size_x = 1) in;
+
+layout(std430, binding = 0) buffer outputIboData
+{
+  int Indexes[];
+};
+
+void main() {
+  int store_index = int(gl_GlobalInvocationID.x);
+  int store = store_index;
+  Indexes[store_index] = store;
+}
+
+)";
+
+  GPUShader *shader = GPU_shader_create_compute(
+      compute_glsl, nullptr, nullptr, "gpu_shader_compute_vbo");
+  EXPECT_NE(shader, nullptr);
+  GPU_shader_bind(shader);
+
+  /* Construct IBO. */
+  GPUIndexBufBuilder ibo_builder;
+  GPU_indexbuf_init(&ibo_builder, GPU_PRIM_POINTS, SIZE, 0);
+  for (int index = 0; index < SIZE; index++) {
+    GPU_indexbuf_set_point_vert(&ibo_builder, index, 65536 * index);
+  }
+  GPUIndexBuf *ibo = GPU_indexbuf_build(&ibo_builder);
+
+  GPU_shader_attach_index_buffer(shader, ibo, 0);
+
+  /* Dispatch compute task. */
+  GPU_compute_dispatch(shader, SIZE, 1, 1);
+
+  /* Check if compute has been done. */
+  GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
+
+  /* Use opengl function to download the vertex buffer. */
+  /* TODO(jbakker): Add function to copy it back to the IndexBuffer data and accessors to read
+   * data. */
+  uint32_t *data = static_cast<uint32_t *>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY));
+  ASSERT_NE(data, nullptr);
+  /* Create texture to load back result. */
+  for (int index = 0; index < SIZE; index++) {
+    uint32_t expected = index;
+    EXPECT_EQ(data[index], expected);
+  }
+
+  /* Cleanup. */
+  GPU_shader_unbind();
+  GPU_indexbuf_discard(ibo);
   GPU_shader_free(shader);
 }
 

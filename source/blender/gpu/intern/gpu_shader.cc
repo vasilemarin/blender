@@ -591,6 +591,11 @@ void GPU_shader_attach_vertex_buffer(GPUShader *shader, struct GPUVertBuf *vertb
   unwrap(shader)->attach_buffer(vertbuf, position);
 }
 
+void GPU_shader_attach_index_buffer(GPUShader *shader, struct GPUIndexBuf *indexbuf, int position)
+{
+  unwrap(shader)->attach_buffer(indexbuf, position);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */

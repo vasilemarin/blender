@@ -27,6 +27,7 @@
 extern "C" {
 #endif
 
+struct GPUIndexBuf;
 struct GPUVertBuf;
 
 /** Opaque type hiding #blender::gpu::Shader */
@@ -89,6 +90,7 @@ bool GPU_shader_transform_feedback_enable(GPUShader *shader, struct GPUVertBuf *
 void GPU_shader_transform_feedback_disable(GPUShader *shader);
 
 void GPU_shader_attach_vertex_buffer(GPUShader *shader, struct GPUVertBuf *vertbuf, int location);
+void GPU_shader_attach_index_buffer(GPUShader *shader, struct GPUIndexBuf *indexbuf, int location);
 
 int GPU_shader_get_program(GPUShader *shader);
 
