@@ -44,8 +44,6 @@
 
 #include "draw_hair_private.h"
 
-#include "PIL_time_utildefines.h"
-
 #ifndef __APPLE__
 #  define USE_TRANSFORM_FEEDBACK
 #endif
@@ -158,22 +156,6 @@ static void drw_hair_particle_cache_shgrp_attach_resources(DRWShadingGroup *shgr
   DRW_shgroup_uniform_int(shgrp, "hairStrandsRes", &cache->final[subdiv].strands_res, 1);
 }
 
-#if 0
-static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, const int subdiv)
-{
-  const int final_points_len = cache->final[subdiv].strands_res * cache->strands_len;
-  if (final_points_len > 0) {
-    GPUShader *shader = hair_refine_shader_get(PART_REFINE_CATMULL_ROM);
-    GPU_shader_bind(shader);
-    GPU_shader_attach_vertex_buffer(shader, cache->final[subdiv].proc_buf, 0);
-    GPU_texture_bind(cache->point_tex, GPU_shader_get_uniform(shader, "hairPointBuffer"));
-    GPU_texture_bind(cache->strand_tex, GPU_shader_get_uniform(shader, "hairStrandBuffer"));
-    GPU_texture_bind(cache->strand_seg_tex, GPU_shader_get_uniform(shader, "hairStrandSegBuffer"));
-    GPU_shader_uniform_1i(shader, "hairStrandsRes", cache->final[subdiv].strands_res);
-    GPU_compute_dispatch(shader, cache->strands_len, cache->final[subdiv].strands_res, 1);
-  }
-}
-#else
 static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, const int subdiv)
 {
   const int final_points_len = cache->final[subdiv].strands_res * cache->strands_len;
@@ -185,7 +167,6 @@ static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, con
     DRW_shgroup_call_compute(shgrp, cache->strands_len, cache->final[subdiv].strands_res, 1);
   }
 }
-#endif
 
 static void drw_hair_particle_cache_update_transform_feedback(ParticleHairCache *cache,
                                                               const int subdiv)
@@ -369,7 +350,6 @@ DRWShadingGroup *DRW_shgroup_hair_create_sub(Object *object,
 
 void DRW_hair_update(void)
 {
-  TIMEIT_START(DRW_hair_update);
 #ifndef USE_TRANSFORM_FEEDBACK
   /**
    * Workaround to transform feedback not working on mac.
@@ -444,7 +424,6 @@ void DRW_hair_update(void)
     GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
   }
 #endif
-  TIMEIT_END(DRW_hair_update);
 }
 
 void DRW_hair_free(void)
