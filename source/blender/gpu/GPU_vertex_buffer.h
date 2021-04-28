@@ -59,6 +59,7 @@ typedef enum {
   GPU_USAGE_STREAM,
   GPU_USAGE_STATIC, /* do not keep data in memory */
   GPU_USAGE_DYNAMIC,
+  GPU_USAGE_DEVICE_ONLY, /* Do not do host->device data transfers. */
 } GPUUsageType;
 
 /** Opaque type hiding blender::gpu::VertBuf. */

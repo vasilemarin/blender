@@ -29,6 +29,10 @@ namespace blender::gpu {
 
 void GLVertBuf::acquire_data()
 {
+  if (usage_ == GPU_USAGE_DEVICE_ONLY) {
+    return;
+  }
+
   /* Discard previous data if any. */
   MEM_SAFE_FREE(data);
   data = (uchar *)MEM_mallocN(sizeof(uchar) * this->size_alloc_get(), __func__);
@@ -36,6 +40,10 @@ void GLVertBuf::acquire_data()
 
 void GLVertBuf::resize_data()
 {
+  if (usage_ == GPU_USAGE_DEVICE_ONLY) {
+    return;
+  }
+
   data = (uchar *)MEM_reallocN(data, sizeof(uchar) * this->size_alloc_get());
 }
 
@@ -55,6 +63,8 @@ void GLVertBuf::duplicate_data(VertBuf *dst_)
   BLI_assert(GLContext::get() != nullptr);
   GLVertBuf *src = this;
   GLVertBuf *dst = static_cast<GLVertBuf *>(dst_);
+  /* TODO(jbakker): Duplication of device only vertex buffers is not supported yet. */
+  BLI_assert((src->usage_ != GPU_USAGE_DEVICE_ONLY) && (dst->usage_ != GPU_USAGE_DEVICE_ONLY));
 
   if (src->vbo_id_ != 0) {
     dst->vbo_size_ = src->size_used_get();
@@ -94,8 +104,10 @@ void GLVertBuf::bind()
     vbo_size_ = this->size_used_get();
     /* Orphan the vbo to avoid sync then upload data. */
     glBufferData(GL_ARRAY_BUFFER, vbo_size_, nullptr, to_gl(usage_));
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vbo_size_, data);
-
+    /* Do not transfer data from host to device when buffer is device only. */
+    if (usage_ != GPU_USAGE_DEVICE_ONLY) {
+      glBufferSubData(GL_ARRAY_BUFFER, 0, vbo_size_, data);
+    }
     memory_usage += vbo_size_;
 
     if (usage_ == GPU_USAGE_STATIC) {

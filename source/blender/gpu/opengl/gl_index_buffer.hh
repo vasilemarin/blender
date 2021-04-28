@@ -34,6 +34,7 @@ namespace blender::gpu {
 class GLIndexBuf : public IndexBuf {
   friend class GLBatch;
   friend class GLDrawList;
+  friend class GLShader; /* For compute shaders. */
 
  private:
   GLuint ibo_id_ = 0;

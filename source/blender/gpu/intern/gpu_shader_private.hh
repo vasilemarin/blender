@@ -58,6 +58,7 @@ class Shader {
   virtual void transform_feedback_disable(void) = 0;
 
   virtual void attach_buffer(GPUVertBuf *vertex_buffer, uint location) = 0;
+  virtual void attach_buffer(GPUIndexBuf *index_buffer, uint location) = 0;
 
   virtual void bind(void) = 0;
   virtual void unbind(void) = 0;
