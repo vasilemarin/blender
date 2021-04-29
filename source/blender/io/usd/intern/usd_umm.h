@@ -27,9 +27,10 @@ struct bNode;
 struct bNodeTree;
 struct Main;
 struct Material;
-struct USDImportParams;
 
 namespace blender::io::usd {
+
+struct USDExporterContext;
 
 // Helper struct used when arranging nodes in columns, keeping track the
 // occupancy information for a given column.  I.e., for column n,
@@ -54,11 +55,10 @@ class USDUMM {
  private:
    static PyObject *s_umm_module;
 
-   USDImportParams params_;
    Main *bmain_;
 
  public:
-   USDUMM(const USDImportParams &params, Main *bmain);
+   USDUMM(Main *bmain);
 
    ~USDUMM();
 
@@ -67,12 +67,21 @@ class USDUMM {
 
   bool map_material(Material *mtl, const pxr::UsdShadeMaterial &usd_material) const;
 
+  bool map_material_to_usd(const USDExporterContext &usd_export_context,
+                           const Material *mtl,
+                           pxr::UsdShadeShader &usd_shader,
+                           const std::string &render_context) const;
+
  protected:
   bool map_material(Material *mtl,
                     const pxr::UsdShadeShader &usd_shader,
                     const std::string &source_class) const;
 
    PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader) const;
+
+   void set_shader_properties(const USDExporterContext &usd_export_context,
+                              pxr::UsdShadeShader &usd_shader,
+                              PyObject *data_list) const;
 
    void create_blender_nodes(Material *mtl, PyObject *data_tuple) const;
 

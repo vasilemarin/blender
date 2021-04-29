@@ -106,6 +106,7 @@ struct USDExportParams {
   bool relative_texture_paths;
   bool backward_compatible;
   float light_intensity_scale;
+  bool generate_mdl;
 };
 
 struct USDImportParams {

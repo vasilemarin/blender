@@ -17,6 +17,7 @@
  * All rights reserved.
  */
 #include "usd_writer_material.h"
+#include "usd_umm.h"
 
 extern "C" {
 #include "BKE_animsys.h"
@@ -96,6 +97,8 @@ static const pxr::TfToken b("b", pxr::TfToken::Immortal);
 static const pxr::TfToken st("st", pxr::TfToken::Immortal);
 static const pxr::TfToken result("result", pxr::TfToken::Immortal);
 static const pxr::TfToken varname("varname", pxr::TfToken::Immortal);
+static const pxr::TfToken mdl("mdl", pxr::TfToken::Immortal);
+static const pxr::TfToken out("out", pxr::TfToken::Immortal);
 static const pxr::TfToken normal("normal", pxr::TfToken::Immortal);
 static const pxr::TfToken ior("ior", pxr::TfToken::Immortal);
 static const pxr::TfToken file("file", pxr::TfToken::Immortal);
@@ -103,6 +106,7 @@ static const pxr::TfToken preview("preview", pxr::TfToken::Immortal);
 static const pxr::TfToken raw("raw", pxr::TfToken::Immortal);
 static const pxr::TfToken sRGB("sRGB", pxr::TfToken::Immortal);
 static const pxr::TfToken sourceColorSpace("sourceColorSpace", pxr::TfToken::Immortal);
+static const pxr::TfToken Shader("Shader", pxr::TfToken::Immortal);
 }  // namespace usdtokens
 
 /* Cycles specific tokens (Blender Importer and HdCycles) */
@@ -2154,6 +2158,51 @@ void create_usd_viewport_material(USDExporterContext const &usd_export_context_,
 
   // Connect the shader and the material together.
   usd_material.CreateSurfaceOutput().ConnectToSource(shader, usdtokens::surface);
+}
+
+void create_mdl_material(const USDExporterContext &usd_export_context,
+                         Material *material,
+                         pxr::UsdShadeMaterial &usd_material)
+{
+#ifdef WITH_PYTHON
+  if (!(material && usd_material)) {
+    return;
+  }
+
+  USDUMM umm(nullptr);
+
+  usd_define_or_over<pxr::UsdGeomScope>(usd_export_context.stage,
+                                        usd_material.GetPath().AppendChild(usdtokens::mdl),
+                                        usd_export_context.export_params.export_as_overs);
+
+  pxr::SdfPath shader_path =
+      usd_material.GetPath().AppendChild(usdtokens::mdl).AppendChild(usdtokens::Shader);
+
+  pxr::UsdShadeShader shader = (usd_export_context.export_params.export_as_overs) ?
+                                   pxr::UsdShadeShader(
+                                       usd_export_context.stage->OverridePrim(shader_path)) :
+                                   pxr::UsdShadeShader::Define(usd_export_context.stage,
+                                                               shader_path);
+
+  if (!shader) {
+    std::cout << "WARNING in create_mdl_material(): couldn't create mdl shader " << shader_path
+              << std::endl;
+    return;
+  }
+
+  pxr::UsdShadeOutput material_surface_output = usd_material.CreateSurfaceOutput(usdtokens::mdl);
+
+  if (!material_surface_output) {
+    std::cout
+        << "WARNING in create_mdl_material(): couldn't create material 'mdl:surface' output.\n";
+    return;
+  }
+
+  material_surface_output.ConnectToSource(shader, usdtokens::out);
+
+  umm.map_material_to_usd(usd_export_context, material, shader, "MDL");
+
+#endif
 }
 
 /* Based on ImagesExporter::export_UV_Image() */

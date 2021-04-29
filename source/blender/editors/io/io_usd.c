@@ -242,6 +242,9 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const float light_intensity_scale = RNA_float_get(op->ptr, "light_intensity_scale");
 
+  const bool generate_mdl = RNA_boolean_get(op->ptr, "generate_mdl");
+  ;
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -286,7 +289,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    export_textures,
                                    relative_texture_paths,
                                    backward_compatible,
-                                   light_intensity_scale};
+                                   light_intensity_scale,
+                                   generate_mdl};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -397,8 +401,10 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     uiItemR(box, ptr, "export_global_up_selection", 0, NULL, ICON_NONE);
   }
 
-  if (RNA_boolean_get(ptr, "export_materials"))
+  if (RNA_boolean_get(ptr, "export_materials")) {
     uiItemR(box, ptr, "generate_preview_surface", 0, NULL, ICON_NONE);
+    uiItemR(box, ptr, "generate_mdl", 0, NULL, ICON_NONE);
+  }
 
   if (RNA_boolean_get(ptr, "export_uvmaps"))
     uiItemR(box, ptr, "convert_uv_to_st", 0, NULL, ICON_NONE);
@@ -567,12 +573,18 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                  "Material Prim Path",
                  "This specifies where all generated USD Shade Materials and Shaders get placed");
 
+  RNA_def_boolean(
+      ot->srna,
+      "generate_preview_surface",
+      true,
+      "Convert Cycles Node Graph",
+      "When checked, the USD exporter will generate an approximate USD Preview Surface. "
+      "(Experimental, only works on simple material graphs)");
   RNA_def_boolean(ot->srna,
-                  "generate_preview_surface",
+                  "generate_mdl",
                   true,
-                  "Convert Cycles Node Graph",
-                  "When checked, the USD exporter generate an approximate USD Preview Surface. "
-                  "(Experimental, only works on simple material graphs)");
+                  "Convert to MDL",
+                  "When checked, the USD exporter will generate an MDL material");
   RNA_def_boolean(
       ot->srna,
       "convert_uv_to_st",

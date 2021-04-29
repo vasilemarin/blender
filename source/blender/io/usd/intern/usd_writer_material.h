@@ -63,6 +63,9 @@ void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
 void create_usd_viewport_material(USDExporterContext const &usd_export_context_,
                                   Material *material,
                                   pxr::UsdShadeMaterial &usd_material);
+void create_mdl_material(const USDExporterContext &usd_export_context,
+                         Material *material,
+                         pxr::UsdShadeMaterial &usd_material);
 
 void export_texture(bNode *node, pxr::UsdStageRefPtr stage);
 

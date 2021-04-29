@@ -107,6 +107,33 @@ static bool is_none_value(PyObject *tup)
   return second == Py_None;
 }
 
+/* Sets the source asset and source asset subidenifier properties on the given shader
+ * with values parsed from the given target_class string. */
+static bool set_source_asset(pxr::UsdShadeShader &usd_shader, const std::string &target_class)
+{
+  if (!usd_shader || target_class.empty()) {
+    return false;
+  }
+
+  // Split the target_class string on the '|' separator.
+  size_t sep = target_class.find_last_of("|");
+  if (sep == 0 || sep == std::string::npos) {
+    std::cout << "Couldn't parse target_class string " << target_class << std::endl;
+    return false;
+  }
+
+  std::string source_asset = target_class.substr(0, sep);
+  usd_shader.SetSourceAsset(pxr::SdfAssetPath(source_asset), usdtokens::mdl);
+
+  std::string source_asset_subidentifier = target_class.substr(sep + 1);
+
+  if (!source_asset_subidentifier.empty()) {
+    usd_shader.SetSourceAssetSubIdentifier(pxr::TfToken(source_asset_subidentifier), usdtokens::mdl);
+  }
+
+  return true;
+}
+
 
 static bool get_data_name(PyObject *tup, std::string &r_name)
 {
@@ -260,8 +287,8 @@ static const char *k_omni_pbr_mdl_name = "OmniPBR.mdl";
 static const char *k_omni_pbr_name = "OmniPBR";
 
 
-USDUMM::USDUMM(const USDImportParams &params, Main *bmain)
-  : params_(params), bmain_(bmain)
+USDUMM::USDUMM(Main *bmain)
+  : bmain_(bmain)
 {
 }
 
@@ -418,6 +445,8 @@ bool USDUMM::map_material(Material *mtl,
   Py_DECREF(empty_args);
   Py_DECREF(func);
 
+  bool success = ret != nullptr;
+
   if (ret) {
     std::cout << "result:\n";
     print_obj(ret);
@@ -428,7 +457,7 @@ bool USDUMM::map_material(Material *mtl,
 
   PyGILState_Release(gilstate);
 
-  return ret != nullptr;
+  return success;
 }
 
 PyObject *USDUMM::get_shader_source_data(const pxr::UsdShadeShader &usd_shader) const
@@ -747,6 +776,180 @@ void USDUMM::add_texture_node(const char *tex_file,
   }
 
   umm_link_nodes(ntree, tex_image, "Color", dest_node, dest_socket_name);
+}
+
+bool USDUMM::map_material_to_usd(const USDExporterContext &usd_export_context,
+                                 const Material *mtl,
+                                 pxr::UsdShadeShader &usd_shader,
+                                 const std::string &render_context) const
+{
+  if (!(usd_shader && mtl)) {
+    return false;
+  }
+
+  PyGILState_STATE gilstate = PyGILState_Ensure();
+
+  if (!ensure_module_loaded()) {
+    PyGILState_Release(gilstate);
+    return false;
+  }
+
+  const char *func_name = "convert_instance_to_data";
+
+  if (!PyObject_HasAttrString(s_umm_module, func_name)) {
+    std::cerr << "WARNING: UMM module has no attribute " << func_name << std::endl;
+    PyGILState_Release(gilstate);
+    return false;
+  }
+
+  PyObject *func = PyObject_GetAttrString(s_umm_module, func_name);
+
+  if (!func) {
+    std::cerr << "WARNING: Couldn't get UMM module attribute " << func_name << std::endl;
+    PyGILState_Release(gilstate);
+    return false;
+  }
+
+  // Create the kwargs dictionary.
+  PyObject *kwargs = PyDict_New();
+
+  if (!kwargs) {
+    std::cout << "WARNING:  Couldn't create kwargs dicsionary." << std::endl;
+    PyGILState_Release(gilstate);
+    return false;
+  }
+
+  PyObject *instance_name = PyUnicode_FromString(mtl->id.name + 2);
+  PyDict_SetItemString(kwargs, "instance_name", instance_name);
+  Py_DECREF(instance_name);
+
+  PyObject *render_context_arg = PyUnicode_FromString(render_context.c_str());
+  PyDict_SetItemString(kwargs, "render_context", render_context_arg);
+  Py_DECREF(render_context_arg);
+
+  std::cout << func_name << " arguments:\n";
+  print_obj(kwargs);
+
+  PyObject *empty_args = PyTuple_New(0);
+  PyObject *ret = PyObject_Call(func, empty_args, kwargs);
+  Py_DECREF(empty_args);
+  Py_DECREF(func);
+
+  bool success = ret != nullptr;
+
+  if (ret) {
+    std::cout << "result:\n";
+    print_obj(ret);
+    set_shader_properties(usd_export_context, usd_shader, ret);
+    Py_DECREF(ret);
+  }
+
+  Py_DECREF(kwargs);
+
+  PyGILState_Release(gilstate);
+
+  return success;
+}
+
+void USDUMM::set_shader_properties(const USDExporterContext &usd_export_context,
+                                   pxr::UsdShadeShader &usd_shader,
+                                   PyObject *data_list) const
+{
+  if (!(data_list && usd_shader)) {
+    return;
+  }
+
+  if (!PyList_Check(data_list)) {
+    return;
+  }
+
+  Py_ssize_t len = PyList_Size(data_list);
+
+  for (Py_ssize_t i = 0; i < len; ++i) {
+    PyObject *tup = PyList_GetItem(data_list, i);
+
+    if (!tup) {
+      continue;
+    }
+
+    std::string name;
+
+    if (!get_data_name(tup, name) || name.empty()) {
+      std::cout << "Couldn't get data name\n";
+      continue;
+    }
+
+    if (is_none_value(tup)) {
+      /* Receiving None values is not an error. */
+      continue;
+    }
+
+    if (name == "umm_target_class") {
+      std::string target_class;
+      if (!get_string_data(tup, target_class) || target_class.empty()) {
+        std::cout << "Couldn't get target class\n";
+        continue;
+      }
+      set_source_asset(usd_shader, target_class);
+    }
+    else {
+      if (!(PyTuple_Check(tup) && PyTuple_Size(tup) > 1)) {
+        std::cout << "Unexpected data item type or size:\n";
+        print_obj(tup);
+        continue;
+      }
+
+      PyObject *second = PyTuple_GetItem(tup, 1);
+      if (!second) {
+        std::cout << "Couldn't get second tuple value:\n";
+        print_obj(tup);
+        continue;
+      }
+
+      if (PyFloat_Check(second)) {
+        float fval = static_cast<float>(PyFloat_AsDouble(second));
+        usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Float).Set(fval);
+      }
+      else if (PyBool_Check(second)) {
+        bool bval = static_cast<bool>(PyLong_AsLong(second));
+        usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Bool).Set(bval);
+      }
+      else if (PyLong_Check(second)) {
+        // For now, assume int values should be floats.
+        float fval = static_cast<float>(PyLong_AsDouble(second));
+        usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Float).Set(fval);
+      }
+      else if (PyList_Check(second) && PyList_Size(second) == 2) {
+        PyObject *item0 = PyList_GetItem(second, 0);
+        PyObject *item1 = PyList_GetItem(second, 1);
+
+        if (PyUnicode_Check(item0) && PyUnicode_Check(item1)) {
+          const char *asset = PyUnicode_AsUTF8(item0);
+          const char *color_space = PyUnicode_AsUTF8(item1);
+          pxr::UsdShadeInput asset_input = usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Asset);
+          asset_input.Set(pxr::SdfAssetPath(asset));
+          asset_input.GetAttr().SetColorSpace(pxr::TfToken(color_space));
+        }
+      }
+      else if (PyTuple_Check(second) && PyTuple_Size(second) == 3) {
+        pxr::GfVec3f f3val;
+        for (int i = 0; i < 3; ++i) {
+          PyObject *comp = PyTuple_GetItem(second, i);
+          if (comp && PyFloat_Check(comp)) {
+            f3val[i] = static_cast<float>(PyFloat_AsDouble(comp));
+          }
+          else {
+            std::cout << "Couldn't parse color3f " << name << std::endl;
+          }
+        }
+        usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Color3f).Set(f3val);
+      }
+      else {
+        std::cout << "Can't handle value:\n";
+        print_obj(second);
+      }
+    }
+  }
 }
 
 }  // Namespace blender::io::usd

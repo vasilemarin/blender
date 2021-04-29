@@ -257,7 +257,7 @@ void compute_node_loc(const int column, float &r_locx, float &r_locy, NodePlacem
 }  // namespace
 
 USDMaterialReader::USDMaterialReader(const USDImportParams &params, Main *bmain)
-    : params_(params), bmain_(bmain), umm_(params, bmain)
+    : params_(params), bmain_(bmain), umm_(bmain)
 {
 }
 
@@ -273,10 +273,10 @@ Material *USDMaterialReader::add_material(const pxr::UsdShadeMaterial &usd_mater
   Material *mtl = BKE_material_add(bmain_, mtl_name.c_str());
 
   /* Get the UsdPreviewSurface shader source for the material,
-    * if there is one. */
+   * if there is one. */
   pxr::UsdShadeShader usd_preview;
   if (get_usd_preview_surface(usd_material, usd_preview)) {
-      set_viewport_material_props(mtl, usd_preview);
+    set_viewport_material_props(mtl, usd_preview);
 
     /* Optionally, create shader nodes to represent a UsdPreviewSurface. */
     if (params_.import_shaders_mode == USD_IMPORT_USD_PREVIEW_SURFACE) {
