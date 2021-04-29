@@ -48,7 +48,6 @@ USDStageReader::USDStageReader(struct Main *bmain, const char *filename)
 USDStageReader::~USDStageReader()
 {
   clear_readers(true);
-  clear_proto_readers(true);
 
   if (stage_) {
     stage_->Unload();
@@ -66,10 +65,7 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
 {
   USDPrimReader *reader = nullptr;
 
-  if (params.use_instancing && prim.IsInstance()) {
-    reader = new USDInstanceReader(prim, params, settings);
-  }
-  else if (params.import_cameras && prim.IsA<pxr::UsdGeomCamera>()) {
+  if (params.import_cameras && prim.IsA<pxr::UsdGeomCamera>()) {
     reader = new USDCameraReader(prim, params, settings);
   }
   else if (params.import_curves && prim.IsA<pxr::UsdGeomBasisCurves>()) {
@@ -180,11 +176,48 @@ static bool _prune_by_purpose(const pxr::UsdGeomImageable &imageable,
   return false;
 }
 
+/* Determine if the given reader can use the parent of the encapsulated USD prim
+ * to compute the Blender object's transform. If so, the reader is appropriately
+ * flagged and the function returns true. Otherwise, the function returns false. */
+static bool _merge_with_parent(USDPrimReader *reader)
+{
+  USDXformReader *xform_reader = dynamic_cast<USDXformReader *>(reader);
+
+  if (!xform_reader) {
+    return false;
+  }
+
+  /* Check if the Xform reader is already merged. */
+  if (xform_reader->use_parent_xform()) {
+    return false;
+  }
+
+  /* Only merge if the parent is an Xform. */
+  if (!xform_reader->prim().GetParent().IsA<pxr::UsdGeomXform>()) {
+    return false;
+  }
+
+  /* Don't merge Xform and Scope prims. */
+  if (xform_reader->prim().IsA<pxr::UsdGeomXform>() ||
+      xform_reader->prim().IsA<pxr::UsdGeomScope>()) {
+    return false;
+  }
+
+  /* Don't merge if the prim has authored transform ops. */
+  if (xform_reader->prim_has_xform_ops()) {
+    return false;
+  }
+
+  /* Flag the Xform reader as merged. */
+  xform_reader->set_use_parent_xform(true);
+
+  return true;
+}
+
 static USDPrimReader *_handlePrim(Main *bmain,
                                   pxr::UsdStageRefPtr stage,
                                   const USDImportParams &params,
                                   pxr::UsdPrim prim,
-                                  USDPrimReader *parent_reader,
                                   std::vector<USDPrimReader *> &readers,
                                   const ImportSettings &settings)
 {
@@ -200,35 +233,51 @@ static USDPrimReader *_handlePrim(Main *bmain,
     }
   }
 
-  USDPrimReader *reader = NULL;
-
-  // This check prevents the stage pseudo 'root' prim
-  // or the root prims of scenegraph 'master' prototypes
-  // from being added.
-  if (!(prim.IsPseudoRoot() || prim.IsMaster())) {
-    reader = USDStageReader::create_reader(prim, params, settings);
-
-    if (reader == NULL) {
-      return NULL;
-    }
-
-    reader->parent(parent_reader);
-    reader->create_object(bmain, 0.0);
-
-    readers.push_back(reader);
-    reader->incref();
-  }
-
   pxr::Usd_PrimFlagsPredicate filter_predicate = pxr::UsdPrimDefaultPredicate;
 
-  if (!params.use_instancing && params.import_instance_proxies) {
+  if (params.import_instance_proxies) {
     filter_predicate = pxr::UsdTraverseInstanceProxies(filter_predicate);
   }
 
   pxr::UsdPrimSiblingRange children = prim.GetFilteredChildren(filter_predicate);
 
+  std::vector<USDPrimReader *> child_readers;
+
   for (const auto &childPrim : children) {
-    _handlePrim(bmain, stage, params, childPrim, reader, readers, settings);
+    USDPrimReader *child_reader = _handlePrim(bmain, stage, params, childPrim, readers, settings);
+    if (child_reader) {
+      child_readers.push_back(child_reader);
+    }
+  }
+
+  /* Check if we can merge an Xform with its child prim. */
+  if (child_readers.size() == 1) {
+
+    USDPrimReader *child_reader = child_readers.front();
+
+    if (_merge_with_parent(child_reader)) {
+      return child_reader;
+    }
+  }
+
+  USDPrimReader *reader = nullptr;
+
+  if (!prim.IsPseudoRoot()) {
+    reader = USDStageReader::create_reader(prim, params, settings);
+
+    if (reader == nullptr) {
+      return nullptr;
+    }
+
+    reader->create_object(bmain, 0.0);
+
+    readers.push_back(reader);
+    reader->incref();
+
+    /* Set each child reader's parent. */
+    for (USDPrimReader *child_reader : child_readers) {
+      child_reader->parent(reader);
+    }
   }
 
   return reader;
@@ -242,7 +291,6 @@ void USDStageReader::collect_readers(Main *bmain,
   settings_ = settings;
 
   clear_readers(true);
-  clear_proto_readers(true);
 
   // Iterate through stage
   pxr::UsdPrim root = stage_->GetPseudoRoot();
@@ -267,18 +315,7 @@ void USDStageReader::collect_readers(Main *bmain,
   }
 
   stage_->SetInterpolationType(pxr::UsdInterpolationType::UsdInterpolationTypeHeld);
-  _handlePrim(bmain, stage_, params, root, NULL, readers_, settings);
-
-  if (params.use_instancing) {
-    // Collect the scenegraph instance prototypes.
-    std::vector<pxr::UsdPrim> protos = stage_->GetMasters();
-
-    for (const pxr::UsdPrim &proto_prim : protos) {
-      std::vector<USDPrimReader *> proto_readers;
-      _handlePrim(bmain, stage_, params, proto_prim, NULL, proto_readers, settings);
-      proto_readers_.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
-    }
-  }
+  _handlePrim(bmain, stage_, params, root, readers_, settings);
 }
 
 void USDStageReader::clear_readers(bool decref)
@@ -298,31 +335,6 @@ void USDStageReader::clear_readers(bool decref)
   }
 
   readers_.clear();
-}
-
-void USDStageReader::clear_proto_readers(bool decref)
-{
-  for (auto &pair : proto_readers_) {
-
-    for (USDPrimReader *reader : pair.second) {
-
-      if (!reader) {
-        continue;
-      }
-
-      if (decref) {
-        reader->decref();
-      }
-
-      if (reader->refcount() == 0) {
-        delete reader;
-      }
-    }
-
-    pair.second.clear();
-  }
-
-  proto_readers_.clear();
 }
 
 }  // Namespace blender::io::usd
