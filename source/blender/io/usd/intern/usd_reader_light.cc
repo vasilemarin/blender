@@ -55,20 +55,17 @@ static const pxr::TfToken width("width", pxr::TfToken::Immortal);
 
 namespace {
 
-template <typename T>
-bool get_authored_value(const pxr::UsdAttribute attr,
-                        const double motionSampleTime,
-                        T *r_value)
+template<typename T>
+bool get_authored_value(const pxr::UsdAttribute attr, const double motionSampleTime, T *r_value)
 {
-  if (attr && attr.HasAuthoredValue())
-  {
+  if (attr && attr.HasAuthoredValue()) {
     return attr.Get<T>(r_value, motionSampleTime);
   }
 
   return false;
 }
 
-} // End anonymous namespace.
+}  // End anonymous namespace.
 
 namespace blender::io::usd {
 
