@@ -19,7 +19,6 @@
 #pragma once
 
 #include "usd.h"
-#include "usd_umm.h"
 
 #include <pxr/usd/usdShade/material.h>
 
@@ -82,7 +81,6 @@ class USDMaterialReader {
  protected:
   USDImportParams params_;
   Main *bmain_;
-  USDUMM umm_;
 
  public:
   USDMaterialReader(const USDImportParams &params, Main *bmain);

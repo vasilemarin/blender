@@ -2169,8 +2169,6 @@ void create_mdl_material(const USDExporterContext &usd_export_context,
     return;
   }
 
-  USDUMM umm(nullptr);
-
   usd_define_or_over<pxr::UsdGeomScope>(usd_export_context.stage,
                                         usd_material.GetPath().AppendChild(usdtokens::mdl),
                                         usd_export_context.export_params.export_as_overs);
@@ -2200,7 +2198,7 @@ void create_mdl_material(const USDExporterContext &usd_export_context,
 
   material_surface_output.ConnectToSource(shader, usdtokens::out);
 
-  umm.map_material_to_usd(usd_export_context, material, shader, "MDL");
+  umm_export_material(usd_export_context, material, shader, "MDL");
 
 #endif
 }

@@ -19,6 +19,8 @@
 
 #include "usd_reader_material.h"
 
+#include "usd_umm.h"
+
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -257,7 +259,7 @@ void compute_node_loc(const int column, float &r_locx, float &r_locy, NodePlacem
 }  // namespace
 
 USDMaterialReader::USDMaterialReader(const USDImportParams &params, Main *bmain)
-    : params_(params), bmain_(bmain), umm_(bmain)
+    : params_(params), bmain_(bmain)
 {
 }
 
@@ -285,7 +287,7 @@ Material *USDMaterialReader::add_material(const pxr::UsdShadeMaterial &usd_mater
   }
 
   if (params_.import_shaders_mode == USD_IMPORT_MDL) {
-    umm_.map_material(mtl, usd_material);
+    umm_import_material(mtl, usd_material);
   }
 
   return mtl;
