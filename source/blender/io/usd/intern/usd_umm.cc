@@ -17,14 +17,14 @@
 
 #ifdef WITH_PYTHON
 
-#include "usd.h"
-#include "usd_umm.h"
-#include "usd_exporter_context.h"
+#  include "usd_umm.h"
+#  include "usd.h"
+#  include "usd_exporter_context.h"
 
-#include "DNA_material_types.h"
+#  include "DNA_material_types.h"
 
-#include <iostream>
-#include <vector>
+#  include <iostream>
+#  include <vector>
 
 // The following is additional example code for invoking Python and
 // a Blender Python operator from C++:
@@ -32,17 +32,17 @@
 //#include "BPY_extern_python.h"
 //#include "BPY_extern_run.h"
 
-//const char *foo[] = { "bpy", 0 };
-//BPY_run_string_eval(C, nullptr, "print('hi!!')");
-//BPY_run_string_eval(C, foo, "bpy.ops.universalmaterialmap.instance_to_data_converter()");
-//BPY_run_string_eval(C, nullptr, "print('test')");
+// const char *foo[] = { "bpy", 0 };
+// BPY_run_string_eval(C, nullptr, "print('hi!!')");
+// BPY_run_string_eval(C, foo, "bpy.ops.universalmaterialmap.instance_to_data_converter()");
+// BPY_run_string_eval(C, nullptr, "print('test')");
 
 namespace usdtokens {
 
 // Render context names.
 static const pxr::TfToken mdl("mdl", pxr::TfToken::Immortal);
 
-} // end namespace usdtokens
+}  // end namespace usdtokens
 
 static PyObject *g_umm_module = nullptr;
 
@@ -50,7 +50,8 @@ static const char *k_umm_module_name = "omni.universalmaterialmap.blender.materi
 static const char *k_omni_pbr_mdl_name = "OmniPBR.mdl";
 static const char *k_omni_pbr_name = "OmniPBR";
 
-static void print_obj(PyObject *obj) {
+static void print_obj(PyObject *obj)
+{
   if (!obj) {
     return;
   }
@@ -94,12 +95,12 @@ static bool set_source_asset(pxr::UsdShadeShader &usd_shader, const std::string 
   std::string source_asset_subidentifier = target_class.substr(sep + 1);
 
   if (!source_asset_subidentifier.empty()) {
-    usd_shader.SetSourceAssetSubIdentifier(pxr::TfToken(source_asset_subidentifier), usdtokens::mdl);
+    usd_shader.SetSourceAssetSubIdentifier(pxr::TfToken(source_asset_subidentifier),
+                                           usdtokens::mdl);
   }
 
   return true;
 }
-
 
 static bool get_data_name(PyObject *tup, std::string &r_name)
 {
@@ -294,14 +295,14 @@ static PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader)
       }
       else {
         std::cerr << "ERROR: couldn't get connected source for usd shader input "
-          << input.GetPrim().GetPath() << " " << input.GetFullName() << std::endl;
+                  << input.GetPrim().GetPath() << " " << input.GetFullName() << std::endl;
       }
     }
 
     pxr::VtValue val;
     if (!usd_attr.Get(&val)) {
-      std::cerr << "ERROR: couldn't get value for usd shader input "
-        << input.GetPrim().GetPath() << " " << input.GetFullName() << std::endl;
+      std::cerr << "ERROR: couldn't get value for usd shader input " << input.GetPrim().GetPath()
+                << " " << input.GetFullName() << std::endl;
       continue;
     }
 
@@ -325,7 +326,7 @@ static PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader)
       pxr::TfToken color_space_tok = usd_attr.GetColorSpace();
 
       std::string color_space_str = !color_space_tok.IsEmpty() ? color_space_tok.GetString() :
-        "sRGB";
+                                                                 "sRGB";
 
       PyObject *tex_file_tup = Py_BuildValue("ss", resolved_path.c_str(), color_space_str.c_str());
 
@@ -339,8 +340,8 @@ static PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader)
         tup = Py_BuildValue("sN", name.c_str(), v3_tup);
       }
       else {
-        std::cout << "Couldn't build v3f tuple for " << usd_shader.GetPath()
-          << " input " << input.GetFullName() << std::endl;
+        std::cout << "Couldn't build v3f tuple for " << usd_shader.GetPath() << " input "
+                  << input.GetFullName() << std::endl;
       }
     }
     else if (val.IsHolding<pxr::GfVec2f>()) {
@@ -353,8 +354,8 @@ static PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader)
         tup = Py_BuildValue("sN", name.c_str(), v2_tup);
       }
       else {
-        std::cout << "Couldn't build v2f tuple for " << usd_shader.GetPath()
-          << " input " << input.GetFullName() << std::endl;
+        std::cout << "Couldn't build v2f tuple for " << usd_shader.GetPath() << " input "
+                  << input.GetFullName() << std::endl;
       }
     }
 
@@ -377,7 +378,6 @@ static PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader)
 
   return ret;
 }
-
 
 static bool import_material(Material *mtl,
                             const pxr::UsdShadeShader &usd_shader,
@@ -413,13 +413,14 @@ static bool import_material(Material *mtl,
   PyObject *source_data = get_shader_source_data(usd_shader);
 
   if (!source_data) {
-    std::cout << "WARNING:  Couldn't get source data for shader " << usd_shader.GetPath() << std::endl;
+    std::cout << "WARNING:  Couldn't get source data for shader " << usd_shader.GetPath()
+              << std::endl;
     PyGILState_Release(gilstate);
     return false;
   }
 
-  //std::cout << "source_data:\n";
-  //print_obj(source_data);
+  // std::cout << "source_data:\n";
+  // print_obj(source_data);
 
   // Create the kwargs dictionary.
   PyObject *kwargs = PyDict_New();
@@ -468,7 +469,6 @@ static bool import_material(Material *mtl,
 
   return success;
 }
-
 
 static void set_shader_properties(const blender::io::usd::USDExporterContext &usd_export_context,
                                   pxr::UsdShadeShader &usd_shader,
@@ -545,7 +545,8 @@ static void set_shader_properties(const blender::io::usd::USDExporterContext &us
         if (PyUnicode_Check(item0) && PyUnicode_Check(item1)) {
           const char *asset = PyUnicode_AsUTF8(item0);
           const char *color_space = PyUnicode_AsUTF8(item1);
-          pxr::UsdShadeInput asset_input = usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Asset);
+          pxr::UsdShadeInput asset_input = usd_shader.CreateInput(pxr::TfToken(name),
+                                                                  pxr::SdfValueTypeNames->Asset);
           asset_input.Set(pxr::SdfAssetPath(asset));
           asset_input.GetAttr().SetColorSpace(pxr::TfToken(color_space));
         }
@@ -571,8 +572,7 @@ static void set_shader_properties(const blender::io::usd::USDExporterContext &us
   }
 }
 
-namespace blender::io::usd
-{
+namespace blender::io::usd {
 
 bool umm_import_material(Material *mtl, const pxr::UsdShadeMaterial &usd_material)
 {
@@ -591,7 +591,8 @@ bool umm_import_material(Material *mtl, const pxr::UsdShadeMaterial &usd_materia
     }
     pxr::TfToken source_asset_sub_identifier;
     if (!surf_shader.GetSourceAssetSubIdentifier(&source_asset_sub_identifier, usdtokens::mdl)) {
-      std::cout << "No mdl source asset sub identifier for shader " << surf_shader.GetPath() << std::endl;
+      std::cout << "No mdl source asset sub identifier for shader " << surf_shader.GetPath()
+                << std::endl;
     }
 
     std::string path = source_asset.GetAssetPath();
@@ -608,7 +609,6 @@ bool umm_import_material(Material *mtl, const pxr::UsdShadeMaterial &usd_materia
 
   return false;
 }
-
 
 bool umm_export_material(const USDExporterContext &usd_export_context,
                          const Material *mtl,
@@ -683,8 +683,6 @@ bool umm_export_material(const USDExporterContext &usd_export_context,
   return success;
 }
 
-
-
 }  // Namespace blender::io::usd
 
-#endif // ifdef WITH_PYTHON
+#endif  // ifdef WITH_PYTHON

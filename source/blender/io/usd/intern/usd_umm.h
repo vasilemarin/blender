@@ -19,9 +19,9 @@
 
 #ifdef WITH_PYTHON
 
-#include <pxr/usd/usdShade/material.h>
+#  include <pxr/usd/usdShade/material.h>
 
-#include "Python.h"
+#  include "Python.h"
 
 struct Material;
 
@@ -36,6 +36,6 @@ bool umm_export_material(const USDExporterContext &usd_export_context,
                          pxr::UsdShadeShader &usd_shader,
                          const std::string &render_context);
 
-}  // Namespace blender::io::usd::umm
+}  // namespace blender::io::usd
 
 #endif
