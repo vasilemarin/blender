@@ -42,6 +42,34 @@ extern "C" {
 
 #include <iostream>
 
+namespace usdtokens {
+// Attribute names.
+static const pxr::TfToken angle("angle", pxr::TfToken::Immortal);
+static const pxr::TfToken color("color", pxr::TfToken::Immortal);
+static const pxr::TfToken height("height", pxr::TfToken::Immortal);
+static const pxr::TfToken intensity("intensity", pxr::TfToken::Immortal);
+static const pxr::TfToken radius("radius", pxr::TfToken::Immortal);
+static const pxr::TfToken specular("specular", pxr::TfToken::Immortal);
+static const pxr::TfToken width("width", pxr::TfToken::Immortal);
+}  // namespace usdtokens
+
+namespace {
+
+template <typename T>
+bool get_authored_value(const pxr::UsdAttribute attr,
+                        const double motionSampleTime,
+                        T *r_value)
+{
+  if (attr && attr.HasAuthoredValue())
+  {
+    return attr.Get<T>(r_value, motionSampleTime);
+  }
+
+  return false;
+}
+
+} // End anonymous namespace.
+
 namespace blender::io::usd {
 
 void USDLightReader::create_object(Main *bmain, const double /* motionSampleTime */)
@@ -88,10 +116,16 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
   // Set light values
 
-  pxr::VtValue intensity;
-  light_prim.GetIntensityAttr().Get(&intensity, motionSampleTime);
+  /* In USD 21, light attributes were renamed to have an 'inputs:' prefix
+   * (e.g., 'inputs:intensity'). Here and below, for backward compatibility
+   * with older USD versions, we also query attributes using the previous
+   * naming scheme that omits this prefix. */
 
-  blight->energy = intensity.Get<float>() * this->import_params_.light_intensity_scale;
+  float intensity;
+  if (get_authored_value(light_prim.GetIntensityAttr(), motionSampleTime, &intensity) ||
+      prim_.GetAttribute(usdtokens::intensity).Get(&intensity, motionSampleTime)) {
+    blight->energy = intensity * this->import_params_.light_intensity_scale;
+  }
 
   // TODO: Not currently supported
   // pxr::VtValue exposure;
@@ -101,17 +135,19 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   // pxr::VtValue diffuse;
   // light_prim.GetDiffuseAttr().Get(&diffuse, motionSampleTime);
 
-  pxr::VtValue specular;
-  light_prim.GetSpecularAttr().Get(&specular, motionSampleTime);
-  blight->spec_fac = specular.Get<float>();
+  float specular;
+  if (get_authored_value(light_prim.GetSpecularAttr(), motionSampleTime, &specular) ||
+      prim_.GetAttribute(usdtokens::specular).Get(&specular, motionSampleTime)) {
+    blight->spec_fac = specular;
+  }
 
-  pxr::VtValue color;
-  light_prim.GetColorAttr().Get(&color, motionSampleTime);
-  // Calling UncheckedGet() to silence compiler warning.
-  pxr::GfVec3f color_vec = color.UncheckedGet<pxr::GfVec3f>();
-  blight->r = color_vec[0];
-  blight->g = color_vec[1];
-  blight->b = color_vec[2];
+  pxr::GfVec3f color;
+  if (get_authored_value(light_prim.GetColorAttr(), motionSampleTime, &color) ||
+      prim_.GetAttribute(usdtokens::color).Get(&color, motionSampleTime)) {
+    blight->r = color[0];
+    blight->g = color[1];
+    blight->b = color[2];
+  }
 
   // TODO: Not currently supported
   // pxr::VtValue use_color_temp;
@@ -127,23 +163,27 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxRectLight rect_light(prim_);
 
-        pxr::VtValue width;
-        rect_light.GetWidthAttr().Get(&width, motionSampleTime);
+        float width;
+        if (get_authored_value(rect_light.GetWidthAttr(), motionSampleTime, &width) ||
+            prim_.GetAttribute(usdtokens::width).Get(&width, motionSampleTime)) {
+          blight->area_size = width;
+        }
 
-        pxr::VtValue height;
-        rect_light.GetHeightAttr().Get(&height, motionSampleTime);
-
-        blight->area_size = width.Get<float>();
-        blight->area_sizey = height.Get<float>();
+        float height;
+        if (get_authored_value(rect_light.GetHeightAttr(), motionSampleTime, &height) ||
+            prim_.GetAttribute(usdtokens::height).Get(&height, motionSampleTime)) {
+          blight->area_sizey = height;
+        }
       }
       else if (blight->area_shape == LA_AREA_DISK && prim_.IsA<pxr::UsdLuxDiskLight>()) {
 
         pxr::UsdLuxDiskLight disk_light(prim_);
 
-        pxr::VtValue radius;
-        disk_light.GetRadiusAttr().Get(&radius, motionSampleTime);
-
-        blight->area_size = radius.Get<float>() * 2.0f;
+        float radius;
+        if (get_authored_value(disk_light.GetRadiusAttr(), motionSampleTime, &radius) ||
+            prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
+          blight->area_size = radius * 2.0f;
+        }
       }
       break;
     case LA_LOCAL:
@@ -151,10 +191,11 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxSphereLight sphere_light(prim_);
 
-        pxr::VtValue radius;
-        sphere_light.GetRadiusAttr().Get(&radius, motionSampleTime);
-
-        blight->area_size = radius.Get<float>();
+        float radius;
+        if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
+            prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
+          blight->area_size = radius;
+        }
       }
       break;
     case LA_SPOT:
@@ -162,10 +203,11 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxSphereLight sphere_light(prim_);
 
-        pxr::VtValue radius;
-        sphere_light.GetRadiusAttr().Get(&radius, motionSampleTime);
-
-        blight->area_size = radius.Get<float>();
+        float radius;
+        if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
+            prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
+          blight->area_size = radius;
+        }
 
         pxr::VtValue coneAngle;
         shapingAPI.GetShapingConeAngleAttr().Get(&coneAngle, motionSampleTime);
@@ -180,9 +222,11 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
       if (prim_.IsA<pxr::UsdLuxDistantLight>()) {
         pxr::UsdLuxDistantLight distant_light(prim_);
 
-        pxr::VtValue angle;
-        distant_light.GetAngleAttr().Get(&angle, motionSampleTime);
-        blight->sun_angle = angle.Get<float>();
+        float angle;
+        if (get_authored_value(distant_light.GetAngleAttr(), motionSampleTime, &angle) ||
+            prim_.GetAttribute(usdtokens::angle).Get(&angle, motionSampleTime)) {
+          blight->sun_angle = angle;
+        }
       }
       break;
   }
