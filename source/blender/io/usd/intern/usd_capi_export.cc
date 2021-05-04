@@ -20,6 +20,7 @@
 #include "usd.h"
 #include "usd_common.h"
 #include "usd_hierarchy_iterator.h"
+#include "usd_umm.h"
 #include "usd_writer_material.h"
 
 #include <pxr/base/plug/registry.h>
@@ -393,4 +394,13 @@ int USD_get_version(void)
    * So the major version is implicit/invisible in the public version number.
    */
   return PXR_VERSION;
+}
+
+bool USD_umm_module_loaded(void)
+{
+#ifdef WITH_PYTHON
+  return blender::io::usd::umm_module_loaded();
+#else
+  return fasle;
+#endif
 }

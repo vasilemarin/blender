@@ -287,7 +287,9 @@ Material *USDMaterialReader::add_material(const pxr::UsdShadeMaterial &usd_mater
   }
 
   if (params_.import_shaders_mode == USD_IMPORT_MDL) {
+#ifdef WITH_PYTHON
     umm_import_material(mtl, usd_material);
+#endif
   }
 
   return mtl;

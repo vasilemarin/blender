@@ -159,6 +159,8 @@ bool USD_import(struct bContext *C,
 
 int USD_get_version(void);
 
+bool USD_umm_module_loaded(void);
+
 // ----- USD Import and Mesh Cache interface
 
 struct CacheArchiveHandle *USD_create_handle(struct Main *bmain,

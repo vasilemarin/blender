@@ -228,12 +228,12 @@ static bool get_rgba_data(PyObject *tup, float r_data[4])
 }
 
 /* Be sure to call PyGILState_Ensure() before calling this function. */
-static bool ensure_module_loaded()
+static bool ensure_module_loaded(bool warn = true)
 {
 
   if (!g_umm_module) {
     g_umm_module = PyImport_ImportModule(k_umm_module_name);
-    if (!g_umm_module) {
+    if (warn && !g_umm_module) {
       std::cout << "WARNING: couldn't load Python module " << k_umm_module_name << std::endl;
     }
   }
@@ -580,6 +580,11 @@ static void set_shader_properties(const USDExporterContext &usd_export_context,
 }
 
 namespace blender::io::usd {
+
+bool umm_module_loaded()
+{
+  return ensure_module_loaded(false /* warn */);
+}
 
 bool umm_import_material(Material *mtl, const pxr::UsdShadeMaterial &usd_material)
 {
