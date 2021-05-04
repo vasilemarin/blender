@@ -504,79 +504,7 @@ static std::string get_node_tex_image_filepath(bNode *node,
 {
   std::string image_path = get_node_tex_image_filepath(node);
 
-  if (image_path.empty()) {
-    return image_path;
-  }
-
-  if (!stage) {
-    return image_path;
-  }
-
-  if (!(export_params.relative_texture_paths || export_params.export_textures)) {
-    return image_path;
-  }
-
-  // TODO(makowalski): avoid recomputing the USD path, if possible.
-  pxr::SdfLayerHandle layer = stage->GetRootLayer();
-
-  std::string stage_path = layer->GetRealPath();
-
-  if (stage_path.empty()) {
-    return image_path;
-  }
-
-  /* If we are exporting textures, set the textures directory in the path. */
-  if (export_params.export_textures) {
-    char dir_path[FILE_MAX];
-    char file_path[FILE_MAX];
-    BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
-    BLI_split_file_part(image_path.c_str(), file_path, FILE_MAX);
-
-    ensure_forward_slashes(dir_path, FILE_MAX);
-
-    if (export_params.relative_texture_paths) {
-      image_path = "./textures/";
-    }
-    else {
-      image_path = std::string(dir_path);
-      if (image_path.back() != '/' && image_path.back() != '\\') {
-        image_path += "/";
-      }
-      image_path += "textures/";
-    }
-
-    image_path += std::string(file_path);
-    return image_path;
-  }
-
-  // Get the path relative to the USD.
-  char rel_path[FILE_MAX];
-
-  strcpy(rel_path, image_path.c_str());
-
-  BLI_path_rel(rel_path, stage_path.c_str());
-
-  /* BLI_path_rel adds '//' as a prefix to the path, if
-   * generating the relative path was successful. */
-  if (rel_path[0] != '/' || rel_path[1] != '/') {
-    /* No relative path generated. */
-    return image_path;
-  }
-
-  int offset = 0;
-
-  if (rel_path[2] != '.') {
-    rel_path[0] = '.';
-  }
-  else {
-    offset = 2;
-  }
-
-  ensure_forward_slashes(rel_path, FILE_MAX);
-
-  image_path = std::string(rel_path + offset);
-
-  return image_path;
+  return get_texture_filepath(image_path, stage, export_params);
 }
 
 static pxr::TfToken get_node_tex_image_color_space(bNode *node)
@@ -2291,6 +2219,85 @@ void export_texture(bNode *node, pxr::UsdStageRefPtr stage)
       }
     }
   }
+}
+
+std::string get_texture_filepath(const std::string &in_path,
+                                 const pxr::UsdStageRefPtr stage,
+                                 const USDExportParams &export_params)
+{
+  if (!(export_params.relative_texture_paths || export_params.export_textures)) {
+    return in_path;
+  }
+
+  if (in_path.empty()) {
+    return in_path;
+  }
+
+  if (!stage) {
+    return in_path;
+  }
+
+  // TODO(makowalski): avoid recomputing the USD path, if possible.
+  pxr::SdfLayerHandle layer = stage->GetRootLayer();
+
+  std::string stage_path = layer->GetRealPath();
+
+  if (stage_path.empty()) {
+    return in_path;
+  }
+
+  /* If we are exporting textures, set the textures directory in the path. */
+  if (export_params.export_textures) {
+    char dir_path[FILE_MAX];
+    char file_path[FILE_MAX];
+    BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
+    BLI_split_file_part(in_path.c_str(), file_path, FILE_MAX);
+
+    ensure_forward_slashes(dir_path, FILE_MAX);
+
+    std::string result;
+
+    if (export_params.relative_texture_paths) {
+      result = "./textures/";
+    }
+    else {
+      result = std::string(dir_path);
+      if (result.back() != '/' && result.back() != '\\') {
+        result += "/";
+      }
+      result += "textures/";
+    }
+
+    result += std::string(file_path);
+    return result;
+  }
+
+  // Get the path relative to the USD.
+  char rel_path[FILE_MAX];
+
+  strcpy(rel_path, in_path.c_str());
+
+  BLI_path_rel(rel_path, stage_path.c_str());
+
+  /* BLI_path_rel adds '//' as a prefix to the path, if
+   * generating the relative path was successful. */
+  if (rel_path[0] != '/' || rel_path[1] != '/') {
+    /* No relative path generated. */
+    return in_path;
+  }
+
+  int offset = 0;
+
+  if (rel_path[2] != '.') {
+    rel_path[0] = '.';
+  }
+  else {
+    offset = 2;
+  }
+
+  ensure_forward_slashes(rel_path, FILE_MAX);
+
+  return std::string(rel_path + offset);
 }
 
 }  // namespace blender::io::usd
