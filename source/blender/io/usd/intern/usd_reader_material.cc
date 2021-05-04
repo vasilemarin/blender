@@ -19,6 +19,8 @@
 
 #include "usd_reader_material.h"
 
+#include "usd_umm.h"
+
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -276,13 +278,18 @@ Material *USDMaterialReader::add_material(const pxr::UsdShadeMaterial &usd_mater
    * if there is one. */
   pxr::UsdShadeShader usd_preview;
   if (get_usd_preview_surface(usd_material, usd_preview)) {
-
     set_viewport_material_props(mtl, usd_preview);
 
     /* Optionally, create shader nodes to represent a UsdPreviewSurface. */
-    if (params_.import_usd_preview) {
+    if (params_.import_shaders_mode == USD_IMPORT_USD_PREVIEW_SURFACE) {
       import_usd_preview(mtl, usd_preview);
     }
+  }
+
+  if (params_.import_shaders_mode == USD_IMPORT_MDL) {
+#ifdef WITH_PYTHON
+    umm_import_material(mtl, usd_material);
+#endif
   }
 
   return mtl;

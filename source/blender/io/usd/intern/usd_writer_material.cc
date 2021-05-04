@@ -17,6 +17,7 @@
  * All rights reserved.
  */
 #include "usd_writer_material.h"
+#include "usd_umm.h"
 
 extern "C" {
 #include "BKE_animsys.h"
@@ -96,6 +97,8 @@ static const pxr::TfToken b("b", pxr::TfToken::Immortal);
 static const pxr::TfToken st("st", pxr::TfToken::Immortal);
 static const pxr::TfToken result("result", pxr::TfToken::Immortal);
 static const pxr::TfToken varname("varname", pxr::TfToken::Immortal);
+static const pxr::TfToken mdl("mdl", pxr::TfToken::Immortal);
+static const pxr::TfToken out("out", pxr::TfToken::Immortal);
 static const pxr::TfToken normal("normal", pxr::TfToken::Immortal);
 static const pxr::TfToken ior("ior", pxr::TfToken::Immortal);
 static const pxr::TfToken file("file", pxr::TfToken::Immortal);
@@ -103,6 +106,7 @@ static const pxr::TfToken preview("preview", pxr::TfToken::Immortal);
 static const pxr::TfToken raw("raw", pxr::TfToken::Immortal);
 static const pxr::TfToken sRGB("sRGB", pxr::TfToken::Immortal);
 static const pxr::TfToken sourceColorSpace("sourceColorSpace", pxr::TfToken::Immortal);
+static const pxr::TfToken Shader("Shader", pxr::TfToken::Immortal);
 }  // namespace usdtokens
 
 /* Cycles specific tokens (Blender Importer and HdCycles) */
@@ -500,79 +504,7 @@ static std::string get_node_tex_image_filepath(bNode *node,
 {
   std::string image_path = get_node_tex_image_filepath(node);
 
-  if (image_path.empty()) {
-    return image_path;
-  }
-
-  if (!stage) {
-    return image_path;
-  }
-
-  if (!(export_params.relative_texture_paths || export_params.export_textures)) {
-    return image_path;
-  }
-
-  // TODO(makowalski): avoid recomputing the USD path, if possible.
-  pxr::SdfLayerHandle layer = stage->GetRootLayer();
-
-  std::string stage_path = layer->GetRealPath();
-
-  if (stage_path.empty()) {
-    return image_path;
-  }
-
-  /* If we are exporting textures, set the textures directory in the path. */
-  if (export_params.export_textures) {
-    char dir_path[FILE_MAX];
-    char file_path[FILE_MAX];
-    BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
-    BLI_split_file_part(image_path.c_str(), file_path, FILE_MAX);
-
-    ensure_forward_slashes(dir_path, FILE_MAX);
-
-    if (export_params.relative_texture_paths) {
-      image_path = "./textures/";
-    }
-    else {
-      image_path = std::string(dir_path);
-      if (image_path.back() != '/' && image_path.back() != '\\') {
-        image_path += "/";
-      }
-      image_path += "textures/";
-    }
-
-    image_path += std::string(file_path);
-    return image_path;
-  }
-
-  // Get the path relative to the USD.
-  char rel_path[FILE_MAX];
-
-  strcpy(rel_path, image_path.c_str());
-
-  BLI_path_rel(rel_path, stage_path.c_str());
-
-  /* BLI_path_rel adds '//' as a prefix to the path, if
-   * generating the relative path was successful. */
-  if (rel_path[0] != '/' || rel_path[1] != '/') {
-    /* No relative path generated. */
-    return image_path;
-  }
-
-  int offset = 0;
-
-  if (rel_path[2] != '.') {
-    rel_path[0] = '.';
-  }
-  else {
-    offset = 2;
-  }
-
-  ensure_forward_slashes(rel_path, FILE_MAX);
-
-  image_path = std::string(rel_path + offset);
-
-  return image_path;
+  return get_texture_filepath(image_path, stage, export_params);
 }
 
 static pxr::TfToken get_node_tex_image_color_space(bNode *node)
@@ -2156,8 +2088,51 @@ void create_usd_viewport_material(USDExporterContext const &usd_export_context_,
   usd_material.CreateSurfaceOutput().ConnectToSource(shader, usdtokens::surface);
 }
 
+void create_mdl_material(const USDExporterContext &usd_export_context,
+                         Material *material,
+                         pxr::UsdShadeMaterial &usd_material)
+{
+#ifdef WITH_PYTHON
+  if (!(material && usd_material)) {
+    return;
+  }
+
+  usd_define_or_over<pxr::UsdGeomScope>(usd_export_context.stage,
+                                        usd_material.GetPath().AppendChild(usdtokens::mdl),
+                                        usd_export_context.export_params.export_as_overs);
+
+  pxr::SdfPath shader_path =
+      usd_material.GetPath().AppendChild(usdtokens::mdl).AppendChild(usdtokens::Shader);
+
+  pxr::UsdShadeShader shader = (usd_export_context.export_params.export_as_overs) ?
+                                   pxr::UsdShadeShader(
+                                       usd_export_context.stage->OverridePrim(shader_path)) :
+                                   pxr::UsdShadeShader::Define(usd_export_context.stage,
+                                                               shader_path);
+
+  if (!shader) {
+    std::cout << "WARNING in create_mdl_material(): couldn't create mdl shader " << shader_path
+              << std::endl;
+    return;
+  }
+
+  pxr::UsdShadeOutput material_surface_output = usd_material.CreateSurfaceOutput(usdtokens::mdl);
+
+  if (!material_surface_output) {
+    std::cout
+        << "WARNING in create_mdl_material(): couldn't create material 'mdl:surface' output.\n";
+    return;
+  }
+
+  material_surface_output.ConnectToSource(shader, usdtokens::out);
+
+  umm_export_material(usd_export_context, material, shader, "MDL");
+
+#endif
+}
+
 /* Based on ImagesExporter::export_UV_Image() */
-void export_texture(bNode *node, pxr::UsdStageRefPtr stage)
+void export_texture(bNode *node, const pxr::UsdStageRefPtr stage)
 {
   if (!stage || !node || node->type != SH_NODE_TEX_IMAGE) {
     return;
@@ -2244,6 +2219,103 @@ void export_texture(bNode *node, pxr::UsdStageRefPtr stage)
       }
     }
   }
+}
+
+/* Export the texture of every texture image node in the given material's node tree. */
+void export_textures(const Material *material, const pxr::UsdStageRefPtr stage)
+{
+  if (!(material && material->use_nodes)) {
+    return;
+  }
+
+  if (!stage) {
+    return;
+  }
+
+  for (bNode *node = (bNode *)material->nodetree->nodes.first; node; node = node->next) {
+    if (node->type == SH_NODE_TEX_IMAGE) {
+      export_texture(node, stage);
+    }
+  }
+}
+
+std::string get_texture_filepath(const std::string &in_path,
+                                 const pxr::UsdStageRefPtr stage,
+                                 const USDExportParams &export_params)
+{
+  if (!(export_params.relative_texture_paths || export_params.export_textures)) {
+    return in_path;
+  }
+
+  if (in_path.empty()) {
+    return in_path;
+  }
+
+  if (!stage) {
+    return in_path;
+  }
+
+  // TODO(makowalski): avoid recomputing the USD path, if possible.
+  pxr::SdfLayerHandle layer = stage->GetRootLayer();
+
+  std::string stage_path = layer->GetRealPath();
+
+  if (stage_path.empty()) {
+    return in_path;
+  }
+
+  /* If we are exporting textures, set the textures directory in the path. */
+  if (export_params.export_textures) {
+    char dir_path[FILE_MAX];
+    char file_path[FILE_MAX];
+    BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
+    BLI_split_file_part(in_path.c_str(), file_path, FILE_MAX);
+
+    ensure_forward_slashes(dir_path, FILE_MAX);
+
+    std::string result;
+
+    if (export_params.relative_texture_paths) {
+      result = "./textures/";
+    }
+    else {
+      result = std::string(dir_path);
+      if (result.back() != '/' && result.back() != '\\') {
+        result += "/";
+      }
+      result += "textures/";
+    }
+
+    result += std::string(file_path);
+    return result;
+  }
+
+  // Get the path relative to the USD.
+  char rel_path[FILE_MAX];
+
+  strcpy(rel_path, in_path.c_str());
+
+  BLI_path_rel(rel_path, stage_path.c_str());
+
+  /* BLI_path_rel adds '//' as a prefix to the path, if
+   * generating the relative path was successful. */
+  if (rel_path[0] != '/' || rel_path[1] != '/') {
+    /* No relative path generated. */
+    return in_path;
+  }
+
+  int offset = 0;
+
+  if (rel_path[2] != '.') {
+    rel_path[0] = '.';
+  }
+  else {
+    offset = 2;
+  }
+
+  ensure_forward_slashes(rel_path, FILE_MAX);
+
+  return std::string(rel_path + offset);
 }
 
 }  // namespace blender::io::usd

@@ -82,6 +82,31 @@ const EnumPropertyItem rna_enum_usd_import_read_flags[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+const EnumPropertyItem rna_enum_usd_import_shaders_mode_items[] = {
+    {USD_IMPORT_SHADERS_NONE, "NONE", 0, "None", "Don't import USD shaders"},
+    {USD_IMPORT_USD_PREVIEW_SURFACE,
+     "USD_PREVIEW_SURFACE",
+     0,
+     "USD Preview Surface",
+     "Convert USD Preview Surface shaders to Blender Principled BSDF"},
+    {USD_IMPORT_MDL,
+     "USD MDL",
+     0,
+     "MDL",
+     "Convert USD Preview Surface shaders to Blender Principled BSDF"},
+    {0, NULL, 0, NULL, NULL},
+};
+
+const EnumPropertyItem rna_enum_usd_import_shaders_mode_items_no_umm[] = {
+    {USD_IMPORT_SHADERS_NONE, "NONE", 0, "None", "Don't import USD shaders"},
+    {USD_IMPORT_USD_PREVIEW_SURFACE,
+     "USD_PREVIEW_SURFACE",
+     0,
+     "USD Preview Surface",
+     "Convert USD Preview Surface shaders to Blender Principled BSDF"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 const EnumPropertyItem prop_usd_export_global_forward[] = {
     {USD_GLOBAL_FORWARD_X, "X", 0, "X Forward", "Global Forward is positive X Axis"},
     {USD_GLOBAL_FORWARD_Y, "Y", 0, "Y Forward", "Global Forward is positive Y Axis"},
@@ -227,6 +252,10 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const float light_intensity_scale = RNA_float_get(op->ptr, "light_intensity_scale");
 
+  const bool generate_mdl = USD_umm_module_loaded() ? RNA_boolean_get(op->ptr, "generate_mdl") :
+                                                      false;
+  ;
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -271,7 +300,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    export_textures,
                                    relative_texture_paths,
                                    backward_compatible,
-                                   light_intensity_scale};
+                                   light_intensity_scale,
+                                   generate_mdl};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -382,8 +412,12 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     uiItemR(box, ptr, "export_global_up_selection", 0, NULL, ICON_NONE);
   }
 
-  if (RNA_boolean_get(ptr, "export_materials"))
+  if (RNA_boolean_get(ptr, "export_materials")) {
     uiItemR(box, ptr, "generate_preview_surface", 0, NULL, ICON_NONE);
+    if (USD_umm_module_loaded()) {
+      uiItemR(box, ptr, "generate_mdl", 0, NULL, ICON_NONE);
+    }
+  }
 
   if (RNA_boolean_get(ptr, "export_uvmaps"))
     uiItemR(box, ptr, "convert_uv_to_st", 0, NULL, ICON_NONE);
@@ -552,12 +586,18 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                  "Material Prim Path",
                  "This specifies where all generated USD Shade Materials and Shaders get placed");
 
+  RNA_def_boolean(
+      ot->srna,
+      "generate_preview_surface",
+      true,
+      "Convert to USD Preview Surface",
+      "When checked, the USD exporter will generate an approximate USD Preview Surface. "
+      "(Experimental, only works on simple material graphs)");
   RNA_def_boolean(ot->srna,
-                  "generate_preview_surface",
+                  "generate_mdl",
                   true,
-                  "Convert Cycles Node Graph",
-                  "When checked, the USD exporter generate an approximate USD Preview Surface. "
-                  "(Experimental, only works on simple material graphs)");
+                  "Convert to MDL",
+                  "When checked, the USD exporter will generate an MDL material");
   RNA_def_boolean(
       ot->srna,
       "convert_uv_to_st",
@@ -758,7 +798,12 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
 
   const bool use_instancing = RNA_boolean_get(op->ptr, "use_instancing");
 
-  const bool import_usd_preview = RNA_boolean_get(op->ptr, "import_usd_preview");
+  const char *import_shaders_mode_prop_name = USD_umm_module_loaded() ?
+                                                  "import_shaders_mode" :
+                                                  "import_shaders_mode_no_umm";
+
+  const eUSDImportShadersMode import_shaders_mode = RNA_enum_get(op->ptr,
+                                                                 import_shaders_mode_prop_name);
   const bool set_material_blend = RNA_boolean_get(op->ptr, "set_material_blend");
 
   const bool convert_to_z_up = RNA_boolean_get(op->ptr, "convert_to_z_up");
@@ -800,7 +845,7 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
                                    import_render,
                                    import_visible_only,
                                    use_instancing,
-                                   import_usd_preview,
+                                   import_shaders_mode,
                                    set_material_blend,
                                    convert_to_z_up,
                                    light_intensity_scale};
@@ -885,7 +930,12 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   box = uiLayoutBox(layout);
   uiItemL(box, IFACE_("Experimental"), ICON_NONE);
   uiItemR(box, ptr, "use_instancing", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_usd_preview", 0, NULL, ICON_NONE);
+
+  const char *import_shaders_mode_prop_name = USD_umm_module_loaded() ?
+                                                  "import_shaders_mode" :
+                                                  "import_shaders_mode_no_umm";
+  uiItemR(box, ptr, import_shaders_mode_prop_name, 0, NULL, ICON_NONE);
+
   uiItemR(box, ptr, "set_material_blend", 0, NULL, ICON_NONE);
 }
 
@@ -1009,20 +1059,29 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
       "When checked, USD scenegraph instances are imported as collection instances in Blender. "
       "Note that point instancers are not yet handled by this option");
 
-  RNA_def_boolean(
-      ot->srna,
-      "import_usd_preview",
-      true,
-      "Import USD Preview",
-      "When checked, convert UsdPreviewSurface shaders to Principled BSD shader networks.");
+  RNA_def_enum(ot->srna,
+               "import_shaders_mode",
+               rna_enum_usd_import_shaders_mode_items,
+               USD_IMPORT_MDL,
+               "Import Shaders ",
+               "Determines which type of USD shaders to convert to Blender Principled BSDF shader "
+               "networks");
+
+  RNA_def_enum(ot->srna,
+               "import_shaders_mode_no_umm",
+               rna_enum_usd_import_shaders_mode_items_no_umm,
+               USD_IMPORT_USD_PREVIEW_SURFACE,
+               "Import Shaders ",
+               "Determines which type of USD shaders to convert to Blender Principled BSDF shader "
+               "networks");
 
   RNA_def_boolean(ot->srna,
                   "set_material_blend",
                   true,
                   "Set Material Blend",
-                  "When checked and if the Import Usd Preview option is enabled, "
+                  "When checked and if the Import Shaders option is set to a valid type, "
                   "the material blend method will automatically be set based on the "
-                  "shader's opacity and opacityThreshold inputs");
+                  "shader opacity");
 
   RNA_def_boolean(ot->srna,
                   "convert_to_z_up",

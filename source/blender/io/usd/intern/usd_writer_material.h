@@ -37,6 +37,8 @@
 #include "usd.h"
 #include "usd_exporter_context.h"
 
+#include <string>
+
 struct Material;
 struct bNode;
 struct bNodeTree;
@@ -63,8 +65,17 @@ void create_usd_cycles_material(pxr::UsdStageRefPtr a_stage,
 void create_usd_viewport_material(USDExporterContext const &usd_export_context_,
                                   Material *material,
                                   pxr::UsdShadeMaterial &usd_material);
+void create_mdl_material(const USDExporterContext &usd_export_context,
+                         Material *material,
+                         pxr::UsdShadeMaterial &usd_material);
 
-void export_texture(bNode *node, pxr::UsdStageRefPtr stage);
+void export_texture(bNode *node, const pxr::UsdStageRefPtr stage);
+
+void export_textures(const Material *material, const pxr::UsdStageRefPtr stage);
+
+std::string get_texture_filepath(const std::string &tex_filepath,
+                                 const pxr::UsdStageRefPtr stage,
+                                 const USDExportParams &export_params);
 
 }  // Namespace blender::io::usd
 

@@ -49,6 +49,12 @@ typedef enum USD_global_up_axis {
   USD_GLOBAL_UP_MINUS_Z = 5
 } USD_global_up_axis;
 
+typedef enum eUSDImportShadersMode {
+  USD_IMPORT_SHADERS_NONE = 0,
+  USD_IMPORT_USD_PREVIEW_SURFACE = 1,
+  USD_IMPORT_MDL = 2,
+} eUSDImportShadersMode;
+
 static const USD_global_forward_axis USD_DEFAULT_FORWARD = USD_GLOBAL_FORWARD_MINUS_Z;
 static const USD_global_up_axis USD_DEFAULT_UP = USD_GLOBAL_UP_Y;
 
@@ -100,6 +106,7 @@ struct USDExportParams {
   bool relative_texture_paths;
   bool backward_compatible;
   float light_intensity_scale;
+  bool generate_mdl;
 };
 
 struct USDImportParams {
@@ -125,7 +132,7 @@ struct USDImportParams {
   bool import_render;
   bool import_visible_only;
   bool use_instancing;
-  bool import_usd_preview;
+  eUSDImportShadersMode import_shaders_mode;
   bool set_material_blend;
   bool convert_to_z_up;
   float light_intensity_scale;
@@ -151,6 +158,8 @@ bool USD_import(struct bContext *C,
                 bool as_background_job);
 
 int USD_get_version(void);
+
+bool USD_umm_module_loaded(void);
 
 // ----- USD Import and Mesh Cache interface
 
