@@ -20,6 +20,7 @@
 #  include "usd_umm.h"
 #  include "usd.h"
 #  include "usd_exporter_context.h"
+#  include "usd_writer_material.h"
 
 #  include "DNA_material_types.h"
 
@@ -49,6 +50,8 @@ static PyObject *g_umm_module = nullptr;
 static const char *k_umm_module_name = "omni.universalmaterialmap.blender.material";
 static const char *k_omni_pbr_mdl_name = "OmniPBR.mdl";
 static const char *k_omni_pbr_name = "OmniPBR";
+
+using namespace blender::io::usd;
 
 static void print_obj(PyObject *obj)
 {
@@ -470,7 +473,7 @@ static bool import_material(Material *mtl,
   return success;
 }
 
-static void set_shader_properties(const blender::io::usd::USDExporterContext &usd_export_context,
+static void set_shader_properties(const USDExporterContext &usd_export_context,
                                   pxr::UsdShadeShader &usd_shader,
                                   PyObject *data_list)
 {
@@ -544,10 +547,14 @@ static void set_shader_properties(const blender::io::usd::USDExporterContext &us
 
         if (PyUnicode_Check(item0) && PyUnicode_Check(item1)) {
           const char *asset = PyUnicode_AsUTF8(item0);
+
+          std::string asset_path = get_texture_filepath(
+              asset, usd_export_context.stage, usd_export_context.export_params);
+
           const char *color_space = PyUnicode_AsUTF8(item1);
           pxr::UsdShadeInput asset_input = usd_shader.CreateInput(pxr::TfToken(name),
                                                                   pxr::SdfValueTypeNames->Asset);
-          asset_input.Set(pxr::SdfAssetPath(asset));
+          asset_input.Set(pxr::SdfAssetPath(asset_path));
           asset_input.GetAttr().SetColorSpace(pxr::TfToken(color_space));
         }
       }

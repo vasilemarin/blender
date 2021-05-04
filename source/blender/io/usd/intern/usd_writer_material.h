@@ -69,7 +69,9 @@ void create_mdl_material(const USDExporterContext &usd_export_context,
                          Material *material,
                          pxr::UsdShadeMaterial &usd_material);
 
-void export_texture(bNode *node, pxr::UsdStageRefPtr stage);
+void export_texture(bNode *node, const pxr::UsdStageRefPtr stage);
+
+void export_textures(const Material *material, const pxr::UsdStageRefPtr stage);
 
 std::string get_texture_filepath(const std::string &tex_filepath,
                                  const pxr::UsdStageRefPtr stage,

@@ -2132,7 +2132,7 @@ void create_mdl_material(const USDExporterContext &usd_export_context,
 }
 
 /* Based on ImagesExporter::export_UV_Image() */
-void export_texture(bNode *node, pxr::UsdStageRefPtr stage)
+void export_texture(bNode *node, const pxr::UsdStageRefPtr stage)
 {
   if (!stage || !node || node->type != SH_NODE_TEX_IMAGE) {
     return;
@@ -2217,6 +2217,24 @@ void export_texture(bNode *node, pxr::UsdStageRefPtr stage)
                   << std::endl;
         return;
       }
+    }
+  }
+}
+
+/* Export the texture of every texture image node in the given material's node tree. */
+void export_textures(const Material *material, const pxr::UsdStageRefPtr stage)
+{
+  if (!(material && material->use_nodes)) {
+    return;
+  }
+
+  if (!stage) {
+    return;
+  }
+
+  for (bNode *node = (bNode *)material->nodetree->nodes.first; node; node = node->next) {
+    if (node->type == SH_NODE_TEX_IMAGE) {
+      export_texture(node, stage);
     }
   }
 }
