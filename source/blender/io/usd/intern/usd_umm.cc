@@ -583,7 +583,13 @@ namespace blender::io::usd {
 
 bool umm_module_loaded()
 {
-  return ensure_module_loaded(false /* warn */);
+  PyGILState_STATE gilstate = PyGILState_Ensure();
+
+  bool loaded = ensure_module_loaded(false /* warn */);
+
+  PyGILState_Release(gilstate);
+
+  return loaded;
 }
 
 bool umm_import_material(Material *mtl, const pxr::UsdShadeMaterial &usd_material)
