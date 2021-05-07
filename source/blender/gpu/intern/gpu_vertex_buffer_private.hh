@@ -66,6 +66,7 @@ class VertBuf {
   void allocate(uint vert_len);
   void resize(uint vert_len);
   void upload(void);
+  virtual void bind_as_ssbo(uint binding) = 0;
 
   VertBuf *duplicate(void);
 

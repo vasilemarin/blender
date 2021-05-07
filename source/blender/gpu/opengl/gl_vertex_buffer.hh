@@ -53,6 +53,7 @@ class GLVertBuf : public VertBuf {
   void release_data(void) override;
   void upload_data(void) override;
   void duplicate_data(VertBuf *dst) override;
+  void bind_as_ssbo(uint binding) override;
 
   MEM_CXX_CLASS_ALLOC_FUNCS("GLVertBuf");
 };

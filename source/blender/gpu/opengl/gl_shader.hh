@@ -65,9 +65,6 @@ class GLShader : public Shader {
   bool transform_feedback_enable(GPUVertBuf *buf) override;
   void transform_feedback_disable(void) override;
 
-  void attach_buffer(GPUVertBuf *vertex_buffer, uint location) override;
-  void attach_buffer(GPUIndexBuf *index_buffer, uint location) override;
-
   void bind(void) override;
   void unbind(void) override;
 

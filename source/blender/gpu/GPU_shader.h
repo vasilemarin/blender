@@ -89,9 +89,6 @@ void GPU_shader_unbind(void);
 bool GPU_shader_transform_feedback_enable(GPUShader *shader, struct GPUVertBuf *vertbuf);
 void GPU_shader_transform_feedback_disable(GPUShader *shader);
 
-void GPU_shader_attach_vertex_buffer(GPUShader *shader, struct GPUVertBuf *vertbuf, int location);
-void GPU_shader_attach_index_buffer(GPUShader *shader, struct GPUIndexBuf *indexbuf, int location);
-
 int GPU_shader_get_program(GPUShader *shader);
 
 typedef enum {
@@ -135,6 +132,7 @@ int GPU_shader_get_uniform(GPUShader *shader, const char *name);
 int GPU_shader_get_builtin_uniform(GPUShader *shader, int builtin);
 int GPU_shader_get_builtin_block(GPUShader *shader, int builtin);
 int GPU_shader_get_uniform_block(GPUShader *shader, const char *name);
+int GPU_shader_get_ssbo(GPUShader *shader, const char *name);
 
 int GPU_shader_get_uniform_block_binding(GPUShader *shader, const char *name);
 int GPU_shader_get_texture_binding(GPUShader *shader, const char *name);

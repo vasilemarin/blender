@@ -66,6 +66,15 @@ void GPU_indexbuf_init(GPUIndexBufBuilder *builder,
   GPU_indexbuf_init_ex(builder, prim_type, prim_len * (uint)verts_per_prim, vertex_len);
 }
 
+void GPU_indexbuf_init_device_only(GPUIndexBuf *elem_,
+                                   GPUIndexBufType index_type,
+                                   GPUPrimType prim_type,
+                                   uint prim_len)
+{
+  IndexBuf *elem = unwrap(elem_);
+  elem->init_device_only(index_type, prim_type, prim_len);
+}
+
 void GPU_indexbuf_add_generic_vert(GPUIndexBufBuilder *builder, uint v)
 {
 #if TRUST_NO_ONE
@@ -241,6 +250,15 @@ void IndexBuf::init(uint indices_len, uint32_t *indices)
 #endif
 }
 
+void IndexBuf::init_device_only(GPUIndexBufType index_type, GPUPrimType prim_type, uint prim_len)
+{
+  is_init_ = true;
+  index_start_ = 0;
+  index_len_ = prim_len * indices_per_primitive(prim_type);
+  index_type_ = index_type;
+  data_ = nullptr;
+}
+
 void IndexBuf::init_subrange(IndexBuf *elem_src, uint start, uint length)
 {
   /* We don't support nested subranges. */
@@ -364,6 +382,11 @@ bool GPU_indexbuf_is_init(GPUIndexBuf *elem)
 int GPU_indexbuf_primitive_len(GPUPrimType prim_type)
 {
   return indices_per_primitive(prim_type);
+}
+
+void GPU_indexbuf_bind_as_ssbo(GPUIndexBuf *elem, int binding)
+{
+  unwrap(elem)->bind_as_ssbo(binding);
 }
 
 /** \} */

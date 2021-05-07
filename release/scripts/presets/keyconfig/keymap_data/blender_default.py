@@ -278,15 +278,11 @@ def _template_items_uv_select_mode(params):
     else:
         return [
             *_template_items_editmode_mesh_select_mode(params),
+            # Hack to prevent fall-through, when sync select isn't enabled (and the island button isn't visible).
             ("mesh.select_mode", {"type": 'FOUR', "value": 'PRESS'}, None),
-            ("wm.context_set_enum", {"type": 'ONE', "value": 'PRESS'},
-             {"properties": [("data_path", 'tool_settings.uv_select_mode'), ("value", 'VERTEX')]}),
-            ("wm.context_set_enum", {"type": 'TWO', "value": 'PRESS'},
-             {"properties": [("data_path", 'tool_settings.uv_select_mode'), ("value", 'EDGE')]}),
-            ("wm.context_set_enum", {"type": 'THREE', "value": 'PRESS'},
-             {"properties": [("data_path", 'tool_settings.uv_select_mode'), ("value", 'FACE')]}),
-            ("wm.context_set_enum", {"type": 'FOUR', "value": 'PRESS'},
-             {"properties": [("data_path", 'tool_settings.uv_select_mode'), ("value", 'ISLAND')]}),
+            *(("wm.context_set_enum", {"type": NUMBERS_1[i], "value": 'PRESS'},
+               {"properties": [("data_path", 'tool_settings.uv_select_mode'), ("value", ty)]})
+              for i, ty in enumerate(('VERTEX', 'EDGE', 'FACE', 'ISLAND')))
         ]
 
 
@@ -2009,8 +2005,7 @@ def km_file_browser_main(params):
     )
 
     items.extend([
-        ("file.execute", {"type": 'LEFTMOUSE', "value": 'DOUBLE_CLICK'},
-         {"properties": [("need_active", True)]}),
+        ("file.mouse_execute", {"type": 'LEFTMOUSE', "value": 'DOUBLE_CLICK'}, None),
         # Both .execute and .select are needed here. The former only works if
         # there's a file operator (i.e. not in regular editor mode) but is
         # needed to load files. The latter makes selection work if there's no

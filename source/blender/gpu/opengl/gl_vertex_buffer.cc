@@ -118,6 +118,13 @@ void GLVertBuf::bind()
   }
 }
 
+void GLVertBuf::bind_as_ssbo(uint binding)
+{
+  bind();
+  BLI_assert(vbo_id_ != 0);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, vbo_id_);
+}
+
 void GLVertBuf::update_sub(uint start, uint len, void *data)
 {
   glBufferSubData(GL_ARRAY_BUFFER, start, len, data);

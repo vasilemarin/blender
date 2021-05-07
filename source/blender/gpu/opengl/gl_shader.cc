@@ -301,30 +301,6 @@ void GLShader::transform_feedback_disable()
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Attach buffers
- * \{ */
-
-void GLShader::attach_buffer(GPUVertBuf *vertex_buffer_, unsigned int location)
-{
-  BLI_assert(GPU_compute_shader_support());
-  GLVertBuf *vertex_buffer = static_cast<GLVertBuf *>(unwrap(vertex_buffer_));
-  vertex_buffer->bind();
-  BLI_assert(vertex_buffer->vbo_id_ != 0);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, location, vertex_buffer->vbo_id_);
-}
-
-void GLShader::attach_buffer(GPUIndexBuf *index_buffer_, unsigned int location)
-{
-  BLI_assert(GPU_compute_shader_support());
-  GLIndexBuf *index_buffer = static_cast<GLIndexBuf *>(unwrap(index_buffer_));
-  index_buffer->bind();
-  BLI_assert(index_buffer->ibo_id_ != 0);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, location, index_buffer->ibo_id_);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Uniforms setters
  * \{ */
 

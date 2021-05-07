@@ -47,9 +47,11 @@
 #include "BLI_fileops.h"
 #include "BLI_listbase.h"
 #include "BLI_path_util.h"
+#include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#include "IMB_colormanagement.h"
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
@@ -138,6 +140,9 @@ typedef struct PlayState {
 
   bool need_frame_update;
   int frame_cursor_x;
+
+  ColorManagedViewSettings view_settings;
+  ColorManagedDisplaySettings display_settings;
 } PlayState;
 
 /* for debugging */
@@ -237,6 +242,12 @@ typedef struct PlayAnimPict {
   struct anim *anim;
   int frame;
   int IB_flags;
+
+#ifdef USE_FRAME_CACHE_LIMIT
+  /** Back pointer to the #LinkData node for this struct in the #g_frame_cache.pics list. */
+  LinkData *frame_cache_node;
+  size_t size_in_memory;
+#endif
 } PlayAnimPict;
 
 static struct ListBase picsbase = {NULL, NULL};
@@ -248,9 +259,22 @@ static double fps_movie;
 #endif
 
 #ifdef USE_FRAME_CACHE_LIMIT
-static struct ListBase inmempicsbase = {NULL, NULL};
-static int added_images = 0;
-#endif
+static struct {
+  /** A list of #LinkData nodes referencing #PlayAnimPict to track cached frames. */
+  struct ListBase pics;
+  /** Number if elements in `pics`. */
+  int pics_len;
+  /** Keep track of memory used by #g_frame_cache.pics when `g_frame_cache.memory_limit != 0`. */
+  size_t pics_size_in_memory;
+  /** Optionally limit the amount of memory used for cache (in bytes), ignored when zero. */
+  size_t memory_limit;
+} g_frame_cache = {
+    .pics = {NULL, NULL},
+    .pics_len = 0,
+    .pics_size_in_memory = 0,
+    .memory_limit = 0,
+};
+#endif /* USE_FRAME_CACHE_LIMIT */
 
 static PlayAnimPict *playanim_step(PlayAnimPict *playanim, int step)
 {
@@ -278,18 +302,149 @@ static int pupdate_time(void)
   return (ptottime < 0);
 }
 
+static void *ocio_transform_ibuf(PlayState *ps,
+                                 ImBuf *ibuf,
+                                 bool *r_glsl_used,
+                                 eGPUTextureFormat *r_format,
+                                 eGPUDataFormat *r_data,
+                                 void **r_buffer_cache_handle)
+{
+  void *display_buffer;
+  bool force_fallback = false;
+  *r_glsl_used = false;
+  force_fallback |= (ED_draw_imbuf_method(ibuf) != IMAGE_DRAW_METHOD_GLSL);
+  force_fallback |= (ibuf->dither != 0.0f);
+
+  /* Default */
+  *r_format = GPU_RGBA8;
+  *r_data = GPU_DATA_UBYTE;
+
+  /* Fallback to CPU based color space conversion. */
+  if (force_fallback) {
+    *r_glsl_used = false;
+    display_buffer = NULL;
+  }
+  else if (ibuf->rect_float) {
+    display_buffer = ibuf->rect_float;
+
+    *r_data = GPU_DATA_FLOAT;
+    if (ibuf->channels == 4) {
+      *r_format = GPU_RGBA16F;
+    }
+    else if (ibuf->channels == 3) {
+      /* Alpha is implicitly 1. */
+      *r_format = GPU_RGB16F;
+    }
+
+    if (ibuf->float_colorspace) {
+      *r_glsl_used = IMB_colormanagement_setup_glsl_draw_from_space(&ps->view_settings,
+                                                                    &ps->display_settings,
+                                                                    ibuf->float_colorspace,
+                                                                    ibuf->dither,
+                                                                    false,
+                                                                    false);
+    }
+    else {
+      *r_glsl_used = IMB_colormanagement_setup_glsl_draw(
+          &ps->view_settings, &ps->display_settings, ibuf->dither, false);
+    }
+  }
+  else if (ibuf->rect) {
+    display_buffer = ibuf->rect;
+    *r_glsl_used = IMB_colormanagement_setup_glsl_draw_from_space(&ps->view_settings,
+                                                                  &ps->display_settings,
+                                                                  ibuf->float_colorspace,
+                                                                  ibuf->dither,
+                                                                  false,
+                                                                  false);
+  }
+  else {
+    display_buffer = NULL;
+  }
+
+  /* There is data to be displayed, but GLSL is not initialized
+   * properly, in this case we fallback to CPU-based display transform. */
+  if ((ibuf->rect || ibuf->rect_float) && !*r_glsl_used) {
+    display_buffer = IMB_display_buffer_acquire(
+        ibuf, &ps->view_settings, &ps->display_settings, r_buffer_cache_handle);
+    *r_format = GPU_RGBA8;
+    *r_data = GPU_DATA_UBYTE;
+  }
+
+  return display_buffer;
+}
+
+static void draw_display_buffer(PlayState *ps, ImBuf *ibuf)
+{
+  void *display_buffer;
+
+  /* Format needs to be created prior to any #immBindShader call.
+   * Do it here because OCIO binds its own shader. */
+  eGPUTextureFormat format;
+  eGPUDataFormat data;
+  bool glsl_used = false;
+  GPUVertFormat *imm_format = immVertexFormat();
+  uint pos = GPU_vertformat_attr_add(imm_format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+  uint texCoord = GPU_vertformat_attr_add(
+      imm_format, "texCoord", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+
+  void *buffer_cache_handle = NULL;
+  display_buffer = ocio_transform_ibuf(ps, ibuf, &glsl_used, &format, &data, &buffer_cache_handle);
+
+  GPUTexture *texture = GPU_texture_create_2d("display_buf", ibuf->x, ibuf->y, 1, format, NULL);
+  GPU_texture_update(texture, data, display_buffer);
+  GPU_texture_filter_mode(texture, false);
+
+  GPU_texture_bind(texture, 0);
+
+  if (!glsl_used) {
+    immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
+    immUniformColor3f(1.0f, 1.0f, 1.0f);
+    immUniform1i("image", 0);
+  }
+
+  immBegin(GPU_PRIM_TRI_FAN, 4);
+
+  rctf preview;
+  rctf canvas;
+
+  BLI_rctf_init(&canvas, 0.0f, 1.0f, 0.0f, 1.0f);
+  BLI_rctf_init(&preview, 0.0f, 1.0f, 0.0f, 1.0f);
+
+  immAttr2f(texCoord, canvas.xmin, canvas.ymin);
+  immVertex2f(pos, preview.xmin, preview.ymin);
+
+  immAttr2f(texCoord, canvas.xmin, canvas.ymax);
+  immVertex2f(pos, preview.xmin, preview.ymax);
+
+  immAttr2f(texCoord, canvas.xmax, canvas.ymax);
+  immVertex2f(pos, preview.xmax, preview.ymax);
+
+  immAttr2f(texCoord, canvas.xmax, canvas.ymin);
+  immVertex2f(pos, preview.xmax, preview.ymin);
+
+  immEnd();
+
+  GPU_texture_unbind(texture);
+  GPU_texture_free(texture);
+
+  if (!glsl_used) {
+    immUnbindProgram();
+  }
+  else {
+    IMB_colormanagement_finish_glsl_draw();
+  }
+
+  if (buffer_cache_handle) {
+    IMB_display_buffer_release(buffer_cache_handle);
+  }
+}
+
 static void playanim_toscreen(
     PlayState *ps, PlayAnimPict *picture, struct ImBuf *ibuf, int fontid, int fstep)
 {
   if (ibuf == NULL) {
     printf("%s: no ibuf for picture '%s'\n", __func__, picture ? picture->name : "<NIL>");
-    return;
-  }
-  if (ibuf->rect == NULL && ibuf->rect_float) {
-    IMB_rect_from_float(ibuf);
-    imb_freerectfloatImBuf(ibuf);
-  }
-  if (ibuf->rect == NULL) {
     return;
   }
 
@@ -321,19 +476,7 @@ static void playanim_toscreen(
                                8);
   }
 
-  IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-
-  immDrawPixelsTex(&state,
-                   offs_x + (ps->draw_flip[0] ? span_x : 0.0f),
-                   offs_y + (ps->draw_flip[1] ? span_y : 0.0f),
-                   ibuf->x,
-                   ibuf->y,
-                   GPU_RGBA8,
-                   false,
-                   ibuf->rect,
-                   ((ps->draw_flip[0] ? -1.0f : 1.0f)) * (ps->zoom / (float)ps->win_x),
-                   ((ps->draw_flip[1] ? -1.0f : 1.0f)) * (ps->zoom / (float)ps->win_y),
-                   NULL);
+  draw_display_buffer(ps, ibuf);
 
   GPU_blend(GPU_BLEND_NONE);
 
@@ -441,7 +584,7 @@ static void build_pict_list_ex(
      */
 
     while (IMB_ispic(filepath) && totframes) {
-      bool hasevent;
+      bool has_event;
       size_t size;
       int file;
 
@@ -522,7 +665,7 @@ static void build_pict_list_ex(
       BLI_path_sequence_encode(
           filepath, fp_decoded.head, fp_decoded.tail, fp_decoded.digits, fp_framenr);
 
-      while ((hasevent = GHOST_ProcessEvents(g_WS.ghost_system, 0))) {
+      while ((has_event = GHOST_ProcessEvents(g_WS.ghost_system, false))) {
         GHOST_DispatchEvents(g_WS.ghost_system);
         if (ps->loading == false) {
           return;
@@ -1168,6 +1311,10 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 
   ps.fontid = -1;
 
+  STRNCPY(ps.display_settings.display_device,
+          IMB_colormanagement_role_colorspace_name_get(COLOR_ROLE_DEFAULT_BYTE));
+  IMB_colormanagement_init_default_view_settings(&ps.view_settings, &ps.display_settings);
+
   while (argc > 1) {
     if (argv[1][0] == '-') {
       switch (argv[1][1]) {
@@ -1222,6 +1369,15 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
           argc--;
           argv++;
           break;
+        case 'c': {
+#ifdef USE_FRAME_CACHE_LIMIT
+          const int memory_in_mb = max_ii(0, atoi(argv[2]));
+          g_frame_cache.memory_limit = (size_t)memory_in_mb * (1024 * 1024);
+#endif
+          argc--;
+          argv++;
+          break;
+        }
         default:
           printf("unknown option '%c': skipping\n", argv[1][1]);
           break;
@@ -1389,7 +1545,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 #endif
 
     while (ps.picture) {
-      int hasevent;
+      bool has_event;
 #ifndef USE_IMB_CACHE
       if (ibuf != NULL && ibuf->ftype == IMB_FTYPE_NONE) {
         IMB_freeImBuf(ibuf);
@@ -1412,28 +1568,50 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
       }
 
       if (ibuf) {
-#ifdef USE_FRAME_CACHE_LIMIT
-        LinkData *node;
-#endif
-
 #ifdef USE_IMB_CACHE
         ps.picture->ibuf = ibuf;
 #endif
 
 #ifdef USE_FRAME_CACHE_LIMIT
-        /* Really basic memory conservation scheme. Keep frames in a FIFO queue. */
-        node = inmempicsbase.last;
+        if (ps.picture->frame_cache_node == NULL) {
+          ps.picture->frame_cache_node = BLI_genericNodeN(ps.picture);
+          BLI_addhead(&g_frame_cache.pics, ps.picture->frame_cache_node);
+          g_frame_cache.pics_len++;
 
-        while (node && added_images > PLAY_FRAME_CACHE_MAX) {
+          if (g_frame_cache.memory_limit != 0) {
+            BLI_assert(ps.picture->size_in_memory == 0);
+            ps.picture->size_in_memory = IMB_get_size_in_memory(ps.picture->ibuf);
+            g_frame_cache.pics_size_in_memory += ps.picture->size_in_memory;
+          }
+        }
+        else {
+          /* Don't free the current frame by moving it to the head of the list. */
+          BLI_assert(ps.picture->frame_cache_node->data == ps.picture);
+          BLI_remlink(&g_frame_cache.pics, ps.picture->frame_cache_node);
+          BLI_addhead(&g_frame_cache.pics, ps.picture->frame_cache_node);
+        }
+
+        /* Really basic memory conservation scheme. Keep frames in a FIFO queue. */
+        LinkData *node = g_frame_cache.pics.last;
+        while (node && (g_frame_cache.memory_limit ?
+                            (g_frame_cache.pics_size_in_memory > g_frame_cache.memory_limit) :
+                            (g_frame_cache.pics_len > PLAY_FRAME_CACHE_MAX))) {
           PlayAnimPict *pic = node->data;
+          BLI_assert(pic->frame_cache_node == node);
 
           if (pic->ibuf && pic->ibuf != ibuf) {
             LinkData *node_tmp;
             IMB_freeImBuf(pic->ibuf);
+            if (g_frame_cache.memory_limit != 0) {
+              BLI_assert(pic->size_in_memory != 0);
+              g_frame_cache.pics_size_in_memory -= pic->size_in_memory;
+              pic->size_in_memory = 0;
+            }
             pic->ibuf = NULL;
+            pic->frame_cache_node = NULL;
             node_tmp = node->prev;
-            BLI_freelinkN(&inmempicsbase, node);
-            added_images--;
+            BLI_freelinkN(&g_frame_cache.pics, node);
+            g_frame_cache.pics_len--;
             node = node_tmp;
           }
           else {
@@ -1441,8 +1619,6 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
           }
         }
 
-        BLI_addhead(&inmempicsbase, BLI_genericNodeN(ps.picture));
-        added_images++;
 #endif /* USE_FRAME_CACHE_LIMIT */
 
         BLI_strncpy(ibuf->name, ps.picture->name, sizeof(ibuf->name));
@@ -1474,14 +1650,14 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 
       ps.next_frame = ps.direction;
 
-      while ((hasevent = GHOST_ProcessEvents(g_WS.ghost_system, 0))) {
+      while ((has_event = GHOST_ProcessEvents(g_WS.ghost_system, false))) {
         GHOST_DispatchEvents(g_WS.ghost_system);
       }
       if (ps.go == false) {
         break;
       }
       change_frame(&ps);
-      if (!hasevent) {
+      if (!has_event) {
         PIL_sleep_ms(1);
       }
       if (ps.wait2) {
@@ -1550,8 +1726,11 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 #endif
 
   BLI_freelistN(&picsbase);
-  BLI_freelistN(&inmempicsbase);
-  added_images = 0;
+
+#ifdef USE_FRAME_CACHE_LIMIT
+  BLI_freelistN(&g_frame_cache.pics);
+  g_frame_cache.pics_len = 0;
+#endif
 
 #ifdef WITH_AUDASPACE
   if (playback_handle) {
