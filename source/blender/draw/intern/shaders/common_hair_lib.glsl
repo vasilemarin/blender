@@ -28,6 +28,9 @@ uniform bool hairCloseTip = true;
 
 uniform vec4 hairDupliMatrix[4];
 
+/* Strand batch offset when used in compute shaders. */
+uniform int hairStrandOffset = 0;
+
 /* -- Per control points -- */
 uniform samplerBuffer hairPointBuffer; /* RGBA32F */
 #define point_position xyz
@@ -70,7 +73,7 @@ float hair_get_local_time()
 
 int hair_get_id()
 {
-  return int(gl_GlobalInvocationID.x);
+  return int(gl_GlobalInvocationID.x) + hairStrandOffset;
 }
 #endif
 

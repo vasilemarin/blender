@@ -162,13 +162,24 @@ static void drw_hair_particle_cache_shgrp_attach_resources(DRWShadingGroup *shgr
 
 static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, const int subdiv)
 {
-  const int final_points_len = cache->final[subdiv].strands_res * cache->strands_len;
+  const int strands_len = cache->strands_len;
+  const int final_points_len = cache->final[subdiv].strands_res * strands_len;
   if (final_points_len > 0) {
     GPUShader *shader = hair_refine_shader_get(PART_REFINE_CATMULL_ROM);
     DRWShadingGroup *shgrp = DRW_shgroup_create(shader, g_tf_pass);
     drw_hair_particle_cache_shgrp_attach_resources(shgrp, cache, subdiv);
     DRW_shgroup_vertex_buffer(shgrp, "hairPointOutputBuffer", cache->final[subdiv].proc_buf);
-    DRW_shgroup_call_compute(shgrp, cache->strands_len, cache->final[subdiv].strands_res, 1);
+
+    /* TODO(jbakker): get from GPU module. */
+    const int max_strands_per_call = 32768;
+    int strands_start = 0;
+    while (strands_start < strands_len) {
+      int batch_strands_len = MIN2(strands_len - strands_start, max_strands_per_call);
+      DRWShadingGroup *subgroup = DRW_shgroup_create_sub(shgrp);
+      DRW_shgroup_uniform_int_copy(subgroup, "hairStrandOffset", strands_start);
+      DRW_shgroup_call_compute(subgroup, batch_strands_len, cache->final[subdiv].strands_res, 1);
+      strands_start += batch_strands_len;
+    }
   }
 }
 

@@ -18,6 +18,6 @@ void main(void)
   vec4 weights = hair_get_weights_cardinal(interp_time);
   vec4 result = hair_interp_data(data0, data1, data2, data3, weights);
 
-  int index = int(gl_GlobalInvocationID.x) * hairStrandsRes + int(gl_GlobalInvocationID.y);
+  int index = hair_get_id() * hairStrandsRes + int(gl_GlobalInvocationID.y);
   Positions[index] = result;
 }
