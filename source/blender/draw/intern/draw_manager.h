@@ -285,6 +285,7 @@ struct DRWCallBuffer {
 };
 
 /** Used by #DRWUniform.type */
+/* TODO(jbakker): rename to DRW_RESOURCE/DRWResourceType. */
 typedef enum {
   DRW_UNIFORM_INT = 0,
   DRW_UNIFORM_INT_COPY,
@@ -297,8 +298,7 @@ typedef enum {
   DRW_UNIFORM_BLOCK,
   DRW_UNIFORM_BLOCK_REF,
   DRW_UNIFORM_TFEEDBACK_TARGET,
-  /* Not an actual uniform, but a buffer for compute shaders. */
-  DRW_VERTEX_BUFFER,
+  DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE,
   /** Per drawcall uniforms/UBO */
   DRW_UNIFORM_BLOCK_OBMATS,
   DRW_UNIFORM_BLOCK_OBINFOS,

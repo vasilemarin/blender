@@ -673,7 +673,7 @@ static void draw_update_uniforms(DRWShadingGroup *shgroup,
           *use_tfeedback = GPU_shader_transform_feedback_enable(shgroup->shader,
                                                                 ((GPUVertBuf *)uni->pvalue));
           break;
-        case DRW_VERTEX_BUFFER:
+        case DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE:
           GPU_vertbuf_bind_as_ssbo((GPUVertBuf *)uni->pvalue, uni->location);
           break;
           /* Legacy/Fallback support. */
