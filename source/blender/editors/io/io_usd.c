@@ -722,7 +722,7 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
 
   RNA_def_boolean(ot->srna,
                   "export_textures",
-                  false,
+                  true,
                   "Export Textures",
                   "When checked and if exporting materials, textures referenced by material nodes "
                   "will be exported to a 'textures' directory in the same directory as the USD.");
@@ -730,7 +730,7 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
   RNA_def_boolean(
       ot->srna,
       "relative_texture_paths",
-      false,
+      true,
       "Relative Texture Paths",
       "When checked, material texture asset paths will be saved as relative paths in the USD.");
 
