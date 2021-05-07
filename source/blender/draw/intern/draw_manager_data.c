@@ -448,9 +448,14 @@ void DRW_shgroup_uniform_vec4_array_copy(DRWShadingGroup *shgroup,
 }
 
 void DRW_shgroup_vertex_buffer(DRWShadingGroup *shgroup,
-                               const int location,
+                               const char *name,
                                GPUVertBuf *vertex_buffer)
 {
+  int location = GPU_shader_get_ssbo(shgroup->shader, name);
+  if (location == -1) {
+    BLI_assert(false && "Unable to locate binding of shader storage buffer objects.");
+    return;
+  }
   drw_shgroup_uniform_create_ex(shgroup, location, DRW_VERTEX_BUFFER, vertex_buffer, 0, 0, 1);
 }
 

@@ -163,7 +163,7 @@ static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, con
     GPUShader *shader = hair_refine_shader_get(PART_REFINE_CATMULL_ROM);
     DRWShadingGroup *shgrp = DRW_shgroup_create(shader, g_tf_pass);
     drw_hair_particle_cache_shgrp_attach_resources(shgrp, cache, subdiv);
-    DRW_shgroup_vertex_buffer(shgrp, 0, cache->final[subdiv].proc_buf);
+    DRW_shgroup_vertex_buffer(shgrp, "hairPointOutputBuffer", cache->final[subdiv].proc_buf);
     DRW_shgroup_call_compute(shgrp, cache->strands_len, cache->final[subdiv].strands_res, 1);
   }
 }

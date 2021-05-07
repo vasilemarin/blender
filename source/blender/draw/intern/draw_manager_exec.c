@@ -674,8 +674,7 @@ static void draw_update_uniforms(DRWShadingGroup *shgroup,
                                                                 ((GPUVertBuf *)uni->pvalue));
           break;
         case DRW_VERTEX_BUFFER:
-          GPU_shader_attach_vertex_buffer(
-              shgroup->shader, (GPUVertBuf *)uni->pvalue, uni->location);
+          GPU_vertbuf_bind_as_ssbo((GPUVertBuf *)uni->pvalue, uni->location);
           break;
           /* Legacy/Fallback support. */
         case DRW_UNIFORM_BASE_INSTANCE:
