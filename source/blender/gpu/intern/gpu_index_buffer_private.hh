@@ -91,6 +91,8 @@ class IndexBuf {
     return is_init_;
   };
 
+  virtual void bind_as_ssbo(uint binding) = 0;
+
  private:
   inline void squeeze_indices_short(uint min_idx, uint max_idx);
   inline uint index_range(uint *r_min, uint *r_max);

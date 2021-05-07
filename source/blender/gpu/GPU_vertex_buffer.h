@@ -139,6 +139,7 @@ uint GPU_vertbuf_get_vertex_len(const GPUVertBuf *verts);
 GPUVertBufStatus GPU_vertbuf_get_status(const GPUVertBuf *verts);
 
 void GPU_vertbuf_use(GPUVertBuf *);
+void GPU_vertbuf_bind_as_ssbo(struct GPUVertBuf *verts, int binding);
 
 /* XXX do not use. */
 void GPU_vertbuf_update_sub(GPUVertBuf *verts, uint start, uint len, void *data);

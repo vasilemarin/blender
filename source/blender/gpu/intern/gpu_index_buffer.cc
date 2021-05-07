@@ -366,4 +366,9 @@ int GPU_indexbuf_primitive_len(GPUPrimType prim_type)
   return indices_per_primitive(prim_type);
 }
 
+void GPU_indexbuf_bind_as_ssbo(GPUIndexBuf *elem, int binding)
+{
+  unwrap(elem)->bind_as_ssbo(binding);
+}
+
 /** \} */

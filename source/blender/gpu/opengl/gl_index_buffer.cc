@@ -59,4 +59,11 @@ void GLIndexBuf::bind()
   }
 }
 
+void GLIndexBuf::bind_as_ssbo(uint binding)
+{
+  bind();
+  BLI_assert(ibo_id_ != 0);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, ibo_id_);
+}
+
 }  // namespace blender::gpu

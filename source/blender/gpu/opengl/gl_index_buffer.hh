@@ -43,6 +43,7 @@ class GLIndexBuf : public IndexBuf {
   ~GLIndexBuf();
 
   void bind(void);
+  void bind_as_ssbo(uint binding) override;
 
   void *offset_ptr(uint additional_vertex_offset) const
   {

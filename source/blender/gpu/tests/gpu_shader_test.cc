@@ -180,7 +180,7 @@ void main() {
   GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
   GPUVertBuf *vbo = GPU_vertbuf_create_with_format_ex(&format, GPU_USAGE_DEVICE_ONLY);
   GPU_vertbuf_data_alloc(vbo, SIZE);
-  GPU_shader_attach_vertex_buffer(shader, vbo, 0);
+  GPU_vertbuf_bind_as_ssbo(vbo, 0);
 
   /* Dispatch compute task. */
   GPU_compute_dispatch(shader, SIZE, 1, 1);
@@ -252,7 +252,7 @@ void main() {
   }
   GPUIndexBuf *ibo = GPU_indexbuf_build(&ibo_builder);
 
-  GPU_shader_attach_index_buffer(shader, ibo, 0);
+  GPU_indexbuf_bind_as_ssbo(ibo, 0);
 
   /* Dispatch compute task. */
   GPU_compute_dispatch(shader, SIZE / 2, 1, 1);
@@ -317,7 +317,7 @@ void main() {
   }
   GPUIndexBuf *ibo = GPU_indexbuf_build(&ibo_builder);
 
-  GPU_shader_attach_index_buffer(shader, ibo, 0);
+  GPU_indexbuf_bind_as_ssbo(ibo, 0);
 
   /* Dispatch compute task. */
   GPU_compute_dispatch(shader, SIZE, 1, 1);

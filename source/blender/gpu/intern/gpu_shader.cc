@@ -589,22 +589,6 @@ void GPU_shader_transform_feedback_disable(GPUShader *shader)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Buffer binding
- * \{ */
-
-void GPU_shader_attach_vertex_buffer(GPUShader *shader, struct GPUVertBuf *vertbuf, int position)
-{
-  unwrap(shader)->attach_buffer(vertbuf, position);
-}
-
-void GPU_shader_attach_index_buffer(GPUShader *shader, struct GPUIndexBuf *indexbuf, int position)
-{
-  unwrap(shader)->attach_buffer(indexbuf, position);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Uniforms / Resource location
  * \{ */
 
