@@ -244,14 +244,8 @@ void main() {
   GPU_shader_bind(shader);
 
   /* Construct IBO. */
-  GPUIndexBufBuilder ibo_builder;
-  const int max_vertex_index = 65536;
-  GPU_indexbuf_init(&ibo_builder, GPU_PRIM_POINTS, SIZE, max_vertex_index);
-  for (int index = 0; index < SIZE; index++) {
-    GPU_indexbuf_set_point_vert(&ibo_builder, index, 57005);
-  }
-  GPUIndexBuf *ibo = GPU_indexbuf_build(&ibo_builder);
-
+  GPUIndexBuf *ibo = GPU_indexbuf_calloc();
+  GPU_indexbuf_init_device_only(ibo, GPU_INDEX_U16, GPU_PRIM_POINTS, SIZE);
   GPU_indexbuf_bind_as_ssbo(ibo, GPU_shader_get_ssbo(shader, "outputIboData"));
 
   /* Dispatch compute task. */
@@ -310,13 +304,8 @@ void main() {
   GPU_shader_bind(shader);
 
   /* Construct IBO. */
-  GPUIndexBufBuilder ibo_builder;
-  GPU_indexbuf_init(&ibo_builder, GPU_PRIM_POINTS, SIZE, 0);
-  for (int index = 0; index < SIZE; index++) {
-    GPU_indexbuf_set_point_vert(&ibo_builder, index, 65536 * index);
-  }
-  GPUIndexBuf *ibo = GPU_indexbuf_build(&ibo_builder);
-
+  GPUIndexBuf *ibo = GPU_indexbuf_calloc();
+  GPU_indexbuf_init_device_only(ibo, GPU_INDEX_U32, GPU_PRIM_POINTS, SIZE);
   GPU_indexbuf_bind_as_ssbo(ibo, GPU_shader_get_ssbo(shader, "outputIboData"));
 
   /* Dispatch compute task. */
