@@ -43,6 +43,7 @@ struct GPUCapabilities {
   int max_textures_frag = 0;
   bool mem_stats_support = false;
   bool compute_shader_support = false;
+  bool shader_storage_buffer_objects_support = false;
   bool shader_image_load_store_support = false;
   /* OpenGL related workarounds. */
   bool mip_render_workaround = false;
