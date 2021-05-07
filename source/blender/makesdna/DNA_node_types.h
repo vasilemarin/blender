@@ -1188,6 +1188,14 @@ typedef struct NodeAttributeColorRamp {
   ColorBand color_ramp;
 } NodeAttributeColorRamp;
 
+typedef struct NodeAttributeCurveMap {
+  /* CustomDataType. */
+  uint8_t data_type;
+  char _pad[7];
+  CurveMapping *curve_vec;
+  CurveMapping *curve_rgb;
+} NodeAttributeCurveMap;
+
 typedef struct NodeInputVector {
   float vector[3];
 } NodeInputVector;
@@ -1280,10 +1288,9 @@ typedef struct NodeAttributeSeparateXYZ {
 
 typedef struct NodeAttributeConvert {
   /* CustomDataType. */
-  uint8_t data_type;
-  char _pad[1];
+  int8_t data_type;
   /* AttributeDomain. */
-  int16_t domain;
+  int8_t domain;
 } NodeAttributeConvert;
 
 typedef struct NodeGeometryMeshCircle {
