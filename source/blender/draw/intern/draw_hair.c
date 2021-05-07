@@ -46,11 +46,12 @@
 
 #ifndef __APPLE__
 #  define USE_TRANSFORM_FEEDBACK
+#  define USE_COMPUTE_SHADERS
 #endif
 
 BLI_INLINE bool drw_hair_use_compute_shaders(void)
 {
-#ifdef USE_TRANSFORM_FEEDBACK
+#ifdef USE_COMPUTE_SHADERS
   return GPU_compute_shader_support();
 #else
   return false;
@@ -83,6 +84,7 @@ static DRWPass *g_tf_pass; /* XXX can be a problem with multiple DRWManager in t
 
 extern char datatoc_common_hair_lib_glsl[];
 extern char datatoc_common_hair_refine_vert_glsl[];
+extern char datatoc_common_hair_refine_comp_glsl[];
 extern char datatoc_gpu_shader_3D_smooth_color_frag_glsl[];
 
 static GPUShader *hair_refine_shader_get(ParticleRefineShader sh)
@@ -91,16 +93,18 @@ static GPUShader *hair_refine_shader_get(ParticleRefineShader sh)
     return g_refine_shaders[sh];
   }
 
-#ifdef USE_TRANSFORM_FEEDBACK
+#ifdef USE_COMPUTE_SHADERS
   const bool do_compute = drw_hair_use_compute_shaders();
   if (do_compute) {
-    g_refine_shaders[sh] = GPU_shader_create_compute(datatoc_common_hair_refine_vert_glsl,
+    g_refine_shaders[sh] = GPU_shader_create_compute(datatoc_common_hair_refine_comp_glsl,
                                                      datatoc_common_hair_lib_glsl,
                                                      "#define HAIR_PHASE_SUBDIV\n",
                                                      __func__);
     return g_refine_shaders[sh];
   }
+#endif
 
+#ifdef USE_TRANSFORM_FEEDBACK
   char *shader_src = BLI_string_joinN(datatoc_common_hair_lib_glsl,
                                       datatoc_common_hair_refine_vert_glsl);
   const char *var_names[1] = {"finalColor"};
@@ -123,7 +127,7 @@ static GPUShader *hair_refine_shader_get(ParticleRefineShader sh)
 
 void DRW_hair_init(void)
 {
-#ifdef USE_TRANSFORM_FEEDBACK
+#if defined(USE_TRANSFORM_FEEDBACK) || defined(USE_COMPUTE_SHADERS)
   g_tf_pass = DRW_pass_create("Update Hair Pass", 0);
 #else
   g_tf_pass = DRW_pass_create("Update Hair Pass", DRW_STATE_WRITE_COLOR);
