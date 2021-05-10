@@ -36,10 +36,7 @@ layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
 void main() {
-  // base pixel colour for image
   vec4 pixel = vec4(1.0, 0.5, 0.2, 1.0);
-  
-  // output to a specific pixel in the image
   imageStore(img_output, ivec2(gl_GlobalInvocationID.xy), pixel);
 }
 
@@ -231,7 +228,7 @@ layout(std430, binding = 0) buffer outputIboData
 void main() {
   int store_index = int(gl_GlobalInvocationID.x);
   int index1 = store_index * 2;
-  int index2 = store_index *2 + 1;
+  int index2 = store_index * 2 + 1;
   int store = ((index2 & 0xFFFF) << 16) | (index1 & 0xFFFF);
   Indexes[store_index] = store;
 }
@@ -292,8 +289,7 @@ layout(std430, binding = 1) buffer outputIboData
 
 void main() {
   int store_index = int(gl_GlobalInvocationID.x);
-  int store = store_index;
-  Indexes[store_index] = store;
+  Indexes[store_index] = store_index;
 }
 
 )";
@@ -331,7 +327,7 @@ void main() {
   GPU_shader_free(shader);
 }
 
-TEST_F(GPUTest, gpu_shader_ssbo)
+TEST_F(GPUTest, gpu_shader_ssbo_binding)
 {
 
   if (!GPU_compute_shader_support()) {

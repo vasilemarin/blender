@@ -97,48 +97,69 @@ static AUD_Device *audio_device = NULL;
 struct PlayState;
 static void playanim_window_zoom(struct PlayState *ps, const float zoom_offset);
 
+/**
+ * The current state of the player.
+ *
+ * \warning Don't store results of parsing command-line arguments
+ * in this struct if they need to persist across playing back different
+ * files as these will be cleared when playing other files (drag & drop).
+ */
 typedef struct PlayState {
 
-  /* window and viewport size */
+  /** Window and viewport size. */
   int win_x, win_y;
 
-  /* current zoom level */
+  /** Current zoom level. */
   float zoom;
 
-  /* playback state */
+  /** Playback direction (-1, 1). */
   short direction;
+  /** Set the next frame to implement frame stepping (using shortcuts). */
   short next_frame;
 
+  /** Playback once then wait. */
   bool once;
-  bool turbo;
+  /** Play forwards/backwards. */
   bool pingpong;
+  /** Disable frame skipping. */
   bool noskip;
+  /** Display current frame over the window. */
   bool indicator;
+  /** Single-frame stepping has been enabled (frame loading and update pending). */
   bool sstep;
+  /** Playback has stopped the image has been displayed. */
   bool wait2;
+  /** Playback stopped state once stop/start variables have been handled. */
   bool stopped;
+  /**
+   * When disabled the current animation will exit,
+   * after this either the application exits or a new animation window is opened.
+   *
+   * This is used so drag & drop can load new files which setup a newly created animation window.
+   */
   bool go;
-  /* waiting for images to load */
+  /** True when waiting for images to load. */
   bool loading;
-  /* x/y image flip */
+  /** X/Y image flip (set via key bindings). */
   bool draw_flip[2];
 
+  /** The number of frames to step each update (default to 1, command line argument). */
   int fstep;
 
-  /* current picture */
+  /** Current frame (picture). */
   struct PlayAnimPict *picture;
 
-  /* set once at the start */
+  /** Image size in pixels, set once at the start. */
   int ibufx, ibufy;
+  /** Mono-space font ID. */
   int fontid;
 
-  /* saves passing args */
-  struct ImBuf *curframe_ibuf;
-
-  /* restarts player for file drop */
+  /** Restarts player for file drop (drag & drop). */
   char dropped_file[FILE_MAX];
 
+  /** Force update when scrubbing with the cursor. */
   bool need_frame_update;
+  /** The current frame calculated by scrubbing the mouse cursor. */
   int frame_cursor_x;
 
   ColorManagedViewSettings view_settings;
@@ -147,17 +168,14 @@ typedef struct PlayState {
 
 /* for debugging */
 #if 0
-void print_ps(PlayState *ps)
+static void print_ps(PlayState *ps)
 {
   printf("ps:\n");
   printf("    direction=%d,\n", (int)ps->direction);
-  printf("    next=%d,\n", ps->next);
   printf("    once=%d,\n", ps->once);
-  printf("    turbo=%d,\n", ps->turbo);
   printf("    pingpong=%d,\n", ps->pingpong);
   printf("    noskip=%d,\n", ps->noskip);
   printf("    sstep=%d,\n", ps->sstep);
-  printf("    pause=%d,\n", ps->pause);
   printf("    wait2=%d,\n", ps->wait2);
   printf("    stopped=%d,\n", ps->stopped);
   printf("    go=%d,\n\n", ps->go);
@@ -274,7 +292,88 @@ static struct {
     .pics_size_in_memory = 0,
     .memory_limit = 0,
 };
+
+static void frame_cache_add(PlayAnimPict *pic)
+{
+  pic->frame_cache_node = BLI_genericNodeN(pic);
+  BLI_addhead(&g_frame_cache.pics, pic->frame_cache_node);
+  g_frame_cache.pics_len++;
+
+  if (g_frame_cache.memory_limit != 0) {
+    BLI_assert(pic->size_in_memory == 0);
+    pic->size_in_memory = IMB_get_size_in_memory(pic->ibuf);
+    g_frame_cache.pics_size_in_memory += pic->size_in_memory;
+  }
+}
+
+static void frame_cache_remove(PlayAnimPict *pic)
+{
+  LinkData *node = pic->frame_cache_node;
+  IMB_freeImBuf(pic->ibuf);
+  if (g_frame_cache.memory_limit != 0) {
+    BLI_assert(pic->size_in_memory != 0);
+    g_frame_cache.pics_size_in_memory -= pic->size_in_memory;
+    pic->size_in_memory = 0;
+  }
+  pic->ibuf = NULL;
+  pic->frame_cache_node = NULL;
+  BLI_freelinkN(&g_frame_cache.pics, node);
+  g_frame_cache.pics_len--;
+}
+
+/* Don't free the current frame by moving it to the head of the list. */
+static void frame_cache_touch(PlayAnimPict *pic)
+{
+  BLI_assert(pic->frame_cache_node->data == pic);
+  BLI_remlink(&g_frame_cache.pics, pic->frame_cache_node);
+  BLI_addhead(&g_frame_cache.pics, pic->frame_cache_node);
+}
+
+static bool frame_cache_limit_exceeded(void)
+{
+  return g_frame_cache.memory_limit ?
+             (g_frame_cache.pics_size_in_memory > g_frame_cache.memory_limit) :
+             (g_frame_cache.pics_len > PLAY_FRAME_CACHE_MAX);
+}
+
+static void frame_cache_limit_apply(ImBuf *ibuf_keep)
+{
+  /* Really basic memory conservation scheme. Keep frames in a FIFO queue. */
+  LinkData *node = g_frame_cache.pics.last;
+  while (node && frame_cache_limit_exceeded()) {
+    PlayAnimPict *pic = node->data;
+    BLI_assert(pic->frame_cache_node == node);
+
+    node = node->prev;
+    if (pic->ibuf && pic->ibuf != ibuf_keep) {
+      frame_cache_remove(pic);
+    }
+  }
+}
+
 #endif /* USE_FRAME_CACHE_LIMIT */
+
+static ImBuf *ibuf_from_picture(PlayAnimPict *pic)
+{
+  ImBuf *ibuf = NULL;
+
+  if (pic->ibuf) {
+    ibuf = pic->ibuf;
+  }
+  else if (pic->anim) {
+    ibuf = IMB_anim_absolute(pic->anim, pic->frame, IMB_TC_NONE, IMB_PROXY_NONE);
+  }
+  else if (pic->mem) {
+    /* use correct colorspace here */
+    ibuf = IMB_ibImageFromMemory(pic->mem, pic->size, pic->IB_flags, NULL, pic->name);
+  }
+  else {
+    /* use correct colorspace here */
+    ibuf = IMB_loadiffname(pic->name, pic->IB_flags, NULL);
+  }
+
+  return ibuf;
+}
 
 static PlayAnimPict *playanim_step(PlayAnimPict *playanim, int step)
 {
@@ -410,6 +509,13 @@ static void draw_display_buffer(PlayState *ps, ImBuf *ibuf)
 
   BLI_rctf_init(&canvas, 0.0f, 1.0f, 0.0f, 1.0f);
   BLI_rctf_init(&preview, 0.0f, 1.0f, 0.0f, 1.0f);
+
+  if (ps->draw_flip[0]) {
+    SWAP(float, canvas.xmin, canvas.xmax);
+  }
+  if (ps->draw_flip[1]) {
+    SWAP(float, canvas.ymin, canvas.ymax);
+  }
 
   immAttr2f(texCoord, canvas.xmin, canvas.ymin);
   immVertex2f(pos, preview.xmin, preview.ymin);
@@ -556,6 +662,14 @@ static void build_pict_list_ex(
     }
   }
   else {
+    /* Load images into cache until the cache is full,
+     * this resolves choppiness for images that are slow to load, see: T81751. */
+#ifdef USE_FRAME_CACHE_LIMIT
+    bool fill_cache = true;
+#else
+    bool fill_cache = false;
+#endif
+
     int count = 0;
 
     int fp_framenr;
@@ -642,22 +756,33 @@ static void build_pict_list_ex(
 
       pupdate_time();
 
-      if (ptottime > 1.0) {
+      const bool display_imbuf = ptottime > 1.0;
+
+      if (display_imbuf || fill_cache) {
         /* OCIO_TODO: support different input color space */
-        struct ImBuf *ibuf;
-        if (picture->mem) {
-          ibuf = IMB_ibImageFromMemory(
-              picture->mem, picture->size, picture->IB_flags, NULL, picture->name);
-        }
-        else {
-          ibuf = IMB_loadiffname(picture->name, picture->IB_flags, NULL);
-        }
+        ImBuf *ibuf = ibuf_from_picture(picture);
+
         if (ibuf) {
-          playanim_toscreen(ps, picture, ibuf, fontid, fstep);
-          IMB_freeImBuf(ibuf);
+          if (display_imbuf) {
+            playanim_toscreen(ps, picture, ibuf, fontid, fstep);
+          }
+#ifdef USE_FRAME_CACHE_LIMIT
+          if (fill_cache) {
+            picture->ibuf = ibuf;
+            frame_cache_add(picture);
+            fill_cache = !frame_cache_limit_exceeded();
+          }
+          else
+#endif
+          {
+            IMB_freeImBuf(ibuf);
+          }
         }
-        pupdate_time();
-        ptottime = 0.0;
+
+        if (display_imbuf) {
+          pupdate_time();
+          ptottime = 0.0;
+        }
       }
 
       /* create a new filepath each time */
@@ -765,15 +890,13 @@ static void change_frame(PlayState *ps)
 static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
 {
   PlayState *ps = (PlayState *)ps_void;
-  GHOST_TEventType type = GHOST_GetEventType(evt);
-  int val;
+  const GHOST_TEventType type = GHOST_GetEventType(evt);
+  /* Convert ghost event into value keyboard or mouse. */
+  const int val = ELEM(type, GHOST_kEventKeyDown, GHOST_kEventButtonDown);
 
   // print_ps(ps);
 
   playanim_event_qual_update();
-
-  /* convert ghost event into value keyboard or mouse */
-  val = ELEM(type, GHOST_kEventKeyDown, GHOST_kEventButtonDown);
 
   /* first check if we're busy loading files */
   if (ps->loading) {
@@ -798,8 +921,8 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
     return 1;
   }
 
-  if (ps->wait2 && ps->stopped) {
-    ps->stopped = false;
+  if (ps->wait2 && ps->stopped == false) {
+    ps->stopped = true;
   }
 
   if (ps->wait2) {
@@ -958,9 +1081,9 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
         case GHOST_kKeyNumpadSlash:
           if (val) {
             if (g_WS.qual & WS_QUAL_SHIFT) {
-              if (ps->curframe_ibuf) {
+              if (ps->picture && ps->picture->ibuf) {
                 printf(" Name: %s | Speed: %.2f frames/s\n",
-                       ps->curframe_ibuf->name,
+                       ps->picture->ibuf->name,
                        ps->fstep / swaptime);
               }
             }
@@ -1197,7 +1320,8 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
       playanim_gl_matrix();
 
       ptottime = 0.0;
-      playanim_toscreen(ps, ps->picture, ps->curframe_ibuf, ps->fontid, ps->fstep);
+      playanim_toscreen(
+          ps, ps->picture, ps->picture ? ps->picture->ibuf : NULL, ps->fontid, ps->fstep);
 
       break;
     }
@@ -1274,7 +1398,9 @@ static void playanim_window_zoom(PlayState *ps, const float zoom_offset)
   GHOST_SetClientSize(g_WS.ghost_window, sizex, sizey);
 }
 
-/* return path for restart */
+/**
+ * \return The a path used to restart the animation player or NULL to exit.
+ */
 static char *wm_main_playanim_intern(int argc, const char **argv)
 {
   struct ImBuf *ibuf = NULL;
@@ -1293,7 +1419,6 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
   ps.direction = true;
   ps.next_frame = 1;
   ps.once = false;
-  ps.turbo = false;
   ps.pingpong = false;
   ps.noskip = false;
   ps.sstep = false;
@@ -1315,6 +1440,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
           IMB_colormanagement_role_colorspace_name_get(COLOR_ROLE_DEFAULT_BYTE));
   IMB_colormanagement_init_default_view_settings(&ps.view_settings, &ps.display_settings);
 
+  /* Skip the first argument which is assumed to be '-a' (used to launch this player). */
   while (argc > 1) {
     if (argv[1][0] == '-') {
       switch (argv[1][1]) {
@@ -1551,21 +1677,8 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
         IMB_freeImBuf(ibuf);
       }
 #endif
-      if (ps.picture->ibuf) {
-        ibuf = ps.picture->ibuf;
-      }
-      else if (ps.picture->anim) {
-        ibuf = IMB_anim_absolute(ps.picture->anim, ps.picture->frame, IMB_TC_NONE, IMB_PROXY_NONE);
-      }
-      else if (ps.picture->mem) {
-        /* use correct colorspace here */
-        ibuf = IMB_ibImageFromMemory(
-            ps.picture->mem, ps.picture->size, ps.picture->IB_flags, NULL, ps.picture->name);
-      }
-      else {
-        /* use correct colorspace here */
-        ibuf = IMB_loadiffname(ps.picture->name, ps.picture->IB_flags, NULL);
-      }
+
+      ibuf = ibuf_from_picture(ps.picture);
 
       if (ibuf) {
 #ifdef USE_IMB_CACHE
@@ -1574,50 +1687,12 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 
 #ifdef USE_FRAME_CACHE_LIMIT
         if (ps.picture->frame_cache_node == NULL) {
-          ps.picture->frame_cache_node = BLI_genericNodeN(ps.picture);
-          BLI_addhead(&g_frame_cache.pics, ps.picture->frame_cache_node);
-          g_frame_cache.pics_len++;
-
-          if (g_frame_cache.memory_limit != 0) {
-            BLI_assert(ps.picture->size_in_memory == 0);
-            ps.picture->size_in_memory = IMB_get_size_in_memory(ps.picture->ibuf);
-            g_frame_cache.pics_size_in_memory += ps.picture->size_in_memory;
-          }
+          frame_cache_add(ps.picture);
         }
         else {
-          /* Don't free the current frame by moving it to the head of the list. */
-          BLI_assert(ps.picture->frame_cache_node->data == ps.picture);
-          BLI_remlink(&g_frame_cache.pics, ps.picture->frame_cache_node);
-          BLI_addhead(&g_frame_cache.pics, ps.picture->frame_cache_node);
+          frame_cache_touch(ps.picture);
         }
-
-        /* Really basic memory conservation scheme. Keep frames in a FIFO queue. */
-        LinkData *node = g_frame_cache.pics.last;
-        while (node && (g_frame_cache.memory_limit ?
-                            (g_frame_cache.pics_size_in_memory > g_frame_cache.memory_limit) :
-                            (g_frame_cache.pics_len > PLAY_FRAME_CACHE_MAX))) {
-          PlayAnimPict *pic = node->data;
-          BLI_assert(pic->frame_cache_node == node);
-
-          if (pic->ibuf && pic->ibuf != ibuf) {
-            LinkData *node_tmp;
-            IMB_freeImBuf(pic->ibuf);
-            if (g_frame_cache.memory_limit != 0) {
-              BLI_assert(pic->size_in_memory != 0);
-              g_frame_cache.pics_size_in_memory -= pic->size_in_memory;
-              pic->size_in_memory = 0;
-            }
-            pic->ibuf = NULL;
-            pic->frame_cache_node = NULL;
-            node_tmp = node->prev;
-            BLI_freelinkN(&g_frame_cache.pics, node);
-            g_frame_cache.pics_len--;
-            node = node_tmp;
-          }
-          else {
-            node = node->prev;
-          }
-        }
+        frame_cache_limit_apply(ibuf);
 
 #endif /* USE_FRAME_CACHE_LIMIT */
 
@@ -1666,14 +1741,15 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 
       ps.wait2 = ps.sstep;
 
-      if (ps.wait2 == false && ps.stopped == false) {
-        ps.stopped = true;
+      if (ps.wait2 == false && ps.stopped) {
+        ps.stopped = false;
       }
 
       pupdate_time();
 
       if (ps.picture && ps.next_frame) {
-        /* always at least set one step */
+        /* Advance to the next frame, always at least set one step.
+         * Implement frame-skipping when enabled and playback is not fast enough. */
         while (ps.picture) {
           ps.picture = playanim_step(ps.picture, ps.next_frame);
 
@@ -1686,7 +1762,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
             }
           }
 
-          if (ps.wait2 || ptottime < swaptime || ps.turbo || ps.noskip) {
+          if (ps.wait2 || ptottime < swaptime || ps.noskip) {
             break;
           }
           ptottime -= swaptime;
@@ -1730,6 +1806,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 #ifdef USE_FRAME_CACHE_LIMIT
   BLI_freelistN(&g_frame_cache.pics);
   g_frame_cache.pics_len = 0;
+  g_frame_cache.pics_size_in_memory = 0;
 #endif
 
 #ifdef WITH_AUDASPACE
