@@ -331,7 +331,7 @@ void main() {
   GPU_shader_free(shader);
 }
 
-TEST_F(GPUTest, gpu_shader_ssbo)
+TEST_F(GPUTest, gpu_shader_ssbo_binding)
 {
 
   if (!GPU_compute_shader_support()) {
