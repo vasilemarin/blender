@@ -128,9 +128,21 @@ static inline int image_binding(int32_t program,
   }
 }
 
-static inline int ssbo_binding()
+static inline int ssbo_binding(int32_t program, uint32_t ssbo_index)
 {
-  return -1;
+  GLint binding = -1;
+  GLenum property = GL_BUFFER_BINDING;
+  GLint values_written = 0;
+  glGetProgramResourceiv(program,
+                         GL_SHADER_STORAGE_BLOCK,
+                         ssbo_index,
+                         1,
+                         &property,
+                         1,
+                         &values_written,
+                         &binding);
+
+  return binding;
 }
 
 /** \} */
@@ -144,13 +156,6 @@ GLShaderInterface::GLShaderInterface(GLuint program)
   /* Necessary to make #glUniform works. */
   glUseProgram(program);
 
-  GLint max_ssbo_name_len = 0, ssbo_len = 0;
-  if (GPU_shader_storage_buffer_objects_support()) {
-    glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &ssbo_len);
-    glGetProgramInterfaceiv(
-        program, GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &max_ssbo_name_len);
-  }
-
   GLint max_attr_name_len = 0, attr_len = 0;
   glGetProgramiv(program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_attr_name_len);
   glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &attr_len);
@@ -163,6 +168,13 @@ GLShaderInterface::GLShaderInterface(GLuint program)
   glGetProgramiv(program, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_uniform_name_len);
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &active_uniform_len);
   uniform_len = active_uniform_len;
+
+  GLint max_ssbo_name_len = 0, ssbo_len = 0;
+  if (GPU_shader_storage_buffer_objects_support()) {
+    glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &ssbo_len);
+    glGetProgramInterfaceiv(
+        program, GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &max_ssbo_name_len);
+  }
 
   BLI_assert(ubo_len <= 16 && "enabled_ubo_mask_ is uint16_t");
 
@@ -284,11 +296,7 @@ GLShaderInterface::GLShaderInterface(GLuint program)
     glGetProgramResourceName(
         program, GL_SHADER_STORAGE_BLOCK, i, remaining_buffer, &name_len, name);
 
-    GLint binding = -1;
-    GLenum property = GL_BUFFER_BINDING;
-    GLint values_written = 0;
-    glGetProgramResourceiv(
-        program, GL_SHADER_STORAGE_BLOCK, i, 1, &property, 1, &values_written, &binding);
+    const GLint binding = ssbo_binding(program, i);
 
     ShaderInput *input = &inputs_[attr_len_ + ubo_len_ + uniform_len_ + ssbo_len_++];
     input->binding = input->location = binding;
