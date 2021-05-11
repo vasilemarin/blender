@@ -185,9 +185,8 @@ void main() {
   /* Check if compute has been done. */
   GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
 
-  /* Use opengl function to download the vertex buffer. */
-  /* TODO(jbakker): Add function to copy it back to the VertexBuffer data. */
-  float *data = static_cast<float *>(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
+  /* Download the vertex buffer. */
+  float *data = static_cast<float *>(GPU_vertbuf_read(vbo));
   ASSERT_NE(data, nullptr);
   for (int index = 0; index < SIZE; index++) {
     float expected_value = index;
@@ -196,6 +195,7 @@ void main() {
     EXPECT_FLOAT_EQ(data[index * 4 + 2], expected_value);
     EXPECT_FLOAT_EQ(data[index * 4 + 3], expected_value);
   }
+  MEM_freeN(data);
 
   /* Cleanup. */
   GPU_shader_unbind();
@@ -246,15 +246,14 @@ void main() {
   /* Check if compute has been done. */
   GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
 
-  /* Use opengl function to download the index buffer. */
-  /* TODO(jbakker): Add function to copy it back to the IndexBuffer data and accessors to read
-   * data. */
-  uint32_t *data = static_cast<uint32_t *>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY));
+  /* Download the index buffer. */
+  uint32_t *data = GPU_indexbuf_read(ibo);
   ASSERT_NE(data, nullptr);
   for (int index = 0; index < SIZE; index++) {
     uint32_t expected = index;
     EXPECT_EQ(data[index], expected);
   }
+  MEM_freeN(data);
 
   /* Cleanup. */
   GPU_shader_unbind();
@@ -264,7 +263,6 @@ void main() {
 
 TEST_F(GPUTest, gpu_shader_ssbo_binding)
 {
-
   if (!GPU_compute_shader_support()) {
     /* We can't test as a the platform does not support compute shaders. */
     std::cout << "Skipping compute shader test: platform not supported";

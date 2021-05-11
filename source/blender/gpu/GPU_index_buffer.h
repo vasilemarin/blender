@@ -80,6 +80,8 @@ void GPU_indexbuf_create_subrange_in_place(GPUIndexBuf *elem,
                                            uint start,
                                            uint length);
 
+uint32_t *GPU_indexbuf_read(GPUIndexBuf *elem);
+
 void GPU_indexbuf_discard(GPUIndexBuf *elem);
 
 bool GPU_indexbuf_is_init(GPUIndexBuf *elem);

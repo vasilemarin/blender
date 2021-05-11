@@ -71,6 +71,7 @@ GPUVertBuf *GPU_vertbuf_create_with_format_ex(const GPUVertFormat *, GPUUsageTyp
 #define GPU_vertbuf_create_with_format(format) \
   GPU_vertbuf_create_with_format_ex(format, GPU_USAGE_STATIC)
 
+void *GPU_vertbuf_read(GPUVertBuf *verts);
 void GPU_vertbuf_clear(GPUVertBuf *verts);
 void GPU_vertbuf_discard(GPUVertBuf *);
 

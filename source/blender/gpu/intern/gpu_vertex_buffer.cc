@@ -149,6 +149,11 @@ GPUVertBuf *GPU_vertbuf_duplicate(GPUVertBuf *verts_)
   return wrap(unwrap(verts_)->duplicate());
 }
 
+void *GPU_vertbuf_read(GPUVertBuf *verts)
+{
+  return unwrap(verts)->read();
+}
+
 /** Same as discard but does not free. */
 void GPU_vertbuf_clear(GPUVertBuf *verts)
 {

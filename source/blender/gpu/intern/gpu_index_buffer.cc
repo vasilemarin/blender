@@ -368,6 +368,11 @@ void GPU_indexbuf_create_subrange_in_place(GPUIndexBuf *elem,
   unwrap(elem)->init_subrange(unwrap(elem_src), start, length);
 }
 
+uint32_t *GPU_indexbuf_read(GPUIndexBuf *elem)
+{
+  return unwrap(elem)->read();
+}
+
 void GPU_indexbuf_discard(GPUIndexBuf *elem)
 {
   delete unwrap(elem);

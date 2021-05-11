@@ -82,7 +82,7 @@ class IndexBuf {
     return index_len_;
   }
   /* Return size in byte of the drawable data buffer range. Actual buffer size might be bigger. */
-  size_t size_get(void)
+  size_t size_get(void) const
   {
     return index_len_ * to_bytesize(index_type_);
   };
@@ -93,6 +93,8 @@ class IndexBuf {
   };
 
   virtual void bind_as_ssbo(uint binding) = 0;
+
+  virtual uint32_t *read() const = 0;
 
  private:
   inline void squeeze_indices_short(uint min_idx, uint max_idx);
