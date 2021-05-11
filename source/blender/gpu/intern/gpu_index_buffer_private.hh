@@ -31,6 +31,11 @@
 
 namespace blender::gpu {
 
+typedef enum {
+  GPU_INDEX_U16,
+  GPU_INDEX_U32,
+} GPUIndexBufType;
+
 static inline size_t to_bytesize(GPUIndexBufType type)
 {
   return (type == GPU_INDEX_U32) ? sizeof(uint32_t) : sizeof(uint16_t);
@@ -70,7 +75,7 @@ class IndexBuf {
 
   void init(uint indices_len, uint32_t *indices);
   void init_subrange(IndexBuf *elem_src, uint start, uint length);
-  void init_device_only(GPUIndexBufType index_type, GPUPrimType prim_type, uint prim_len);
+  void init_build_on_device(GPUPrimType prim_type, uint prim_len);
 
   uint32_t index_len_get(void) const
   {

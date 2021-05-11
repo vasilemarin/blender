@@ -66,13 +66,12 @@ void GPU_indexbuf_init(GPUIndexBufBuilder *builder,
   GPU_indexbuf_init_ex(builder, prim_type, prim_len * (uint)verts_per_prim, vertex_len);
 }
 
-void GPU_indexbuf_init_device_only(GPUIndexBuf *elem_,
-                                   GPUIndexBufType index_type,
-                                   GPUPrimType prim_type,
-                                   uint prim_len)
+GPUIndexBuf *GPU_indexbuf_build_on_device(GPUPrimType prim_type, uint prim_len)
 {
+  GPUIndexBuf *elem_ = GPU_indexbuf_calloc();
   IndexBuf *elem = unwrap(elem_);
-  elem->init_device_only(index_type, prim_type, prim_len);
+  elem->init_build_on_device(prim_type, prim_len);
+  return elem_;
 }
 
 void GPU_indexbuf_add_generic_vert(GPUIndexBufBuilder *builder, uint v)
@@ -250,12 +249,12 @@ void IndexBuf::init(uint indices_len, uint32_t *indices)
 #endif
 }
 
-void IndexBuf::init_device_only(GPUIndexBufType index_type, GPUPrimType prim_type, uint prim_len)
+void IndexBuf::init_build_on_device(GPUPrimType prim_type, uint prim_len)
 {
   is_init_ = true;
   index_start_ = 0;
   index_len_ = prim_len * indices_per_primitive(prim_type);
-  index_type_ = index_type;
+  index_type_ = GPU_INDEX_U32;
   data_ = nullptr;
 }
 
