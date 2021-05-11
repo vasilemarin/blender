@@ -189,7 +189,6 @@ void main() {
   /* TODO(jbakker): Add function to copy it back to the VertexBuffer data. */
   float *data = static_cast<float *>(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
   ASSERT_NE(data, nullptr);
-  /* Create texture to load back result. */
   for (int index = 0; index < SIZE; index++) {
     float expected_value = index;
     EXPECT_FLOAT_EQ(data[index * 4 + 0], expected_value);
@@ -247,12 +246,11 @@ void main() {
   /* Check if compute has been done. */
   GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
 
-  /* Use opengl function to download the vertex buffer. */
+  /* Use opengl function to download the index buffer. */
   /* TODO(jbakker): Add function to copy it back to the IndexBuffer data and accessors to read
    * data. */
   uint32_t *data = static_cast<uint32_t *>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY));
   ASSERT_NE(data, nullptr);
-  /* Create texture to load back result. */
   for (int index = 0; index < SIZE; index++) {
     uint32_t expected = index;
     EXPECT_EQ(data[index], expected);
