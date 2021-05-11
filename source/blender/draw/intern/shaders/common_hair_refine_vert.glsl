@@ -1,7 +1,5 @@
 
-/*
- * To be compiled with common_hair_lib.glsl.
- */
+/* To be compiled with common_hair_lib.glsl */
 
 out vec4 finalColor;
 
@@ -18,9 +16,7 @@ void main(void)
   hair_get_interp_attrs(data0, data1, data2, data3, interp_time);
 
   vec4 weights = hair_get_weights_cardinal(interp_time);
-  vec4 result = hair_interp_data(data0, data1, data2, data3, weights);
-
-  finalColor = result;
+  finalColor = hair_interp_data(data0, data1, data2, data3, weights);
 
 #ifdef TF_WORKAROUND
   int id = gl_VertexID - idOffset;
