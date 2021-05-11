@@ -160,7 +160,7 @@ layout(std430, binding = 0) writeonly buffer outputVboData
 };
 
 void main() {
-  int index = int(gl_GlobalInvocationID.x);
+  uint index = gl_GlobalInvocationID.x;
   vec4 pos = vec4(gl_GlobalInvocationID.x);
   out_positions[index] = pos;
 }
@@ -222,11 +222,11 @@ layout(local_size_x = 1) in;
 
 layout(std430, binding = 1) writeonly buffer outputIboData
 {
-  int out_indexes[];
+  uint out_indexes[];
 };
 
 void main() {
-  int store_index = int(gl_GlobalInvocationID.x);
+  uint store_index = int(gl_GlobalInvocationID.x);
   out_indexes[store_index] = store_index;
 }
 
