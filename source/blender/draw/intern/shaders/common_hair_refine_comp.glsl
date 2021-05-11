@@ -4,10 +4,11 @@
  */
 
 layout(local_size_x = 1, local_size_y = 1) in;
-layout(std430, binding = 0) buffer hairPointOutputBuffer
+layout(std430, binding = 0) writeonly buffer hairPointOutputBuffer
 {
-  vec4 Positions[];
-};
+  vec4 posTime[];
+}
+out_vertbuf;
 
 void main(void)
 {
@@ -18,6 +19,6 @@ void main(void)
   vec4 weights = hair_get_weights_cardinal(interp_time);
   vec4 result = hair_interp_data(data0, data1, data2, data3, weights);
 
-  int index = hair_get_id() * hairStrandsRes + int(gl_GlobalInvocationID.y);
-  Positions[index] = result;
+  uint index = uint(hair_get_id() * hairStrandsRes) + gl_GlobalInvocationID.y;
+  out_vertbuf.posTime[index] = result;
 }
