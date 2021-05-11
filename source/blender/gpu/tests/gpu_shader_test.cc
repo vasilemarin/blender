@@ -154,15 +154,15 @@ TEST_F(GPUTest, gpu_shader_compute_vbo)
 
 layout(local_size_x = 1) in;
 
-layout(std430, binding = 0) buffer outputVboData
+layout(std430, binding = 0) writeonly buffer outputVboData
 {
-  vec4 Positions[];
+  vec4 out_positions[];
 };
 
 void main() {
   int index = int(gl_GlobalInvocationID.x);
   vec4 pos = vec4(gl_GlobalInvocationID.x);
-  Positions[index] = pos;
+  out_positions[index] = pos;
 }
 
 )";
@@ -220,14 +220,14 @@ TEST_F(GPUTest, gpu_shader_compute_ibo)
 
 layout(local_size_x = 1) in;
 
-layout(std430, binding = 1) buffer outputIboData
+layout(std430, binding = 1) writeonly buffer outputIboData
 {
-  int Indexes[];
+  int out_indexes[];
 };
 
 void main() {
   int store_index = int(gl_GlobalInvocationID.x);
-  Indexes[store_index] = store_index;
+  out_indexes[store_index] = store_index;
 }
 
 )";
