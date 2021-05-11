@@ -170,8 +170,7 @@ static void drw_hair_particle_cache_update_compute(ParticleHairCache *cache, con
     drw_hair_particle_cache_shgrp_attach_resources(shgrp, cache, subdiv);
     DRW_shgroup_vertex_buffer(shgrp, "hairPointOutputBuffer", cache->final[subdiv].proc_buf);
 
-    /* TODO(jbakker): get from GPU module. */
-    const int max_strands_per_call = 32768;
+    const int max_strands_per_call = GPU_max_work_group_count(0);
     int strands_start = 0;
     while (strands_start < strands_len) {
       int batch_strands_len = MIN2(strands_len - strands_start, max_strands_per_call);

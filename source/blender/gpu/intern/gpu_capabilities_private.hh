@@ -41,6 +41,8 @@ struct GPUCapabilities {
   int max_textures_vert = 0;
   int max_textures_geom = 0;
   int max_textures_frag = 0;
+  int max_work_group_count[3] = {0, 0, 0};
+  int max_work_group_size[3] = {0, 0, 0};
   bool mem_stats_support = false;
   bool compute_shader_support = false;
   bool shader_storage_buffer_objects_support = false;
