@@ -44,20 +44,12 @@ typedef struct GPUIndexBufBuilder {
   uint32_t *data;
 } GPUIndexBufBuilder;
 
-typedef enum {
-  GPU_INDEX_U16,
-  GPU_INDEX_U32,
-} GPUIndexBufType;
-
 /* supports all primitive types. */
 void GPU_indexbuf_init_ex(GPUIndexBufBuilder *, GPUPrimType, uint index_len, uint vertex_len);
-void GPU_indexbuf_init_device_only(GPUIndexBuf *elem,
-                                   GPUIndexBufType type,
-                                   GPUPrimType,
-                                   uint prim_len);
 
 /* supports only GPU_PRIM_POINTS, GPU_PRIM_LINES and GPU_PRIM_TRIS. */
 void GPU_indexbuf_init(GPUIndexBufBuilder *, GPUPrimType, uint prim_len, uint vertex_len);
+GPUIndexBuf *GPU_indexbuf_build_on_device(GPUPrimType, uint prim_len);
 
 void GPU_indexbuf_add_generic_vert(GPUIndexBufBuilder *, uint v);
 void GPU_indexbuf_add_primitive_restart(GPUIndexBufBuilder *);
@@ -87,6 +79,8 @@ void GPU_indexbuf_create_subrange_in_place(GPUIndexBuf *elem,
                                            GPUIndexBuf *elem_src,
                                            uint start,
                                            uint length);
+
+uint32_t *GPU_indexbuf_read(GPUIndexBuf *elem);
 
 void GPU_indexbuf_discard(GPUIndexBuf *elem);
 

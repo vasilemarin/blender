@@ -63,4 +63,24 @@ void GLIndexBuf::bind_as_ssbo(uint binding)
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, ibo_id_);
 }
 
+uint32_t *GLIndexBuf::read() const
+{
+  BLI_assert(is_active());
+  size_t size = size_get();
+  uint32_t *result = static_cast<uint32_t *>(MEM_mallocN(size, __func__));
+  void *data = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+  memcpy(result, data, size);
+  return result;
+}
+
+bool GLIndexBuf::is_active() const
+{
+  if (!ibo_id_) {
+    return false;
+  }
+  int active_ibo_id = 0;
+  glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &active_ibo_id);
+  return ibo_id_ == active_ibo_id;
+}
+
 }  // namespace blender::gpu

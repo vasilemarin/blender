@@ -47,6 +47,8 @@ class GLVertBuf : public VertBuf {
 
   void update_sub(uint start, uint len, void *data) override;
 
+  void *read() override;
+
  protected:
   void acquire_data(void) override;
   void resize_data(void) override;
@@ -54,6 +56,9 @@ class GLVertBuf : public VertBuf {
   void upload_data(void) override;
   void duplicate_data(VertBuf *dst) override;
   void bind_as_ssbo(uint binding) override;
+
+ private:
+  bool is_active() const;
 
   MEM_CXX_CLASS_ALLOC_FUNCS("GLVertBuf");
 };

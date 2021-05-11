@@ -45,6 +45,8 @@ class GLIndexBuf : public IndexBuf {
   void bind(void);
   void bind_as_ssbo(uint binding) override;
 
+  uint32_t *read() const override;
+
   void *offset_ptr(uint additional_vertex_offset) const
   {
     additional_vertex_offset += index_start_;
@@ -58,6 +60,9 @@ class GLIndexBuf : public IndexBuf {
   {
     return (index_type_ == GPU_INDEX_U16) ? 0xFFFFu : 0xFFFFFFFFu;
   }
+
+ private:
+  bool is_active() const;
 
   MEM_CXX_CLASS_ALLOC_FUNCS("GLIndexBuf")
 };

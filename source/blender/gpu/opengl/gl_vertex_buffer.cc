@@ -123,6 +123,25 @@ void GLVertBuf::bind_as_ssbo(uint binding)
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, vbo_id_);
 }
 
+void *GLVertBuf::read()
+{
+  BLI_assert(is_active());
+  void *result = MEM_mallocN(vbo_size_, __func__);
+  void *data = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+  memcpy(result, data, vbo_size_);
+  return result;
+}
+
+bool GLVertBuf::is_active() const
+{
+  if (!vbo_id_) {
+    return false;
+  }
+  int active_vbo_id = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &active_vbo_id);
+  return vbo_id_ == active_vbo_id;
+}
+
 void GLVertBuf::update_sub(uint start, uint len, void *data)
 {
   glBufferSubData(GL_ARRAY_BUFFER, start, len, data);

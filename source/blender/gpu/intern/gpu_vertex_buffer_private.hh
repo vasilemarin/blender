@@ -97,6 +97,7 @@ class VertBuf {
   }
 
   virtual void update_sub(uint start, uint len, void *data) = 0;
+  virtual void *read() = 0;
 
  protected:
   virtual void acquire_data(void) = 0;
