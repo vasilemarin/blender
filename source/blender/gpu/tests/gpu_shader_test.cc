@@ -237,7 +237,7 @@ void main() {
   GPU_shader_bind(shader);
 
   /* Construct IBO. */
-  GPUIndexBuf *ibo = GPU_indexbuf_build_on_device(GPU_PRIM_POINTS, SIZE);
+  GPUIndexBuf *ibo = GPU_indexbuf_build_on_device(SIZE);
   GPU_indexbuf_bind_as_ssbo(ibo, GPU_shader_get_ssbo(shader, "outputIboData"));
 
   /* Dispatch compute task. */
