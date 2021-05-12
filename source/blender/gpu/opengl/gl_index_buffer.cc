@@ -68,7 +68,7 @@ uint32_t *GLIndexBuf::read() const
   BLI_assert(is_active());
   size_t size = size_get();
   uint32_t *result = static_cast<uint32_t *>(MEM_mallocN(size, __func__));
-  void *data = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+  void *data = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY);
   memcpy(result, data, size);
   return result;
 }
