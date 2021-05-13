@@ -141,6 +141,151 @@ static void ensure_forward_slashes(char *buf, int size)
   }
 }
 
+static void export_in_memory_texture(Image *ima, const std::string &export_dir)
+{
+  char file_name[FILE_MAX];
+  BLI_split_file_part(ima->filepath, file_name, FILE_MAX);
+
+  std::string export_path = export_dir;
+
+  if (export_path.back() != '/' && export_path.back() != '\\') {
+    export_path += "/";
+  }
+
+  export_path += std::string(file_name);
+
+  /* We never overwrite files.
+  * TODO(makowalski): consider adding an option to overwrite. */
+  if (BLI_exists(export_path.c_str())) {
+    return;
+  }
+
+  ImBuf *imbuf = BKE_image_acquire_ibuf(ima, nullptr, nullptr);
+  if (!imbuf) {
+    return;
+  }
+
+  ImageFormatData imageFormat;
+  BKE_imbuf_to_image_format(&imageFormat, imbuf);
+
+  /* This image in its current state only exists in Blender memory.
+   * So we have to export it. The export will keep the image state intact,
+   * so the exported file will not be associated with the image. */
+
+  std::cout << "Exporting in-memory texture to " << export_path << std::endl;
+
+  if (BKE_imbuf_write_as(imbuf, export_path.c_str(), &imageFormat, true) == 0) {
+    std::cout << "WARNING: couldn't export in-memory texture to " << export_path << std::endl;
+  }
+}
+
+static void get_absolute_path(Image *ima, char *r_path, size_t len)
+{
+  if (!r_path) {
+    return;
+  }
+
+  if (!ima) {
+    r_path[0] = '\0';
+    return;
+  }
+  /* make absolute source path */
+  BLI_strncpy(r_path, ima->filepath, len);
+  BLI_path_abs(r_path, ID_BLEND_PATH_FROM_GLOBAL(&ima->id));
+  BLI_path_normalize(nullptr, r_path);
+}
+
+static void copy_tiled_textures(Image *ima, const std::string &in_dest_dir)
+{
+  if (!ima || in_dest_dir.empty()) {
+    return;
+  }
+
+  if (ima->source != IMA_SRC_TILED) {
+    return;
+  }
+
+  std::string dest_dir = in_dest_dir;
+
+  if (dest_dir.back() != '/' && dest_dir.back() != '\\') {
+    dest_dir += "/";
+  }
+
+  char src_path[FILE_MAX];
+  get_absolute_path(ima, src_path, sizeof(src_path));
+
+  char src_dir[FILE_MAX];
+  char src_file[FILE_MAX];
+  BLI_split_dirfile(src_path, src_dir, src_file, FILE_MAX, FILE_MAX);
+
+  char head[FILE_MAX], tail[FILE_MAX];
+  unsigned short numlen;
+  BLI_path_sequence_decode(src_file, head, tail, &numlen);
+
+  /* Copy all tiles. */
+  LISTBASE_FOREACH(ImageTile *, tile, &ima->tiles) {
+    char tile_file[FILE_MAX];;
+
+    /* Build filepath of the tile. */
+    BLI_path_sequence_encode(tile_file, head, tail, numlen, tile->tile_number);
+
+    std::string dest_tile_path = dest_dir + std::string(tile_file);
+
+    /* We never overwrite files.
+     * TODO(makowalski): consider adding an option to overwrite. */
+    if (BLI_exists(dest_tile_path.c_str())) {
+      return;
+    }
+
+    std::string src_tile_path = std::string(src_dir) + std::string(tile_file);
+
+    std::cout << "Copying texture tile from " << src_tile_path << " to " << dest_tile_path << std::endl;
+
+    /* Copy the file. */
+    if (BLI_copy(src_tile_path.c_str(), dest_tile_path.c_str()) != 0) {
+      std::cout << "WARNING: couldn't copy texture tile from " << src_tile_path << " to " << dest_tile_path
+        << std::endl;
+    }
+
+  }
+}
+
+static void copy_single_file(Image *ima, const std::string &dest_dir)
+{
+  if (!ima || dest_dir.empty()) {
+    return;
+  }
+
+  char source_path[FILE_MAX];
+  get_absolute_path(ima, source_path, sizeof(source_path));
+
+  char file_name[FILE_MAX];
+  BLI_split_file_part(source_path, file_name, FILE_MAX);
+
+  std::string dest_path = dest_dir;
+
+  if (dest_path.back() != '/' && dest_path.back() != '\\') {
+    dest_path += "/";
+  }
+
+  dest_path += std::string(file_name);
+
+  /* We never overwrite files.
+   * TODO(makowalski): consider adding an option to overwrite. */
+  if (BLI_exists(dest_path.c_str())) {
+    return;
+  }
+
+  std::cout << "Copying texture from " << source_path << " to " << dest_path << std::endl;
+
+  /* Copy the file. */
+  if (BLI_copy(source_path, dest_path.c_str()) != 0) {
+    std::cout << "WARNING: couldn't copy texture from " << source_path << " to " << dest_path
+      << std::endl;
+  }
+
+}
+
 /* ===== Functions copied from inacessible source file
  * blender/nodes/shader/node_shader_tree.c */
 
@@ -2152,72 +2297,30 @@ void export_texture(bNode *node, const pxr::UsdStageRefPtr stage)
 
   Image *ima = reinterpret_cast<Image *>(node->id);
 
-  if (!ima || sizeof(ima->filepath) == 0) {
+  if (!ima || strlen(ima->filepath) == 0) {
     return;
   }
 
-  char dir_path[FILE_MAX];
-  BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
+  char usd_dir_path[FILE_MAX];
+  BLI_split_dir_part(stage_path.c_str(), usd_dir_path, FILE_MAX);
 
-  char file_path[FILE_MAX];
-  BLI_split_file_part(ima->filepath, file_path, FILE_MAX);
+  std::string dest_dir(usd_dir_path);
+  dest_dir += "textures/";
 
-  std::string export_path(dir_path);
-  export_path += "textures/";
-  export_path += std::string(file_path);
-
-  if (BLI_exists(export_path.c_str())) {
-    std::cout << "WARNING in export_texture(): Texture file " << export_path
-              << " already exists, skipping export." << std::endl;
-    return;
-  }
-
-  ImBuf *imbuf = BKE_image_acquire_ibuf(ima, nullptr, nullptr);
-  if (!imbuf) {
-    return;
-  }
+  BLI_dir_create_recursive(dest_dir.c_str());
 
   bool is_dirty = BKE_image_is_dirty(ima);
-
-  ImageFormatData imageFormat;
-  BKE_imbuf_to_image_format(&imageFormat, imbuf);
-
-  short image_source = ima->source;
-  bool is_generated = image_source == IMA_SRC_GENERATED;
+  bool is_generated = ima->source == IMA_SRC_GENERATED;
   bool is_packed = BKE_image_has_packedfile(ima);
 
-  BLI_make_existing_file(export_path.c_str());
-
   if (is_generated || is_dirty || is_packed) {
-
-    /* This image in its current state only exists in Blender memory.
-     * So we have to export it. The export will keep the image state intact,
-     * so the exported file will not be associated with the image. */
-
-    std::cout << "Exporting packed texture to " << export_path << std::endl;
-
-    if (BKE_imbuf_write_as(imbuf, export_path.c_str(), &imageFormat, true) == 0) {
-      std::cout << "WARNING: couldn't export in-memory texture to " << export_path << std::endl;
-      return;
-    }
+    export_in_memory_texture(ima, dest_dir);
+  }
+  else if (ima->source == IMA_SRC_TILED) {
+    copy_tiled_textures(ima, dest_dir);
   }
   else {
-    char source_path[FILE_MAX];
-    /* make absolute source path */
-    BLI_strncpy(source_path, ima->filepath, sizeof(source_path));
-    BLI_path_abs(source_path, ID_BLEND_PATH_FROM_GLOBAL(&ima->id));
-    BLI_path_normalize(nullptr, source_path);
-
-    std::cout << "Copying texture from " << source_path << " to " << export_path << std::endl;
-
-    /* Copy the file. */
-    if (BLI_path_cmp(source_path, export_path.c_str()) != 0) {
-      if (BLI_copy(source_path, export_path.c_str()) != 0) {
-        std::cout << "WARNING: couldn't copy texture from " << source_path << " to " << export_path
-                  << std::endl;
-        return;
-      }
-    }
+    copy_single_file(ima, dest_dir);
   }
 }
 
