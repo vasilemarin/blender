@@ -2305,9 +2305,11 @@ void export_texture(bNode *node, const pxr::UsdStageRefPtr stage)
   BLI_split_dir_part(stage_path.c_str(), usd_dir_path, FILE_MAX);
 
   std::string dest_dir(usd_dir_path);
-  dest_dir += "textures/";
+  dest_dir += "textures";
 
   BLI_dir_create_recursive(dest_dir.c_str());
+
+  dest_dir += "/";
 
   bool is_dirty = BKE_image_is_dirty(ima);
   bool is_generated = ima->source == IMA_SRC_GENERATED;
