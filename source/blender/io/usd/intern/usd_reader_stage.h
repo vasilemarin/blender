@@ -45,6 +45,9 @@ class USDStageReader {
 
   std::vector<USDPrimReader *> readers_;
 
+  // Readers for scenegraph instance prototypes.
+  ProtoReaderMap proto_readers_;
+
  public:
   USDStageReader(const char *filename);
   ~USDStageReader();
@@ -88,6 +91,13 @@ class USDStageReader {
   }
 
   void clear_readers(bool decref = true);
+
+  void clear_proto_readers(bool decref = true);
+
+  const ProtoReaderMap &proto_readers() const
+  {
+    return proto_readers_;
+  };
 
   const std::vector<USDPrimReader *> &readers() const
   {

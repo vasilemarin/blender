@@ -48,6 +48,7 @@ USDStageReader::USDStageReader(const char *filename)
 USDStageReader::~USDStageReader()
 {
   clear_readers(true);
+  clear_proto_readers(true);
 
   if (stage_) {
     stage_->Unload();
@@ -65,7 +66,10 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
 {
   USDPrimReader *reader = nullptr;
 
-  if (params.import_cameras && prim.IsA<pxr::UsdGeomCamera>()) {
+  if (params.use_instancing && prim.IsInstance()) {
+    reader = new USDInstanceReader(prim, params, settings);
+  }
+  else if (params.import_cameras && prim.IsA<pxr::UsdGeomCamera>()) {
     reader = new USDCameraReader(prim, params, settings);
   }
   else if (params.import_curves && prim.IsA<pxr::UsdGeomBasisCurves>()) {
@@ -235,7 +239,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
 
   pxr::Usd_PrimFlagsPredicate filter_predicate = pxr::UsdPrimDefaultPredicate;
 
-  if (params.import_instance_proxies) {
+  if (!params.use_instancing && params.import_instance_proxies) {
     filter_predicate = pxr::UsdTraverseInstanceProxies(filter_predicate);
   }
 
@@ -252,7 +256,6 @@ static USDPrimReader *_handlePrim(Main *bmain,
 
   /* Check if we can merge an Xform with its child prim. */
   if (child_readers.size() == 1) {
-
     USDPrimReader *child_reader = child_readers.front();
 
     if (_merge_with_parent(child_reader)) {
@@ -262,7 +265,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
 
   USDPrimReader *reader = nullptr;
 
-  if (!prim.IsPseudoRoot()) {
+  if (!(prim.IsPseudoRoot() || prim.IsMaster())) {
     reader = USDStageReader::create_reader(prim, params, settings);
 
     if (reader == nullptr) {
@@ -291,6 +294,7 @@ void USDStageReader::collect_readers(Main *bmain,
   settings_ = settings;
 
   clear_readers(true);
+  clear_proto_readers(true);
 
   // Iterate through stage
   pxr::UsdPrim root = stage_->GetPseudoRoot();
@@ -315,7 +319,19 @@ void USDStageReader::collect_readers(Main *bmain,
   }
 
   stage_->SetInterpolationType(pxr::UsdInterpolationType::UsdInterpolationTypeHeld);
+
   _handlePrim(bmain, stage_, params, root, readers_, settings);
+
+  if (params.use_instancing) {
+    // Collect the scenegraph instance prototypes.
+    std::vector<pxr::UsdPrim> protos = stage_->GetMasters();
+
+    for (const pxr::UsdPrim &proto_prim : protos) {
+      std::vector<USDPrimReader *> proto_readers;
+      _handlePrim(bmain, stage_, params, proto_prim, proto_readers, settings);
+      proto_readers_.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
+    }
+  }
 }
 
 void USDStageReader::clear_readers(bool decref)
@@ -335,6 +351,31 @@ void USDStageReader::clear_readers(bool decref)
   }
 
   readers_.clear();
+}
+
+void USDStageReader::clear_proto_readers(bool decref)
+{
+  for (auto &pair : proto_readers_) {
+
+    for (USDPrimReader *reader : pair.second) {
+
+      if (!reader) {
+        continue;
+      }
+
+      if (decref) {
+        reader->decref();
+      }
+
+      if (reader->refcount() == 0) {
+        delete reader;
+      }
+    }
+
+    pair.second.clear();
+  }
+
+  proto_readers_.clear();
 }
 
 }  // Namespace blender::io::usd

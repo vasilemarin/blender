@@ -310,6 +310,8 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
   const bool import_proxy = RNA_boolean_get(op->ptr, "import_proxy");
   const bool import_render = RNA_boolean_get(op->ptr, "import_render");
 
+  const bool use_instancing = RNA_boolean_get(op->ptr, "use_instancing");
+
   const bool import_usd_preview = RNA_boolean_get(op->ptr, "import_usd_preview");
   const bool set_material_blend = RNA_boolean_get(op->ptr, "set_material_blend");
 
@@ -329,7 +331,6 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
   }
 
   const bool validate_meshes = false;
-  const bool use_instancing = false;
 
   struct USDImportParams params = {scale,
                                    is_sequence,
@@ -407,9 +408,10 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   uiItemR(box, ptr, "import_proxy", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "import_render", 0, NULL, ICON_NONE);
 
+  box = uiLayoutBox(layout);
+  uiItemL(box, IFACE_("Experimental"), ICON_NONE);
+  uiItemR(box, ptr, "use_instancing", 0, NULL, ICON_NONE);
   if (RNA_boolean_get(ptr, "import_materials")) {
-    box = uiLayoutBox(layout);
-    uiItemL(box, IFACE_("Experimental"), ICON_NONE);
     uiItemR(box, ptr, "import_usd_preview", 0, NULL, ICON_NONE);
     if (RNA_boolean_get(ptr, "import_usd_preview")) {
       uiItemR(box, ptr, "set_material_blend", 0, NULL, ICON_NONE);
@@ -512,6 +514,13 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "import_proxy", true, "Proxy", "Import proxy geometry");
 
   RNA_def_boolean(ot->srna, "import_render", true, "Render", "Import final render geometry");
+
+  RNA_def_boolean(ot->srna,
+                  "use_instancing",
+                  false,
+                  "Instancing",
+                  "Import USD scenegraph instances as Blender collection instances. "
+                  "Note that point instancers are not yet handled by this option");
 
   RNA_def_boolean(ot->srna,
                   "import_usd_preview",
