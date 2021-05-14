@@ -220,8 +220,7 @@ void USDMeshReader::read_object_data(Main *bmain, const double motionSampleTime)
   Mesh *mesh = (Mesh *)object_->data;
 
   is_initial_load_ = true;
-  Mesh *read_mesh = this->read_mesh(
-      mesh, motionSampleTime, import_params_.global_read_flag, 1.0f, NULL);
+  Mesh *read_mesh = this->read_mesh(mesh, motionSampleTime, import_params_.global_read_flag, NULL);
 
   is_initial_load_ = false;
   if (read_mesh != mesh) {
@@ -259,7 +258,7 @@ bool USDMeshReader::valid() const
   return static_cast<bool>(mesh_prim_);
 }
 
-bool USDMeshReader::topology_changed(Mesh *existing_mesh, const double motionSampleTime)
+bool USDMeshReader::topology_changed(Mesh * /* existing_mesh */, const double motionSampleTime)
 {
   /* TODO(makowalski): Is it the best strategy to cache the mesh
    * geometry in this function?  This needs to be revisited. */
@@ -294,9 +293,7 @@ bool USDMeshReader::topology_changed(Mesh *existing_mesh, const double motionSam
   return false;
 }
 
-void USDMeshReader::read_mpolys(Mesh *mesh,
-                                pxr::UsdGeomMesh mesh_prim_,
-                                const double motionSampleTime)
+void USDMeshReader::read_mpolys(Mesh *mesh)
 {
   MPoly *mpolys = mesh->mpoly;
   MLoop *mloops = mesh->mloop;
@@ -330,10 +327,7 @@ void USDMeshReader::read_mpolys(Mesh *mesh,
   BKE_mesh_calc_edges(mesh, false, false);
 }
 
-void USDMeshReader::read_uvs(Mesh *mesh,
-                             pxr::UsdGeomMesh mesh_prim_,
-                             const double motionSampleTime,
-                             const bool load_uvs)
+void USDMeshReader::read_uvs(Mesh *mesh, const double motionSampleTime, const bool load_uvs)
 {
   unsigned int loop_index = 0;
   unsigned int rev_loop_index = 0;
@@ -446,11 +440,15 @@ void USDMeshReader::read_uvs(Mesh *mesh,
   }
 }
 
-void USDMeshReader::read_colors(Mesh *mesh,
-                                const pxr::UsdGeomMesh &mesh_prim_,
-                                const double motionSampleTime)
+void USDMeshReader::read_colors(Mesh *mesh, const double motionSampleTime)
 {
   if (!(mesh && mesh_prim_ && mesh->totloop > 0)) {
+    return;
+  }
+
+  /* Early out if we read the display color before and if this attribute isn't animated. */
+  if (primvar_varying_map_.find(usdtokens::displayColor) != primvar_varying_map_.end() &&
+      !primvar_varying_map_.at(usdtokens::displayColor)) {
     return;
   }
 
@@ -467,9 +465,17 @@ void USDMeshReader::read_colors(Mesh *mesh,
     return;
   }
 
+  if (primvar_varying_map_.find(usdtokens::displayColor) == primvar_varying_map_.end()) {
+    bool might_be_time_varying = color_primvar.ValueMightBeTimeVarying();
+    primvar_varying_map_.insert(std::make_pair(usdtokens::displayColor, might_be_time_varying));
+    if (might_be_time_varying) {
+      is_time_varying_ = true;
+    }
+  }
+
   pxr::VtArray<pxr::GfVec3f> display_colors;
 
-  if (!color_primvar.ComputeFlattened(&display_colors)) {
+  if (!color_primvar.ComputeFlattened(&display_colors, motionSampleTime)) {
     std::cerr << "WARNING: Couldn't compute display colors\n" << std::endl;
     return;
   }
@@ -624,10 +630,8 @@ void USDMeshReader::process_normals_uniform(Mesh *mesh)
   MEM_freeN(lnors);
 }
 
-void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
-                                     ImportSettings *settings,
+void USDMeshReader::read_mesh_sample(ImportSettings *settings,
                                      Mesh *mesh,
-                                     const pxr::UsdGeomMesh &mesh_prim_,
                                      const double motionSampleTime,
                                      const bool new_mesh)
 {
@@ -645,7 +649,7 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
   }
 
   if (new_mesh || (settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
-    read_mpolys(mesh, mesh_prim_, motionSampleTime);
+    read_mpolys(mesh);
     if (normal_interpolation_ == pxr::UsdGeomTokens->faceVarying) {
       process_normals_face_varying(mesh);
     }
@@ -668,17 +672,17 @@ void USDMeshReader::read_mesh_sample(const std::string &iobject_full_name,
   }
 
   if ((settings->read_flag & MOD_MESHSEQ_READ_UV) != 0) {
-    read_uvs(mesh, mesh_prim_, motionSampleTime, new_mesh);
+    read_uvs(mesh, motionSampleTime, new_mesh);
   }
 
   if ((settings->read_flag & MOD_MESHSEQ_READ_COLOR) != 0) {
-    read_colors(mesh, mesh_prim_, motionSampleTime);
+    read_colors(mesh, motionSampleTime);
   }
 }
 
 void USDMeshReader::assign_facesets_to_mpoly(double motionSampleTime,
                                              MPoly *mpoly,
-                                             const int totpoly,
+                                             const int /* totpoly */,
                                              std::map<pxr::SdfPath, int> &r_mat_map)
 {
   /* Find the geom subsets that have bound materials.
@@ -753,7 +757,6 @@ void USDMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, const double mot
 Mesh *USDMeshReader::read_mesh(Mesh *existing_mesh,
                                const double motionSampleTime,
                                const int read_flag,
-                               const float vel_scale,
                                const char ** /* err_str */)
 {
   if (!mesh_prim_) {
@@ -815,7 +818,6 @@ Mesh *USDMeshReader::read_mesh(Mesh *existing_mesh,
   /* Only read point data when streaming meshes, unless we need to create new ones. */
   ImportSettings settings;
   settings.read_flag |= read_flag;
-  settings.vel_scale = vel_scale;
 
   if (topology_changed(existing_mesh, motionSampleTime)) {
     new_mesh = true;
@@ -828,12 +830,7 @@ Mesh *USDMeshReader::read_mesh(Mesh *existing_mesh,
     }
   }
 
-  read_mesh_sample(prim_.GetPath().GetString().c_str(),
-                   &settings,
-                   active_mesh,
-                   mesh_prim_,
-                   motionSampleTime,
-                   new_mesh || is_initial_load_);
+  read_mesh_sample(&settings, active_mesh, motionSampleTime, new_mesh || is_initial_load_);
 
   if (new_mesh) {
     /* Here we assume that the number of materials doesn't change, i.e. that

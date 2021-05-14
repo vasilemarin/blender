@@ -151,7 +151,7 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
       evaluation_mode,
   };
 
-  const bool ok = USD_export(C, filename, &params, as_background_job);
+  bool ok = USD_export(C, filename, &params, as_background_job);
 
   return as_background_job || ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
@@ -368,57 +368,29 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   uiLayout *layout = op->layout;
   struct PointerRNA *ptr = op->ptr;
 
-  uiLayoutSetPropSep(layout, false);
+  uiLayoutSetPropSep(layout, true);
 
   uiLayout *box = uiLayoutBox(layout);
-  uiLayout *row = uiLayoutRow(box, false);
-
   uiItemL(box, IFACE_("USD Import"), ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Global Read Flag:"), ICON_NONE);
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "global_read_flag", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE);
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "scale", 0, NULL, ICON_NONE);
+  uiItemL(box, IFACE_("Global Read Flag:"), ICON_NONE);
+  uiItemR(box, ptr, "global_read_flag", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
+  uiItemL(box, IFACE_("Manual Transform:"), ICON_NONE);
+  uiItemR(box, ptr, "scale", 0, NULL, ICON_NONE);
 
   box = uiLayoutBox(layout);
-  row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Options:"), ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "relative_path", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "set_frame_range", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "import_subdiv", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "import_instance_proxies", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "import_visible_only", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "create_collection", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "convert_to_z_up", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(box, false);
-  uiItemR(row, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
+  uiItemL(box, IFACE_("Options:"), ICON_NONE);
+  uiItemR(box, ptr, "relative_path", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "set_frame_range", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "import_subdiv", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "import_instance_proxies", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "import_visible_only", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "create_collection", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "convert_to_z_up", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
 
   uiLayout *prim_path_mask_box = uiLayoutBox(box);
-  row = uiLayoutRow(prim_path_mask_box, false);
-  uiItemL(row, IFACE_("Prim Path Mask:"), ICON_NONE);
-
-  row = uiLayoutRow(prim_path_mask_box, false);
-  uiItemR(row, ptr, "prim_path_mask", 0, NULL, ICON_NONE);
+  uiItemL(prim_path_mask_box, IFACE_("Prim Path Mask:"), ICON_NONE);
+  uiItemR(prim_path_mask_box, ptr, "prim_path_mask", 0, NULL, ICON_NONE);
 
   box = uiLayoutBox(layout);
   uiItemL(box, IFACE_("Primitive Types:"), ICON_OBJECT_DATA);
@@ -435,10 +407,14 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   uiItemR(box, ptr, "import_proxy", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "import_render", 0, NULL, ICON_NONE);
 
-  box = uiLayoutBox(layout);
-  uiItemL(box, IFACE_("Experimental"), ICON_NONE);
-  uiItemR(box, ptr, "import_usd_preview", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "set_material_blend", 0, NULL, ICON_NONE);
+  if (RNA_boolean_get(ptr, "import_materials")) {
+    box = uiLayoutBox(layout);
+    uiItemL(box, IFACE_("Experimental"), ICON_NONE);
+    uiItemR(box, ptr, "import_usd_preview", 0, NULL, ICON_NONE);
+    if (RNA_boolean_get(ptr, "import_usd_preview")) {
+      uiItemR(box, ptr, "set_material_blend", 0, NULL, ICON_NONE);
+    }
+  }
 }
 
 void WM_OT_usd_import(struct wmOperatorType *ot)
@@ -457,7 +433,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
   WM_operator_properties_filesel(ot,
                                  FILE_TYPE_FOLDER | FILE_TYPE_USD,
                                  FILE_BLENDER,
-                                 FILE_SAVE,
+                                 FILE_OPENFILE,
                                  WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_SHOW_PROPS,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
@@ -473,59 +449,45 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
       0.0001f,
       1000.0f);
 
-  RNA_def_boolean(
-      ot->srna,
-      "set_frame_range",
-      true,
-      "Set Frame Range",
-      "If checked, update scene's start and end frame to match those of the USD archive");
+  RNA_def_boolean(ot->srna,
+                  "set_frame_range",
+                  true,
+                  "Set Frame Range",
+                  "Update scene's start and end frame to match those of the USD archive");
 
-  RNA_def_boolean(
-      ot->srna, "import_cameras", true, "Cameras", "When checked, all cameras will be imported");
-  RNA_def_boolean(
-      ot->srna, "import_curves", true, "Curves", "When checked, all curves will be imported");
-  RNA_def_boolean(
-      ot->srna, "import_lights", true, "Lights", "When checked, all lights will be imported");
-  RNA_def_boolean(ot->srna,
-                  "import_materials",
-                  true,
-                  "Materials",
-                  "When checked, all materials will be imported");
-  RNA_def_boolean(
-      ot->srna, "import_meshes", true, "Meshes", "When checked, all meshes will be imported");
-  RNA_def_boolean(ot->srna,
-                  "import_volumes",
-                  true,
-                  "Volumes",
-                  "(Tangent Specific) When checked, all volumes will be imported");
+  RNA_def_boolean(ot->srna, "import_cameras", true, "Import Cameras", "");
+  RNA_def_boolean(ot->srna, "import_curves", true, "Import Curves", "");
+  RNA_def_boolean(ot->srna, "import_lights", true, "Import Lights", "");
+  RNA_def_boolean(ot->srna, "import_materials", true, "Import Materials", "");
+  RNA_def_boolean(ot->srna, "import_meshes", true, "Import Meshes", "");
+  RNA_def_boolean(ot->srna, "import_volumes", true, "Import Volumes", "");
 
   RNA_def_boolean(ot->srna,
                   "import_subdiv",
                   false,
                   "Import Subdiv Scheme",
-                  "If enabled, subdiv surface modifiers will be created based on USD "
+                  "Subdiv surface modifiers will be created based on USD "
                   "SubdivisionScheme attribute");
 
   RNA_def_boolean(ot->srna,
                   "import_instance_proxies",
                   true,
                   "Import Instance Proxies",
-                  "If enabled, USD instances will be traversed with instance proxies, "
-                  "creating a unique Blender object for each instance");
+                  "Create unique Blender objects for USD instances");
 
   RNA_def_boolean(ot->srna,
                   "import_visible_only",
                   true,
-                  "Visible Prims Only",
-                  "If enabled, invisible USD prims won't be imported. "
-                  "Only applies to prims with a non-animating visibility attribute. "
-                  "Prims with animating visibility will always be imported");
+                  "Visible Primitives Only",
+                  "Do not import invisible USD primitives. "
+                  "Only applies to primitives with a non-animating visibility attribute. "
+                  "Primitives with animating visibility will always be imported");
 
   RNA_def_boolean(ot->srna,
                   "create_collection",
                   false,
                   "Create Collection",
-                  "If enabled, all imported objects will be added to a new collection");
+                  "Add all imported objects to a new collection");
 
   prop = RNA_def_enum(ot->srna,
                       "global_read_flag",
@@ -545,25 +507,23 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                  "",
                  "If set, this will specify a specific primitive from the usd stage");
 
-  RNA_def_boolean(ot->srna, "import_guide", false, "Guide", "When checked, import guide geometry");
+  RNA_def_boolean(ot->srna, "import_guide", false, "Guide", "Import guide geometry");
 
-  RNA_def_boolean(ot->srna, "import_proxy", true, "Proxy", "When checked, import proxy geometry");
+  RNA_def_boolean(ot->srna, "import_proxy", true, "Proxy", "Import proxy geometry");
 
-  RNA_def_boolean(
-      ot->srna, "import_render", true, "Render", "When checked, import final render geometry");
+  RNA_def_boolean(ot->srna, "import_render", true, "Render", "Import final render geometry");
 
-  RNA_def_boolean(
-      ot->srna,
-      "import_usd_preview",
-      false,
-      "Import USD Preview",
-      "When checked, convert UsdPreviewSurface shaders to Principled BSD shader networks.");
+  RNA_def_boolean(ot->srna,
+                  "import_usd_preview",
+                  false,
+                  "Import USD Preview",
+                  "Convert UsdPreviewSurface shaders to Principled BSD shader networks");
 
   RNA_def_boolean(ot->srna,
                   "set_material_blend",
-                  false,
+                  true,
                   "Set Material Blend",
-                  "When checked and if the Import Usd Preview option is enabled, "
+                  "If the Import USD Preview option is enabled, "
                   "the material blend method will automatically be set based on the "
                   "shader's opacity and opacityThreshold inputs");
 
@@ -571,7 +531,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   "convert_to_z_up",
                   true,
                   "Convert to Z Up",
-                  "When checked and if the USD stage up-axis is Y, apply a rotation "
+                  "If the USD stage up-axis is Y, apply a rotation "
                   "to the imported objects to convert their orientation to Z up");
 
   RNA_def_float(ot->srna,

@@ -188,7 +188,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
   }
 
   BLI_path_abs(data->filename, BKE_main_blendfile_path_from_global());
-  USDStageReader *archive = new USDStageReader(data->bmain, data->filename);
+  USDStageReader *archive = new USDStageReader(data->filename);
 
   archive->params(data->params);
   archive->settings(data->settings);
@@ -452,8 +452,7 @@ Mesh *USD_read_mesh(CacheReader *reader,
                     Mesh *existing_mesh,
                     const float time,
                     const char **err_str,
-                    int read_flag,
-                    float vel_fac)
+                    int read_flag)
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
@@ -461,7 +460,7 @@ Mesh *USD_read_mesh(CacheReader *reader,
     return NULL;
   }
 
-  return usd_reader->read_mesh(existing_mesh, time, read_flag, vel_fac, err_str);
+  return usd_reader->read_mesh(existing_mesh, time, read_flag, err_str);
 }
 
 bool USD_mesh_topology_changed(
@@ -526,11 +525,11 @@ void USD_CacheReader_free(CacheReader *reader)
   }
 }
 
-CacheArchiveHandle *USD_create_handle(struct Main *bmain,
+CacheArchiveHandle *USD_create_handle(struct Main * /*bmain*/,
                                       const char *filename,
                                       ListBase *object_paths)
 {
-  USDStageReader *stage_reader = new USDStageReader(bmain, filename);
+  USDStageReader *stage_reader = new USDStageReader(filename);
 
   if (!stage_reader->valid()) {
     delete stage_reader;
