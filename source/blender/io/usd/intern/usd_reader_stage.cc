@@ -202,7 +202,7 @@ static bool _merge_with_parent(USDPrimReader *reader, const USDImportParams &par
   }
 
   /* Don't merge if instancing is enabled and the parent is an instance. */
-  if (params.use_instancing && !xform_reader->prim().GetParent().IsInstance()) {
+  if (params.use_instancing && xform_reader->prim().GetParent().IsInstance()) {
     return false;
   }
 
