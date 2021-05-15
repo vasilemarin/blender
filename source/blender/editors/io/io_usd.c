@@ -285,6 +285,7 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
   MEM_SAFE_FREE(op->customdata);
 
   const float scale = RNA_float_get(op->ptr, "scale");
+  const bool apply_unit_conversion_scale = RNA_boolean_get(op->ptr, "apply_unit_conversion_scale");
 
   const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
   const char global_read_flag = RNA_enum_get(op->ptr, "global_read_flag");
@@ -357,7 +358,8 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
                                    import_usd_preview,
                                    set_material_blend,
                                    convert_to_z_up,
-                                   light_intensity_scale};
+                                   light_intensity_scale,
+                                   apply_unit_conversion_scale};
 
   const bool ok = USD_import(C, filename, &params, as_background_job);
 
@@ -377,6 +379,7 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   uiItemR(box, ptr, "global_read_flag", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
   uiItemL(box, IFACE_("Manual Transform:"), ICON_NONE);
   uiItemR(box, ptr, "scale", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "apply_unit_conversion_scale", 0, NULL, ICON_NONE);
 
   box = uiLayoutBox(layout);
   uiItemL(box, IFACE_("Options:"), ICON_NONE);
@@ -447,9 +450,18 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
       0.0001f,
       1000.0f,
       "Scale",
-      "Value by which to enlarge or shrink the objects with respect to the world's origin",
+      "Value by which to enlarge or shrink the objects with respect to the world's origin. "
+      "This scaling is applied in addition to the Stage's meters-per-unit scaling value if "
+      "the Apply Unit Conversion Scale option is enabled",
       0.0001f,
       1000.0f);
+
+  RNA_def_boolean(ot->srna,
+                  "apply_unit_conversion_scale",
+                  true,
+                  "Apply Unit Conversion Scale",
+                  "Scale the scene objects by the USD stage's meters-per-unit value. "
+                  "This scaling is applied in addition to the value specified in the Scale option");
 
   RNA_def_boolean(ot->srna,
                   "set_frame_range",
