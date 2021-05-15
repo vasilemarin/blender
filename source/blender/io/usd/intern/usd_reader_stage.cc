@@ -259,6 +259,13 @@ static USDPrimReader *_handlePrim(Main *bmain,
     }
   }
 
+  /* We prune the current prim if it's a Scope
+   * and we didn't convert any of its children. */
+  if (child_readers.empty() && prim.IsA<pxr::UsdGeomScope>() &&
+      !(params.use_instancing && prim.IsInstance())) {
+    return nullptr;
+  }
+
   /* Check if we can merge an Xform with its child prim. */
   if (child_readers.size() == 1) {
     USDPrimReader *child_reader = child_readers.front();
