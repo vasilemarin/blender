@@ -360,7 +360,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     const double meters_per_unit = pxr::UsdGeomGetStageMetersPerUnit(archive->stage());
     data->params.scale *= meters_per_unit;
     data->settings.scale *= meters_per_unit;
-    cache_file->scale *= meters_per_unit; 
+    cache_file->scale *= meters_per_unit;
   }
 
   // Set up the stage for animated data.

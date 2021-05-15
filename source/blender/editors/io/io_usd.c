@@ -456,12 +456,13 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
       0.0001f,
       1000.0f);
 
-  RNA_def_boolean(ot->srna,
-                  "apply_unit_conversion_scale",
-                  true,
-                  "Apply Unit Conversion Scale",
-                  "Scale the scene objects by the USD stage's meters-per-unit value. "
-                  "This scaling is applied in addition to the value specified in the Scale option");
+  RNA_def_boolean(
+      ot->srna,
+      "apply_unit_conversion_scale",
+      true,
+      "Apply Unit Conversion Scale",
+      "Scale the scene objects by the USD stage's meters-per-unit value. "
+      "This scaling is applied in addition to the value specified in the Scale option");
 
   RNA_def_boolean(ot->srna,
                   "set_frame_range",
