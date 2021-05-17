@@ -233,7 +233,7 @@ static void create_proto_collections(Main *bmain,
 
 // Update the given import settings with the global rotation matrix to orient
 // imported objects with Z-up, if necessary
-static void set_global_rotation(pxr::UsdStageRefPtr stage, ImportSettings &r_settings)
+static void convert_to_z_up(pxr::UsdStageRefPtr stage, ImportSettings &r_settings)
 {
   if (!stage || pxr::UsdGeomGetStageUpAxis(stage) == pxr::UsdGeomTokens->z) {
     // Nothing to do.
@@ -352,9 +352,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     return;
   }
 
-  if (data->params.convert_to_z_up) {
-    set_global_rotation(archive->stage(), data->settings);
-  }
+  convert_to_z_up(archive->stage(), data->settings);
 
   if (data->params.apply_unit_conversion_scale) {
     const double meters_per_unit = pxr::UsdGeomGetStageMetersPerUnit(archive->stage());
@@ -709,6 +707,11 @@ CacheArchiveHandle *USD_create_handle(struct Main * /*bmain*/,
     delete stage_reader;
     return NULL;
   }
+
+  blender::io::usd::ImportSettings settings;
+  convert_to_z_up(stage_reader->stage(), settings);
+
+  stage_reader->settings(settings);
 
   if (object_paths) {
     gather_objects_paths(stage_reader->stage()->GetPseudoRoot(), object_paths);
