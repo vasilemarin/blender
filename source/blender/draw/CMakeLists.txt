@@ -480,7 +480,6 @@ if(WITH_GTESTS)
     set(TEST_SRC
       tests/draw_testing.cc
       tests/shaders_test.cc
-      tests/performance_test.cc
     )
     set(TEST_INC
       "../../../intern/ghost/"
