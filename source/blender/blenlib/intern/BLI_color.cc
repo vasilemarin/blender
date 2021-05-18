@@ -36,8 +36,8 @@ std::ostream &operator<<(std::ostream &stream, const eAlpha &space)
 std::ostream &operator<<(std::ostream &stream, const eSpace &space)
 {
   switch (space) {
-    case eSpace::Srgb: {
-      stream << "Srgb";
+    case eSpace::Theme: {
+      stream << "Theme";
       break;
     }
     case eSpace::SceneLinear: {
