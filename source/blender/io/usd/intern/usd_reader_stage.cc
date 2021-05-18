@@ -64,6 +64,7 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
                                              const USDImportParams &params,
                                              const ImportSettings &settings)
 {
+
   USDPrimReader *reader = nullptr;
 
   if (params.use_instancing && prim.IsInstance()) {
@@ -88,6 +89,10 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
     reader = new USDVolumeReader(prim, params, settings);
   }
   else if (prim.IsA<pxr::UsdGeomImageable>()) {
+    reader = new USDXformReader(prim, params, settings);
+  }
+  else if (prim.GetPrimTypeInfo() == pxr::UsdPrimTypeInfo::GetEmptyPrimType()) {
+    /* Handle the less common case where the prim has no type specified. */
     reader = new USDXformReader(prim, params, settings);
   }
 
