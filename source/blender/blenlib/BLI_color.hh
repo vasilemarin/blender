@@ -33,11 +33,11 @@ namespace blender {
  *
  * Usage:
  *
- * Convert an srgb byte color to a linearrgb premultiplied.
+ * Convert an theme byte color to a linearrgb premultiplied.
  * ```
  * ColorTheme4b theme_color;
  * ColorSceneLinear4f<eAlpha::Premultiplied> linearrgb_color =
- *     BLI_color_convert_to_linear(srgb_color).to_premultiplied_alpha();
+ *     BLI_color_convert_to_linear(theme_color).to_premultiplied_alpha();
  * ```
  *
  * The API is structured to make most use of inlining. Most notable are space
@@ -57,9 +57,9 @@ namespace blender {
  * To make this clear to the developer the a `eSpace::SceneLinearByteEncoded`
  * space is added.
  *
- * # sRGB precision
+ * # Precision
  *
- * The sRGB colors can be stored using `uint8_t` or `float` colors. The conversion
+ * Colors can be stored using `uint8_t` or `float` colors. The conversion
  * between the two precisions are available as methods. (`to_4b` and
  * `to_4f`).
  *
