@@ -606,11 +606,13 @@ bool umm_import_material(Material *mtl, const pxr::UsdShadeMaterial &usd_materia
     pxr::SdfAssetPath source_asset;
     if (!surf_shader.GetSourceAsset(&source_asset, usdtokens::mdl)) {
       std::cout << "No mdl source asset for shader " << surf_shader.GetPath() << std::endl;
+      return false;
     }
     pxr::TfToken source_asset_sub_identifier;
     if (!surf_shader.GetSourceAssetSubIdentifier(&source_asset_sub_identifier, usdtokens::mdl)) {
       std::cout << "No mdl source asset sub identifier for shader " << surf_shader.GetPath()
                 << std::endl;
+      return false;
     }
 
     std::string path = source_asset.GetAssetPath();
