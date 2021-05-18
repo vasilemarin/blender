@@ -60,13 +60,17 @@ void USDXformReader::read_object_data(Main * /* bmain */, const double motionSam
   bool is_constant;
   float transform_from_usd[4][4];
 
-  read_matrix(transform_from_usd, motionSampleTime, import_params_.scale, is_constant);
+  read_matrix(transform_from_usd, motionSampleTime, settings_->scale, is_constant);
 
   if (!is_constant) {
     bConstraint *con = BKE_constraint_add_for_object(
         object_, NULL, CONSTRAINT_TYPE_TRANSFORM_CACHE);
     bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
-    BLI_strncpy(data->object_path, prim_.GetPath().GetText(), FILE_MAX);
+
+    std::string prim_path = use_parent_xform_ ? prim_.GetParent().GetPath().GetAsString() :
+                                                prim_path_;
+
+    BLI_strncpy(data->object_path, prim_path.c_str(), FILE_MAX);
 
     data->cache_file = settings_->cache_file;
     id_us_plus(&data->cache_file->id);
@@ -83,7 +87,14 @@ void USDXformReader::read_matrix(float r_mat[4][4] /* local matrix */,
   is_constant = true;
   unit_m4(r_mat);
 
-  pxr::UsdGeomXformable xformable(prim_);
+  pxr::UsdGeomXformable xformable;
+
+  if (use_parent_xform_) {
+    xformable = pxr::UsdGeomXformable(prim_.GetParent());
+  }
+  else {
+    xformable = pxr::UsdGeomXformable(prim_);
+  }
 
   if (!xformable) {
     // This might happen if the prim is a Scope.
@@ -102,7 +113,7 @@ void USDXformReader::read_matrix(float r_mat[4][4] /* local matrix */,
 
   /* Apply global scaling and rotation only to root objects, parenting
    * will propagate it. */
-  if ((scale != 1.0 || settings_->do_convert_mat) && is_root_xform_object()) {
+  if ((scale != 1.0 || settings_->do_convert_mat) && is_root_xform_) {
 
     if (scale != 1.0f) {
       float scale_mat[4][4];
@@ -116,12 +127,25 @@ void USDXformReader::read_matrix(float r_mat[4][4] /* local matrix */,
   }
 }
 
-bool USDXformReader::is_root_xform_object() const
+bool USDXformReader::prim_has_xform_ops() const
 {
-  // It's not sufficient to check for a null parent to determine
-  // if the current object is the root, because the parent could
-  // represent a scope, which is not xformable.  E.g., an Xform
-  // parented to a single Scope would be considered the root.
+  pxr::UsdGeomXformable xformable(prim_);
+
+  if (!xformable) {
+    // This might happen if the prim is a Scope.
+    return false;
+  }
+
+  bool reset_xform_stack = false;
+
+  return !xformable.GetOrderedXformOps(&reset_xform_stack).empty();
+}
+
+bool USDXformReader::is_root_xform_prim() const
+{
+  if (!prim_.IsValid()) {
+    return false;
+  }
 
   if (prim_.IsInMaster()) {
     // We don't consider prototypes to be root prims,
@@ -131,22 +155,22 @@ bool USDXformReader::is_root_xform_object() const
   }
 
   if (prim_.IsA<pxr::UsdGeomXformable>()) {
-    // If we don't have an ancestor that also wraps
-    // UsdGeomXformable, then we are the root.
-    const USDPrimReader *cur_parent = parent_reader_;
+    /* If this prim doesn't have an ancestor that's a
+     * UsdGeomXformable, then it's a root prim.  Note
+     * that it's not sufficient to only check the immediate
+     * parent prim, since the immediate parent could be a
+     * UsdGeomScope that has an xformable ancestor. */
+    pxr::UsdPrim cur_parent = prim_.GetParent();
 
     while (cur_parent) {
-      if (cur_parent->prim().IsA<pxr::UsdGeomXformable>()) {
+      if (cur_parent.IsA<pxr::UsdGeomXformable>()) {
         return false;
       }
-      cur_parent = cur_parent->parent();
+      cur_parent = cur_parent.GetParent();
     }
 
-    if (!cur_parent) {
-      // No ancestor prim was an xformable, so we
-      // are the root.
-      return true;
-    }
+    /* We didn't find an xformable ancestor. */
+    return true;
   }
 
   return false;

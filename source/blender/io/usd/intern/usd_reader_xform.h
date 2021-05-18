@@ -21,12 +21,20 @@
 namespace blender::io::usd {
 
 class USDXformReader : public USDPrimReader {
+ private:
+  bool use_parent_xform_;
+
+  /* Indicates if the created object is the root of a
+   * transform hierarchy. */
+  bool is_root_xform_;
 
  public:
   USDXformReader(const pxr::UsdPrim &prim,
                  const USDImportParams &import_params,
                  const ImportSettings &settings)
-      : USDPrimReader(prim, import_params, settings)
+      : USDPrimReader(prim, import_params, settings),
+        use_parent_xform_(false),
+        is_root_xform_(is_root_xform_prim())
   {
   }
 
@@ -35,9 +43,20 @@ class USDXformReader : public USDPrimReader {
 
   void read_matrix(float r_mat[4][4], const float time, const float scale, bool &is_constant);
 
-  // Returns true if this reader represents an object that is the root of the
-  // transform hierarchy.
-  bool is_root_xform_object() const;
+  bool use_parent_xform() const
+  {
+    return use_parent_xform_;
+  }
+  void set_use_parent_xform(bool flag)
+  {
+    use_parent_xform_ = flag;
+  }
+
+  bool prim_has_xform_ops() const;
+
+ protected:
+  /* Returns true if the contained USD prim is the root of a transform hierarchy. */
+  bool is_root_xform_prim() const;
 };
 
 }  // namespace blender::io::usd

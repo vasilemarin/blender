@@ -241,7 +241,7 @@ static void create_proto_collections(Main *bmain,
 
 // Update the given import settings with the global rotation matrix to orient
 // imported objects with Z-up, if necessary
-static void set_global_rotation(pxr::UsdStageRefPtr stage, ImportSettings &r_settings)
+static void convert_to_z_up(pxr::UsdStageRefPtr stage, ImportSettings &r_settings)
 {
   if (!stage || pxr::UsdGeomGetStageUpAxis(stage) == pxr::UsdGeomTokens->z) {
     // Nothing to do.
@@ -317,7 +317,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
   }
 
   BLI_path_abs(data->filename, BKE_main_blendfile_path_from_global());
-  USDStageReader *archive = new USDStageReader(data->bmain, data->filename);
+  USDStageReader *archive = new USDStageReader(data->filename);
 
   archive->params(data->params);
   archive->settings(data->settings);
@@ -360,8 +360,12 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     return;
   }
 
-  if (data->params.convert_to_z_up) {
-    set_global_rotation(archive->stage(), data->settings);
+  convert_to_z_up(archive->stage(), data->settings);
+
+  if (data->params.apply_unit_conversion_scale) {
+    const double meters_per_unit = pxr::UsdGeomGetStageMetersPerUnit(archive->stage());
+    data->settings.scale *= meters_per_unit;
+    cache_file->scale *= meters_per_unit;
   }
 
   // Set up the stage for animated data.
@@ -628,8 +632,7 @@ Mesh *USD_read_mesh(CacheReader *reader,
                     Mesh *existing_mesh,
                     const float time,
                     const char **err_str,
-                    int read_flag,
-                    float vel_fac)
+                    int read_flag)
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
@@ -637,7 +640,7 @@ Mesh *USD_read_mesh(CacheReader *reader,
     return NULL;
   }
 
-  return usd_reader->read_mesh(existing_mesh, time, read_flag, vel_fac, err_str);
+  return usd_reader->read_mesh(existing_mesh, time, read_flag, err_str);
 }
 
 bool USD_mesh_topology_changed(
@@ -702,16 +705,21 @@ void USD_CacheReader_free(CacheReader *reader)
   }
 }
 
-CacheArchiveHandle *USD_create_handle(struct Main *bmain,
+CacheArchiveHandle *USD_create_handle(struct Main * /*bmain*/,
                                       const char *filename,
                                       ListBase *object_paths)
 {
-  USDStageReader *stage_reader = new USDStageReader(bmain, filename);
+  USDStageReader *stage_reader = new USDStageReader(filename);
 
   if (!stage_reader->valid()) {
     delete stage_reader;
     return NULL;
   }
+
+  blender::io::usd::ImportSettings settings;
+  convert_to_z_up(stage_reader->stage(), settings);
+
+  stage_reader->settings(settings);
 
   if (object_paths) {
     gather_objects_paths(stage_reader->stage()->GetPseudoRoot(), object_paths);

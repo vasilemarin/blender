@@ -121,7 +121,14 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   float intensity;
   if (get_authored_value(light_prim.GetIntensityAttr(), motionSampleTime, &intensity) ||
       prim_.GetAttribute(usdtokens::intensity).Get(&intensity, motionSampleTime)) {
-    blight->energy = intensity * this->import_params_.light_intensity_scale;
+
+    float intensity_scale = this->import_params_.light_intensity_scale;
+
+    if (this->import_params_.convert_light_from_nits) {
+      intensity_scale *= .001464;
+    }
+
+    blight->energy = intensity * intensity_scale;
   }
 
   // TODO: Not currently supported
@@ -163,13 +170,13 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float width;
         if (get_authored_value(rect_light.GetWidthAttr(), motionSampleTime, &width) ||
             prim_.GetAttribute(usdtokens::width).Get(&width, motionSampleTime)) {
-          blight->area_size = width;
+          blight->area_size = width * settings_->scale;
         }
 
         float height;
         if (get_authored_value(rect_light.GetHeightAttr(), motionSampleTime, &height) ||
             prim_.GetAttribute(usdtokens::height).Get(&height, motionSampleTime)) {
-          blight->area_sizey = height;
+          blight->area_sizey = height * settings_->scale;
         }
       }
       else if (blight->area_shape == LA_AREA_DISK && prim_.IsA<pxr::UsdLuxDiskLight>()) {
@@ -179,7 +186,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float radius;
         if (get_authored_value(disk_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
-          blight->area_size = radius * 2.0f;
+          blight->area_size = radius * 2.0f * settings_->scale;
         }
       }
       break;
@@ -191,7 +198,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float radius;
         if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
-          blight->area_size = radius;
+          blight->area_size = radius * settings_->scale;
         }
       }
       break;
@@ -203,7 +210,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float radius;
         if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
-          blight->area_size = radius;
+          blight->area_size = radius * settings_->scale;
         }
 
         pxr::VtValue coneAngle;

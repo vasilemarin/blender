@@ -49,7 +49,7 @@ class USDStageReader {
   ProtoReaderMap proto_readers_;
 
  public:
-  USDStageReader(struct Main *bmain, const char *filename);
+  USDStageReader(const char *filename);
   ~USDStageReader();
 
   static USDPrimReader *create_reader(const pxr::UsdPrim &prim,
