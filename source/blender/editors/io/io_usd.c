@@ -1065,7 +1065,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
 
   RNA_def_boolean(ot->srna,
                   "convert_light_from_nits",
-                  false,
+                  true,
                   "Convert Light Units from Nits",
                   "Convert light intensity units from nits");
 }
