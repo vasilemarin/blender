@@ -155,7 +155,7 @@ static void export_in_memory_texture(Image *ima, const std::string &export_dir)
   export_path += std::string(file_name);
 
   /* We never overwrite files.
-  * TODO(makowalski): consider adding an option to overwrite. */
+   * TODO(makowalski): consider adding an option to overwrite. */
   if (BLI_exists(export_path.c_str())) {
     return;
   }
@@ -223,8 +223,9 @@ static void copy_tiled_textures(Image *ima, const std::string &in_dest_dir)
   BLI_path_sequence_decode(src_file, head, tail, &numlen);
 
   /* Copy all tiles. */
-  LISTBASE_FOREACH(ImageTile *, tile, &ima->tiles) {
-    char tile_file[FILE_MAX];;
+  LISTBASE_FOREACH (ImageTile *, tile, &ima->tiles) {
+    char tile_file[FILE_MAX];
+    ;
 
     /* Build filepath of the tile. */
     BLI_path_sequence_encode(tile_file, head, tail, numlen, tile->tile_number);
@@ -239,14 +240,14 @@ static void copy_tiled_textures(Image *ima, const std::string &in_dest_dir)
 
     std::string src_tile_path = std::string(src_dir) + std::string(tile_file);
 
-    std::cout << "Copying texture tile from " << src_tile_path << " to " << dest_tile_path << std::endl;
+    std::cout << "Copying texture tile from " << src_tile_path << " to " << dest_tile_path
+              << std::endl;
 
     /* Copy the file. */
     if (BLI_copy(src_tile_path.c_str(), dest_tile_path.c_str()) != 0) {
-      std::cout << "WARNING: couldn't copy texture tile from " << src_tile_path << " to " << dest_tile_path
-        << std::endl;
+      std::cout << "WARNING: couldn't copy texture tile from " << src_tile_path << " to "
+                << dest_tile_path << std::endl;
     }
-
   }
 }
 
@@ -281,9 +282,8 @@ static void copy_single_file(Image *ima, const std::string &dest_dir)
   /* Copy the file. */
   if (BLI_copy(source_path, dest_path.c_str()) != 0) {
     std::cout << "WARNING: couldn't copy texture from " << source_path << " to " << dest_path
-      << std::endl;
+              << std::endl;
   }
-
 }
 
 /* ===== Functions copied from inacessible source file

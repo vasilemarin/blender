@@ -908,8 +908,8 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
 
   if (RNA_boolean_get(ptr, "import_materials")) {
     const char *import_shaders_mode_prop_name = USD_umm_module_loaded() ?
-      "import_shaders_mode" :
-      "import_shaders_mode_no_umm";
+                                                    "import_shaders_mode" :
+                                                    "import_shaders_mode_no_umm";
     uiItemR(box, ptr, import_shaders_mode_prop_name, 0, NULL, ICON_NONE);
 
     uiItemR(box, ptr, "set_material_blend", 0, NULL, ICON_NONE);
