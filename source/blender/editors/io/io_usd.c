@@ -318,6 +318,8 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
 
   const float light_intensity_scale = RNA_float_get(op->ptr, "light_intensity_scale");
 
+  const bool convert_light_from_nits = RNA_boolean_get(op->ptr, "convert_light_from_nits");
+
   /* TODO(makowalski): Add support for sequences. */
   const bool is_sequence = false;
   int offset = 0;
@@ -356,7 +358,8 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
                                    import_usd_preview,
                                    set_material_blend,
                                    light_intensity_scale,
-                                   apply_unit_conversion_scale};
+                                   apply_unit_conversion_scale,
+                                   convert_light_from_nits};
 
   const bool ok = USD_import(C, filename, &params, as_background_job);
 
@@ -387,6 +390,7 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   uiItemR(box, ptr, "import_visible_only", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "create_collection", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "convert_light_from_nits", 0, NULL, ICON_NONE);
 
   uiLayout *prim_path_mask_box = uiLayoutBox(box);
   uiItemL(prim_path_mask_box, IFACE_("Prim Path Mask:"), ICON_NONE);
@@ -554,6 +558,12 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                 "Value by which to scale the intensity of imported lights",
                 0.0001f,
                 1000.0f);
+
+  RNA_def_boolean(ot->srna,
+                  "convert_light_from_nits",
+                  false,
+                  "Convert Light Units from Nits",
+                  "Convert light intensity units from nits");
 }
 
 #endif /* WITH_USD */

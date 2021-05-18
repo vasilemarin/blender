@@ -70,6 +70,7 @@ struct USDImportParams {
   bool set_material_blend;
   float light_intensity_scale;
   bool apply_unit_conversion_scale;
+  bool convert_light_from_nits;
 };
 
 /* The USD_export takes a as_background_job parameter, and returns a boolean.

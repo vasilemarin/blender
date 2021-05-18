@@ -91,7 +91,13 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   pxr::VtValue intensity;
   light_prim.GetIntensityAttr().Get(&intensity, motionSampleTime);
 
-  blight->energy = intensity.Get<float>() * this->import_params_.light_intensity_scale;
+  float intensity_scale = this->import_params_.light_intensity_scale;
+
+  if (this->import_params_.convert_light_from_nits) {
+    intensity_scale *= .001464;
+  }
+
+  blight->energy = intensity.Get<float>() * intensity_scale;
 
   // TODO: Not currently supported
   // pxr::VtValue exposure;
