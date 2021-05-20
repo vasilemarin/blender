@@ -139,8 +139,8 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         pxr::VtValue height;
         rect_light.GetHeightAttr().Get(&height, motionSampleTime);
 
-        blight->area_size = width.Get<float>() * settings_->scale;
-        blight->area_sizey = height.Get<float>() * settings_->scale;
+        blight->area_size = width.Get<float>();
+        blight->area_sizey = height.Get<float>();
       }
       else if (blight->area_shape == LA_AREA_DISK && prim_.IsA<pxr::UsdLuxDiskLight>()) {
 
@@ -149,7 +149,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         pxr::VtValue radius;
         disk_light.GetRadiusAttr().Get(&radius, motionSampleTime);
 
-        blight->area_size = radius.Get<float>() * 2.0f * settings_->scale;
+        blight->area_size = radius.Get<float>() * 2.0f;
       }
       break;
     case LA_LOCAL:
@@ -160,7 +160,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         pxr::VtValue radius;
         sphere_light.GetRadiusAttr().Get(&radius, motionSampleTime);
 
-        blight->area_size = radius.Get<float>() * settings_->scale;
+        blight->area_size = radius.Get<float>();
       }
       break;
     case LA_SPOT:
@@ -171,7 +171,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         pxr::VtValue radius;
         sphere_light.GetRadiusAttr().Get(&radius, motionSampleTime);
 
-        blight->area_size = radius.Get<float>() * settings_->scale;
+        blight->area_size = radius.Get<float>();
 
         pxr::VtValue coneAngle;
         shapingAPI.GetShapingConeAngleAttr().Get(&coneAngle, motionSampleTime);
