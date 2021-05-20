@@ -294,7 +294,8 @@ static void export_startjob(void *customdata,
   }
 
   // Set Scale
-  double meters_per_unit = data->params.convert_to_cm ? pxr::UsdGeomLinearUnits::centimeters : pxr::UsdGeomLinearUnits::meters;
+  double meters_per_unit = data->params.convert_to_cm ? pxr::UsdGeomLinearUnits::centimeters :
+                                                        pxr::UsdGeomLinearUnits::meters;
   pxr::UsdGeomSetStageMetersPerUnit(usd_stage, meters_per_unit);
 
   usd_stage->GetRootLayer()->Save();

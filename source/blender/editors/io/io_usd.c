@@ -617,10 +617,10 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                   "When checked, the USD exporter will convert orientation axis");
 
   RNA_def_boolean(ot->srna,
-    "convert_to_cm",
-    true,
-    "Convert to Centimeters",
-    "Set the USD units to centimeters and scale the scene to convert from meters");
+                  "convert_to_cm",
+                  true,
+                  "Convert to Centimeters",
+                  "Set the USD units to centimeters and scale the scene to convert from meters");
 
   RNA_def_enum(ot->srna,
                "export_global_forward_selection",

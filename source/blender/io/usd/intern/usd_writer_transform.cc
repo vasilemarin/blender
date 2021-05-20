@@ -69,7 +69,8 @@ void USDTransformWriter::do_write(HierarchyContext &context)
 
     // TODO(bjs): This is inefficient checking for every transform. should be moved elsewhere
     if (context.export_parent == nullptr &&
-        (usd_export_context_.export_params.convert_orientation || usd_export_context_.export_params.convert_to_cm)) {
+        (usd_export_context_.export_params.convert_orientation ||
+         usd_export_context_.export_params.convert_to_cm)) {
       float matrix_world[4][4];
       copy_m4_m4(matrix_world, context.matrix_world);
 
@@ -77,10 +78,10 @@ void USDTransformWriter::do_write(HierarchyContext &context)
         float mrot[3][3];
         float mat[4][4];
         mat3_from_axis_conversion(USD_GLOBAL_FORWARD_Y,
-          USD_GLOBAL_UP_Z,
-          usd_export_context_.export_params.forward_axis,
-          usd_export_context_.export_params.up_axis,
-          mrot);
+                                  USD_GLOBAL_UP_Z,
+                                  usd_export_context_.export_params.forward_axis,
+                                  usd_export_context_.export_params.up_axis,
+                                  mrot);
         transpose_m3(mrot);
         copy_m4_m3(mat, mrot);
         mul_m4_m4m4(matrix_world, mat, context.matrix_world);

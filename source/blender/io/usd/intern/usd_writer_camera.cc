@@ -116,7 +116,8 @@ void USDCameraWriter::do_write(HierarchyContext &context)
   usd_camera.CreateShutterCloseAttr().Set(shutter_close);
 
   usd_camera.CreateClippingRangeAttr().Set(
-      pxr::VtValue(pxr::GfVec2f(camera->clip_start * unit_scale, camera->clip_end * unit_scale)), timecode);
+      pxr::VtValue(pxr::GfVec2f(camera->clip_start * unit_scale, camera->clip_end * unit_scale)),
+      timecode);
 
   /* Write DoF-related attributes. */
   if (camera->dof.flag & CAM_DOF_ENABLED) {
