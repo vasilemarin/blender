@@ -254,7 +254,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const bool generate_mdl = USD_umm_module_loaded() ? RNA_boolean_get(op->ptr, "generate_mdl") :
                                                       false;
-  ;
+
+  const bool convert_to_cm = RNA_boolean_get(op->ptr, "convert_to_cm");
 
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
@@ -301,7 +302,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    relative_texture_paths,
                                    backward_compatible,
                                    light_intensity_scale,
-                                   generate_mdl};
+                                   generate_mdl,
+                                   convert_to_cm};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -411,6 +413,8 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     uiItemR(box, ptr, "export_global_forward_selection", 0, NULL, ICON_NONE);
     uiItemR(box, ptr, "export_global_up_selection", 0, NULL, ICON_NONE);
   }
+
+  uiItemR(box, ptr, "convert_to_cm", 0, NULL, ICON_NONE);
 
   if (RNA_boolean_get(ptr, "export_materials")) {
     uiItemR(box, ptr, "generate_preview_surface", 0, NULL, ICON_NONE);
@@ -611,6 +615,12 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                   false,
                   "Convert Orientation",
                   "When checked, the USD exporter will convert orientation axis");
+
+  RNA_def_boolean(ot->srna,
+    "convert_to_cm",
+    true,
+    "Convert to Centimeters",
+    "Set the USD units to centimeters and scale the scene to convert from meters");
 
   RNA_def_enum(ot->srna,
                "export_global_forward_selection",

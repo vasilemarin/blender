@@ -72,6 +72,8 @@ static void camera_sensor_size_for_render(const Camera *camera,
 
 void USDCameraWriter::do_write(HierarchyContext &context)
 {
+  const float unit_scale = usd_export_context_.export_params.convert_to_cm ? 100.0f : 1.0f;
+
   pxr::UsdTimeCode timecode = get_export_time_code();
   pxr::UsdGeomCamera usd_camera = (usd_export_context_.export_params.export_as_overs) ?
                                       pxr::UsdGeomCamera(usd_export_context_.stage->OverridePrim(
@@ -114,14 +116,14 @@ void USDCameraWriter::do_write(HierarchyContext &context)
   usd_camera.CreateShutterCloseAttr().Set(shutter_close);
 
   usd_camera.CreateClippingRangeAttr().Set(
-      pxr::VtValue(pxr::GfVec2f(camera->clip_start, camera->clip_end)), timecode);
+      pxr::VtValue(pxr::GfVec2f(camera->clip_start * unit_scale, camera->clip_end * unit_scale)), timecode);
 
   /* Write DoF-related attributes. */
   if (camera->dof.flag & CAM_DOF_ENABLED) {
     usd_camera.CreateFStopAttr().Set(camera->dof.aperture_fstop, timecode);
 
     float focus_distance = scene->unit.scale_length *
-                           BKE_camera_object_dof_distance(context.object);
+                           BKE_camera_object_dof_distance(context.object) * unit_scale;
     usd_camera.CreateFocusDistanceAttr().Set(focus_distance, timecode);
   }
 

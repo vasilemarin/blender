@@ -107,6 +107,7 @@ struct USDExportParams {
   bool backward_compatible;
   float light_intensity_scale;
   bool generate_mdl;
+  bool convert_to_cm;
 };
 
 struct USDImportParams {
