@@ -166,6 +166,7 @@ GHOST_WintabWin32::GHOST_WintabWin32(HWND hwnd,
       m_context(std::move(hctx)),
       m_pkts(queueSize)
 {
+  m_fpInfo(WTI_INTERFACE, IFC_NDEVICES, &numDevices);
   updateCursorInfo();
 }
 
@@ -223,6 +224,23 @@ void GHOST_WintabWin32::updateCursorInfo()
     m_maxAzimuth = m_maxAltitude = 0;
   }
 }
+
+void GHOST_WintabWin32::processInfoChange(LPARAM lParam)
+{
+  /* Update number of connected Wintab digitizers */
+  if (LOWORD(lParam) == WTI_INTERFACE && HIWORD(lParam) == IFC_NDEVICES) {
+    m_fpInfo(WTI_INTERFACE, IFC_NDEVICES, &numDevices);
+  }
+}
+
+/**
+ * TODO
+ */
+bool GHOST_WintabWin32::devicesPresent()
+{
+  return numDevices;
+}
+
 
 void GHOST_WintabWin32::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
 {

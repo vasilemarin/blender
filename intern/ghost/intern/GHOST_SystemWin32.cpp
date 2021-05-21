@@ -1623,6 +1623,12 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
           eventHandled = true;
           break;
         }
+        case WT_INFOCHANGE:
+          if (GHOST_WintabWin32 *wt = window->getWintab()) {
+            wt->processInfoChange(lParam);
+          }
+          eventHandled = true;
+          break;
         case WT_PACKET:
           processWintabEvent(window);
           eventHandled = true;

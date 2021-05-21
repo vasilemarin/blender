@@ -88,6 +88,17 @@ class GHOST_WintabWin32 {
   void updateCursorInfo();
 
   /**
+   * Handle Wintab info changes such as change in number of connected tablets.
+   * \param lParam: LPARAM of the event.
+   */
+  void processInfoChange(LPARAM lParam);
+
+  /**
+   * TODO
+   */
+  bool devicesPresent();
+
+  /**
    * Translate Wintab packets into GHOST_WintabInfoWin32 structs.
    * \param outWintabInfo: Storage to return resulting GHOST_WintabInfoWin32 structs.
    */
@@ -112,6 +123,7 @@ class GHOST_WintabWin32 {
   LONG m_maxPressure = 0;
   LONG m_maxAzimuth = 0;
   LONG m_maxAltitude = 0;
+  UINT numDevices;
   /** Reusable buffer to read in Wintab packets. */
   std::vector<PACKET> m_pkts;
 

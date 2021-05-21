@@ -983,7 +983,7 @@ bool GHOST_WindowWin32::useTabletAPI(GHOST_TTabletAPI api) const
     return true;
   }
   else if (m_system->getTabletAPI() == GHOST_kTabletAutomatic) {
-    if (m_wintab.tablet)
+    if (m_wintab && m_wintab->devicesPresent())
       return api == GHOST_kTabletWintab;
     else
       return api == GHOST_kTabletNative;
