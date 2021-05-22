@@ -15,6 +15,7 @@
  */
 
 #include "usd_reader_light.h"
+#include "usd_light_convert.h"
 
 extern "C" {
 #include "DNA_light_types.h"
@@ -34,6 +35,7 @@ extern "C" {
 
 #include <pxr/usd/usdLux/light.h>
 
+#include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdLux/diskLight.h>
 #include <pxr/usd/usdLux/distantLight.h>
 #include <pxr/usd/usdLux/rectLight.h>
@@ -113,23 +115,10 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
   // Set light values
 
-  /* In USD 21, light attributes were renamed to have an 'inputs:' prefix
-   * (e.g., 'inputs:intensity'). Here and below, for backward compatibility
-   * with older USD versions, we also query attributes using the previous
-   * naming scheme that omits this prefix. */
-
-  float intensity;
-  if (get_authored_value(light_prim.GetIntensityAttr(), motionSampleTime, &intensity) ||
-      prim_.GetAttribute(usdtokens::intensity).Get(&intensity, motionSampleTime)) {
-
-    float intensity_scale = this->import_params_.light_intensity_scale;
-
-    if (this->import_params_.convert_light_from_nits) {
-      intensity_scale *= .001464;
-    }
-
-    blight->energy = intensity * intensity_scale;
-  }
+/* In USD 21, light attributes were renamed to have an 'inputs:' prefix
+ * (e.g., 'inputs:intensity'). Here and below, for backward compatibility
+ * with older USD versions, we also query attributes using the previous
+ * naming scheme that omits this prefix. */
 
   // TODO: Not currently supported
   // pxr::VtValue exposure;
@@ -161,6 +150,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   // pxr::VtValue color_temp;
   // light_prim.GetColorTemperatureAttr().Get(&color_temp, motionSampleTime);
 
+  // XXX - apply scene scale to local and spot lights but not area lights (?)
   switch (blight->type) {
     case LA_AREA:
       if (blight->area_shape == LA_AREA_RECT && prim_.IsA<pxr::UsdLuxRectLight>()) {
@@ -170,13 +160,13 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float width;
         if (get_authored_value(rect_light.GetWidthAttr(), motionSampleTime, &width) ||
             prim_.GetAttribute(usdtokens::width).Get(&width, motionSampleTime)) {
-          blight->area_size = width * settings_->scale;
+          blight->area_size = width;
         }
 
         float height;
         if (get_authored_value(rect_light.GetHeightAttr(), motionSampleTime, &height) ||
             prim_.GetAttribute(usdtokens::height).Get(&height, motionSampleTime)) {
-          blight->area_sizey = height * settings_->scale;
+          blight->area_sizey = height;
         }
       }
       else if (blight->area_shape == LA_AREA_DISK && prim_.IsA<pxr::UsdLuxDiskLight>()) {
@@ -186,7 +176,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float radius;
         if (get_authored_value(disk_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
-          blight->area_size = radius * 2.0f * settings_->scale;
+          blight->area_size = radius * 2.0f;
         }
       }
       break;
@@ -198,7 +188,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float radius;
         if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
-          blight->area_size = radius * settings_->scale;
+          blight->area_size = radius;
         }
       }
       break;
@@ -210,7 +200,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         float radius;
         if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
-          blight->area_size = radius * settings_->scale;
+          blight->area_size = radius;
         }
 
         pxr::VtValue coneAngle;
@@ -233,6 +223,28 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         }
       }
       break;
+  }
+
+
+  float intensity;
+  if (get_authored_value(light_prim.GetIntensityAttr(), motionSampleTime, &intensity) ||
+    prim_.GetAttribute(usdtokens::intensity).Get(&intensity, motionSampleTime)) {
+
+    float intensity_scale = this->import_params_.light_intensity_scale;
+
+    if (import_params_.convert_light_from_nits) {
+      /* It's important that we perform the light unit conversion before applying any scaling to the
+       * light size, so we can use the USD's meters per unit value. */
+      const float meters_per_unit = static_cast<float>(
+        pxr::UsdGeomGetStageMetersPerUnit(prim_.GetStage()));
+      intensity_scale *= nits_to_energy_scale_factor(blight, meters_per_unit);
+    }
+
+    blight->energy = intensity * intensity_scale;
+  }
+
+  if ((blight->type == LA_SPOT || blight->type == LA_LOCAL) && import_params_.scale_light_radius) {
+    blight->area_size *= settings_->scale;
   }
 
   USDXformReader::read_object_data(bmain, motionSampleTime);

@@ -95,11 +95,13 @@ void USDCameraReader::read_object_data(Main *bmain, const double motionSampleTim
   bcam->type = (projectionVal.Get<pxr::TfToken>().GetString() == "perspective") ? CAM_PERSP :
                                                                                   CAM_ORTHO;
 
-  // Calling UncheckedGet() to silence compiler warnings.
-  bcam->clip_start = max_ff(0.1f, clippingRangeVal.UncheckedGet<pxr::GfVec2f>()[0]);
-  bcam->clip_end = clippingRangeVal.UncheckedGet<pxr::GfVec2f>()[1];
+  /* Calling UncheckedGet() to silence compiler warnings. */
+  pxr::GfVec2f clipping_range = clippingRangeVal.UncheckedGet<pxr::GfVec2f>();
 
-  bcam->dof.focus_distance = focalDistanceVal.Get<float>();
+  bcam->clip_start = max_ff(0.1f, clipping_range[0] * settings_->scale);
+  bcam->clip_end = clipping_range[1] * settings_->scale;
+
+  bcam->dof.focus_distance = focalDistanceVal.Get<float>() * settings_->scale;
   bcam->dof.aperture_fstop = static_cast<float>(fstopVal.Get<float>());
 
   if (bcam->type == CAM_ORTHO) {

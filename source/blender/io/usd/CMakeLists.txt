@@ -66,6 +66,7 @@ set(SRC
   intern/usd_capi_import.cc
   intern/usd_common.cc
   intern/usd_hierarchy_iterator.cc
+  intern/usd_light_convert.cc
   
   intern/usd_reader_camera.cc
   intern/usd_reader_curve.cc
@@ -98,9 +99,8 @@ set(SRC
   intern/usd_common.h
   intern/usd_exporter_context.h
   intern/usd_hierarchy_iterator.h
-  
-  intern/usd_umm.h
-
+  intern/usd_light_convert.h
+   
   intern/usd_reader_camera.h
   intern/usd_reader_curve.h
   intern/usd_reader_geom.h
@@ -113,6 +113,8 @@ set(SRC
   intern/usd_reader_stage.h
   intern/usd_reader_volume.h 
   intern/usd_reader_xform.h
+  
+  intern/usd_umm.h
   
   intern/usd_writer_abstract.h
   intern/usd_writer_camera.h
