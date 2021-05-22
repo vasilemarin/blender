@@ -22,6 +22,8 @@
 
 #include "GHOST_Wintab.h"
 
+#include <functional>
+
 GHOST_WintabWin32 *GHOST_WintabWin32::loadWintab(HWND hwnd)
 {
   /* Load Wintab library if available. */
@@ -90,13 +92,7 @@ GHOST_WintabWin32 *GHOST_WintabWin32::loadWintab(HWND hwnd)
     return nullptr;
   }
 
-  lc.lcPktData = PACKETDATA;
-  lc.lcPktMode = PACKETMODE;
-  lc.lcMoveMask = PACKETDATA;
-  lc.lcOptions |= CXO_CSRMESSAGES | CXO_MESSAGES;
-  /* Wintab maps y origin to the tablet's bottom. Invert to match Windows y origin mapping to the
-   * screen top. */
-  lc.lcOutExtY = -lc.lcOutExtY;
+  modifyContext(lc);
 
   /* The Wintab spec says we must open the context disabled if we are using cursor masks. */
   auto hctx = unique_hctx(open(hwnd, &lc, FALSE), close);
@@ -143,7 +139,26 @@ GHOST_WintabWin32 *GHOST_WintabWin32::loadWintab(HWND hwnd)
                                enable,
                                overlap,
                                std::move(hctx),
+                               lc,
                                queueSize);
+}
+
+void GHOST_WintabWin32::modifyContext(LOGCONTEXT &lc)
+{
+  lc.lcPktData = PACKETDATA;
+  lc.lcPktMode = PACKETMODE;
+  lc.lcMoveMask = PACKETDATA;
+  lc.lcOptions |= CXO_CSRMESSAGES | CXO_MESSAGES;
+
+  /* Tablet scaling is handled manually because some drivers don't handle HIDPI or multi-display
+   * correctly; reset tablet scale factors to unscaled tablet coodinates.
+   *
+   * Wintab maps y origin to the tablet's bottom; invert y to match Windows y origin mapping to the
+   * screen top. */
+  lc.lcOutOrgX = lc.lcInOrgX;
+  lc.lcOutOrgY = lc.lcInOrgY;
+  lc.lcOutExtX = lc.lcInExtX;
+  lc.lcOutExtY = -lc.lcInExtY;
 }
 
 GHOST_WintabWin32::GHOST_WintabWin32(HWND hwnd,
@@ -155,6 +170,7 @@ GHOST_WintabWin32::GHOST_WintabWin32(HWND hwnd,
                                      GHOST_WIN32_WTEnable enable,
                                      GHOST_WIN32_WTOverlap overlap,
                                      unique_hctx hctx,
+                                     LOGCONTEXT lc,
                                      int queueSize)
     : m_handle(std::move(handle)),
       m_fpInfo(info),
@@ -164,6 +180,7 @@ GHOST_WintabWin32::GHOST_WintabWin32(HWND hwnd,
       m_fpEnable(enable),
       m_fpOverlap(overlap),
       m_context(std::move(hctx)),
+      m_logcontext(lc),
       m_pkts(queueSize)
 {
   m_fpInfo(WTI_INTERFACE, IFC_NDEVICES, &numDevices);
@@ -195,15 +212,13 @@ void GHOST_WintabWin32::updateInRange(bool inRange)
 
 void GHOST_WintabWin32::remapCoordinates()
 {
-  LOGCONTEXT lc_sys = {0}, lc_curr = {0};
+  LOGCONTEXT lc = {0};
 
-  if (m_fpInfo(WTI_DEFSYSCTX, 0, &lc_sys) && m_fpGet(m_context.get(), &lc_curr)) {
-    lc_curr.lcOutOrgX = lc_sys.lcOutOrgX;
-    lc_curr.lcOutOrgY = lc_sys.lcOutOrgY;
-    lc_curr.lcOutExtX = lc_sys.lcOutExtX;
-    lc_curr.lcOutExtY = -lc_sys.lcOutExtY;
+  if (m_fpInfo(WTI_DEFSYSCTX, 0, &lc)) {
+    modifyContext(lc);
+    m_logcontext = lc;
 
-    m_fpSet(m_context.get(), &lc_curr);
+    m_fpSet(m_context.get(), &lc);
   }
 }
 
@@ -241,11 +256,38 @@ bool GHOST_WintabWin32::devicesPresent()
   return numDevices;
 }
 
-
 void GHOST_WintabWin32::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
 {
   const int numPackets = m_fpPacketsGet(m_context.get(), m_pkts.size(), m_pkts.data());
   outWintabInfo.resize(numPackets);
+
+  /*  */
+  std::function<int(LONG)> scaleX;
+  LOGCONTEXT &lc = m_logcontext;
+  if ((lc.lcInExtX < 0) == (lc.lcSysExtX < 0)) {
+    scaleX = [&](LONG inX) {
+      return (inX - lc.lcInOrgX) * abs(lc.lcSysExtX) / abs(lc.lcInExtX) + lc.lcSysOrgX;
+    };
+  }
+  else {
+    scaleX = [&](LONG inX) {
+      return (abs(lc.lcInExtX) - (inX - lc.lcInOrgX)) * abs(lc.lcSysExtX) / abs(lc.lcInExtX) +
+             lc.lcSysOrgX;
+    };
+  }
+
+  std::function<int(LONG)> scaleY;
+  if ((lc.lcInExtY < 0) == (lc.lcSysExtY < 0)) {
+    scaleY = [&](LONG inY) {
+      return (inY - lc.lcInOrgY) * abs(lc.lcSysExtY) / abs(lc.lcInExtY) + lc.lcSysOrgY;
+    };
+  }
+  else {
+    scaleY = [&](LONG inY) {
+      return (abs(lc.lcInExtY) - (inY - lc.lcInOrgY)) * abs(lc.lcSysExtY) / abs(lc.lcInExtY) +
+             lc.lcSysOrgY;
+    };
+  }
 
   for (int i = 0; i < numPackets; i++) {
     PACKET pkt = m_pkts[i];
@@ -266,8 +308,8 @@ void GHOST_WintabWin32::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabIn
         break;
     }
 
-    out.x = pkt.pkX;
-    out.y = pkt.pkY;
+    out.x = scaleX(pkt.pkX);
+    out.y = scaleY(pkt.pkY);
 
     if (m_maxPressure > 0) {
       out.tabletData.Pressure = (float)pkt.pkNormalPressure / (float)m_maxPressure;

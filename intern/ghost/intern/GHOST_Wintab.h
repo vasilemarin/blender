@@ -123,20 +123,22 @@ class GHOST_WintabWin32 {
   LONG m_maxPressure = 0;
   LONG m_maxAzimuth = 0;
   LONG m_maxAltitude = 0;
-  UINT numDevices;
+  LOGCONTEXT m_logcontext = {0};
+  UINT numDevices = 0;
   /** Reusable buffer to read in Wintab packets. */
   std::vector<PACKET> m_pkts;
 
   GHOST_WintabWin32(HWND hwnd,
-               unique_hmodule handle,
-               GHOST_WIN32_WTInfo info,
-               GHOST_WIN32_WTGet get,
-               GHOST_WIN32_WTSet set,
-               GHOST_WIN32_WTPacketsGet packetsGet,
-               GHOST_WIN32_WTEnable enable,
-               GHOST_WIN32_WTOverlap overlap,
-               unique_hctx hctx,
-               int queueSize);
+                    unique_hmodule handle,
+                    GHOST_WIN32_WTInfo info,
+                    GHOST_WIN32_WTGet get,
+                    GHOST_WIN32_WTSet set,
+                    GHOST_WIN32_WTPacketsGet packetsGet,
+                    GHOST_WIN32_WTEnable enable,
+                    GHOST_WIN32_WTOverlap overlap,
+                    unique_hctx hctx,
+                    LOGCONTEXT lc,
+                    int queueSize);
 
   /**
    * Convert Wintab system mapped (mouse) buttons into Ghost button mask.
@@ -145,4 +147,6 @@ class GHOST_WintabWin32 {
    * \return The system mapped button.
    */
   GHOST_TButtonMask mapWintabToGhostButton(UINT cursor, WORD physicalButton);
+
+  static void modifyContext(LOGCONTEXT &lc);
 };

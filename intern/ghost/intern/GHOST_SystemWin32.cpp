@@ -1043,8 +1043,10 @@ void GHOST_SystemWin32::processWintabEvent(GHOST_WindowWin32 *window)
           info.x = min(max(clip.left, info.x), clip.right);
           info.y = min(max(clip.top, info.y), clip.bottom);
 
-          if (abs(pt.x - info.x) <= 1 && abs(pt.y - info.y) <= 1) {
+          if (abs(pt.x - info.x) == 0 && abs(pt.y - info.y) == 0) {
             printf("match\n");
+          } else if (abs(pt.x - info.x) <= 1 && abs(pt.y - info.y) <= 1) {
+            printf("close enough\n");
           }
           else {
             printf("off wt (%d, %d) win (%d, %d)\n", info.x, info.y, pt.x, pt.y);
