@@ -15,6 +15,7 @@
  */
 
 #include "usd_reader_light.h"
+#include "usd_light_convert.h"
 
 extern "C" {
 #include "DNA_light_types.h"
@@ -34,6 +35,7 @@ extern "C" {
 
 #include <pxr/usd/usdLux/light.h>
 
+#include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdLux/diskLight.h>
 #include <pxr/usd/usdLux/distantLight.h>
 #include <pxr/usd/usdLux/rectLight.h>
@@ -88,17 +90,6 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
   // Set light values
 
-  pxr::VtValue intensity;
-  light_prim.GetIntensityAttr().Get(&intensity, motionSampleTime);
-
-  float intensity_scale = this->import_params_.light_intensity_scale;
-
-  if (this->import_params_.convert_light_from_nits) {
-    intensity_scale *= .001464;
-  }
-
-  blight->energy = intensity.Get<float>() * intensity_scale;
-
   // TODO: Not currently supported
   // pxr::VtValue exposure;
   // light_prim.GetExposureAttr().Get(&exposure, motionSampleTime);
@@ -127,6 +118,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   // pxr::VtValue color_temp;
   // light_prim.GetColorTemperatureAttr().Get(&color_temp, motionSampleTime);
 
+  // XXX - apply scene scale to local and spot lights but not area lights (?)
   switch (blight->type) {
     case LA_AREA:
       if (blight->area_shape == LA_AREA_RECT && prim_.IsA<pxr::UsdLuxRectLight>()) {
@@ -191,6 +183,25 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
         blight->sun_angle = angle.Get<float>();
       }
       break;
+  }
+
+  pxr::VtValue intensity;
+  light_prim.GetIntensityAttr().Get(&intensity, motionSampleTime);
+
+  float intensity_scale = import_params_.light_intensity_scale;
+
+  if (import_params_.convert_light_from_nits) {
+    /* It's important that we perform the light unit conversion before applying any scaling to the
+     * light size, so we can use the USD's meters per unit value. */
+    const float meters_per_unit = static_cast<float>(
+        pxr::UsdGeomGetStageMetersPerUnit(prim_.GetStage()));
+    intensity_scale *= nits_to_energy_scale_factor(blight, meters_per_unit);
+  }
+
+  blight->energy = intensity.Get<float>() * intensity_scale;
+
+  if ((blight->type == LA_SPOT || blight->type == LA_LOCAL) && import_params_.scale_light_radius) {
+    blight->area_size *= settings_->scale;
   }
 
   USDXformReader::read_object_data(bmain, motionSampleTime);

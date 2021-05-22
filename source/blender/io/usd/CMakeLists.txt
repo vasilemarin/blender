@@ -60,6 +60,7 @@ set(SRC
   intern/usd_capi_import.cc
   intern/usd_common.cc
   intern/usd_hierarchy_iterator.cc
+  intern/usd_light_convert.cc
   intern/usd_writer_abstract.cc
   intern/usd_writer_camera.cc
   intern/usd_writer_hair.cc
@@ -86,6 +87,7 @@ set(SRC
   intern/usd_common.h
   intern/usd_exporter_context.h
   intern/usd_hierarchy_iterator.h
+  intern/usd_light_convert.h
   intern/usd_writer_abstract.h
   intern/usd_writer_camera.h
   intern/usd_writer_hair.h

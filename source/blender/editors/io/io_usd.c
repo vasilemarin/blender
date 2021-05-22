@@ -320,6 +320,8 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
 
   const bool convert_light_from_nits = RNA_boolean_get(op->ptr, "convert_light_from_nits");
 
+  const bool scale_light_radius = RNA_boolean_get(op->ptr, "scale_light_radius");
+
   /* TODO(makowalski): Add support for sequences. */
   const bool is_sequence = false;
   int offset = 0;
@@ -359,7 +361,8 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
                                    set_material_blend,
                                    light_intensity_scale,
                                    apply_unit_conversion_scale,
-                                   convert_light_from_nits};
+                                   convert_light_from_nits,
+                                   scale_light_radius};
 
   const bool ok = USD_import(C, filename, &params, as_background_job);
 
@@ -391,6 +394,7 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   uiItemR(box, ptr, "create_collection", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "convert_light_from_nits", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "scale_light_radius", 0, NULL, ICON_NONE);
 
   uiLayout *prim_path_mask_box = uiLayoutBox(box);
   uiItemL(prim_path_mask_box, IFACE_("Prim Path Mask:"), ICON_NONE);
@@ -564,6 +568,13 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   false,
                   "Convert Light Units from Nits",
                   "Convert light intensity units from nits");
+
+  RNA_def_boolean(ot->srna,
+                  "scale_light_radius",
+                  false,
+                  "Scale Light Radius",
+                  "Apply the scene scale factor (from unit conversion or manual scaling) "
+                  "to the radius size of spot and local lights");
 }
 
 #endif /* WITH_USD */
