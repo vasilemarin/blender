@@ -121,7 +121,7 @@ TEST(color, SceneLinearByteEncoding)
 TEST(color, SceneLinearByteDecoding)
 {
   ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied> encoded(225, 188, 137, 128);
-  ColorSceneLinear4f<eAlpha::Premultiplied> decoded = encoded.to_byte_decoded();
+  ColorSceneLinear4f<eAlpha::Premultiplied> decoded = encoded.decode();
   EXPECT_NEAR(0.75f, decoded.r, 0.01f);
   EXPECT_NEAR(0.5f, decoded.g, 0.01f);
   EXPECT_NEAR(0.25f, decoded.b, 0.01f);

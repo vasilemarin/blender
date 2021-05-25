@@ -234,7 +234,7 @@ class ColorSceneLinearByteEncoded4b final
   /**
    * Convert to back to float color.
    **/
-  ColorSceneLinear4f<Alpha> to_byte_decoded() const
+  ColorSceneLinear4f<Alpha> decode() const
   {
     ColorSceneLinear4f<Alpha> decoded;
     srgb_to_linearrgb_uchar4(decoded, *this);
