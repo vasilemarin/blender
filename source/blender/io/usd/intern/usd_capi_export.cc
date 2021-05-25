@@ -53,6 +53,8 @@
 
 #include "BLI_fileops.h"
 #include "BLI_listbase.h"
+#include "BLI_math_matrix.h"
+#include "BLI_math_rotation.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
@@ -77,6 +79,50 @@ struct ExportJobData {
   bool was_canceled;
   bool export_ok;
 };
+
+/* Create root prim if defined. */
+static void ensure_root_prim(pxr::UsdStageRefPtr stage, const USDExportParams &params)
+{
+  if (strlen(params.root_prim_path) == 0) {
+    return;
+  }
+
+  pxr::UsdPrim root_prim = stage->DefinePrim(pxr::SdfPath(params.root_prim_path),
+                                             pxr::TfToken("Xform"));
+
+  if (!(params.convert_orientation || params.convert_to_cm)) {
+    return;
+  }
+
+  if (!root_prim) {
+    return;
+  }
+
+  pxr::UsdGeomXformCommonAPI xf_api(root_prim);
+
+  if (!xf_api) {
+    return;
+  }
+
+  if (params.convert_to_cm) {
+    xf_api.SetScale(pxr::GfVec3f(100.0f));
+  }
+
+  if (params.convert_orientation) {
+    float mrot[3][3];
+    mat3_from_axis_conversion(USD_GLOBAL_FORWARD_Y,
+      USD_GLOBAL_UP_Z,
+      params.forward_axis,
+      params.up_axis,
+      mrot);
+    transpose_m3(mrot);
+
+    float eul[3];
+    mat3_to_eul(eul, mrot);
+
+    xf_api.SetRotate(pxr::GfVec3f(eul[0], eul[1], eul[2]));
+  }
+}
 
 static void export_startjob(void *customdata,
                             /* Cannot be const, this function implements wm_jobs_start_callback.
@@ -233,10 +279,7 @@ static void export_startjob(void *customdata,
     usd_stage->SetEndTimeCode(data->params.frame_end);
   }
 
-  // Create root prim if defined
-  if (strlen(data->params.root_prim_path) > 0) {
-    usd_stage->DefinePrim(pxr::SdfPath(data->params.root_prim_path), pxr::TfToken("Xform"));
-  }
+  ensure_root_prim(usd_stage, data->params);
 
   USDHierarchyIterator iter(data->depsgraph, usd_stage, data->params);
 
