@@ -111,7 +111,7 @@ TEST(color, SceneLinearPremultipliedToSrgbByte)
 TEST(color, SceneLinearByteEncoding)
 {
   ColorSceneLinear4f<eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied> encoded = linear.to_byte_encoded();
+  ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied> encoded = linear.encode();
   EXPECT_EQ(225, encoded.r);
   EXPECT_EQ(188, encoded.g);
   EXPECT_EQ(137, encoded.b);

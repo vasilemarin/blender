@@ -181,7 +181,7 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
   /**
    * Convert to its byte encoded counter space.
    **/
-  ColorSceneLinearByteEncoded4b<Alpha> to_byte_encoded() const
+  ColorSceneLinearByteEncoded4b<Alpha> encode() const
   {
     ColorSceneLinearByteEncoded4b<Alpha> encoded;
     linearrgb_to_srgb_uchar4(encoded, *this);
@@ -244,12 +244,13 @@ class ColorSceneLinearByteEncoded4b final
 
 /**
  * Theme color template class.
- * 
+ *
  * Don't use directly, but use `ColorTheme4b/ColorTheme4b`.
  *
  * This has been implemented as a template to improve inlining. When implemented as concrete
- * classes (ColorTheme4b/f) the functions would be hidden in a compile unit what wouldn't be inlined.
- * An effect is that the precision conversions will fail in runtime when they aren't needed.
+ * classes (ColorTheme4b/f) the functions would be hidden in a compile unit what wouldn't be
+ * inlined. An effect is that the precision conversions will fail in runtime when they aren't
+ * needed.
  */
 template<typename ChannelStorageType>
 class ColorTheme4 final : public ColorRGBA<ChannelStorageType, eSpace::Theme, eAlpha::Straight> {
@@ -276,7 +277,7 @@ class ColorTheme4 final : public ColorRGBA<ChannelStorageType, eSpace::Theme, eA
    */
   ColorTheme4<float> to_4f() const
   {
-    BLI_assert(typeof(r) == uint8_t);
+    // BLI_assert(ChannelStorageType == uint8_t);
     return BLI_color_convert_to_theme4f(*this);
   }
 
@@ -287,7 +288,7 @@ class ColorTheme4 final : public ColorRGBA<ChannelStorageType, eSpace::Theme, eA
    */
   ColorTheme4<uint8_t> to_4b() const
   {
-    BLI_assert(typeof(r) == float);
+    // BLI_assert(ChannelStorageType == float);
     return BLI_color_convert_to_theme4b(*this);
   }
 };

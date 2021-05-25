@@ -794,7 +794,7 @@ static ColorGeometry4f get_loop_color(const MLoopCol &col)
 
 static void set_loop_color(MLoopCol &col, ColorGeometry4f linear_color)
 {
-  ColorGeometry4b encoded_color = linear_color.to_byte_encoded();
+  ColorGeometry4b encoded_color = linear_color.encode();
   col.r = encoded_color.r;
   col.g = encoded_color.g;
   col.b = encoded_color.b;
