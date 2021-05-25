@@ -36,7 +36,7 @@ TEST(color, SrgbStraightToSceneLinearPremultiplied)
 
   ColorTheme4b theme(192, 128, 64, 128);
   ColorSceneLinear4f<eAlpha::Premultiplied> linear =
-      BLI_color_convert_to_scene_linear(theme).to_premultiplied_alpha();
+      BLI_color_convert_to_scene_linear(theme).premultiply_alpha();
   EXPECT_NEAR(0.26f, linear.r, 0.01f);
   EXPECT_NEAR(0.11f, linear.g, 0.01f);
   EXPECT_NEAR(0.02f, linear.b, 0.01f);
@@ -46,7 +46,7 @@ TEST(color, SrgbStraightToSceneLinearPremultiplied)
 TEST(color, SceneLinearStraightToPremultiplied)
 {
   ColorSceneLinear4f<eAlpha::Straight> straight(0.75f, 0.5f, 0.25f, 0.5f);
-  ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied = straight.to_premultiplied_alpha();
+  ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied = straight.premultiply_alpha();
   EXPECT_NEAR(0.37f, premultiplied.r, 0.01f);
   EXPECT_NEAR(0.25f, premultiplied.g, 0.01f);
   EXPECT_NEAR(0.12f, premultiplied.b, 0.01f);

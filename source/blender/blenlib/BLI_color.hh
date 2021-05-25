@@ -37,7 +37,7 @@ namespace blender {
  * ```
  * ColorTheme4b theme_color;
  * ColorSceneLinear4f<eAlpha::Premultiplied> linearrgb_color =
- *     BLI_color_convert_to_linear(theme_color).to_premultiplied_alpha();
+ *     BLI_color_convert_to_linear(theme_color).premultiply_alpha();
  * ```
  *
  * The API is structured to make most use of inlining. Most notable are space
@@ -193,7 +193,7 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
    *
    * Will assert when called on a color premultiplied with alpha.
    */
-  ColorSceneLinear4f<eAlpha::Premultiplied> to_premultiplied_alpha() const
+  ColorSceneLinear4f<eAlpha::Premultiplied> premultiply_alpha() const
   {
     BLI_assert(Alpha == eAlpha::Straight);
     ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied;
