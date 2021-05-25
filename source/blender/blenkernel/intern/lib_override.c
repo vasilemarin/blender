@@ -1260,6 +1260,50 @@ bool BKE_lib_override_library_resync(Main *bmain,
   return success;
 }
 
+static int lib_override_sort_libraries_func(LibraryIDLinkCallbackData *cb_data)
+{
+  ID *id_owner = cb_data->id_owner;
+  ID *id = *cb_data->id_pointer;
+  if (id != NULL && ID_IS_LINKED(id) && id->lib != id_owner->lib) {
+    const int owner_library_indirect_level = id_owner->lib != NULL ? id_owner->lib->temp_index : 0;
+    if (owner_library_indirect_level >= id->lib->temp_index) {
+      id->lib->temp_index = owner_library_indirect_level + 1;
+      *(bool *)cb_data->user_data = true;
+    }
+  }
+  return IDWALK_RET_NOP;
+}
+
+/** Define the `temp_index` of libraries from their highest level of indirect usage.
+ *
+ * E.g. if lib_a uses lib_b, lib_c and lib_d, and lib_b also uses lib_d, then lib_a has an index of
+ * 1, lib_b and lib_c an index of 2, and lib_d an index of 3. */
+static int lib_override_libraries_index_define(Main *bmain)
+{
+  LISTBASE_FOREACH (Library *, library, &bmain->libraries) {
+    /* index 0 is reserved for local data. */
+    library->temp_index = 1;
+  }
+  bool do_continue = true;
+  while (do_continue) {
+    do_continue = false;
+    ID *id;
+    FOREACH_MAIN_ID_BEGIN (bmain, id) {
+      BKE_library_foreach_ID_link(
+          bmain, id, lib_override_sort_libraries_func, &do_continue, IDWALK_READONLY);
+    }
+    FOREACH_MAIN_ID_END;
+  }
+
+  int library_indirect_level_max = 0;
+  LISTBASE_FOREACH (Library *, library, &bmain->libraries) {
+    if (library->temp_index > library_indirect_level_max) {
+      library_indirect_level_max = library->temp_index;
+    }
+  }
+  return library_indirect_level_max;
+}
+
 /**
  * Detect and handle required resync of overrides data, when relations between reference linked IDs
  * have changed.
@@ -1368,6 +1412,8 @@ void BKE_lib_override_library_main_resync(Main *bmain,
   BKE_main_relations_free(bmain);
   BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
 
+  int library_indirect_level = lib_override_libraries_index_define(bmain);
+
   /* And do the actual resync for all IDs detected as needing it.
    * NOTE: Since this changes `bmain` (adding **and** removing IDs), we cannot use
    * `FOREACH_MAIN_ID_BEGIN/END` here, and need special multi-loop processing. */
@@ -1377,7 +1423,9 @@ void BKE_lib_override_library_main_resync(Main *bmain,
     do_continue = false;
     FOREACH_MAIN_LISTBASE_BEGIN (bmain, lb) {
       FOREACH_MAIN_LISTBASE_ID_BEGIN (lb, id) {
-        if ((id->tag & LIB_TAG_LIB_OVERRIDE_NEED_RESYNC) == 0) {
+        if ((id->tag & LIB_TAG_LIB_OVERRIDE_NEED_RESYNC) == 0 ||
+            (ID_IS_LINKED(id) && id->lib->temp_index < library_indirect_level) ||
+            (!ID_IS_LINKED(id) && library_indirect_level != 0)) {
           continue;
         }
         BLI_assert(ID_IS_OVERRIDE_LIBRARY_REAL(id));
@@ -1402,6 +1450,13 @@ void BKE_lib_override_library_main_resync(Main *bmain,
       }
     }
     FOREACH_MAIN_LISTBASE_END;
+
+    if (!do_continue && library_indirect_level != 0) {
+      /* We are done with overrides from that level of indirect linking, we can keep going with
+       * those 'less' indirectly linked now. */
+      library_indirect_level--;
+      do_continue = true;
+    }
   }
 
   /* Essentially ensures that potentially new overrides of new objects will be instantiated. */
