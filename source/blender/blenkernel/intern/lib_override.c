@@ -319,6 +319,9 @@ ID *BKE_lib_override_library_create_from_id(Main *bmain,
  * main. You can add more local IDs to be remapped to use new overriding ones by setting their
  * LIB_TAG_DOIT tag.
  *
+ * \param reference_library the library from which the linked data being overridden come from
+ * (i.e. the library of the linked reference ID).
+ *
  * \param do_no_main Create the new override data outside of Main database. Used for resyncing of
  * linked overrides.
  *
@@ -352,7 +355,7 @@ bool BKE_lib_override_library_create_from_tag(Main *bmain,
     /* If `newid` is already set, assume it has been handled by calling code.
      * Only current use case: re-using proxy ID when converting to liboverride. */
     if (reference_id->newid == NULL) {
-      /* Note: `no main` case is used during resync procedure, to support recursive resync, This
+      /* Note: `no main` case is used during resync procedure, to support recursive resync. This
        * requires extra care further odwn the resync process, see
        * `BKE_lib_override_library_resync`. */
       reference_id->newid = lib_override_library_create_from(
@@ -1070,8 +1073,8 @@ bool BKE_lib_override_library_resync(Main *bmain,
   }
   FOREACH_MAIN_LISTBASE_END;
 
-  /* We need to old to new override usages in a separate loop, after all new overrides have been
-   * added to Main. */
+  /* We need to remap old to new override usages in a separate loop, after all new overrides have
+   * been added to Main. */
   FOREACH_MAIN_ID_BEGIN (bmain, id) {
     if (id->tag & LIB_TAG_DOIT && id->newid != NULL && id->lib == id_root_reference->lib) {
       ID *id_override_new = id->newid;
@@ -1121,11 +1124,10 @@ bool BKE_lib_override_library_resync(Main *bmain,
         RNA_id_pointer_create(id_override_old, &rnaptr_src);
         RNA_id_pointer_create(id_override_new, &rnaptr_dst);
 
-        /* We remove any operation tagged with
-         * `IDOVERRIDE_LIBRARY_FLAG_IDPOINTER_MATCH_REFERENCE`, that way the potentially new
-         * pointer will be properly kept, when old one is still valid too (typical case:
-         * assigning new ID to some usage, while old one remains used elsewhere in the override
-         * hierarchy). */
+        /* We remove any operation tagged with `IDOVERRIDE_LIBRARY_FLAG_IDPOINTER_MATCH_REFERENCE`,
+         * that way the potentially new pointer will be properly kept, when old one is still valid
+         * too (typical case: assigning new ID to some usage, while old one remains used elsewhere
+         * in the override hierarchy). */
         LISTBASE_FOREACH_MUTABLE (
             IDOverrideLibraryProperty *, op, &id_override_new->override_library->properties) {
           LISTBASE_FOREACH_MUTABLE (IDOverrideLibraryPropertyOperation *, opop, &op->operations) {
