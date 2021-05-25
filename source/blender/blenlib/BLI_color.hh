@@ -26,18 +26,18 @@ namespace blender {
  * CPP based color structures.
  *
  * Strongly typed color storage structures with space and alpha association.
- * Will increase readability and visibility of typically mistakes when
+ * Will increase readability and visibility of typical mistakes when
  * working with colors.
  *
  * The storage structs can hold 4 channels (r, g, b and a).
  *
  * Usage:
  *
- * Convert an theme byte color to a linearrgb premultiplied.
+ * Convert a theme byte color to a linearrgb premultiplied.
  * ```
  * ColorTheme4b theme_color;
  * ColorSceneLinear4f<eAlpha::Premultiplied> linearrgb_color =
- *     BLI_color_convert_to_linear(theme_color).premultiply_alpha();
+ *     BLI_color_convert_to_scene_linear(theme_color).premultiply_alpha();
  * ```
  *
  * The API is structured to make most use of inlining. Most notable are space
@@ -47,14 +47,14 @@ namespace blender {
  *   invoking the `BLI_color_convert_to*` methods.
  * - Encoding colors (compressing to store colors inside a less precision storage)
  *   should be done by invoking the `encode` and `decode` methods.
- * - Changing alpha association should be done by invoking `to_multiplied_alpha` or
+ * - Changing alpha association should be done by invoking `premultiply_alpha` or
  *   `unpremultiply_alpha` methods.
  *
  * # Encoding.
  *
  * Color encoding is used to store colors with less precision as in using `uint8_t` in
  * stead of `float`. This encoding is supported for `eSpace::SceneLinear`.
- * To make this clear to the developer the a `eSpace::SceneLinearByteEncoded`
+ * To make this clear to the developer the `eSpace::SceneLinearByteEncoded`
  * space is added.
  *
  * # Precision
@@ -204,7 +204,7 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
   /**
    * Convert color and alpha association to straight alpha.
    *
-   * Will assert when called on a color with straight alpha..
+   * Will assert when called on a color with straight alpha.
    */
   ColorSceneLinear4f<eAlpha::Straight> unpremultiply_alpha() const
   {
@@ -221,19 +221,19 @@ class ColorSceneLinearByteEncoded4b final
  public:
   constexpr ColorSceneLinearByteEncoded4b() = default;
 
-  constexpr ColorSceneLinearByteEncoded4b(const float *rgba)
+  constexpr ColorSceneLinearByteEncoded4b(const uint8_t *rgba)
       : ColorRGBA<uint8_t, eSpace::SceneLinearByteEncoded, Alpha>(rgba)
   {
   }
 
-  constexpr ColorSceneLinearByteEncoded4b(float r, float g, float b, float a)
+  constexpr ColorSceneLinearByteEncoded4b(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
       : ColorRGBA<uint8_t, eSpace::SceneLinearByteEncoded, Alpha>(r, g, b, a)
   {
   }
 
   /**
    * Convert to back to float color.
-   **/
+   */
   ColorSceneLinear4f<Alpha> decode() const
   {
     ColorSceneLinear4f<Alpha> decoded;
@@ -249,8 +249,7 @@ class ColorSceneLinearByteEncoded4b final
  *
  * This has been implemented as a template to improve inlining. When implemented as concrete
  * classes (ColorTheme4b/f) the functions would be hidden in a compile unit what wouldn't be
- * inlined. An effect is that the precision conversions will fail in runtime when they aren't
- * needed.
+ * inlined.
  */
 template<typename ChannelStorageType>
 class ColorTheme4 final : public ColorRGBA<ChannelStorageType, eSpace::Theme, eAlpha::Straight> {
