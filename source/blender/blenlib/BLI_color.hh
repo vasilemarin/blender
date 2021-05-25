@@ -191,27 +191,35 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
   /**
    * Convert color and alpha association to premultiplied alpha.
    *
-   * Will assert when called on a color premultiplied with alpha.
+   * Does nothing when color has already a premultiplied alpha.
    */
   ColorSceneLinear4f<eAlpha::Premultiplied> premultiply_alpha() const
   {
-    BLI_assert(Alpha == eAlpha::Straight);
-    ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied;
-    straight_to_premul_v4_v4(premultiplied, *this);
-    return premultiplied;
+    if constexpr (Alpha == eAlpha::Straight) {
+      ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied;
+      straight_to_premul_v4_v4(premultiplied, *this);
+      return premultiplied;
+    }
+    else {
+      return *this;
+    }
   }
 
   /**
    * Convert color and alpha association to straight alpha.
    *
-   * Will assert when called on a color with straight alpha.
+   * Does nothing when color has straighten alpha.
    */
   ColorSceneLinear4f<eAlpha::Straight> unpremultiply_alpha() const
   {
-    BLI_assert(Alpha == eAlpha::Premultiplied);
-    ColorSceneLinear4f<eAlpha::Straight> straighten;
-    premul_to_straight_v4_v4(straighten, *this);
-    return straighten;
+    if constexpr (Alpha == eAlpha::Premultiplied) {
+      ColorSceneLinear4f<eAlpha::Straight> straighten;
+      premul_to_straight_v4_v4(straighten, *this);
+      return straighten;
+    }
+    else {
+      return *this;
+    }
   }
 };
 
@@ -271,24 +279,28 @@ class ColorTheme4 final : public ColorRGBA<ChannelStorageType, eSpace::Theme, eA
 
   /**
    * Change precision of color to float.
-   *
-   * Will fail when invoked on a float color.
    */
   ColorTheme4<float> to_4f() const
   {
-    // BLI_assert(ChannelStorageType == uint8_t);
-    return BLI_color_convert_to_theme4f(*this);
+    if constexpr ((std::is_same_v<ChannelStorageType, uint8_t>)) {
+      return BLI_color_convert_to_theme4f(*this);
+    }
+    else {
+      return *this;
+    }
   }
 
   /**
    * Change precision of color to uint8_t.
-   *
-   * Will fail when invoked on a uint8_t color.
    */
   ColorTheme4<uint8_t> to_4b() const
   {
-    // BLI_assert(ChannelStorageType == float);
-    return BLI_color_convert_to_theme4b(*this);
+    if constexpr ((std::is_same_v<ChannelStorageType, float>)) {
+      return BLI_color_convert_to_theme4b(*this);
+    }
+    else {
+      return *this;
+    }
   }
 };
 
