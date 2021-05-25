@@ -22,10 +22,6 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct GPUBatch;
 struct GPUIndexBuf;
 struct GPUMaterial;
