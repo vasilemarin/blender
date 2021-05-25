@@ -47,6 +47,10 @@ struct bGPdata;
 
 #include "BKE_mesh_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Expose via BKE callbacks */
 void DRW_mball_batch_cache_dirty_tag(struct MetaBall *mb, int mode);
 void DRW_mball_batch_cache_validate(struct MetaBall *mb);
