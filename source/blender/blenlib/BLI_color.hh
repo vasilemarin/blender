@@ -48,7 +48,7 @@ namespace blender {
  * - Encoding colors (compressing to store colors inside a less precision storage)
  *   should be done by invoking the `encode` and `decode` methods.
  * - Changing alpha association should be done by invoking `to_multiplied_alpha` or
- *   `to_straight_alpha` methods.
+ *   `unpremultiply_alpha` methods.
  *
  * # Encoding.
  *
@@ -206,7 +206,7 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
    *
    * Will assert when called on a color with straight alpha..
    */
-  ColorSceneLinear4f<eAlpha::Straight> to_straight_alpha() const
+  ColorSceneLinear4f<eAlpha::Straight> unpremultiply_alpha() const
   {
     BLI_assert(Alpha == eAlpha::Premultiplied);
     ColorSceneLinear4f<eAlpha::Straight> straighten;

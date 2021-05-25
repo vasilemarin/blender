@@ -56,7 +56,7 @@ TEST(color, SceneLinearStraightToPremultiplied)
 TEST(color, SceneLinearPremultipliedToStraight)
 {
   ColorSceneLinear4f<eAlpha::Premultiplied> premultiplied(0.75f, 0.5f, 0.25f, 0.5f);
-  ColorSceneLinear4f<eAlpha::Straight> straight = premultiplied.to_straight_alpha();
+  ColorSceneLinear4f<eAlpha::Straight> straight = premultiplied.unpremultiply_alpha();
   EXPECT_NEAR(1.5f, straight.r, 0.01f);
   EXPECT_NEAR(1.0f, straight.g, 0.01f);
   EXPECT_NEAR(0.5f, straight.b, 0.01f);
@@ -78,7 +78,7 @@ TEST(color, SceneLinearPremultipliedToSrgbFloat)
 {
   BLI_init_srgb_conversion();
   ColorSceneLinear4f<eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  ColorTheme4f theme = BLI_color_convert_to_theme4f(linear.to_straight_alpha());
+  ColorTheme4f theme = BLI_color_convert_to_theme4f(linear.unpremultiply_alpha());
 
   EXPECT_NEAR(1.19f, theme.r, 0.01);
   EXPECT_NEAR(1.0f, theme.g, 0.01);
@@ -101,7 +101,7 @@ TEST(color, SceneLinearPremultipliedToSrgbByte)
 {
   BLI_init_srgb_conversion();
   ColorSceneLinear4f<eAlpha::Premultiplied> linear(0.75f, 0.5f, 0.25f, 0.5f);
-  ColorTheme4b theme = BLI_color_convert_to_theme4b(linear.to_straight_alpha());
+  ColorTheme4b theme = BLI_color_convert_to_theme4b(linear.unpremultiply_alpha());
   EXPECT_EQ(255, theme.r);
   EXPECT_EQ(255, theme.g);
   EXPECT_EQ(188, theme.b);
