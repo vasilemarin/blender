@@ -24,6 +24,8 @@
 
 #  include "DNA_material_types.h"
 
+#  include <pxr/usd/ar/resolver.h>
+
 #  include <iostream>
 #  include <vector>
 
@@ -50,8 +52,33 @@ static PyObject *g_umm_module = nullptr;
 static const char *k_umm_module_name = "omni.universalmaterialmap.blender.material";
 static const char *k_omni_pbr_mdl_name = "OmniPBR.mdl";
 static const char *k_omni_pbr_name = "OmniPBR";
+static const char *k_udim_tag = "<UDIM>";
 
 using namespace blender::io::usd;
+
+static std::string anchor_relative_path(pxr::UsdStagePtr stage, const std::string &asset_path)
+{
+  if (asset_path.empty()) {
+    return std::string();
+  }
+
+  pxr::ArResolver &resolver = pxr::ArGetResolver();
+
+  if (!resolver.IsRelativePath(asset_path)) {
+    return asset_path;
+  }
+
+  // TODO(makowalski): avoid recomputing the USD path, if possible.
+  pxr::SdfLayerHandle layer = stage->GetRootLayer();
+
+  std::string stage_path = layer->GetRealPath();
+
+  if (stage_path.empty()) {
+    return asset_path;
+  }
+
+  return resolver.AnchorRelativePath(stage_path, asset_path);
+}
 
 static void print_obj(PyObject *obj)
 {
@@ -322,9 +349,16 @@ static PyObject *get_shader_source_data(const pxr::UsdShadeShader &usd_shader)
       tup = Py_BuildValue("si", name.c_str(), ival);
     }
     else if (val.IsHolding<pxr::SdfAssetPath>()) {
-      pxr::SdfAssetPath assetPath = val.Get<pxr::SdfAssetPath>();
+      pxr::SdfAssetPath asset_path = val.Get<pxr::SdfAssetPath>();
 
-      std::string resolved_path = assetPath.GetResolvedPath();
+      std::string resolved_path = asset_path.GetResolvedPath();
+
+      if (resolved_path.empty()) {
+        /* If the path wasn't resolved, it could be because it's a UDIM path,
+         * so try to use the asset path directly, anchoring it if it's a relative path. */
+        resolved_path = anchor_relative_path(usd_shader.GetPrim().GetStage(),
+                                             asset_path.GetAssetPath());
+      }
 
       pxr::TfToken color_space_tok = usd_attr.GetColorSpace();
 
