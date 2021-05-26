@@ -58,3 +58,6 @@ endif()
 
 # GTest
 add_subdirectory(gtests)
+
+# GBenchmark
+add_subdirectory(gbenchmark)

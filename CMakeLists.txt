@@ -472,6 +472,7 @@ endif()
 
 # Unit testsing
 option(WITH_GTESTS "Enable GTest unit testing" OFF)
+option(WITH_BENCHMARK_TESTS "Enable Benchmark unit tests" OFF)
 option(WITH_OPENGL_RENDER_TESTS "Enable OpenGL render related unit testing (Experimental)" OFF)
 option(WITH_OPENGL_DRAW_TESTS "Enable OpenGL UI drawing related unit testing (Experimental)" OFF)
 set(TEST_PYTHON_EXE "" CACHE PATH "Python executable to run unit tests")

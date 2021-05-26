@@ -92,6 +92,10 @@ if(WITH_GTESTS)
   add_subdirectory(gmock)
 endif()
 
+if (WITH_BENCHMARK_TESTS)
+  add_subdirectory(gbenchmark)
+endif()
+
 if(WITH_SDL AND WITH_SDL_DYNLOAD)
   add_subdirectory(sdlew)
 endif()
