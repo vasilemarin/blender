@@ -154,6 +154,11 @@ void *GPU_vertbuf_read(GPUVertBuf *verts)
   return unwrap(verts)->read();
 }
 
+void *GPU_vertbuf_unmap(const GPUVertBuf *verts, const void *mapped_data)
+{
+  return unwrap(verts)->unmap(mapped_data);
+}
+
 /** Same as discard but does not free. */
 void GPU_vertbuf_clear(GPUVertBuf *verts)
 {

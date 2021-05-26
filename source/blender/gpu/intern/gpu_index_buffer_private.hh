@@ -95,6 +95,7 @@ class IndexBuf {
   virtual void bind_as_ssbo(uint binding) = 0;
 
   virtual uint32_t *read() const = 0;
+  uint32_t *unmap(const uint32_t* mapped_memory) const;
 
  private:
   inline void squeeze_indices_short(uint min_idx, uint max_idx);
@@ -109,6 +110,10 @@ static inline GPUIndexBuf *wrap(IndexBuf *indexbuf)
 static inline IndexBuf *unwrap(GPUIndexBuf *indexbuf)
 {
   return reinterpret_cast<IndexBuf *>(indexbuf);
+}
+static inline const IndexBuf *unwrap(const GPUIndexBuf *indexbuf)
+{
+  return reinterpret_cast<const IndexBuf *>(indexbuf);
 }
 
 static inline int indices_per_primitive(GPUPrimType prim_type)

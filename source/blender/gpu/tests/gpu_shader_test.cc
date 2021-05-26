@@ -195,7 +195,6 @@ void main() {
     EXPECT_FLOAT_EQ(data[index * 4 + 2], expected_value);
     EXPECT_FLOAT_EQ(data[index * 4 + 3], expected_value);
   }
-  MEM_freeN(data);
 
   /* Cleanup. */
   GPU_shader_unbind();
@@ -253,7 +252,6 @@ void main() {
     uint32_t expected = index;
     EXPECT_EQ(data[index], expected);
   }
-  MEM_freeN(data);
 
   /* Cleanup. */
   GPU_shader_unbind();

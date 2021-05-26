@@ -31,6 +31,8 @@
 
 #include "gpu_index_buffer_private.hh"
 
+#include <cstring>
+
 #define KEEP_SINGLE_COPY 1
 
 #define RESTART_INDEX 0xFFFFFFFF
@@ -324,6 +326,13 @@ void IndexBuf::squeeze_indices_short(uint min_idx, uint max_idx)
   }
 }
 
+  uint32_t *IndexBuf::unmap(const uint32_t* mapped_memory) const {
+    size_t size = size_get();
+    uint32_t *result = static_cast<uint32_t *>(MEM_mallocN(size, __func__));
+    memcpy(result, mapped_memory, size);
+    return result;
+  }
+
 }  // namespace blender::gpu
 
 /** \} */
@@ -371,6 +380,11 @@ void GPU_indexbuf_create_subrange_in_place(GPUIndexBuf *elem,
 uint32_t *GPU_indexbuf_read(GPUIndexBuf *elem)
 {
   return unwrap(elem)->read();
+}
+
+uint32_t *GPU_indexbuf_unmap(const GPUIndexBuf *elem, const uint32_t *mapped_buffer)
+{
+  return unwrap(elem)->unmap(mapped_buffer);
 }
 
 void GPU_indexbuf_discard(GPUIndexBuf *elem)
