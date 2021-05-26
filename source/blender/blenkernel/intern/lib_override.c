@@ -81,13 +81,14 @@ static void lib_override_library_property_operation_clear(
     IDOverrideLibraryPropertyOperation *opop);
 
 /** Get override data for a given ID. Needed because of our beloved shape keys snowflake. */
-BLI_INLINE IDOverrideLibrary *lib_override_get(ID *id)
+BLI_INLINE IDOverrideLibrary *lib_override_get(Main *bmain, ID *id)
 {
-  if (GS(id->name) == ID_KE) {
-    /* Shape keys are not linkable, therefore they have no override data, and use the one from
-     * their owner instead... */
-    BLI_assert(id->override_library == NULL);
-    return ((Key *)id)->from->override_library;
+  if (id->flag & LIB_EMBEDDED_DATA_LIB_OVERRIDE) {
+    const IDTypeInfo *id_type = BKE_idtype_get_info_from_id(id);
+    if (id_type->owner_get != NULL) {
+      return id_type->owner_get(bmain, id)->override_library;
+    }
+    BLI_assert(!"IDTypeInfo of liboverride-embedded ID with no owner getter");
   }
   return id->override_library;
 }
@@ -639,7 +640,7 @@ static void lib_override_local_group_tag_recursive(LibOverrideGroupTagData *data
       continue;
     }
 
-    Library *reference_lib = lib_override_get(id_owner)->reference->lib;
+    Library *reference_lib = lib_override_get(bmain, id_owner)->reference->lib;
     ID *to_id_reference = lib_override_get(to_id)->reference;
     if (to_id_reference->lib != reference_lib) {
       /* We do not override data-blocks from other libraries, nor do we process them. */
