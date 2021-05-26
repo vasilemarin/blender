@@ -26,7 +26,10 @@
 extern "C" {
 #endif
 
-void GPU_compute_dispatch(GPUShader *shader, uint groups_x_len, uint groups_y_len, uint groups_z_len)
+void GPU_compute_dispatch(GPUShader *shader,
+                          uint groups_x_len,
+                          uint groups_y_len,
+                          uint groups_z_len)
 {
   blender::gpu::GPUBackend &gpu_backend = *blender::gpu::GPUBackend::get();
   GPU_shader_bind(shader);

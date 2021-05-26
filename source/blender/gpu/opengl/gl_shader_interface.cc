@@ -133,14 +133,8 @@ static inline int ssbo_binding(int32_t program, uint32_t ssbo_index)
   GLint binding = -1;
   GLenum property = GL_BUFFER_BINDING;
   GLint values_written = 0;
-  glGetProgramResourceiv(program,
-                         GL_SHADER_STORAGE_BLOCK,
-                         ssbo_index,
-                         1,
-                         &property,
-                         1,
-                         &values_written,
-                         &binding);
+  glGetProgramResourceiv(
+      program, GL_SHADER_STORAGE_BLOCK, ssbo_index, 1, &property, 1, &values_written, &binding);
 
   return binding;
 }

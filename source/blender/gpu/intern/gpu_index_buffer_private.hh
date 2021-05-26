@@ -95,7 +95,7 @@ class IndexBuf {
   virtual void bind_as_ssbo(uint binding) = 0;
 
   virtual uint32_t *read() const = 0;
-  uint32_t *unmap(const uint32_t* mapped_memory) const;
+  uint32_t *unmap(const uint32_t *mapped_memory) const;
 
  private:
   inline void squeeze_indices_short(uint min_idx, uint max_idx);

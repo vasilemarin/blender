@@ -130,7 +130,8 @@ void *GLVertBuf::read() const
   return result;
 }
 
-void *GLVertBuf::unmap(const void* mapped_data) const {
+void *GLVertBuf::unmap(const void *mapped_data) const
+{
   void *result = MEM_mallocN(vbo_size_, __func__);
   memcpy(result, mapped_data, vbo_size_);
   return result;

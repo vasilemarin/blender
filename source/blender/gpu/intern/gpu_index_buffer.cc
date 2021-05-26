@@ -326,12 +326,13 @@ void IndexBuf::squeeze_indices_short(uint min_idx, uint max_idx)
   }
 }
 
-  uint32_t *IndexBuf::unmap(const uint32_t* mapped_memory) const {
-    size_t size = size_get();
-    uint32_t *result = static_cast<uint32_t *>(MEM_mallocN(size, __func__));
-    memcpy(result, mapped_memory, size);
-    return result;
-  }
+uint32_t *IndexBuf::unmap(const uint32_t *mapped_memory) const
+{
+  size_t size = size_get();
+  uint32_t *result = static_cast<uint32_t *>(MEM_mallocN(size, __func__));
+  memcpy(result, mapped_memory, size);
+  return result;
+}
 
 }  // namespace blender::gpu
 
