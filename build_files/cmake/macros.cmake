@@ -504,6 +504,30 @@ function(blender_add_test_executable
   )
 endfunction()
 
+# Add tests for a Blender library, to be called in tandem with blender_add_lib().
+# The tests will be part of the blender_test executable (see tests/gtests/runner).
+function(blender_add_benchmark_lib
+  name
+  sources
+  includes
+  includes_sys
+  library_deps
+  )
+
+  add_cc_flags_custom_test(${name} PARENT_SCOPE)
+
+  # Otherwise external projects will produce warnings that we cannot fix.
+  remove_strict_flags()
+
+  LIST(APPEND includes_sys
+    ${CMAKE_SOURCE_DIR}/extern/gbenchmark/include
+  )
+
+  blender_add_lib__impl(${name} "${sources}" "${includes}" "${includes_sys}" "${library_deps}")
+
+  set_property(GLOBAL APPEND PROPERTY BLENDER_BENCHMARK_LIBS ${name})
+endfunction()
+
 # Ninja only: assign 'heavy pool' to some targets that are especially RAM-consuming to build.
 function(setup_heavy_lib_pool)
   if(WITH_NINJA_POOL_JOBS AND NINJA_MAX_NUM_PARALLEL_COMPILE_HEAVY_JOBS)
@@ -523,6 +547,36 @@ function(setup_heavy_lib_pool)
       endif()
     endforeach()
   endif()
+endfunction()
+
+# Add benchmarks for a Blender library, to be called in tandem with blender_add_lib().
+# benchmark will be compiled into a ${name}_benchmark executable.
+#
+# To be used for smaller isolated libraries, that do not have many dependencies.
+# For libraries that do drag in many other Blender libraries and would create a
+# very large executable, blender_add_benchmark_lib() should be used instead.
+function(blender_add_benchmark_executable
+  name
+  sources
+  includes
+  includes_sys
+  library_deps
+  )
+
+  add_cc_flags_custom_test(${name} PARENT_SCOPE)
+
+  ## Otherwise external projects will produce warnings that we cannot fix.
+  remove_strict_flags()
+
+  include_directories(${includes})
+  include_directories(${includes_sys})
+  setup_libdirs()
+
+  blender_add_benchmark_suite(
+    TARGET ${name}_benchmark
+    SUITE_NAME ${name}
+    SOURCES "${sources}"
+  )
 endfunction()
 
 function(SETUP_LIBDIRS)

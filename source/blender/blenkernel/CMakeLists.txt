@@ -778,3 +778,13 @@ if(WITH_GTESTS)
   include(GTestTesting)
   blender_add_test_lib(bf_blenkernel_tests "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${LIB}")
 endif()
+
+if(WITH_BENCHMARK_TESTS)
+  set(TEST_SRC
+    intern/lattice_deform_benchmark.cc
+  )
+  set(TEST_INC
+  )
+  # include(GBenchmarkTesting)
+  blender_add_benchmark_lib(bf_blenkernel_benchmarks "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${LIB}")
+endif()
