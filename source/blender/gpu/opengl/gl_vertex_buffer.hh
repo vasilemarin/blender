@@ -47,7 +47,8 @@ class GLVertBuf : public VertBuf {
 
   void update_sub(uint start, uint len, void *data) override;
 
-  void *read() override;
+  const void *read() const override;
+  void *unmap(const void *mapped_data) const override;
 
  protected:
   void acquire_data(void) override;
@@ -71,7 +72,6 @@ static inline GLenum to_gl(GPUUsageType type)
     case GPU_USAGE_DYNAMIC:
       return GL_DYNAMIC_DRAW;
     case GPU_USAGE_STATIC:
-      return GL_STATIC_DRAW;
     case GPU_USAGE_DEVICE_ONLY:
       return GL_STATIC_DRAW;
     default:

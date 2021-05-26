@@ -1037,7 +1037,7 @@ static bGPDframe *rna_GPencil_frame_copy(bGPDlayer *layer, bGPDframe *src)
 
 static bGPDlayer *rna_GPencil_layer_new(bGPdata *gpd, const char *name, bool setactive)
 {
-  bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, name, setactive != 0);
+  bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, name, setactive != 0, false);
 
   WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
@@ -2113,6 +2113,12 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
       prop,
       "ViewLayer",
       "Only include Layer in this View Layer render output (leave blank to include always)");
+
+  prop = RNA_def_property(srna, "disable_masks_viewlayer", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LAYER_DISABLE_MASKS_IN_VIEWLAYER);
+  RNA_def_property_ui_text(
+      prop, "Disable Masks in Render", "Exclude the mask layers when rendering the viewlayer");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* blend mode */
   prop = RNA_def_property(srna, "blend_mode", PROP_ENUM, PROP_NONE);

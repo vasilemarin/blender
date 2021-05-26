@@ -123,12 +123,17 @@ void GLVertBuf::bind_as_ssbo(uint binding)
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, vbo_id_);
 }
 
-void *GLVertBuf::read()
+const void *GLVertBuf::read() const
 {
   BLI_assert(is_active());
+  void *result = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+  return result;
+}
+
+void *GLVertBuf::unmap(const void *mapped_data) const
+{
   void *result = MEM_mallocN(vbo_size_, __func__);
-  void *data = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
-  memcpy(result, data, vbo_size_);
+  memcpy(result, mapped_data, vbo_size_);
   return result;
 }
 
