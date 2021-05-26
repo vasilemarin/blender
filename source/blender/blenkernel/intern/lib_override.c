@@ -48,6 +48,7 @@
 #include "BKE_lib_query.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
+#include "BKE_node.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 
@@ -641,7 +642,7 @@ static void lib_override_local_group_tag_recursive(LibOverrideGroupTagData *data
     }
 
     Library *reference_lib = lib_override_get(bmain, id_owner)->reference->lib;
-    ID *to_id_reference = lib_override_get(to_id)->reference;
+    ID *to_id_reference = lib_override_get(bmain, to_id)->reference;
     if (to_id_reference->lib != reference_lib) {
       /* We do not override data-blocks from other libraries, nor do we process them. */
       continue;
@@ -966,11 +967,26 @@ bool BKE_lib_override_library_resync(Main *bmain,
       /* While this should not happen in typical cases (and won't be properly supported here), user
        * is free to do all kind of very bad things, including having different local overrides of a
        * same linked ID in a same hierarchy. */
-      IDOverrideLibrary *id_override_library = lib_override_get(id);
+      IDOverrideLibrary *id_override_library = lib_override_get(bmain, id);
       ID *reference_id = id_override_library->reference;
-      if (GS(id->name) == ID_KE) {
-        reference_id = (ID *)BKE_key_from_id(reference_id);
+      if (GS(reference_id->name) != GS(id->name)) {
+        switch (GS(id->name)) {
+          case ID_KE:
+            reference_id = (ID *)BKE_key_from_id(reference_id);
+            break;
+          case ID_GR:
+            BLI_assert(GS(reference_id->name) == ID_SCE);
+            reference_id = (ID *)((Scene *)reference_id)->master_collection;
+            break;
+          case ID_NT:
+            reference_id = (ID *)ntreeFromID(id);
+            break;
+          default:
+            break;
+        }
       }
+      BLI_assert(GS(reference_id->name) == GS(id->name));
+
       if (!BLI_ghash_haskey(linkedref_to_old_override, reference_id)) {
         BLI_ghash_insert(linkedref_to_old_override, reference_id, id);
         if (!ID_IS_OVERRIDE_LIBRARY_REAL(id)) {
