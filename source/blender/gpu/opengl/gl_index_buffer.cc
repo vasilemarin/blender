@@ -63,7 +63,7 @@ void GLIndexBuf::bind_as_ssbo(uint binding)
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, ibo_id_);
 }
 
-uint32_t *GLIndexBuf::read() const
+const uint32_t *GLIndexBuf::read() const
 {
   BLI_assert(is_active());
   void *data = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY);

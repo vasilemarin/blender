@@ -45,7 +45,7 @@ class GLIndexBuf : public IndexBuf {
   void bind(void);
   void bind_as_ssbo(uint binding) override;
 
-  uint32_t *read() const override;
+  const uint32_t *read() const override;
 
   void *offset_ptr(uint additional_vertex_offset) const
   {

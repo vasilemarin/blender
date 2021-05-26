@@ -149,7 +149,7 @@ GPUVertBuf *GPU_vertbuf_duplicate(GPUVertBuf *verts_)
   return wrap(unwrap(verts_)->duplicate());
 }
 
-void *GPU_vertbuf_read(GPUVertBuf *verts)
+const void *GPU_vertbuf_read(GPUVertBuf *verts)
 {
   return unwrap(verts)->read();
 }

@@ -86,7 +86,7 @@ void GPU_indexbuf_create_subrange_in_place(GPUIndexBuf *elem,
  * Note that the returned pointer is still owned by the driver. To get an
  * local copy, use `GPU_indexbuf_unmap` after calling `GPU_indexbuf_read`.
  */
-uint32_t *GPU_indexbuf_read(GPUIndexBuf *elem);
+const uint32_t *GPU_indexbuf_read(GPUIndexBuf *elem);
 uint32_t *GPU_indexbuf_unmap(const GPUIndexBuf *elem, const uint32_t *mapped_data);
 
 void GPU_indexbuf_discard(GPUIndexBuf *elem);

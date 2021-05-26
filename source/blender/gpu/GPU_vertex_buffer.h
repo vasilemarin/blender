@@ -77,7 +77,7 @@ GPUVertBuf *GPU_vertbuf_create_with_format_ex(const GPUVertFormat *, GPUUsageTyp
  * Note that the returned pointer is still owned by the driver. To get an
  * local copy, use `GPU_vertbuf_unmap` after calling `GPU_vertbuf_read`.
  */
-void *GPU_vertbuf_read(GPUVertBuf *verts);
+const void *GPU_vertbuf_read(GPUVertBuf *verts);
 void *GPU_vertbuf_unmap(const GPUVertBuf *verts, const void *mapped_data);
 void GPU_vertbuf_clear(GPUVertBuf *verts);
 void GPU_vertbuf_discard(GPUVertBuf *);
