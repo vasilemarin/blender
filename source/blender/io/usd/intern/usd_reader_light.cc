@@ -188,11 +188,20 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::VtValue coneAngle;
         shapingAPI.GetShapingConeAngleAttr().Get(&coneAngle, motionSampleTime);
-        blight->spotsize = coneAngle.Get<float>() * ((float)M_PI / 180.0f) * 2.0f;
+        float spot_size = coneAngle.Get<float>() * ((float)M_PI / 180.0f) * 2.0f;
 
-        pxr::VtValue spotBlend;
-        shapingAPI.GetShapingConeSoftnessAttr().Get(&spotBlend, motionSampleTime);
-        blight->spotblend = spotBlend.Get<float>();
+        if (spot_size <= M_PI) {
+          blight->spotsize = spot_size;
+
+          pxr::VtValue spotBlend;
+          shapingAPI.GetShapingConeSoftnessAttr().Get(&spotBlend, motionSampleTime);
+          blight->spotblend = spotBlend.Get<float>();
+        }
+        else {
+          /* The spot size is greter the 180 degrees, which Blender doesn't support so we
+           * make this a sphere light instead. */
+          blight->type = LA_LOCAL;
+        }
       }
       break;
     case LA_SUN:
