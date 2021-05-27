@@ -62,7 +62,8 @@ bool USDStageReader::valid() const
 
 USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
                                              const USDImportParams &params,
-                                             const ImportSettings &settings)
+                                             const ImportSettings &settings,
+                                             pxr::UsdGeomXformCache *xf_cache)
 {
 
   USDPrimReader *reader = nullptr;
@@ -83,7 +84,7 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
     reader = new USDMeshReader(prim, params, settings);
   }
   else if (params.import_lights && prim.IsA<pxr::UsdLuxLight>()) {
-    reader = new USDLightReader(prim, params, settings);
+    reader = new USDLightReader(prim, params, settings, xf_cache);
   }
   else if (params.import_volumes && prim.IsA<pxr::UsdVolVolume>()) {
     reader = new USDVolumeReader(prim, params, settings);
@@ -233,7 +234,8 @@ static USDPrimReader *_handlePrim(Main *bmain,
                                   const USDImportParams &params,
                                   pxr::UsdPrim prim,
                                   std::vector<USDPrimReader *> &readers,
-                                  const ImportSettings &settings)
+                                  const ImportSettings &settings,
+                                  pxr::UsdGeomXformCache *xf_cache = nullptr)
 {
   if (prim.IsA<pxr::UsdGeomImageable>()) {
     pxr::UsdGeomImageable imageable(prim);
@@ -258,7 +260,8 @@ static USDPrimReader *_handlePrim(Main *bmain,
   std::vector<USDPrimReader *> child_readers;
 
   for (const auto &childPrim : children) {
-    USDPrimReader *child_reader = _handlePrim(bmain, stage, params, childPrim, readers, settings);
+    USDPrimReader *child_reader = _handlePrim(
+        bmain, stage, params, childPrim, readers, settings, xf_cache);
     if (child_reader) {
       child_readers.push_back(child_reader);
     }
@@ -283,7 +286,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
   USDPrimReader *reader = nullptr;
 
   if (!(prim.IsPseudoRoot() || prim.IsMaster())) {
-    reader = USDStageReader::create_reader(prim, params, settings);
+    reader = USDStageReader::create_reader(prim, params, settings, xf_cache);
 
     if (reader == nullptr) {
       return nullptr;
@@ -337,7 +340,8 @@ void USDStageReader::collect_readers(Main *bmain,
 
   stage_->SetInterpolationType(pxr::UsdInterpolationType::UsdInterpolationTypeHeld);
 
-  _handlePrim(bmain, stage_, params, root, readers_, settings);
+  pxr::UsdGeomXformCache xf_cache;
+  _handlePrim(bmain, stage_, params, root, readers_, settings, &xf_cache);
 
   if (params.use_instancing) {
     // Collect the scenegraph instance prototypes.
@@ -345,7 +349,7 @@ void USDStageReader::collect_readers(Main *bmain,
 
     for (const pxr::UsdPrim &proto_prim : protos) {
       std::vector<USDPrimReader *> proto_readers;
-      _handlePrim(bmain, stage_, params, proto_prim, proto_readers, settings);
+      _handlePrim(bmain, stage_, params, proto_prim, proto_readers, settings, &xf_cache);
       proto_readers_.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
     }
   }

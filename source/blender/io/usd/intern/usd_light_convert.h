@@ -22,6 +22,8 @@ struct Light;
 
 namespace blender::io::usd {
 
-float nits_to_energy_scale_factor(const Light *light, float meters_per_unit);
+float nits_to_energy_scale_factor(const Light *light,
+                                  float meters_per_unit,
+                                  float radius_scale = 1.0f);
 
 }  // namespace blender::io::usd

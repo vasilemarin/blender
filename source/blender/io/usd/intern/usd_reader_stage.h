@@ -26,6 +26,7 @@ struct Scene;
 
 #include <pxr/pxr.h>
 #include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdGeom/xformCache.h>
 
 #include <map>
 #include <vector>
@@ -54,7 +55,8 @@ class USDStageReader {
 
   static USDPrimReader *create_reader(const pxr::UsdPrim &prim,
                                       const USDImportParams &params,
-                                      const ImportSettings &settings);
+                                      const ImportSettings &settings,
+                                      pxr::UsdGeomXformCache *xf_cache = nullptr);
 
   // This version of create_reader() does not filter by primitive type.  I.e.,
   // it will convert any prim to a reader, if possible, regardless of the
