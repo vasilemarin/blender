@@ -25,8 +25,8 @@ struct Scene;
 #include "usd_reader_prim.h"
 
 #include <pxr/pxr.h>
-#include <pxr/usd/usdGeom/xformCache.h>
 #include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdGeom/xformCache.h>
 
 #include <map>
 #include <vector>

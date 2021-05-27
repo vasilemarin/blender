@@ -50,11 +50,9 @@ USDLightReader::USDLightReader(const pxr::UsdPrim &prim,
                                const USDImportParams &import_params,
                                const ImportSettings &settings,
                                pxr::UsdGeomXformCache *xf_cache)
-  : USDXformReader(prim, import_params, settings),
-    usd_world_scale_(1.0f)
+    : USDXformReader(prim, import_params, settings), usd_world_scale_(1.0f)
 {
-  if (xf_cache && import_params.convert_light_from_nits)
-  {
+  if (xf_cache && import_params.convert_light_from_nits) {
     pxr::GfMatrix4d xf = xf_cache->GetLocalToWorldTransform(prim);
     pxr::GfMatrix4d r;
     pxr::GfVec3d s;

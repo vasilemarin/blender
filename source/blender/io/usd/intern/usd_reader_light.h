@@ -27,10 +27,10 @@ class USDLightReader : public USDXformReader {
   float usd_world_scale_;
 
  public:
-   USDLightReader(const pxr::UsdPrim &prim,
-                  const USDImportParams &import_params,
-                  const ImportSettings &settings,
-                  pxr::UsdGeomXformCache *xf_cache = nullptr);
+  USDLightReader(const pxr::UsdPrim &prim,
+                 const USDImportParams &import_params,
+                 const ImportSettings &settings,
+                 pxr::UsdGeomXformCache *xf_cache = nullptr);
 
   void create_object(Main *bmain, double motionSampleTime) override;
 

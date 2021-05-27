@@ -25,9 +25,11 @@
 
 namespace blender::io::usd {
 
-/* Return the scale factor to convert nits to light energy 
+/* Return the scale factor to convert nits to light energy
  * (Watts or Watts per meter squared) for the given light. */
-float nits_to_energy_scale_factor(const Light *light, const float meters_per_unit, const float radius_scale)
+float nits_to_energy_scale_factor(const Light *light,
+                                  const float meters_per_unit,
+                                  const float radius_scale)
 {
   if (!light) {
     return 1.0f;
@@ -42,41 +44,41 @@ float nits_to_energy_scale_factor(const Light *light, const float meters_per_uni
 
   /* Scale by the light surface area, for lights other than sun. */
   switch (light->type) {
-  case LA_AREA:
-    switch (light->area_shape) {
-    case LA_AREA_DISK:
-    case LA_AREA_ELLIPSE: { /* An ellipse light will deteriorate into a disk light. */
-      float r = light->area_size / 2.0f;
-      scale *= 2.0f * M_PI * (r * r) * mpu_sq;
+    case LA_AREA:
+      switch (light->area_shape) {
+        case LA_AREA_DISK:
+        case LA_AREA_ELLIPSE: { /* An ellipse light will deteriorate into a disk light. */
+          float r = light->area_size / 2.0f;
+          scale *= 2.0f * M_PI * (r * r) * mpu_sq;
+          break;
+        }
+        case LA_AREA_RECT: {
+          scale *= light->area_size * light->area_sizey * mpu_sq;
+          break;
+        }
+        case LA_AREA_SQUARE: {
+          scale *= light->area_size * light->area_size * mpu_sq;
+          break;
+        }
+      }
+      break;
+    case LA_LOCAL: {
+      float r = light->area_size * radius_scale;
+      scale *= 4.0f * M_PI * (r * r) * mpu_sq;
       break;
     }
-    case LA_AREA_RECT: {
-      scale *= light->area_size * light->area_sizey * mpu_sq;
+    case LA_SPOT: {
+      float r = light->area_size * radius_scale;
+      float angle = light->spotsize / 2.0f;
+      scale *= 2.0f * M_PI * (r * r) * (1.0f - cosf(angle)) * mpu_sq;
       break;
     }
-    case LA_AREA_SQUARE: {
-      scale *= light->area_size * light->area_size * mpu_sq;
+    case LA_SUN: {
+      /* Sun energy is Watts per square meter so we don't scale by area. */
       break;
     }
-    }
-    break;
-  case LA_LOCAL: {
-    float r = light->area_size * radius_scale;
-    scale *= 4.0f * M_PI * (r * r) * mpu_sq;
-    break;
-  }
-  case LA_SPOT: {
-    float r = light->area_size * radius_scale;
-    float angle = light->spotsize / 2.0f;
-    scale *= 2.0f * M_PI * (r * r) * (1.0f - cosf(angle)) * mpu_sq;
-    break;
-  }
-  case LA_SUN: {
-    /* Sun energy is Watts per square meter so we don't scale by area. */
-    break;
-  }
-  default:
-    break;
+    default:
+      break;
   }
 
   return scale;

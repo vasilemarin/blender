@@ -235,7 +235,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
                                   pxr::UsdPrim prim,
                                   std::vector<USDPrimReader *> &readers,
                                   const ImportSettings &settings,
-                                  pxr::UsdGeomXformCache *xf_cache=nullptr)
+                                  pxr::UsdGeomXformCache *xf_cache = nullptr)
 {
   if (prim.IsA<pxr::UsdGeomImageable>()) {
     pxr::UsdGeomImageable imageable(prim);
@@ -260,7 +260,8 @@ static USDPrimReader *_handlePrim(Main *bmain,
   std::vector<USDPrimReader *> child_readers;
 
   for (const auto &childPrim : children) {
-    USDPrimReader *child_reader = _handlePrim(bmain, stage, params, childPrim, readers, settings, xf_cache);
+    USDPrimReader *child_reader = _handlePrim(
+        bmain, stage, params, childPrim, readers, settings, xf_cache);
     if (child_reader) {
       child_readers.push_back(child_reader);
     }
