@@ -357,9 +357,9 @@ bool BKE_lib_override_library_create_from_tag(Main *bmain,
     /* If `newid` is already set, assume it has been handled by calling code.
      * Only current use case: re-using proxy ID when converting to liboverride. */
     if (reference_id->newid == NULL) {
-      /* Note: `no main` case is used during resync procedure, to support recursive resync. This
-       * requires extra care further odwn the resync process, see
-       * `BKE_lib_override_library_resync`. */
+      /* Note: `no main` case is used during resync procedure, to support recursive resync.
+       * This requires extra care further down the resync process,
+       * see: #BKE_lib_override_library_resync. */
       reference_id->newid = lib_override_library_create_from(
           bmain, reference_id, do_no_main ? LIB_ID_CREATE_NO_MAIN : 0);
       if (reference_id->newid == NULL) {
@@ -408,7 +408,7 @@ bool BKE_lib_override_library_create_from_tag(Main *bmain,
          * loop, but we can get to them through their reference's `newid` pointer. */
         if (do_no_main && id->lib == reference_id->lib && id->newid != NULL) {
           other_id = id->newid;
-          /* Otherwise we cannot properly dinstinguish between IDs that are actually from the
+          /* Otherwise we cannot properly distinguish between IDs that are actually from the
            * linked library (and should not be remapped), and IDs that are overrides re-generated
            * from the reference from the linked library, and must therefore be remapped.
            *
@@ -1279,10 +1279,24 @@ bool BKE_lib_override_library_resync(Main *bmain,
 
 static int lib_override_sort_libraries_func(LibraryIDLinkCallbackData *cb_data)
 {
+  if (cb_data->cb_flag & IDWALK_CB_LOOPBACK) {
+    return IDWALK_RET_NOP;
+  }
   ID *id_owner = cb_data->id_owner;
   ID *id = *cb_data->id_pointer;
   if (id != NULL && ID_IS_LINKED(id) && id->lib != id_owner->lib) {
     const int owner_library_indirect_level = id_owner->lib != NULL ? id_owner->lib->temp_index : 0;
+    if (owner_library_indirect_level > 10000) {
+      CLOG_ERROR(
+          &LOG,
+          "Levels of indirect usages of libraries is way too high, skipping further building "
+          "loops (Involves at least '%s' and '%s')",
+          id_owner->lib->filepath,
+          id->lib->filepath);
+      BLI_assert(0);
+      return IDWALK_RET_NOP;
+    }
+
     if (owner_library_indirect_level >= id->lib->temp_index) {
       id->lib->temp_index = owner_library_indirect_level + 1;
       *(bool *)cb_data->user_data = true;
