@@ -27,13 +27,16 @@ namespace blender::io::usd {
 
 /* Return the scale factor to convert nits to light energy 
  * (Watts or Watts per meter squared) for the given light. */
-float nits_to_energy_scale_factor(const Light *light, const float meters_per_unit)
+float nits_to_energy_scale_factor(const Light *light, const float meters_per_unit, const float radius_scale)
 {
   if (!light) {
     return 1.0f;
   }
 
   const float nits_to_watts_per_meter_sq = 0.0014641f;
+
+  /* Compute meters per unit squared. */
+  const float mpu_sq = meters_per_unit * meters_per_unit;
 
   float scale = nits_to_watts_per_meter_sq;
 
@@ -44,28 +47,28 @@ float nits_to_energy_scale_factor(const Light *light, const float meters_per_uni
     case LA_AREA_DISK:
     case LA_AREA_ELLIPSE: { /* An ellipse light will deteriorate into a disk light. */
       float r = light->area_size / 2.0f;
-      scale *= 2.0f * M_PI * (r * r) * meters_per_unit;
+      scale *= 2.0f * M_PI * (r * r) * mpu_sq;
       break;
     }
     case LA_AREA_RECT: {
-      scale *= light->area_size * light->area_sizey * meters_per_unit;
+      scale *= light->area_size * light->area_sizey * mpu_sq;
       break;
     }
     case LA_AREA_SQUARE: {
-      scale *= light->area_size * light->area_size * meters_per_unit;
+      scale *= light->area_size * light->area_size * mpu_sq;
       break;
     }
     }
     break;
   case LA_LOCAL: {
-    float r = light->area_size;
-    scale *= 4.0f * M_PI * (r * r) * meters_per_unit;
+    float r = light->area_size * radius_scale;
+    scale *= 4.0f * M_PI * (r * r) * mpu_sq;
     break;
   }
   case LA_SPOT: {
-    float r = light->area_size;
+    float r = light->area_size * radius_scale;
     float angle = light->spotsize / 2.0f;
-    scale *= 2.0f * M_PI * (r * r) * (1.0f - cosf(angle)) * meters_per_unit;
+    scale *= 2.0f * M_PI * (r * r) * (1.0f - cosf(angle)) * mpu_sq;
     break;
   }
   case LA_SUN: {

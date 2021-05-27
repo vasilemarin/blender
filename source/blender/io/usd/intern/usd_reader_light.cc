@@ -46,6 +46,27 @@ extern "C" {
 
 namespace blender::io::usd {
 
+USDLightReader::USDLightReader(const pxr::UsdPrim &prim,
+                               const USDImportParams &import_params,
+                               const ImportSettings &settings,
+                               pxr::UsdGeomXformCache *xf_cache)
+  : USDXformReader(prim, import_params, settings),
+    usd_world_scale_(1.0f)
+{
+  if (xf_cache && import_params.convert_light_from_nits)
+  {
+    pxr::GfMatrix4d xf = xf_cache->GetLocalToWorldTransform(prim);
+    pxr::GfMatrix4d r;
+    pxr::GfVec3d s;
+    pxr::GfMatrix4d u;
+    pxr::GfVec3d t;
+    pxr::GfMatrix4d p;
+    xf.Factor(&r, &s, &u, &t, &p);
+
+    usd_world_scale_ = (s[0] + s[1] + s[2]) / 3.0f;
+  }
+}
+
 void USDLightReader::create_object(Main *bmain, const double /* motionSampleTime */)
 {
   Light *blight = static_cast<Light *>(BKE_light_add(bmain, name_.c_str()));
@@ -195,7 +216,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
      * light size, so we can use the USD's meters per unit value. */
     const float meters_per_unit = static_cast<float>(
         pxr::UsdGeomGetStageMetersPerUnit(prim_.GetStage()));
-    intensity_scale *= nits_to_energy_scale_factor(blight, meters_per_unit);
+    intensity_scale *= nits_to_energy_scale_factor(blight, meters_per_unit * usd_world_scale_);
   }
 
   blight->energy = intensity.Get<float>() * intensity_scale;

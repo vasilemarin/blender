@@ -18,17 +18,19 @@
 #include "usd.h"
 #include "usd_reader_xform.h"
 
+#include <pxr/usd/usdGeom/xformCache.h>
+
 namespace blender::io::usd {
 
 class USDLightReader : public USDXformReader {
+ private:
+  float usd_world_scale_;
 
  public:
-  USDLightReader(const pxr::UsdPrim &prim,
-                 const USDImportParams &import_params,
-                 const ImportSettings &settings)
-      : USDXformReader(prim, import_params, settings)
-  {
-  }
+   USDLightReader(const pxr::UsdPrim &prim,
+                  const USDImportParams &import_params,
+                  const ImportSettings &settings,
+                  pxr::UsdGeomXformCache *xf_cache = nullptr);
 
   void create_object(Main *bmain, double motionSampleTime) override;
 
