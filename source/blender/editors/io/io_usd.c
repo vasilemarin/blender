@@ -257,6 +257,10 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const bool convert_to_cm = RNA_boolean_get(op->ptr, "convert_to_cm");
 
+  const bool convert_light_to_nits = RNA_boolean_get(op->ptr, "convert_light_to_nits");
+
+  const bool scale_light_radius = RNA_boolean_get(op->ptr, "scale_light_radius");
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -303,7 +307,9 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    backward_compatible,
                                    light_intensity_scale,
                                    generate_mdl,
-                                   convert_to_cm};
+                                   convert_to_cm,
+                                   convert_light_to_nits,
+                                   scale_light_radius};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -364,9 +370,6 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     uiItemR(box, ptr, "vertex_data_as_face_varying", 0, NULL, ICON_NONE);
   }
 
-  if (RNA_boolean_get(ptr, "export_lights")) {
-    uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
-  }
 
   box = uiLayoutBox(layout);
   uiItemL(box, IFACE_("Cycles Settings:"), ICON_NONE);
@@ -421,6 +424,12 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     if (USD_umm_module_loaded()) {
       uiItemR(box, ptr, "generate_mdl", 0, NULL, ICON_NONE);
     }
+  }
+
+  if (RNA_boolean_get(ptr, "export_lights")) {
+    uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
+    uiItemR(box, ptr, "convert_light_to_nits", 0, NULL, ICON_NONE);
+    uiItemR(box, ptr, "scale_light_radius", 0, NULL, ICON_NONE);
   }
 
   if (RNA_boolean_get(ptr, "export_uvmaps"))
@@ -753,6 +762,20 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                 "Value by which to scale the intensity of exported lights",
                 0.0001f,
                 1000.0f);
+
+  RNA_def_boolean(ot->srna,
+                  "convert_light_to_nits",
+                  true,
+                  "Convert Light Units to Nits",
+                  "Convert light energy units to nits");
+
+  RNA_def_boolean(ot->srna,
+                  "scale_light_radius",
+                  false,
+                  "Scale Light Radius",
+                  "Apply the scene scale factor (from unit conversion or manual scaling) "
+                  "to the radius size of spot and sphere lights");
+
 }
 
 /* ====== USD Import ====== */

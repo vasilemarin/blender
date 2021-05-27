@@ -17,6 +17,7 @@
  * All rights reserved.
  */
 #include "usd_writer_light.h"
+#include "usd_light_convert.h"
 #include "usd_hierarchy_iterator.h"
 
 #include <pxr/usd/usdLux/diskLight.h>
@@ -27,6 +28,7 @@
 
 #include "BLI_assert.h"
 #include "BLI_math.h"
+#include "BLI_math_matrix.h"
 #include "BLI_utildefines.h"
 
 #include "DNA_light_types.h"
@@ -62,6 +64,12 @@ void USDLightWriter::do_write(HierarchyContext &context)
 {
   pxr::UsdStageRefPtr stage = usd_export_context_.stage;
   pxr::UsdTimeCode timecode = get_export_time_code();
+
+  /* Need to account for the scene scale when converting to nits
+   * or scaling the radius. */
+  float world_scale = mat4_to_scale(context.matrix_world);
+
+  float radius_scale = usd_export_context_.export_params.scale_light_radius ? 1.0f / world_scale : 1.0f;
 
   Light *light = static_cast<Light *>(context.object->data);
   pxr::UsdLuxLight usd_light;
@@ -150,12 +158,12 @@ void USDLightWriter::do_write(HierarchyContext &context)
                   usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path)) :
               pxr::UsdLuxSphereLight::Define(usd_export_context_.stage,
                                              usd_export_context_.usd_path);
-      sphere_light.CreateRadiusAttr().Set(light->area_size, timecode);
+      sphere_light.CreateRadiusAttr().Set(light->area_size * radius_scale, timecode);
 
       if (usd_export_context_.export_params.backward_compatible) {
         if (pxr::UsdAttribute attr = sphere_light.GetPrim().CreateAttribute(
                 usdtokens::radius, pxr::SdfValueTypeNames->Float, true)) {
-          attr.Set(light->area_size, timecode);
+          attr.Set(light->area_size * radius_scale, timecode);
         }
       }
 
@@ -169,12 +177,12 @@ void USDLightWriter::do_write(HierarchyContext &context)
                   usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path)) :
               pxr::UsdLuxSphereLight::Define(usd_export_context_.stage,
                                              usd_export_context_.usd_path);
-      spot_light.CreateRadiusAttr().Set(light->area_size, timecode);
+      spot_light.CreateRadiusAttr().Set(light->area_size * radius_scale, timecode);
 
       if (usd_export_context_.export_params.backward_compatible) {
         if (pxr::UsdAttribute attr = spot_light.GetPrim().CreateAttribute(
                 usdtokens::radius, pxr::SdfValueTypeNames->Float, true)) {
-          attr.Set(light->area_size, timecode);
+          attr.Set(light->area_size * radius_scale, timecode);
         }
       }
 
@@ -212,6 +220,10 @@ void USDLightWriter::do_write(HierarchyContext &context)
   }
 
   float usd_intensity = light->energy * usd_export_context_.export_params.light_intensity_scale;
+
+  if (usd_export_context_.export_params.convert_light_to_nits) {
+    usd_intensity /= nits_to_energy_scale_factor(light, world_scale, radius_scale);
+  }
 
   usd_light.CreateIntensityAttr().Set(usd_intensity, timecode);
 
