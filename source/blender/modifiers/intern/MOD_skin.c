@@ -1516,8 +1516,8 @@ static void hull_merge_triangles(SkinOutput *so, const SkinModifierData *smd)
       if (adj[0]->len == 3 && adj[1]->len == 3) {
         BMVert *quad[4];
 
-        //        BLI_assert(BM_face_is_normal_valid(adj[0]));
-        //        BLI_assert(BM_face_is_normal_valid(adj[1]));
+        BLI_assert(BM_face_is_normal_valid(adj[0]));
+        BLI_assert(BM_face_is_normal_valid(adj[1]));
 
         /* Construct quad using the two triangles adjacent to
          * the edge */
