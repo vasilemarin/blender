@@ -771,7 +771,7 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
 
   RNA_def_boolean(ot->srna,
                   "scale_light_radius",
-                  false,
+                  true,
                   "Scale Light Radius",
                   "Apply the scene scale factor (from unit conversion or manual scaling) "
                   "to the radius size of spot and sphere lights");
@@ -1108,7 +1108,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
 
   RNA_def_boolean(ot->srna,
                   "scale_light_radius",
-                  false,
+                  true,
                   "Scale Light Radius",
                   "Apply the scene scale factor (from unit conversion or manual scaling) "
                   "to the radius size of spot and local lights");
