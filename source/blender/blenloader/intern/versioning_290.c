@@ -120,7 +120,8 @@ static bool can_use_proxy(const Sequence *seq, int psize)
 static void seq_convert_transform_animation(const Sequence *seq,
                                             const Scene *scene,
                                             const char *path,
-                                            const int image_size)
+                                            const int image_size,
+                                            const int scene_size)
 {
   if (scene->adt == NULL || scene->adt->action == NULL) {
     return;
@@ -137,9 +138,9 @@ static void seq_convert_transform_animation(const Sequence *seq,
       BezTriple *bezt = fcu->bezt;
       for (int i = 0; i < fcu->totvert; i++, bezt++) {
         /* Same math as with old_image_center_*, but simplified. */
-        bezt->vec[0][1] = image_size / 2 + bezt->vec[0][1] - scene->r.xsch / 2;
-        bezt->vec[1][1] = image_size / 2 + bezt->vec[1][1] - scene->r.xsch / 2;
-        bezt->vec[2][1] = image_size / 2 + bezt->vec[2][1] - scene->r.xsch / 2;
+        bezt->vec[0][1] = (image_size - scene_size) / 2 + bezt->vec[0][1];
+        bezt->vec[1][1] = (image_size - scene_size) / 2 + bezt->vec[1][1];
+        bezt->vec[2][1] = (image_size - scene_size) / 2 + bezt->vec[2][1];
       }
     }
   }
@@ -248,10 +249,10 @@ static void seq_convert_transform_crop(const Scene *scene,
   BLI_str_escape(name_esc, seq->name + 2, sizeof(name_esc));
 
   path = BLI_sprintfN("sequence_editor.sequences_all[\"%s\"].transform.offset_x", name_esc);
-  seq_convert_transform_animation(seq, scene, path, image_size_x);
+  seq_convert_transform_animation(seq, scene, path, image_size_x, scene->r.xsch);
   MEM_freeN(path);
   path = BLI_sprintfN("sequence_editor.sequences_all[\"%s\"].transform.offset_y", name_esc);
-  seq_convert_transform_animation(seq, scene, path, image_size_y);
+  seq_convert_transform_animation(seq, scene, path, image_size_y, scene->r.ysch);
   MEM_freeN(path);
 
   seq->flag &= ~use_transform_flag;
