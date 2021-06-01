@@ -5,6 +5,12 @@ setlocal EnableDelayedExpansion
 setlocal ENABLEEXTENSIONS
 set BLENDER_DIR=%~dp0
 
+call "%~dp0tools\packman\packman" pull %~dp0deps\target-deps.packman.xml% --platform windows-x86_64
+
+set OPTIX_INCLUDE_DIR=%~dp0\..\lib\win64_vc15\optix7\include
+set OPTIX_ROOT_DIR=%~dp0\..\lib\win64_vc15\optix7
+set CUDA_BIN_PATH=%~dp0\..\lib\win64_vc15\cuda
+
 call "%BLENDER_DIR%\build_files\windows\reset_variables.cmd"
 
 call "%BLENDER_DIR%\build_files\windows\check_spaces_in_path.cmd"

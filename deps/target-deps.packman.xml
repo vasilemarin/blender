@@ -1,0 +1,8 @@
+<project toolsVersion="5.6">
+  <dependency name="optix7" linkPath="../../lib/win64_vc15/optix7">
+    <package name="optix" version="2019.0.26890979-windows-x86_64" platforms="windows-x86_64" />
+  </dependency>
+  <dependency name="cuda" linkPath="../../lib/win64_vc15/cuda">
+    <package name="cuda" version="11.3.109-windows-x86_64" platforms="windows-x86_64" />
+  </dependency>
+</project>
