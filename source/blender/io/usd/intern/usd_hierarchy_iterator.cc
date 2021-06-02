@@ -127,7 +127,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
     case OB_MBALL:
       data_writer = new USDMetaballWriter(usd_export_context);
       break;
-    case OB_EMPTY:
     case OB_CURVE:
       if (usd_export_context.export_params.export_curves) {
         data_writer = new USDCurveWriter(usd_export_context);
@@ -135,6 +134,8 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
       else
         return nullptr;
       break;
+
+    case OB_EMPTY:
     case OB_SURF:
     case OB_FONT:
     case OB_SPEAKER:
