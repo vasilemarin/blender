@@ -58,7 +58,11 @@ void USDCameraReader::create_object(Main *bmain, const double /* motionSampleTim
 
 void USDCameraReader::read_object_data(Main *bmain, const double motionSampleTime)
 {
-  Camera *bcam = (Camera *)object_->data;
+  if (!object_->data) {
+    return;
+  }
+
+  Camera *bcam = static_cast<Camera *>(object_->data);
 
   pxr::UsdGeomCamera cam_prim(prim_);
 
@@ -66,46 +70,37 @@ void USDCameraReader::read_object_data(Main *bmain, const double motionSampleTim
     return;
   }
 
-  pxr::VtValue val;
-  cam_prim.GetFocalLengthAttr().Get(&val, motionSampleTime);
-  pxr::VtValue verApOffset;
-  cam_prim.GetVerticalApertureOffsetAttr().Get(&verApOffset, motionSampleTime);
-  pxr::VtValue horApOffset;
-  cam_prim.GetHorizontalApertureOffsetAttr().Get(&horApOffset, motionSampleTime);
-  pxr::VtValue clippingRangeVal;
-  cam_prim.GetClippingRangeAttr().Get(&clippingRangeVal, motionSampleTime);
-  pxr::VtValue focalDistanceVal;
-  cam_prim.GetFocusDistanceAttr().Get(&focalDistanceVal, motionSampleTime);
-  pxr::VtValue fstopVal;
-  cam_prim.GetFStopAttr().Get(&fstopVal, motionSampleTime);
-  pxr::VtValue projectionVal;
-  cam_prim.GetProjectionAttr().Get(&projectionVal, motionSampleTime);
-  pxr::VtValue verAp;
-  cam_prim.GetVerticalApertureAttr().Get(&verAp, motionSampleTime);
-  pxr::VtValue horAp;
-  cam_prim.GetHorizontalApertureAttr().Get(&horAp, motionSampleTime);
+  pxr::GfCamera usd_cam = cam_prim.GetCamera(motionSampleTime);
 
-  bcam->lens = val.Get<float>();
-  // TODO(makowalski)
-  // bcam->sensor_x = 0.0f;
-  // bcam->sensor_y = 0.0f;
-  bcam->shiftx = verApOffset.Get<float>();
-  bcam->shifty = horApOffset.Get<float>();
+  const float apperture_x = usd_cam.GetHorizontalAperture();
+  const float apperture_y = usd_cam.GetVerticalAperture();
+  const float h_film_offset = usd_cam.GetHorizontalApertureOffset();
+  const float v_film_offset = usd_cam.GetVerticalApertureOffset();
+  const float film_aspect = apperture_x / apperture_y;
 
-  bcam->type = (projectionVal.Get<pxr::TfToken>().GetString() == "perspective") ? CAM_PERSP :
-                                                                                  CAM_ORTHO;
+  bcam->type = usd_cam.GetProjection() == pxr::GfCamera::Perspective ? CAM_PERSP : CAM_ORTHO;
 
-  /* Calling UncheckedGet() to silence compiler warnings. */
-  pxr::GfVec2f clipping_range = clippingRangeVal.UncheckedGet<pxr::GfVec2f>();
+  bcam->lens = usd_cam.GetFocalLength();
 
-  bcam->clip_start = max_ff(0.1f, clipping_range[0] * settings_->scale);
-  bcam->clip_end = clipping_range[1] * settings_->scale;
+  bcam->sensor_x = apperture_x;
+  bcam->sensor_y = apperture_y;
 
-  bcam->dof.focus_distance = focalDistanceVal.Get<float>() * settings_->scale;
-  bcam->dof.aperture_fstop = static_cast<float>(fstopVal.Get<float>());
+  bcam->shiftx = h_film_offset / apperture_x;
+  bcam->shifty = v_film_offset / apperture_y / film_aspect;
+
+  pxr::GfRange1f usd_clip_range = usd_cam.GetClippingRange();
+  bcam->clip_start = usd_clip_range.GetMin() * settings_->scale;
+  bcam->clip_end = usd_clip_range.GetMax() * settings_->scale;
+
+  bcam->dof.focus_distance = usd_cam.GetFocusDistance() * settings_->scale;
+  bcam->dof.aperture_fstop = usd_cam.GetFStop();
+
+  if (bcam->dof.focus_distance > 0.0f || bcam->dof.aperture_fstop > 0.0f) {
+    bcam->dof.flag |= CAM_DOF_ENABLED;
+  }
 
   if (bcam->type == CAM_ORTHO) {
-    bcam->ortho_scale = max_ff(verAp.Get<float>(), horAp.Get<float>());
+    bcam->ortho_scale = max_ff(apperture_x, apperture_y);
   }
 
   USDXformReader::read_object_data(bmain, motionSampleTime);
