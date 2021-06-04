@@ -709,15 +709,11 @@ static void extract_range_task_create(struct TaskGraph *task_graph,
                                       ExtractTaskData *taskdata,
                                       const eMRIterType type,
                                       int start,
-                                      int length,
-                                      const uint task_id)
+                                      int length)
 {
   taskdata = new ExtractTaskData(*taskdata);
-  BLI_assert(task_id < taskdata->task_len);
-  taskdata->task_id = task_id;
-  /* task_len is set to num_threads, so task_id may not exceed num_threads. */
-
-  atomic_add_and_fetch_int32(taskdata->task_counter, 1);
+  taskdata->task_id = atomic_fetch_and_add_int32(taskdata->task_counter, 1);
+  BLI_assert(taskdata->task_id < taskdata->task_len);
   taskdata->iter_type = type;
   taskdata->start = start;
   taskdata->end = start + length;
@@ -765,50 +761,29 @@ static void extract_task_in_ranges_create(struct TaskGraph *task_graph,
   const MeshRenderData *mr = taskdata_base->mr;
   const int range_len = extract_range_task_chunk_size_get(
       mr, taskdata_base->iter_type, num_threads);
-  uint task_id = 0;
 
   if (taskdata_base->iter_type & MR_ITER_LOOPTRI) {
     for (int i = 0; i < mr->tri_len; i += range_len) {
-      extract_range_task_create(task_graph,
-                                task_node_user_data_init,
-                                taskdata_base,
-                                MR_ITER_LOOPTRI,
-                                i,
-                                range_len,
-                                task_id++);
+      extract_range_task_create(
+          task_graph, task_node_user_data_init, taskdata_base, MR_ITER_LOOPTRI, i, range_len);
     }
   }
   if (taskdata_base->iter_type & MR_ITER_POLY) {
     for (int i = 0; i < mr->poly_len; i += range_len) {
-      extract_range_task_create(task_graph,
-                                task_node_user_data_init,
-                                taskdata_base,
-                                MR_ITER_POLY,
-                                i,
-                                range_len,
-                                task_id++);
+      extract_range_task_create(
+          task_graph, task_node_user_data_init, taskdata_base, MR_ITER_POLY, i, range_len);
     }
   }
   if (taskdata_base->iter_type & MR_ITER_LEDGE) {
     for (int i = 0; i < mr->edge_loose_len; i += range_len) {
-      extract_range_task_create(task_graph,
-                                task_node_user_data_init,
-                                taskdata_base,
-                                MR_ITER_LEDGE,
-                                i,
-                                range_len,
-                                task_id++);
+      extract_range_task_create(
+          task_graph, task_node_user_data_init, taskdata_base, MR_ITER_LEDGE, i, range_len);
     }
   }
   if (taskdata_base->iter_type & MR_ITER_LVERT) {
     for (int i = 0; i < mr->vert_loose_len; i += range_len) {
-      extract_range_task_create(task_graph,
-                                task_node_user_data_init,
-                                taskdata_base,
-                                MR_ITER_LVERT,
-                                i,
-                                range_len,
-                                task_id++);
+      extract_range_task_create(
+          task_graph, task_node_user_data_init, taskdata_base, MR_ITER_LVERT, i, range_len);
     }
   }
 }

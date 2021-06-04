@@ -11,7 +11,6 @@ namespace blender::draw {
  * \{ */
 struct ExtractPointsUserData {
   GPUIndexBufBuilder builder;
-  /* TODO(jbakker): make unique_ptr<Array<GPUIndexBufBuilder>> */
   Vector<GPUIndexBufBuilder> subbuilders;
 };
 
