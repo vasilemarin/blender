@@ -158,24 +158,29 @@ static void extract_points_finish(const MeshRenderData *UNUSED(mr),
   delete userdata;
 }
 
+constexpr MeshExtract create_extractor_points()
+{
+  MeshExtract extractor = {0};
+  extractor.init = extract_points_init;
+  extractor.task_init = extract_points_task_init;
+  extractor.iter_poly_bm = extract_points_iter_poly_bm;
+  extractor.iter_poly_mesh = extract_points_iter_poly_mesh;
+  extractor.iter_ledge_bm = extract_points_iter_ledge_bm;
+  extractor.iter_ledge_mesh = extract_points_iter_ledge_mesh;
+  extractor.iter_lvert_bm = extract_points_iter_lvert_bm;
+  extractor.iter_lvert_mesh = extract_points_iter_lvert_mesh;
+  extractor.task_finish = extract_points_task_finish;
+  extractor.finish = extract_points_finish;
+  extractor.data_type = MR_DATA_DEFAULT;
+  extractor.use_threading = true;
+  extractor.mesh_buffer_offset = offsetof(MeshBufferCache, ibo.points);
+  return extractor;
+}
+
 }  // namespace blender::draw
 
 extern "C" {
-const MeshExtract extract_points = {
-    .init = blender::draw::extract_points_init,
-    .task_init = blender::draw::extract_points_task_init,
-    .iter_poly_bm = blender::draw::extract_points_iter_poly_bm,
-    .iter_poly_mesh = blender::draw::extract_points_iter_poly_mesh,
-    .iter_ledge_bm = blender::draw::extract_points_iter_ledge_bm,
-    .iter_ledge_mesh = blender::draw::extract_points_iter_ledge_mesh,
-    .iter_lvert_bm = blender::draw::extract_points_iter_lvert_bm,
-    .iter_lvert_mesh = blender::draw::extract_points_iter_lvert_mesh,
-    .task_finish = blender::draw::extract_points_task_finish,
-    .finish = blender::draw::extract_points_finish,
-    .data_type = MR_DATA_DEFAULT,
-    .use_threading = true,
-    .mesh_buffer_offset = offsetof(MeshBufferCache, ibo.points),
-};
+const MeshExtract extract_points = blender::draw::create_extractor_points();
 }
 
 /** \} */
