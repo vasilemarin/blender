@@ -129,7 +129,8 @@ typedef struct MeshExtract_Tri_Data {
 
 static void *extract_tris_init(const MeshRenderData *mr,
                                struct MeshBatchCache *UNUSED(cache),
-                               void *UNUSED(ibo))
+                               void *UNUSED(ibo),
+                               const uint UNUSED(task_len))
 {
   MeshExtract_Tri_Data *data = MEM_callocN(sizeof(*data), __func__);
 
@@ -176,6 +177,7 @@ static void *extract_tris_init(const MeshRenderData *mr,
 }
 
 static void extract_tris_iter_looptri_bm(const MeshRenderData *mr,
+                                         const uint UNUSED(task_id),
                                          BMLoop **elt,
                                          const int UNUSED(elt_index),
                                          void *_data)
@@ -195,6 +197,7 @@ static void extract_tris_iter_looptri_bm(const MeshRenderData *mr,
 }
 
 static void extract_tris_iter_looptri_mesh(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            const MLoopTri *mlt,
                                            const int UNUSED(elt_index),
                                            void *_data)
@@ -260,7 +263,8 @@ const MeshExtract extract_tris = {
 
 static void *extract_lines_init(const MeshRenderData *mr,
                                 struct MeshBatchCache *UNUSED(cache),
-                                void *UNUSED(buf))
+                                void *UNUSED(buf),
+                                const uint UNUSED(task_len))
 {
   GPUIndexBufBuilder *elb = MEM_mallocN(sizeof(*elb), __func__);
   /* Put loose edges at the end. */
@@ -270,6 +274,7 @@ static void *extract_lines_init(const MeshRenderData *mr,
 }
 
 static void extract_lines_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                       const uint UNUSED(task_id),
                                        BMFace *f,
                                        const int UNUSED(f_index),
                                        void *elb)
@@ -291,6 +296,7 @@ static void extract_lines_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_lines_iter_poly_mesh(const MeshRenderData *mr,
+                                         const uint UNUSED(task_id),
                                          const MPoly *mp,
                                          const int UNUSED(mp_index),
                                          void *elb)
@@ -325,6 +331,7 @@ static void extract_lines_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_lines_iter_ledge_bm(const MeshRenderData *mr,
+                                        const uint UNUSED(task_id),
                                         BMEdge *eed,
                                         const int ledge_index,
                                         void *elb)
@@ -342,6 +349,7 @@ static void extract_lines_iter_ledge_bm(const MeshRenderData *mr,
 }
 
 static void extract_lines_iter_ledge_mesh(const MeshRenderData *mr,
+                                          const uint UNUSED(task_id),
                                           const MEdge *med,
                                           const uint ledge_index,
                                           void *elb)
@@ -425,142 +433,13 @@ const MeshExtract extract_lines_with_lines_loose = {
 /** \} */
 
 /* ---------------------------------------------------------------------- */
-/** \name Extract Point Indices
- * \{ */
-
-static void *extract_points_init(const MeshRenderData *mr,
-                                 struct MeshBatchCache *UNUSED(cache),
-                                 void *UNUSED(buf))
-{
-  GPUIndexBufBuilder *elb = MEM_mallocN(sizeof(*elb), __func__);
-  GPU_indexbuf_init(elb, GPU_PRIM_POINTS, mr->vert_len, mr->loop_len + mr->loop_loose_len);
-  return elb;
-}
-
-BLI_INLINE void vert_set_bm(GPUIndexBufBuilder *elb, BMVert *eve, int l_index)
-{
-  const int v_index = BM_elem_index_get(eve);
-  if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-    GPU_indexbuf_set_point_vert(elb, v_index, l_index);
-  }
-  else {
-    GPU_indexbuf_set_point_restart(elb, v_index);
-  }
-}
-
-BLI_INLINE void vert_set_mesh(GPUIndexBufBuilder *elb,
-                              const MeshRenderData *mr,
-                              const int v_index,
-                              const int l_index)
-{
-  const MVert *mv = &mr->mvert[v_index];
-  if (!((mr->use_hide && (mv->flag & ME_HIDE)) ||
-        ((mr->extract_type == MR_EXTRACT_MAPPED) && (mr->v_origindex) &&
-         (mr->v_origindex[v_index] == ORIGINDEX_NONE)))) {
-    GPU_indexbuf_set_point_vert(elb, v_index, l_index);
-  }
-  else {
-    GPU_indexbuf_set_point_restart(elb, v_index);
-  }
-}
-
-static void extract_points_iter_poly_bm(const MeshRenderData *UNUSED(mr),
-                                        BMFace *f,
-                                        const int UNUSED(f_index),
-                                        void *elb)
-{
-  BMLoop *l_iter, *l_first;
-  l_iter = l_first = BM_FACE_FIRST_LOOP(f);
-  do {
-    const int l_index = BM_elem_index_get(l_iter);
-
-    vert_set_bm(elb, l_iter->v, l_index);
-  } while ((l_iter = l_iter->next) != l_first);
-}
-
-static void extract_points_iter_poly_mesh(const MeshRenderData *mr,
-                                          const MPoly *mp,
-                                          const int UNUSED(mp_index),
-                                          void *elb)
-{
-  const MLoop *mloop = mr->mloop;
-  const int ml_index_end = mp->loopstart + mp->totloop;
-  for (int ml_index = mp->loopstart; ml_index < ml_index_end; ml_index += 1) {
-    const MLoop *ml = &mloop[ml_index];
-    vert_set_mesh(elb, mr, ml->v, ml_index);
-  }
-}
-
-static void extract_points_iter_ledge_bm(const MeshRenderData *mr,
-                                         BMEdge *eed,
-                                         const int ledge_index,
-                                         void *elb)
-{
-  vert_set_bm(elb, eed->v1, mr->loop_len + (ledge_index * 2));
-  vert_set_bm(elb, eed->v2, mr->loop_len + (ledge_index * 2) + 1);
-}
-
-static void extract_points_iter_ledge_mesh(const MeshRenderData *mr,
-                                           const MEdge *med,
-                                           const uint ledge_index,
-                                           void *elb)
-{
-  vert_set_mesh(elb, mr, med->v1, mr->loop_len + (ledge_index * 2));
-  vert_set_mesh(elb, mr, med->v2, mr->loop_len + (ledge_index * 2) + 1);
-}
-
-static void extract_points_iter_lvert_bm(const MeshRenderData *mr,
-                                         BMVert *eve,
-                                         const int lvert_index,
-                                         void *elb)
-{
-  const int offset = mr->loop_len + (mr->edge_loose_len * 2);
-  vert_set_bm(elb, eve, offset + lvert_index);
-}
-
-static void extract_points_iter_lvert_mesh(const MeshRenderData *mr,
-                                           const MVert *UNUSED(mv),
-                                           const int lvert_index,
-                                           void *elb)
-{
-  const int offset = mr->loop_len + (mr->edge_loose_len * 2);
-
-  vert_set_mesh(elb, mr, mr->lverts[lvert_index], offset + lvert_index);
-}
-
-static void extract_points_finish(const MeshRenderData *UNUSED(mr),
-                                  struct MeshBatchCache *UNUSED(cache),
-                                  void *buf,
-                                  void *elb)
-{
-  GPUIndexBuf *ibo = buf;
-  GPU_indexbuf_build_in_place(elb, ibo);
-  MEM_freeN(elb);
-}
-
-const MeshExtract extract_points = {
-    .init = extract_points_init,
-    .iter_poly_bm = extract_points_iter_poly_bm,
-    .iter_poly_mesh = extract_points_iter_poly_mesh,
-    .iter_ledge_bm = extract_points_iter_ledge_bm,
-    .iter_ledge_mesh = extract_points_iter_ledge_mesh,
-    .iter_lvert_bm = extract_points_iter_lvert_bm,
-    .iter_lvert_mesh = extract_points_iter_lvert_mesh,
-    .finish = extract_points_finish,
-    .data_type = 0,
-    .use_threading = false,
-    .mesh_buffer_offset = offsetof(MeshBufferCache, ibo.points),
-};
-
-/** \} */
-
-/* ---------------------------------------------------------------------- */
 /** \name Extract Face-dots Indices
  * \{ */
 
 static void *extract_fdots_init(const MeshRenderData *mr,
                                 struct MeshBatchCache *UNUSED(cache),
-                                void *UNUSED(buf))
+                                void *UNUSED(buf),
+                                const uint UNUSED(task_len))
 {
   GPUIndexBufBuilder *elb = MEM_mallocN(sizeof(*elb), __func__);
   GPU_indexbuf_init(elb, GPU_PRIM_POINTS, mr->poly_len, mr->poly_len);
@@ -568,6 +447,7 @@ static void *extract_fdots_init(const MeshRenderData *mr,
 }
 
 static void extract_fdots_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                       const uint UNUSED(task_id),
                                        BMFace *f,
                                        const int f_index,
                                        void *elb)
@@ -581,6 +461,7 @@ static void extract_fdots_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_fdots_iter_poly_mesh(const MeshRenderData *mr,
+                                         const uint UNUSED(task_id),
                                          const MPoly *mp,
                                          const int mp_index,
                                          void *elb)
@@ -643,7 +524,8 @@ typedef struct MeshExtract_LinePaintMask_Data {
 
 static void *extract_lines_paint_mask_init(const MeshRenderData *mr,
                                            struct MeshBatchCache *UNUSED(cache),
-                                           void *UNUSED(ibo))
+                                           void *UNUSED(ibo),
+                                           const uint UNUSED(task_len))
 {
   size_t bitmap_size = BLI_BITMAP_SIZE(mr->edge_len);
   MeshExtract_LinePaintMask_Data *data = MEM_callocN(sizeof(*data) + bitmap_size, __func__);
@@ -652,6 +534,7 @@ static void *extract_lines_paint_mask_init(const MeshRenderData *mr,
 }
 
 static void extract_lines_paint_mask_iter_poly_mesh(const MeshRenderData *mr,
+                                                    const uint UNUSED(task_id),
                                                     const MPoly *mp,
                                                     const int UNUSED(mp_index),
                                                     void *_data)
@@ -730,7 +613,8 @@ typedef struct MeshExtract_LineAdjacency_Data {
 
 static void *extract_lines_adjacency_init(const MeshRenderData *mr,
                                           struct MeshBatchCache *UNUSED(cache),
-                                          void *UNUSED(buf))
+                                          void *UNUSED(buf),
+                                          const uint UNUSED(task_len))
 {
   /* Similar to poly_to_tri_count().
    * There is always (loop + triangle - 1) edges inside a polygon.
@@ -788,6 +672,7 @@ BLI_INLINE void lines_adjacency_triangle(
 }
 
 static void extract_lines_adjacency_iter_looptri_bm(const MeshRenderData *UNUSED(mr),
+                                                    const uint UNUSED(task_id),
                                                     BMLoop **elt,
                                                     const int UNUSED(elt_index),
                                                     void *data)
@@ -804,6 +689,7 @@ static void extract_lines_adjacency_iter_looptri_bm(const MeshRenderData *UNUSED
 }
 
 static void extract_lines_adjacency_iter_looptri_mesh(const MeshRenderData *mr,
+                                                      const uint UNUSED(task_id),
                                                       const MLoopTri *mlt,
                                                       const int UNUSED(elt_index),
                                                       void *data)
@@ -877,7 +763,8 @@ typedef struct MeshExtract_EditUvElem_Data {
 
 static void *extract_edituv_tris_init(const MeshRenderData *mr,
                                       struct MeshBatchCache *UNUSED(cache),
-                                      void *UNUSED(ibo))
+                                      void *UNUSED(ibo),
+                                      const uint UNUSED(task_len))
 {
   MeshExtract_EditUvElem_Data *data = MEM_callocN(sizeof(*data), __func__);
   GPU_indexbuf_init(&data->elb, GPU_PRIM_TRIS, mr->tri_len, mr->loop_len);
@@ -894,6 +781,7 @@ BLI_INLINE void edituv_tri_add(
 }
 
 static void extract_edituv_tris_iter_looptri_bm(const MeshRenderData *UNUSED(mr),
+                                                const uint UNUSED(task_id),
                                                 BMLoop **elt,
                                                 const int UNUSED(elt_index),
                                                 void *data)
@@ -907,6 +795,7 @@ static void extract_edituv_tris_iter_looptri_bm(const MeshRenderData *UNUSED(mr)
 }
 
 static void extract_edituv_tris_iter_looptri_mesh(const MeshRenderData *mr,
+                                                  const uint UNUSED(task_id),
                                                   const MLoopTri *mlt,
                                                   const int UNUSED(elt_index),
                                                   void *data)
@@ -948,7 +837,8 @@ const MeshExtract extract_edituv_tris = {
 
 static void *extract_edituv_lines_init(const MeshRenderData *mr,
                                        struct MeshBatchCache *UNUSED(cache),
-                                       void *UNUSED(ibo))
+                                       void *UNUSED(ibo),
+                                       const uint UNUSED(task_len))
 {
   MeshExtract_EditUvElem_Data *data = MEM_callocN(sizeof(*data), __func__);
   GPU_indexbuf_init(&data->elb, GPU_PRIM_LINES, mr->loop_len, mr->loop_len);
@@ -966,6 +856,7 @@ BLI_INLINE void edituv_edge_add(
 }
 
 static void extract_edituv_lines_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                              const uint UNUSED(task_id),
                                               BMFace *f,
                                               const int UNUSED(f_index),
                                               void *data)
@@ -984,6 +875,7 @@ static void extract_edituv_lines_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_edituv_lines_iter_poly_mesh(const MeshRenderData *mr,
+                                                const uint UNUSED(task_id),
                                                 const MPoly *mp,
                                                 const int UNUSED(mp_index),
                                                 void *data)
@@ -1032,7 +924,8 @@ const MeshExtract extract_edituv_lines = {
 
 static void *extract_edituv_points_init(const MeshRenderData *mr,
                                         struct MeshBatchCache *UNUSED(cache),
-                                        void *UNUSED(ibo))
+                                        void *UNUSED(ibo),
+                                        const uint UNUSED(task_len))
 {
   MeshExtract_EditUvElem_Data *data = MEM_callocN(sizeof(*data), __func__);
   GPU_indexbuf_init(&data->elb, GPU_PRIM_POINTS, mr->loop_len, mr->loop_len);
@@ -1052,6 +945,7 @@ BLI_INLINE void edituv_point_add(MeshExtract_EditUvElem_Data *data,
 }
 
 static void extract_edituv_points_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                               const uint UNUSED(task_id),
                                                BMFace *f,
                                                const int UNUSED(f_index),
                                                void *data)
@@ -1067,6 +961,7 @@ static void extract_edituv_points_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_edituv_points_iter_poly_mesh(const MeshRenderData *mr,
+                                                 const uint UNUSED(task_id),
                                                  const MPoly *mp,
                                                  const int UNUSED(mp_index),
                                                  void *data)
@@ -1111,7 +1006,8 @@ const MeshExtract extract_edituv_points = {
 
 static void *extract_edituv_fdots_init(const MeshRenderData *mr,
                                        struct MeshBatchCache *UNUSED(cache),
-                                       void *UNUSED(ibo))
+                                       void *UNUSED(ibo),
+                                       const uint UNUSED(task_len))
 {
   MeshExtract_EditUvElem_Data *data = MEM_callocN(sizeof(*data), __func__);
   GPU_indexbuf_init(&data->elb, GPU_PRIM_POINTS, mr->poly_len, mr->poly_len);
@@ -1134,6 +1030,7 @@ BLI_INLINE void edituv_facedot_add(MeshExtract_EditUvElem_Data *data,
 }
 
 static void extract_edituv_fdots_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                              const uint UNUSED(task_id),
                                               BMFace *f,
                                               const int f_index,
                                               void *data)
@@ -1145,6 +1042,7 @@ static void extract_edituv_fdots_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_edituv_fdots_iter_poly_mesh(const MeshRenderData *mr,
+                                                const uint UNUSED(task_id),
                                                 const MPoly *mp,
                                                 const int mp_index,
                                                 void *data)
@@ -1212,7 +1110,8 @@ typedef struct MeshExtract_PosNor_Data {
 
 static void *extract_pos_nor_init(const MeshRenderData *mr,
                                   struct MeshBatchCache *UNUSED(cache),
-                                  void *buf)
+                                  void *buf,
+                                  const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -1249,6 +1148,7 @@ static void *extract_pos_nor_init(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_iter_poly_bm(const MeshRenderData *mr,
+                                         const uint UNUSED(task_id),
                                          BMFace *f,
                                          const int UNUSED(f_index),
                                          void *_data)
@@ -1266,6 +1166,7 @@ static void extract_pos_nor_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_iter_poly_mesh(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            const MPoly *mp,
                                            const int UNUSED(mp_index),
                                            void *_data)
@@ -1297,6 +1198,7 @@ static void extract_pos_nor_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_iter_ledge_bm(const MeshRenderData *mr,
+                                          const uint UNUSED(task_id),
                                           BMEdge *eed,
                                           const int ledge_index,
                                           void *_data)
@@ -1312,6 +1214,7 @@ static void extract_pos_nor_iter_ledge_bm(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_iter_ledge_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MEdge *med,
                                             const uint ledge_index,
                                             void *_data)
@@ -1326,6 +1229,7 @@ static void extract_pos_nor_iter_ledge_mesh(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_iter_lvert_bm(const MeshRenderData *mr,
+                                          const uint UNUSED(task_id),
                                           BMVert *eve,
                                           const int lvert_index,
                                           void *_data)
@@ -1340,6 +1244,7 @@ static void extract_pos_nor_iter_lvert_bm(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_iter_lvert_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MVert *mv,
                                             const int lvert_index,
                                             void *_data)
@@ -1394,7 +1299,8 @@ typedef struct MeshExtract_PosNorHQ_Data {
 
 static void *extract_pos_nor_hq_init(const MeshRenderData *mr,
                                      struct MeshBatchCache *UNUSED(cache),
-                                     void *buf)
+                                     void *buf,
+                                     const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -1431,6 +1337,7 @@ static void *extract_pos_nor_hq_init(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_hq_iter_poly_bm(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             BMFace *f,
                                             const int UNUSED(f_index),
                                             void *_data)
@@ -1450,6 +1357,7 @@ static void extract_pos_nor_hq_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_hq_iter_poly_mesh(const MeshRenderData *mr,
+                                              const uint UNUSED(task_id),
                                               const MPoly *mp,
                                               const int UNUSED(mp_index),
                                               void *_data)
@@ -1481,6 +1389,7 @@ static void extract_pos_nor_hq_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_hq_iter_ledge_bm(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              BMEdge *eed,
                                              const int ledge_index,
                                              void *_data)
@@ -1497,6 +1406,7 @@ static void extract_pos_nor_hq_iter_ledge_bm(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_hq_iter_ledge_mesh(const MeshRenderData *mr,
+                                               const uint UNUSED(task_id),
                                                const MEdge *med,
                                                const uint ledge_index,
                                                void *_data)
@@ -1513,6 +1423,7 @@ static void extract_pos_nor_hq_iter_ledge_mesh(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_hq_iter_lvert_bm(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              BMVert *eve,
                                              const int lvert_index,
                                              void *_data)
@@ -1528,6 +1439,7 @@ static void extract_pos_nor_hq_iter_lvert_bm(const MeshRenderData *mr,
 }
 
 static void extract_pos_nor_hq_iter_lvert_mesh(const MeshRenderData *mr,
+                                               const uint UNUSED(task_id),
                                                const MVert *mv,
                                                const int lvert_index,
                                                void *_data)
@@ -1575,7 +1487,8 @@ typedef struct gpuHQNor {
 
 static void *extract_lnor_hq_init(const MeshRenderData *mr,
                                   struct MeshBatchCache *UNUSED(cache),
-                                  void *buf)
+                                  void *buf,
+                                  const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -1590,6 +1503,7 @@ static void *extract_lnor_hq_init(const MeshRenderData *mr,
 }
 
 static void extract_lnor_hq_iter_poly_bm(const MeshRenderData *mr,
+                                         const uint UNUSED(task_id),
                                          BMFace *f,
                                          const int UNUSED(f_index),
                                          void *data)
@@ -1613,6 +1527,7 @@ static void extract_lnor_hq_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_lnor_hq_iter_poly_mesh(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            const MPoly *mp,
                                            const int mp_index,
                                            void *data)
@@ -1664,7 +1579,8 @@ const MeshExtract extract_lnor_hq = {
 
 static void *extract_lnor_init(const MeshRenderData *mr,
                                struct MeshBatchCache *UNUSED(cache),
-                               void *buf)
+                               void *buf,
+                               const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -1679,6 +1595,7 @@ static void *extract_lnor_init(const MeshRenderData *mr,
 }
 
 static void extract_lnor_iter_poly_bm(const MeshRenderData *mr,
+                                      const uint UNUSED(task_id),
                                       BMFace *f,
                                       const int UNUSED(f_index),
                                       void *data)
@@ -1704,6 +1621,7 @@ static void extract_lnor_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_lnor_iter_poly_mesh(const MeshRenderData *mr,
+                                        const uint UNUSED(task_id),
                                         const MPoly *mp,
                                         const int mp_index,
                                         void *data)
@@ -1754,7 +1672,10 @@ const MeshExtract extract_lnor = {
 /** \name Extract UV  layers
  * \{ */
 
-static void *extract_uv_init(const MeshRenderData *mr, struct MeshBatchCache *cache, void *buf)
+static void *extract_uv_init(const MeshRenderData *mr,
+                             struct MeshBatchCache *cache,
+                             void *buf,
+                             const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   GPUVertFormat format = {0};
@@ -2023,7 +1944,10 @@ static void extract_tan_ex_init(const MeshRenderData *mr,
   CustomData_free(&loop_data, mr->loop_len);
 }
 
-static void *extract_tan_init(const MeshRenderData *mr, struct MeshBatchCache *cache, void *buf)
+static void *extract_tan_init(const MeshRenderData *mr,
+                              struct MeshBatchCache *cache,
+                              void *buf,
+                              const uint UNUSED(task_len))
 {
   extract_tan_ex_init(mr, cache, buf, false);
   return NULL;
@@ -2042,7 +1966,10 @@ const MeshExtract extract_tan = {
 /** \name Extract HQ Tangent layers
  * \{ */
 
-static void *extract_tan_hq_init(const MeshRenderData *mr, struct MeshBatchCache *cache, void *buf)
+static void *extract_tan_hq_init(const MeshRenderData *mr,
+                                 struct MeshBatchCache *cache,
+                                 void *buf,
+                                 const uint UNUSED(task_len))
 {
   extract_tan_ex_init(mr, cache, buf, true);
   return NULL;
@@ -2062,7 +1989,8 @@ const MeshExtract extract_tan_hq = {
 
 static void *extract_sculpt_data_init(const MeshRenderData *mr,
                                       struct MeshBatchCache *UNUSED(cache),
-                                      void *buf)
+                                      void *buf,
+                                      const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   GPUVertFormat format = {0};
@@ -2160,7 +2088,10 @@ const MeshExtract extract_sculpt_data = {
 /** \name Extract VCol
  * \{ */
 
-static void *extract_vcol_init(const MeshRenderData *mr, struct MeshBatchCache *cache, void *buf)
+static void *extract_vcol_init(const MeshRenderData *mr,
+                               struct MeshBatchCache *cache,
+                               void *buf,
+                               const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   GPUVertFormat format = {0};
@@ -2316,7 +2247,8 @@ typedef struct MeshExtract_Orco_Data {
 
 static void *extract_orco_init(const MeshRenderData *mr,
                                struct MeshBatchCache *UNUSED(cache),
-                               void *buf)
+                               void *buf,
+                               const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -2342,6 +2274,7 @@ static void *extract_orco_init(const MeshRenderData *mr,
 }
 
 static void extract_orco_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                      const uint UNUSED(task_id),
                                       BMFace *f,
                                       const int UNUSED(f_index),
                                       void *data)
@@ -2358,6 +2291,7 @@ static void extract_orco_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_orco_iter_poly_mesh(const MeshRenderData *mr,
+                                        const uint UNUSED(task_id),
                                         const MPoly *mp,
                                         const int UNUSED(mp_index),
                                         void *data)
@@ -2423,7 +2357,8 @@ static float loop_edge_factor_get(const float f_no[3],
 
 static void *extract_edge_fac_init(const MeshRenderData *mr,
                                    struct MeshBatchCache *UNUSED(cache),
-                                   void *buf)
+                                   void *buf,
+                                   const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -2461,6 +2396,7 @@ static void *extract_edge_fac_init(const MeshRenderData *mr,
 }
 
 static void extract_edge_fac_iter_poly_bm(const MeshRenderData *mr,
+                                          const uint UNUSED(task_id),
                                           BMFace *f,
                                           const int UNUSED(f_index),
                                           void *_data)
@@ -2485,6 +2421,7 @@ static void extract_edge_fac_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_edge_fac_iter_poly_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MPoly *mp,
                                             const int mp_index,
                                             void *_data)
@@ -2527,6 +2464,7 @@ static void extract_edge_fac_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_edge_fac_iter_ledge_bm(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            BMEdge *UNUSED(eed),
                                            const int ledge_index,
                                            void *_data)
@@ -2537,6 +2475,7 @@ static void extract_edge_fac_iter_ledge_bm(const MeshRenderData *mr,
 }
 
 static void extract_edge_fac_iter_ledge_mesh(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              const MEdge *UNUSED(med),
                                              const uint ledge_index,
                                              void *_data)
@@ -2659,7 +2598,8 @@ static float evaluate_vertex_weight(const MDeformVert *dvert, const DRW_MeshWeig
 
 static void *extract_weights_init(const MeshRenderData *mr,
                                   struct MeshBatchCache *cache,
-                                  void *buf)
+                                  void *buf,
+                                  const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -2690,6 +2630,7 @@ static void *extract_weights_init(const MeshRenderData *mr,
 }
 
 static void extract_weights_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                         const uint UNUSED(task_id),
                                          BMFace *f,
                                          const int UNUSED(f_index),
                                          void *_data)
@@ -2710,6 +2651,7 @@ static void extract_weights_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_weights_iter_poly_mesh(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            const MPoly *mp,
                                            const int UNUSED(mp_index),
                                            void *_data)
@@ -2894,7 +2836,8 @@ static void mesh_render_data_vert_flag(const MeshRenderData *mr, BMVert *eve, Ed
 
 static void *extract_edit_data_init(const MeshRenderData *mr,
                                     struct MeshBatchCache *UNUSED(cache),
-                                    void *buf)
+                                    void *buf,
+                                    const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -2909,6 +2852,7 @@ static void *extract_edit_data_init(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_iter_poly_bm(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            BMFace *f,
                                            const int UNUSED(f_index),
                                            void *_data)
@@ -2927,6 +2871,7 @@ static void extract_edit_data_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_iter_poly_mesh(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              const MPoly *mp,
                                              const int mp_index,
                                              void *_data)
@@ -2953,6 +2898,7 @@ static void extract_edit_data_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_iter_ledge_bm(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             BMEdge *eed,
                                             const int ledge_index,
                                             void *_data)
@@ -2966,6 +2912,7 @@ static void extract_edit_data_iter_ledge_bm(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_iter_ledge_mesh(const MeshRenderData *mr,
+                                              const uint UNUSED(task_id),
                                               const MEdge *med,
                                               const uint ledge_index,
                                               void *_data)
@@ -2989,6 +2936,7 @@ static void extract_edit_data_iter_ledge_mesh(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_iter_lvert_bm(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             BMVert *eve,
                                             const int lvert_index,
                                             void *_data)
@@ -3000,6 +2948,7 @@ static void extract_edit_data_iter_lvert_bm(const MeshRenderData *mr,
 }
 
 static void extract_edit_data_iter_lvert_mesh(const MeshRenderData *mr,
+                                              const uint UNUSED(task_id),
                                               const MVert *UNUSED(mv),
                                               const int lvert_index,
                                               void *_data)
@@ -3040,7 +2989,8 @@ typedef struct MeshExtract_EditUVData_Data {
 
 static void *extract_edituv_data_init(const MeshRenderData *mr,
                                       struct MeshBatchCache *UNUSED(cache),
-                                      void *buf)
+                                      void *buf,
+                                      const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -3062,6 +3012,7 @@ static void *extract_edituv_data_init(const MeshRenderData *mr,
 }
 
 static void extract_edituv_data_iter_poly_bm(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              BMFace *f,
                                              const int UNUSED(f_index),
                                              void *_data)
@@ -3080,6 +3031,7 @@ static void extract_edituv_data_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_edituv_data_iter_poly_mesh(const MeshRenderData *mr,
+                                               const uint UNUSED(task_id),
                                                const MPoly *mp,
                                                const int mp_index,
                                                void *_data)
@@ -3146,7 +3098,8 @@ const MeshExtract extract_edituv_data = {
 
 static void *extract_edituv_stretch_area_init(const MeshRenderData *mr,
                                               struct MeshBatchCache *UNUSED(cache),
-                                              void *buf)
+                                              void *buf,
+                                              const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -3316,7 +3269,8 @@ static void edituv_get_edituv_stretch_angle(float auv[2][2],
 
 static void *extract_edituv_stretch_angle_init(const MeshRenderData *mr,
                                                struct MeshBatchCache *UNUSED(cache),
-                                               void *buf)
+                                               void *buf,
+                                               const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -3344,6 +3298,7 @@ static void *extract_edituv_stretch_angle_init(const MeshRenderData *mr,
 }
 
 static void extract_edituv_stretch_angle_iter_poly_bm(const MeshRenderData *mr,
+                                                      const uint UNUSED(task_id),
                                                       BMFace *f,
                                                       const int UNUSED(f_index),
                                                       void *_data)
@@ -3397,6 +3352,7 @@ static void extract_edituv_stretch_angle_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_edituv_stretch_angle_iter_poly_mesh(const MeshRenderData *mr,
+                                                        const uint UNUSED(task_id),
                                                         const MPoly *mp,
                                                         const int UNUSED(mp_index),
                                                         void *_data)
@@ -3465,7 +3421,8 @@ const MeshExtract extract_edituv_stretch_angle = {
 
 static void *extract_mesh_analysis_init(const MeshRenderData *mr,
                                         struct MeshBatchCache *UNUSED(cache),
-                                        void *buf)
+                                        void *buf,
+                                        const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4072,7 +4029,8 @@ const MeshExtract extract_mesh_analysis = {
 
 static void *extract_fdots_pos_init(const MeshRenderData *mr,
                                     struct MeshBatchCache *UNUSED(cache),
-                                    void *buf)
+                                    void *buf,
+                                    const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4085,10 +4043,8 @@ static void *extract_fdots_pos_init(const MeshRenderData *mr,
   return GPU_vertbuf_get_data(vbo);
 }
 
-static void extract_fdots_pos_iter_poly_bm(const MeshRenderData *mr,
-                                           BMFace *f,
-                                           const int f_index,
-                                           void *data)
+static void extract_fdots_pos_iter_poly_bm(
+    const MeshRenderData *mr, const uint UNUSED(task_id), BMFace *f, const int f_index, void *data)
 {
   float(*center)[3] = data;
 
@@ -4104,6 +4060,7 @@ static void extract_fdots_pos_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_fdots_pos_iter_poly_mesh(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              const MPoly *mp,
                                              const int mp_index,
                                              void *data)
@@ -4156,7 +4113,8 @@ const MeshExtract extract_fdots_pos = {
 
 static void *extract_fdots_nor_init(const MeshRenderData *mr,
                                     struct MeshBatchCache *UNUSED(cache),
-                                    void *buf)
+                                    void *buf,
+                                    const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4233,7 +4191,8 @@ const MeshExtract extract_fdots_nor = {
  * \{ */
 static void *extract_fdots_nor_hq_init(const MeshRenderData *mr,
                                        struct MeshBatchCache *UNUSED(cache),
-                                       void *buf)
+                                       void *buf,
+                                       const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4317,7 +4276,8 @@ typedef struct MeshExtract_FdotUV_Data {
 
 static void *extract_fdots_uv_init(const MeshRenderData *mr,
                                    struct MeshBatchCache *UNUSED(cache),
-                                   void *buf)
+                                   void *buf,
+                                   const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4348,6 +4308,7 @@ static void *extract_fdots_uv_init(const MeshRenderData *mr,
 }
 
 static void extract_fdots_uv_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                          const uint UNUSED(task_id),
                                           BMFace *f,
                                           const int UNUSED(f_index),
                                           void *_data)
@@ -4363,6 +4324,7 @@ static void extract_fdots_uv_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_fdots_uv_iter_poly_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MPoly *mp,
                                             const int mp_index,
                                             void *_data)
@@ -4415,7 +4377,8 @@ typedef struct MeshExtract_EditUVFdotData_Data {
 
 static void *extract_fdots_edituv_data_init(const MeshRenderData *mr,
                                             struct MeshBatchCache *UNUSED(cache),
-                                            void *buf)
+                                            void *buf,
+                                            const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4433,6 +4396,7 @@ static void *extract_fdots_edituv_data_init(const MeshRenderData *mr,
 }
 
 static void extract_fdots_edituv_data_iter_poly_bm(const MeshRenderData *mr,
+                                                   const uint UNUSED(task_id),
                                                    BMFace *f,
                                                    const int UNUSED(f_index),
                                                    void *_data)
@@ -4444,6 +4408,7 @@ static void extract_fdots_edituv_data_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_fdots_edituv_data_iter_poly_mesh(const MeshRenderData *mr,
+                                                     const uint UNUSED(task_id),
                                                      const MPoly *UNUSED(mp),
                                                      const int mp_index,
                                                      void *_data)
@@ -4487,7 +4452,8 @@ typedef struct SkinRootData {
 
 static void *extract_skin_roots_init(const MeshRenderData *mr,
                                      struct MeshBatchCache *UNUSED(cache),
-                                     void *buf)
+                                     void *buf,
+                                     const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   /* Exclusively for edit mode. */
@@ -4539,7 +4505,8 @@ const MeshExtract extract_skin_roots = {
 
 static void *extract_select_idx_init(const MeshRenderData *mr,
                                      struct MeshBatchCache *UNUSED(cache),
-                                     void *buf)
+                                     void *buf,
+                                     const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4558,6 +4525,7 @@ static void *extract_select_idx_init(const MeshRenderData *mr,
  * shader to output original index. */
 
 static void extract_poly_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                          const uint UNUSED(task_id),
                                           BMFace *f,
                                           const int f_index,
                                           void *data)
@@ -4571,6 +4539,7 @@ static void extract_poly_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_edge_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                          const uint UNUSED(task_id),
                                           BMFace *f,
                                           const int UNUSED(f_index),
                                           void *data)
@@ -4584,6 +4553,7 @@ static void extract_edge_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_vert_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                          const uint UNUSED(task_id),
                                           BMFace *f,
                                           const int UNUSED(f_index),
                                           void *data)
@@ -4597,6 +4567,7 @@ static void extract_vert_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_edge_idx_iter_ledge_bm(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            BMEdge *eed,
                                            const int ledge_index,
                                            void *data)
@@ -4606,6 +4577,7 @@ static void extract_edge_idx_iter_ledge_bm(const MeshRenderData *mr,
 }
 
 static void extract_vert_idx_iter_ledge_bm(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            BMEdge *eed,
                                            const int ledge_index,
                                            void *data)
@@ -4615,6 +4587,7 @@ static void extract_vert_idx_iter_ledge_bm(const MeshRenderData *mr,
 }
 
 static void extract_vert_idx_iter_lvert_bm(const MeshRenderData *mr,
+                                           const uint UNUSED(task_id),
                                            BMVert *eve,
                                            const int lvert_index,
                                            void *data)
@@ -4625,6 +4598,7 @@ static void extract_vert_idx_iter_lvert_bm(const MeshRenderData *mr,
 }
 
 static void extract_poly_idx_iter_poly_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MPoly *mp,
                                             const int mp_index,
                                             void *data)
@@ -4636,6 +4610,7 @@ static void extract_poly_idx_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_edge_idx_iter_poly_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MPoly *mp,
                                             const int UNUSED(mp_index),
                                             void *data)
@@ -4649,6 +4624,7 @@ static void extract_edge_idx_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_vert_idx_iter_poly_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MPoly *mp,
                                             const int UNUSED(mp_index),
                                             void *data)
@@ -4662,6 +4638,7 @@ static void extract_vert_idx_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_edge_idx_iter_ledge_mesh(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              const MEdge *UNUSED(med),
                                              const uint ledge_index,
                                              void *data)
@@ -4673,6 +4650,7 @@ static void extract_edge_idx_iter_ledge_mesh(const MeshRenderData *mr,
 }
 
 static void extract_vert_idx_iter_ledge_mesh(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              const MEdge *med,
                                              const uint ledge_index,
                                              void *data)
@@ -4684,6 +4662,7 @@ static void extract_vert_idx_iter_ledge_mesh(const MeshRenderData *mr,
 }
 
 static void extract_vert_idx_iter_lvert_mesh(const MeshRenderData *mr,
+                                             const uint UNUSED(task_id),
                                              const MVert *UNUSED(mv),
                                              const int lvert_index,
                                              void *data)
@@ -4727,7 +4706,8 @@ const MeshExtract extract_vert_idx = {
 
 static void *extract_fdot_idx_init(const MeshRenderData *mr,
                                    struct MeshBatchCache *UNUSED(cache),
-                                   void *buf)
+                                   void *buf,
+                                   const uint UNUSED(task_len))
 {
   GPUVertBuf *vbo = buf;
   static GPUVertFormat format = {0};
@@ -4742,6 +4722,7 @@ static void *extract_fdot_idx_init(const MeshRenderData *mr,
 }
 
 static void extract_fdot_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+                                          const uint UNUSED(task_id),
                                           BMFace *UNUSED(f),
                                           const int f_index,
                                           void *data)
@@ -4750,6 +4731,7 @@ static void extract_fdot_idx_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_fdot_idx_iter_poly_mesh(const MeshRenderData *mr,
+                                            const uint UNUSED(task_id),
                                             const MPoly *UNUSED(mp),
                                             const int mp_index,
                                             void *data)
