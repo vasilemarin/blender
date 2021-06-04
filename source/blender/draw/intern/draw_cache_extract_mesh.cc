@@ -459,20 +459,6 @@ struct ExtractTaskData {
 #endif
 };
 
-/* TODO(jbakker): remove function, it just wraps a constructor. */
-static ExtractTaskData *extract_extract_iter_task_data_create_mesh(const MeshRenderData *mr,
-                                                                   MeshBatchCache *cache,
-                                                                   ExtractorRunDatas *extractors,
-                                                                   MeshBufferCache *mbc,
-                                                                   int32_t *task_counter,
-                                                                   const uint task_len)
-
-{
-  ExtractTaskData *taskdata = new ExtractTaskData(
-      mr, cache, extractors, mbc, task_counter, task_len);
-  return taskdata;
-}
-
 static void extract_task_data_free(void *data)
 {
   ExtractTaskData *task_data = static_cast<ExtractTaskData *>(data);
@@ -932,7 +918,7 @@ static void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
       if (!extractor->use_threading) {
         ExtractorRunDatas *single_threaded_extractors = new ExtractorRunDatas();
         single_threaded_extractors->append(extractor);
-        ExtractTaskData *taskdata = extract_extract_iter_task_data_create_mesh(
+        ExtractTaskData *taskdata = new ExtractTaskData(
             mr, cache, single_threaded_extractors, mbc, nullptr, 1);
         struct TaskNode *task_node = extract_single_threaded_task_node_create(task_graph,
                                                                               taskdata);
@@ -957,13 +943,12 @@ static void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
       struct TaskNode *task_node_user_data_init = user_data_init_task_node_create(
           task_graph, user_data_init_task_data);
 
-      user_data_init_task_data->td = extract_extract_iter_task_data_create_mesh(
-          mr,
-          cache,
-          multi_threaded_extractors,
-          mbc,
-          &user_data_init_task_data->task_counter,
-          num_threads);
+      user_data_init_task_data->td = new ExtractTaskData(mr,
+                                                         cache,
+                                                         multi_threaded_extractors,
+                                                         mbc,
+                                                         &user_data_init_task_data->task_counter,
+                                                         num_threads);
 
       extract_task_in_ranges_create(
           task_graph, task_node_user_data_init, user_data_init_task_data->td, num_threads);
@@ -978,8 +963,7 @@ static void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
   else {
     /* Run all requests on the same thread. */
     ExtractorRunDatas *extractors_copy = new ExtractorRunDatas(extractors);
-    ExtractTaskData *taskdata = extract_extract_iter_task_data_create_mesh(
-        mr, cache, extractors_copy, mbc, nullptr, 1);
+    ExtractTaskData *taskdata = new ExtractTaskData(mr, cache, extractors_copy, mbc, nullptr, 1);
 
     struct TaskNode *task_node = extract_single_threaded_task_node_create(task_graph, taskdata);
     BLI_task_graph_edge_create(task_node_mesh_render_data, task_node);
