@@ -92,8 +92,12 @@ void USDCameraWriter::do_write(HierarchyContext &context)
    */
   usd_camera.CreateFocalLengthAttr().Set(camera->lens, timecode);
 
-  float aperture_x, aperture_y;
-  camera_sensor_size_for_render(camera, &scene->r, &aperture_x, &aperture_y);
+  /* TODO(makowalski): Maybe add option to call camera_sensor_size_for_render(). */
+  /*float aperture_x, aperture_y;
+  camera_sensor_size_for_render(camera, &scene->r, &aperture_x, &aperture_y);*/
+
+  float aperture_x = camera->sensor_x;
+  float aperture_y = camera->sensor_y;
 
   float film_aspect = aperture_x / aperture_y;
   usd_camera.CreateHorizontalApertureAttr().Set(aperture_x, timecode);
