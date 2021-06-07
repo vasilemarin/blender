@@ -3965,8 +3965,10 @@ static void *extract_fdots_pos_init(const MeshRenderData *mr,
   return GPU_vertbuf_get_data(vbo);
 }
 
-static void extract_fdots_pos_iter_poly_bm(
-    const MeshRenderData *mr, const uint UNUSED(task_id), BMFace *f, const int f_index, void *data)
+static void extract_fdots_pos_iter_poly_bm(const MeshRenderData *mr,
+                                           BMFace *f,
+                                           const int f_index,
+                                           void *data)
 {
   float(*center)[3] = data;
 
