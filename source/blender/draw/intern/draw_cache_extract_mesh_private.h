@@ -434,7 +434,6 @@ typedef struct MeshExtract {
   /** Executed on one worker thread after all elements iterations. */
   ExtractTaskFinishFn *task_finish;
   ExtractFinishFn *finish;
-
   /** Used to request common data. */
   eMRDataType data_type;
   /** Used to know if the element callbacks are thread-safe and can be parallelized. */
