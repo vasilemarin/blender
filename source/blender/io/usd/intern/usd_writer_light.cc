@@ -17,8 +17,8 @@
  * All rights reserved.
  */
 #include "usd_writer_light.h"
-#include "usd_light_convert.h"
 #include "usd_hierarchy_iterator.h"
+#include "usd_light_convert.h"
 
 #include <pxr/usd/usdLux/diskLight.h>
 #include <pxr/usd/usdLux/distantLight.h>
@@ -69,7 +69,8 @@ void USDLightWriter::do_write(HierarchyContext &context)
    * or scaling the radius. */
   float world_scale = mat4_to_scale(context.matrix_world);
 
-  float radius_scale = usd_export_context_.export_params.scale_light_radius ? 1.0f / world_scale : 1.0f;
+  float radius_scale = usd_export_context_.export_params.scale_light_radius ? 1.0f / world_scale :
+                                                                              1.0f;
 
   Light *light = static_cast<Light *>(context.object->data);
   pxr::UsdLuxLight usd_light;

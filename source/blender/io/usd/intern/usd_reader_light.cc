@@ -134,10 +134,10 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
   // Set light values
 
-/* In USD 21, light attributes were renamed to have an 'inputs:' prefix
- * (e.g., 'inputs:intensity'). Here and below, for backward compatibility
- * with older USD versions, we also query attributes using the previous
- * naming scheme that omits this prefix. */
+  /* In USD 21, light attributes were renamed to have an 'inputs:' prefix
+   * (e.g., 'inputs:intensity'). Here and below, for backward compatibility
+   * with older USD versions, we also query attributes using the previous
+   * naming scheme that omits this prefix. */
 
   // TODO: Not currently supported
   // pxr::VtValue exposure;
@@ -253,18 +253,17 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
       break;
   }
 
-
   float intensity;
   if (get_authored_value(light_prim.GetIntensityAttr(), motionSampleTime, &intensity) ||
-    prim_.GetAttribute(usdtokens::intensity).Get(&intensity, motionSampleTime)) {
+      prim_.GetAttribute(usdtokens::intensity).Get(&intensity, motionSampleTime)) {
 
     float intensity_scale = this->import_params_.light_intensity_scale;
 
     if (import_params_.convert_light_from_nits) {
-      /* It's important that we perform the light unit conversion before applying any scaling to the
-       * light size, so we can use the USD's meters per unit value. */
+      /* It's important that we perform the light unit conversion before applying any scaling to
+       * the light size, so we can use the USD's meters per unit value. */
       const float meters_per_unit = static_cast<float>(
-        pxr::UsdGeomGetStageMetersPerUnit(prim_.GetStage()));
+          pxr::UsdGeomGetStageMetersPerUnit(prim_.GetStage()));
       intensity_scale *= nits_to_energy_scale_factor(blight, meters_per_unit * usd_world_scale_);
     }
 

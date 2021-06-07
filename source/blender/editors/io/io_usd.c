@@ -370,7 +370,6 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     uiItemR(box, ptr, "vertex_data_as_face_varying", 0, NULL, ICON_NONE);
   }
 
-
   box = uiLayoutBox(layout);
   uiItemL(box, IFACE_("Cycles Settings:"), ICON_NONE);
   uiItemR(box, ptr, "override_shutter", 0, NULL, ICON_NONE);
@@ -775,7 +774,6 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                   "Scale Light Radius",
                   "Apply the scene scale factor (from unit conversion or manual scaling) "
                   "to the radius size of spot and sphere lights");
-
 }
 
 /* ====== USD Import ====== */

@@ -110,11 +110,8 @@ static void ensure_root_prim(pxr::UsdStageRefPtr stage, const USDExportParams &p
 
   if (params.convert_orientation) {
     float mrot[3][3];
-    mat3_from_axis_conversion(USD_GLOBAL_FORWARD_Y,
-      USD_GLOBAL_UP_Z,
-      params.forward_axis,
-      params.up_axis,
-      mrot);
+    mat3_from_axis_conversion(
+        USD_GLOBAL_FORWARD_Y, USD_GLOBAL_UP_Z, params.forward_axis, params.up_axis, mrot);
     transpose_m3(mrot);
 
     float eul[3];
