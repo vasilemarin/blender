@@ -53,6 +53,8 @@ void GPU_indexbuf_init_ex(GPUIndexBufBuilder *builder,
   builder->max_allowed_index = vertex_len - 1;
   builder->max_index_len = index_len;
   builder->index_len = 0;  // start empty
+  builder->index_min = UINT32_MAX;
+  builder->index_max = 0;
   builder->prim_type = prim_type;
   builder->data = (uint *)MEM_callocN(builder->max_index_len * sizeof(uint), "GPUIndexBuf data");
   builder->parent = nullptr;
@@ -101,6 +103,8 @@ void GPU_indexbuf_add_generic_vert(GPUIndexBufBuilder *builder, uint v)
   assert(v <= builder->max_allowed_index);
 #endif
   builder->data[builder->index_len++] = v;
+  builder->index_min = MIN2(builder->index_min, v);
+  builder->index_max = MAX2(builder->index_max, v);
 }
 
 void GPU_indexbuf_add_primitive_restart(GPUIndexBufBuilder *builder)
@@ -159,9 +163,9 @@ void GPU_indexbuf_set_point_vert(GPUIndexBufBuilder *builder, uint elem, uint v1
   BLI_assert(builder->prim_type == GPU_PRIM_POINTS);
   BLI_assert(elem < builder->max_index_len);
   builder->data[elem++] = v1;
-  if (builder->index_len < elem) {
-    builder->index_len = elem;
-  }
+  builder->index_min = MIN2(builder->index_min, v1);
+  builder->index_max = MAX2(builder->index_max, v1);
+  builder->index_len = MAX2(builder->index_len, elem);
 }
 
 void GPU_indexbuf_set_line_verts(GPUIndexBufBuilder *builder, uint elem, uint v1, uint v2)
@@ -174,9 +178,9 @@ void GPU_indexbuf_set_line_verts(GPUIndexBufBuilder *builder, uint elem, uint v1
   uint idx = elem * 2;
   builder->data[idx++] = v1;
   builder->data[idx++] = v2;
-  if (builder->index_len < idx) {
-    builder->index_len = idx;
-  }
+  builder->index_min = MIN3(builder->index_min, v1, v2);
+  builder->index_max = MAX3(builder->index_max, v1, v2);
+  builder->index_len = MAX2(builder->index_len, idx);
 }
 
 void GPU_indexbuf_set_tri_verts(GPUIndexBufBuilder *builder, uint elem, uint v1, uint v2, uint v3)
@@ -191,9 +195,10 @@ void GPU_indexbuf_set_tri_verts(GPUIndexBufBuilder *builder, uint elem, uint v1,
   builder->data[idx++] = v1;
   builder->data[idx++] = v2;
   builder->data[idx++] = v3;
-  if (builder->index_len < idx) {
-    builder->index_len = idx;
-  }
+
+  builder->index_min = MIN4(builder->index_min, v1, v2, v3);
+  builder->index_max = MAX4(builder->index_max, v1, v2, v3);
+  builder->index_len = MAX2(builder->index_len, idx);
 }
 
 void GPU_indexbuf_set_point_restart(GPUIndexBufBuilder *builder, uint elem)
@@ -201,9 +206,7 @@ void GPU_indexbuf_set_point_restart(GPUIndexBufBuilder *builder, uint elem)
   BLI_assert(builder->prim_type == GPU_PRIM_POINTS);
   BLI_assert(elem < builder->max_index_len);
   builder->data[elem++] = RESTART_INDEX;
-  if (builder->index_len < elem) {
-    builder->index_len = elem;
-  }
+  builder->index_len = MAX2(builder->index_len, elem);
 }
 
 void GPU_indexbuf_set_line_restart(GPUIndexBufBuilder *builder, uint elem)
@@ -213,9 +216,7 @@ void GPU_indexbuf_set_line_restart(GPUIndexBufBuilder *builder, uint elem)
   uint idx = elem * 2;
   builder->data[idx++] = RESTART_INDEX;
   builder->data[idx++] = RESTART_INDEX;
-  if (builder->index_len < idx) {
-    builder->index_len = idx;
-  }
+  builder->index_len = MAX2(builder->index_len, idx);
 }
 
 void GPU_indexbuf_set_tri_restart(GPUIndexBufBuilder *builder, uint elem)
@@ -226,9 +227,7 @@ void GPU_indexbuf_set_tri_restart(GPUIndexBufBuilder *builder, uint elem)
   builder->data[idx++] = RESTART_INDEX;
   builder->data[idx++] = RESTART_INDEX;
   builder->data[idx++] = RESTART_INDEX;
-  if (builder->index_len < idx) {
-    builder->index_len = idx;
-  }
+  builder->index_len = MAX2(builder->index_len, idx);
 }
 
 /** \} */
@@ -246,7 +245,7 @@ IndexBuf::~IndexBuf()
   }
 }
 
-void IndexBuf::init(uint indices_len, uint32_t *indices)
+void IndexBuf::init(uint indices_len, uint32_t *indices, uint min_index, uint max_index)
 {
   is_init_ = true;
   data_ = indices;
@@ -256,8 +255,7 @@ void IndexBuf::init(uint indices_len, uint32_t *indices)
 #if GPU_TRACK_INDEX_RANGE
   /* Everything remains 32 bit while building to keep things simple.
    * Find min/max after, then convert to smallest index type possible. */
-  uint min_index, max_index;
-  uint range = this->index_range(&min_index, &max_index);
+  uint range = min_index < max_index ? max_index - min_index : 0;
   /* count the primitive restart index. */
   range += 1;
 
@@ -383,7 +381,7 @@ void GPU_indexbuf_build_in_place(GPUIndexBufBuilder *builder, GPUIndexBuf *elem)
   BLI_assert(builder->data != nullptr);
   /* Transfer data ownership to GPUIndexBuf.
    * It will be uploaded upon first use. */
-  unwrap(elem)->init(builder->index_len, builder->data);
+  unwrap(elem)->init(builder->index_len, builder->data, builder->index_min, builder->index_max);
   builder->data = nullptr;
 }
 
