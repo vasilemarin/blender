@@ -9,27 +9,22 @@ namespace blender::draw {
 /* ---------------------------------------------------------------------- */
 /** \name Extract Point Indices
  * \{ */
-struct ExtractPointsUserData {
-  GPUIndexBufBuilder builder;
-  Vector<GPUIndexBufBuilder> subbuilders;
-};
-
 static void *extract_points_init(const MeshRenderData *mr,
                                  struct MeshBatchCache *UNUSED(cache),
-                                 void *UNUSED(buf),
-                                 const uint task_len)
+                                 void *UNUSED(buf))
 {
-  ExtractPointsUserData *userdata = new ExtractPointsUserData();
-  GPU_indexbuf_init(
-      &userdata->builder, GPU_PRIM_POINTS, mr->vert_len, mr->loop_len + mr->loop_loose_len);
-  userdata->subbuilders.resize(task_len);
-  return userdata;
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(MEM_mallocN(sizeof(*elb), __func__));
+  GPU_indexbuf_init(elb, GPU_PRIM_POINTS, mr->vert_len, mr->loop_len + mr->loop_loose_len);
+  return elb;
 }
 
-static void extract_points_task_init(const uint task_id, void *_userdata)
+static void *extract_points_task_init(void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPU_indexbuf_subbuilder_init(&userdata->builder, &userdata->subbuilders[task_id]);
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
+  GPUIndexBufBuilder *sub_builder = static_cast<GPUIndexBufBuilder *>(
+      MEM_mallocN(sizeof(*sub_builder), __func__));
+  GPU_indexbuf_subbuilder_init(elb, sub_builder);
+  return sub_builder;
 }
 
 BLI_INLINE void vert_set_bm(GPUIndexBufBuilder *elb, BMVert *eve, int l_index)
@@ -60,13 +55,11 @@ BLI_INLINE void vert_set_mesh(GPUIndexBufBuilder *elb,
 }
 
 static void extract_points_iter_poly_bm(const MeshRenderData *UNUSED(mr),
-                                        const uint task_id,
                                         BMFace *f,
                                         const int UNUSED(f_index),
                                         void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPUIndexBufBuilder *elb = &userdata->subbuilders[task_id];
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
   BMLoop *l_iter, *l_first;
   l_iter = l_first = BM_FACE_FIRST_LOOP(f);
   do {
@@ -77,13 +70,11 @@ static void extract_points_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 }
 
 static void extract_points_iter_poly_mesh(const MeshRenderData *mr,
-                                          const uint task_id,
                                           const MPoly *mp,
                                           const int UNUSED(mp_index),
                                           void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPUIndexBufBuilder *elb = &userdata->subbuilders[task_id];
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
   const MLoop *mloop = mr->mloop;
   const int ml_index_end = mp->loopstart + mp->totloop;
   for (int ml_index = mp->loopstart; ml_index < ml_index_end; ml_index += 1) {
@@ -93,57 +84,51 @@ static void extract_points_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_points_iter_ledge_bm(const MeshRenderData *mr,
-                                         const uint task_id,
                                          BMEdge *eed,
                                          const int ledge_index,
                                          void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPUIndexBufBuilder *elb = &userdata->subbuilders[task_id];
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
   vert_set_bm(elb, eed->v1, mr->loop_len + (ledge_index * 2));
   vert_set_bm(elb, eed->v2, mr->loop_len + (ledge_index * 2) + 1);
 }
 
 static void extract_points_iter_ledge_mesh(const MeshRenderData *mr,
-                                           const uint task_id,
                                            const MEdge *med,
                                            const uint ledge_index,
                                            void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPUIndexBufBuilder *elb = &userdata->subbuilders[task_id];
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
   vert_set_mesh(elb, mr, med->v1, mr->loop_len + (ledge_index * 2));
   vert_set_mesh(elb, mr, med->v2, mr->loop_len + (ledge_index * 2) + 1);
 }
 
 static void extract_points_iter_lvert_bm(const MeshRenderData *mr,
-                                         const uint task_id,
                                          BMVert *eve,
                                          const int lvert_index,
                                          void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPUIndexBufBuilder *elb = &userdata->subbuilders[task_id];
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
   const int offset = mr->loop_len + (mr->edge_loose_len * 2);
   vert_set_bm(elb, eve, offset + lvert_index);
 }
 
 static void extract_points_iter_lvert_mesh(const MeshRenderData *mr,
-                                           const uint task_id,
                                            const MVert *UNUSED(mv),
                                            const int lvert_index,
                                            void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPUIndexBufBuilder *elb = &userdata->subbuilders[task_id];
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
   const int offset = mr->loop_len + (mr->edge_loose_len * 2);
   vert_set_mesh(elb, mr, mr->lverts[lvert_index], offset + lvert_index);
 }
 
-static void extract_points_task_finish(const uint task_id, void *_userdata)
+static void extract_points_task_finish(void *_userdata, void *_task_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPU_indexbuf_subbuilder_finish(&userdata->builder, &userdata->subbuilders[task_id]);
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
+  GPUIndexBufBuilder *sub_builder = static_cast<GPUIndexBufBuilder *>(_task_userdata);
+  GPU_indexbuf_subbuilder_finish(elb, sub_builder);
+  MEM_freeN(sub_builder);
 }
 
 static void extract_points_finish(const MeshRenderData *UNUSED(mr),
@@ -151,11 +136,10 @@ static void extract_points_finish(const MeshRenderData *UNUSED(mr),
                                   void *buf,
                                   void *_userdata)
 {
-  ExtractPointsUserData *userdata = static_cast<ExtractPointsUserData *>(_userdata);
-  GPUIndexBufBuilder *elb = &userdata->builder;
+  GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
   GPUIndexBuf *ibo = static_cast<GPUIndexBuf *>(buf);
   GPU_indexbuf_build_in_place(elb, ibo);
-  delete userdata;
+  MEM_freeN(elb);
 }
 
 constexpr MeshExtract create_extractor_points()

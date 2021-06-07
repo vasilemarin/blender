@@ -159,8 +159,10 @@ typedef struct ExtractTriBMesh_Params {
   BMLoop *(*looptris)[3];
   int tri_range[2];
 } ExtractTriBMesh_Params;
-typedef void(ExtractTriBMeshFn)(
-    const MeshRenderData *mr, const uint task_id, BMLoop **elt, const int elt_index, void *data);
+typedef void(ExtractTriBMeshFn)(const MeshRenderData *mr,
+                                BMLoop **elt,
+                                const int elt_index,
+                                void *data);
 
 #define EXTRACT_TRIS_LOOPTRI_FOREACH_BM_BEGIN(elem_tri, index_tri, params) \
   CHECK_TYPE(params, const ExtractTriBMesh_Params *); \
@@ -176,7 +178,6 @@ typedef struct ExtractTriMesh_Params {
   int tri_range[2];
 } ExtractTriMesh_Params;
 typedef void(ExtractTriMeshFn)(const MeshRenderData *mr,
-                               const uint task_id,
                                const MLoopTri *mlt,
                                const int elt_index,
                                void *data);
@@ -200,8 +201,10 @@ typedef struct ExtractPolyBMesh_Params {
   BMLoop *(*looptris)[3];
   int poly_range[2];
 } ExtractPolyBMesh_Params;
-typedef void(ExtractPolyBMeshFn)(
-    const MeshRenderData *mr, const uint task_id, BMFace *f, const int f_index, void *data);
+typedef void(ExtractPolyBMeshFn)(const MeshRenderData *mr,
+                                 BMFace *f,
+                                 const int f_index,
+                                 void *data);
 
 #define EXTRACT_POLY_FOREACH_BM_BEGIN(elem_poly, index_poly, params, mr) \
   CHECK_TYPE(params, const ExtractPolyBMesh_Params *); \
@@ -244,8 +247,10 @@ typedef void(ExtractPolyBMeshFn)(
 typedef struct ExtractPolyMesh_Params {
   int poly_range[2];
 } ExtractPolyMesh_Params;
-typedef void(ExtractPolyMeshFn)(
-    const MeshRenderData *mr, const uint task_id, const MPoly *mp, const int mp_index, void *data);
+typedef void(ExtractPolyMeshFn)(const MeshRenderData *mr,
+                                const MPoly *mp,
+                                const int mp_index,
+                                void *data);
 
 #define EXTRACT_POLY_FOREACH_MESH_BEGIN(elem_poly, index_poly, params, mr) \
   CHECK_TYPE(params, const ExtractPolyMesh_Params *); \
@@ -292,8 +297,10 @@ typedef struct ExtractLEdgeBMesh_Params {
   const int *ledge;
   int ledge_range[2];
 } ExtractLEdgeBMesh_Params;
-typedef void(ExtractLEdgeBMeshFn)(
-    const MeshRenderData *mr, const uint task_id, BMEdge *eed, const int ledge_index, void *data);
+typedef void(ExtractLEdgeBMeshFn)(const MeshRenderData *mr,
+                                  BMEdge *eed,
+                                  const int ledge_index,
+                                  void *data);
 
 #define EXTRACT_LEDGE_FOREACH_BM_BEGIN(elem_edge, index_ledge, params) \
   CHECK_TYPE(params, const ExtractLEdgeBMesh_Params *); \
@@ -317,7 +324,6 @@ typedef struct ExtractLEdgeMesh_Params {
   int ledge_range[2];
 } ExtractLEdgeMesh_Params;
 typedef void(ExtractLEdgeMeshFn)(const MeshRenderData *mr,
-                                 const uint task_id,
                                  const MEdge *med,
                                  const uint ledge_index,
                                  void *data);
@@ -348,8 +354,10 @@ typedef struct ExtractLVertBMesh_Params {
   const int *lvert;
   int lvert_range[2];
 } ExtractLVertBMesh_Params;
-typedef void(ExtractLVertBMeshFn)(
-    const MeshRenderData *mr, const uint task_id, BMVert *eve, const int lvert_index, void *data);
+typedef void(ExtractLVertBMeshFn)(const MeshRenderData *mr,
+                                  BMVert *eve,
+                                  const int lvert_index,
+                                  void *data);
 
 #define EXTRACT_LVERT_FOREACH_BM_BEGIN(elem_vert, index_lvert, params) \
   CHECK_TYPE(params, const ExtractLVertBMesh_Params *); \
@@ -373,7 +381,6 @@ typedef struct ExtractLVertMesh_Params {
   int lvert_range[2];
 } ExtractLVertMesh_Params;
 typedef void(ExtractLVertMeshFn)(const MeshRenderData *mr,
-                                 const uint task_id,
                                  const MVert *mv,
                                  const int lvert_index,
                                  void *data);
@@ -402,14 +409,13 @@ typedef void(ExtractLVertMeshFn)(const MeshRenderData *mr,
 /* TODO(jbakker): move parameters inside a struct. */
 typedef void *(ExtractInitFn)(const MeshRenderData *mr,
                               struct MeshBatchCache *cache,
-                              void *buffer,
-                              uint task_len);
+                              void *buffer);
 typedef void(ExtractFinishFn)(const MeshRenderData *mr,
                               struct MeshBatchCache *cache,
                               void *buffer,
                               void *data);
-typedef void(ExtractTaskInitFn)(const uint task_id, void *userdata);
-typedef void(ExtractTaskFinishFn)(const uint task_id, void *userdata);
+typedef void *(ExtractTaskInitFn)(void *userdata);
+typedef void(ExtractTaskFinishFn)(void *userdata, void *task_userdata);
 
 typedef struct MeshExtract {
   /** Executed on main thread and return user data for iteration functions. */
