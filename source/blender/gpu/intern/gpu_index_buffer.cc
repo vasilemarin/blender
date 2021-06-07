@@ -93,6 +93,8 @@ void GPU_indexbuf_subbuilder_finish(GPUIndexBufBuilder *parent_builder,
 {
   BLI_assert(parent_builder == sub_builder->parent);
   parent_builder->index_len = max_uu(parent_builder->index_len, sub_builder->index_len);
+  parent_builder->index_min = min_uu(parent_builder->index_min, sub_builder->index_min);
+  parent_builder->index_max = max_uu(parent_builder->index_max, sub_builder->index_max);
 }
 
 void GPU_indexbuf_add_generic_vert(GPUIndexBufBuilder *builder, uint v)
