@@ -763,7 +763,8 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
         .skip_flags = BLO_READ_SKIP_USERDEF,
     };
 
-    struct BlendFileData *bfd = BKE_blendfile_read(filepath, &params, reports);
+    BlendFileReadReport bf_reports = {.reports = reports};
+    struct BlendFileData *bfd = BKE_blendfile_read(filepath, &params, &bf_reports);
     if (bfd != NULL) {
       wm_file_read_pre(C, use_data, use_userdef);
 
@@ -776,7 +777,7 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
        * need to re-enable it here else drivers + registered scripts wont work. */
       const int G_f_orig = G.f;
 
-      BKE_blendfile_read_setup(C, bfd, &params, reports);
+      BKE_blendfile_read_setup(C, bfd, &params, &bf_reports);
 
       if (G.f != G_f_orig) {
         const int flags_keep = G_FLAG_ALL_RUNTIME;

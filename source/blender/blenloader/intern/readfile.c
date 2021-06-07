@@ -226,7 +226,7 @@ typedef struct BHeadN {
  * bit kludge but better than doubling up on prints,
  * we could alternatively have a versions of a report function which forces printing - campbell
  */
-void BLO_reportf_wrap(ReportList *reports, ReportType type, const char *format, ...)
+void BLO_reportf_wrap(BlendFileReadReport *reports, ReportType type, const char *format, ...)
 {
   char fixed_buf[1024]; /* should be long enough */
 
@@ -238,7 +238,7 @@ void BLO_reportf_wrap(ReportList *reports, ReportType type, const char *format, 
 
   fixed_buf[sizeof(fixed_buf) - 1] = '\0';
 
-  BKE_report(reports, type, fixed_buf);
+  BKE_report(reports != NULL ? reports->reports : NULL, type, fixed_buf);
 
   if (G.background == 0) {
     printf("%s: %s\n", BKE_report_type_str(type), fixed_buf);
@@ -4227,7 +4227,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
       blo_split_main(&mainlist, bfd->main);
       LISTBASE_FOREACH (Main *, mainvar, &mainlist) {
         BLI_assert(mainvar->versionfile != 0);
-        do_versions_after_linking(mainvar, fd->reports);
+        do_versions_after_linking(mainvar, fd->reports != NULL ? fd->reports->reports : NULL);
       }
       blo_join_main(&mainlist);
 
@@ -4248,7 +4248,8 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
      * we can re-generate overrides from their references. */
     if (fd->memfile == NULL) {
       /* Do not apply in undo case! */
-      BKE_lib_override_library_main_validate(bfd->main, fd->reports);
+      BKE_lib_override_library_main_validate(bfd->main,
+                                             fd->reports != NULL ? fd->reports->reports : NULL);
       BKE_lib_override_library_main_update(bfd->main);
     }
 
@@ -5205,7 +5206,7 @@ static void library_link_end(Main *mainl,
      * or they will go again through do_versions - bad, very bad! */
     split_main_newid(mainvar, main_newid);
 
-    do_versions_after_linking(main_newid, (*fd)->reports);
+    do_versions_after_linking(main_newid, (*fd)->reports != NULL ? (*fd)->reports->reports : NULL);
 
     add_main_to_main(mainvar, main_newid);
   }
@@ -5590,7 +5591,7 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
   BKE_main_free(main_newid);
 
   if (basefd->library_file_missing_count != 0 || basefd->library_id_missing_count != 0) {
-    BKE_reportf(basefd->reports,
+    BKE_reportf(basefd->reports != NULL ? basefd->reports->reports : NULL,
                 RPT_WARNING,
                 "LIB: %d libraries and %d linked data-blocks are missing, please check the "
                 "Info and Outliner editors for details",
@@ -5784,7 +5785,7 @@ void BLO_read_glob_list(BlendDataReader *reader, ListBase *list)
   link_glob_list(reader->fd, list);
 }
 
-ReportList *BLO_read_data_reports(BlendDataReader *reader)
+BlendFileReadReport *BLO_read_data_reports(BlendDataReader *reader)
 {
   return reader->fd->reports;
 }
@@ -5799,7 +5800,7 @@ Main *BLO_read_lib_get_main(BlendLibReader *reader)
   return reader->main;
 }
 
-ReportList *BLO_read_lib_reports(BlendLibReader *reader)
+BlendFileReadReport *BLO_read_lib_reports(BlendLibReader *reader)
 {
   return reader->fd->reports;
 }
