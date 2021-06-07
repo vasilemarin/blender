@@ -987,7 +987,8 @@ static void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
        */
       int num_threads = BLI_task_scheduler_num_threads();
       num_threads -= single_threaded_extractors_len % num_threads;
-      const int task_len = multi_threaded_extractors->iter_types_len() * num_threads;
+      const int max_multithreaded_task_len = multi_threaded_extractors->iter_types_len() +
+                                             num_threads;
 
       UserDataInitTaskData *user_data_init_task_data = new UserDataInitTaskData();
       struct TaskNode *task_node_user_data_init = user_data_init_task_node_create(
@@ -998,7 +999,7 @@ static void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
                                                          multi_threaded_extractors,
                                                          mbc,
                                                          &user_data_init_task_data->task_counter,
-                                                         task_len);
+                                                         max_multithreaded_task_len);
 
       extract_task_in_ranges_create(
           task_graph, task_node_user_data_init, user_data_init_task_data->td, num_threads);
