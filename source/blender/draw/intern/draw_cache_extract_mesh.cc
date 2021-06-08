@@ -24,6 +24,8 @@
  */
 #include "MEM_guardedalloc.h"
 
+#include <optional>
+
 #include "atomic_ops.h"
 
 #include "DNA_mesh_types.h"
