@@ -118,7 +118,7 @@ static void extract_points_iter_ledge_bm(const MeshRenderData *mr,
 
 static void extract_points_iter_ledge_mesh(const MeshRenderData *mr,
                                            const MEdge *med,
-                                           const uint ledge_index,
+                                           const int ledge_index,
                                            void *_userdata)
 {
   GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_userdata);
@@ -179,6 +179,7 @@ constexpr MeshExtract create_extractor_points()
   extractor.task_finish = extract_points_task_finish;
   extractor.finish = extract_points_finish;
   extractor.use_threading = true;
+  extractor.data_type = MR_DATA_NONE;
   extractor.mesh_buffer_offset = offsetof(MeshBufferCache, ibo.points);
   return extractor;
 }
