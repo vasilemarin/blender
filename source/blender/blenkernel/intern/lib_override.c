@@ -60,6 +60,8 @@
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
 
+#include "PIL_time.h"
+
 #include "RNA_access.h"
 #include "RNA_types.h"
 
@@ -1442,6 +1444,9 @@ static void lib_override_library_main_resync_on_library_indirect_level(
     const int library_indirect_level,
     BlendFileReadReport *reports)
 {
+  const bool do_reports_timing = (library_indirect_level != 0 && reports != NULL);
+  const double init_time = do_reports_timing ? PIL_check_seconds_timer() : 0.0;
+
   BKE_main_relations_create(bmain, 0);
   BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
 
@@ -1557,6 +1562,10 @@ static void lib_override_library_main_resync_on_library_indirect_level(
       }
     }
     FOREACH_MAIN_LISTBASE_END;
+  }
+
+  if (do_reports_timing) {
+    reports->duration_lib_overrides_recursive_resync += PIL_check_seconds_timer() - init_time;
   }
 }
 

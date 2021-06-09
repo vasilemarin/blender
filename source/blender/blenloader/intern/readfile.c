@@ -71,6 +71,8 @@
 #include "BLI_mmap.h"
 #include "BLI_threads.h"
 
+#include "PIL_time.h"
+
 #include "BLT_translation.h"
 
 #include "BKE_anim_data.h"
@@ -4205,12 +4207,20 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
   }
 
   if ((fd->skip_flags & BLO_READ_SKIP_DATA) == 0) {
+    if (fd->reports != NULL) {
+      fd->reports->duration_libraries = PIL_check_seconds_timer();
+    }
     read_libraries(fd, &mainlist);
 
     blo_join_main(&mainlist);
 
     lib_link_all(fd, bfd->main);
     after_liblink_merged_bmain_process(bfd->main);
+
+    if (fd->reports != NULL) {
+      fd->reports->duration_libraries = PIL_check_seconds_timer() -
+                                        fd->reports->duration_libraries;
+    }
 
     /* Skip in undo case. */
     if (fd->memfile == NULL) {
@@ -4248,9 +4258,18 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
      * we can re-generate overrides from their references. */
     if (fd->memfile == NULL) {
       /* Do not apply in undo case! */
+      if (fd->reports != NULL) {
+        fd->reports->duration_lib_overrides = PIL_check_seconds_timer();
+      }
+
       BKE_lib_override_library_main_validate(bfd->main,
                                              fd->reports != NULL ? fd->reports->reports : NULL);
       BKE_lib_override_library_main_update(bfd->main);
+
+      if (fd->reports != NULL) {
+        fd->reports->duration_lib_overrides = PIL_check_seconds_timer() -
+                                              fd->reports->duration_lib_overrides;
+      }
     }
 
     BKE_collections_after_lib_link(bfd->main);
@@ -5340,7 +5359,9 @@ static void read_library_linked_id(
                      id->name + 2,
                      mainvar->curlib->filepath_abs,
                      library_parent_filepath(mainvar->curlib));
-    basefd->library_id_missing_count++;
+    if (basefd->reports != NULL) {
+      basefd->reports->num_missing_linked_id++;
+    }
 
     /* Generate a placeholder for this ID (simplified version of read_libblock actually...). */
     if (r_id) {
@@ -5444,7 +5465,8 @@ static FileData *read_library_file_data(FileData *basefd,
                      TIP_("Read packed library:  '%s', parent '%s'"),
                      mainptr->curlib->filepath,
                      library_parent_filepath(mainptr->curlib));
-    fd = blo_filedata_from_memory(pf->data, pf->size, basefd->reports);
+    fd = blo_filedata_from_memory(
+        pf->data, pf->size, basefd->reports != NULL ? basefd->reports->reports : NULL);
 
     /* Needed for library_append and read_libraries. */
     BLI_strncpy(fd->relabase, mainptr->curlib->filepath_abs, sizeof(fd->relabase));
@@ -5457,7 +5479,8 @@ static FileData *read_library_file_data(FileData *basefd,
                      mainptr->curlib->filepath_abs,
                      mainptr->curlib->filepath,
                      library_parent_filepath(mainptr->curlib));
-    fd = blo_filedata_from_file(mainptr->curlib->filepath_abs, basefd->reports);
+    fd = blo_filedata_from_file(mainptr->curlib->filepath_abs,
+                                basefd->reports != NULL ? basefd->reports->reports : NULL);
   }
 
   if (fd) {
@@ -5495,7 +5518,9 @@ static FileData *read_library_file_data(FileData *basefd,
   if (fd == NULL) {
     BLO_reportf_wrap(
         basefd->reports, RPT_INFO, TIP_("Cannot find lib '%s'"), mainptr->curlib->filepath_abs);
-    basefd->library_file_missing_count++;
+    if (basefd->reports != NULL) {
+      basefd->reports->num_missing_libraries++;
+    }
   }
 
   return fd;
@@ -5590,13 +5615,14 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
   }
   BKE_main_free(main_newid);
 
-  if (basefd->library_file_missing_count != 0 || basefd->library_id_missing_count != 0) {
-    BKE_reportf(basefd->reports != NULL ? basefd->reports->reports : NULL,
+  if (basefd->reports != NULL && (basefd->reports->num_missing_libraries != 0 ||
+                                  basefd->reports->num_missing_linked_id != 0)) {
+    BKE_reportf(basefd->reports->reports,
                 RPT_WARNING,
                 "LIB: %d libraries and %d linked data-blocks are missing, please check the "
                 "Info and Outliner editors for details",
-                basefd->library_file_missing_count,
-                basefd->library_id_missing_count);
+                basefd->reports->num_missing_libraries,
+                basefd->reports->num_missing_linked_id);
   }
 }
 

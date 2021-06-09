@@ -52,11 +52,14 @@
 #include "BLI_blenlib.h"
 #include "BLI_fileops_types.h"
 #include "BLI_linklist.h"
+#include "BLI_math.h"
 #include "BLI_system.h"
 #include "BLI_threads.h"
 #include "BLI_timer.h"
 #include "BLI_utildefines.h"
 #include BLI_SYSTEM_PID_H
+
+#include "PIL_time.h"
 
 #include "BLT_translation.h"
 
@@ -763,7 +766,8 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
         .skip_flags = BLO_READ_SKIP_USERDEF,
     };
 
-    BlendFileReadReport bf_reports = {.reports = reports};
+    BlendFileReadReport bf_reports = {.reports = reports,
+                                      .duration_whole = PIL_check_seconds_timer()};
     struct BlendFileData *bfd = BKE_blendfile_read(filepath, &params, &bf_reports);
     if (bfd != NULL) {
       wm_file_read_pre(C, use_data, use_userdef);
@@ -807,6 +811,34 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
       }
 
       wm_file_read_post(C, false, false, use_data, use_userdef, false);
+
+      bf_reports.duration_whole = PIL_check_seconds_timer() - bf_reports.duration_whole;
+      const int duration_whole_minutes = (int)floor(bf_reports.duration_whole / 60.0);
+      const int duration_libraries_minutes = (int)floor(bf_reports.duration_libraries / 60.0);
+      const int duration_lib_override_minutes = (int)floor(bf_reports.duration_lib_overrides /
+                                                           60.0);
+      const int duration_lib_override_resync_minutes = (int)floor(
+          bf_reports.duration_lib_overrides_resync / 60.0);
+      const int duration_lib_override_recursive_resync_minutes = (int)floor(
+          bf_reports.duration_lib_overrides_recursive_resync / 60.0);
+
+      BKE_reportf(reports,
+                  RPT_INFO,
+                  "Blender file read in %d min %f sec (loading libraries: %d min %f sec, applying "
+                  "overrides: %d min %f sec, resyncing overrides: %d min %f sec, recursive resync "
+                  "of overrides: %d min %f sec)",
+                  duration_whole_minutes,
+                  bf_reports.duration_whole - (duration_whole_minutes * 60.0),
+                  duration_libraries_minutes,
+                  bf_reports.duration_libraries - (duration_libraries_minutes * 60.0),
+                  duration_lib_override_minutes,
+                  bf_reports.duration_lib_overrides - (duration_lib_override_minutes * 60.0),
+                  duration_lib_override_resync_minutes,
+                  bf_reports.duration_lib_overrides_resync -
+                      (duration_lib_override_resync_minutes * 60.0),
+                  duration_lib_override_recursive_resync_minutes,
+                  bf_reports.duration_lib_overrides_recursive_resync -
+                      (duration_lib_override_recursive_resync_minutes * 60.0));
 
       success = true;
     }

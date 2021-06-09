@@ -36,6 +36,8 @@
 #include "BLI_system.h"
 #include "BLI_utildefines.h"
 
+#include "PIL_time.h"
+
 #include "IMB_colormanagement.h"
 
 #include "BKE_addon.h"
@@ -398,11 +400,21 @@ static void setup_app_data(bContext *C,
   }
 
   if (mode != LOAD_UNDO && !USER_EXPERIMENTAL_TEST(&U, no_override_auto_resync)) {
+    if (reports != NULL) {
+      reports->duration_lib_overrides_resync = PIL_check_seconds_timer();
+    }
+
     BKE_lib_override_library_main_resync(
         bmain,
         curscene,
         bfd->cur_view_layer ? bfd->cur_view_layer : BKE_view_layer_default_view(curscene),
         reports);
+
+    if (reports != NULL) {
+      reports->duration_lib_overrides_resync = PIL_check_seconds_timer() -
+                                               reports->duration_lib_overrides_resync;
+    }
+
     /* We need to rebuild some of the deleted override rules (for UI feedback purpose). */
     BKE_lib_override_library_main_operations_create(bmain, true);
   }

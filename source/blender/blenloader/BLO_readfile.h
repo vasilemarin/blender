@@ -94,14 +94,15 @@ typedef struct BlendFileReadReport {
   struct ReportList *reports;
 
   /* Timing informations .*/
-  float duration_whole;
-  float duration_libraries;
-  float duration_lib_overrides;
-  float duration_lib_overrides_resync;
-  float duration_lib_overrides_recursive_resync;
+  double duration_whole;
+  double duration_libraries;
+  double duration_lib_overrides;
+  double duration_lib_overrides_resync;
+  double duration_lib_overrides_recursive_resync;
 
   /* Some numbers of IDs that ended up in a specific state, or required some specific process
    * during this file read. */
+  int num_missing_libraries;
   int num_missing_linked_id;
   int num_resynced_lib_overrides;
 

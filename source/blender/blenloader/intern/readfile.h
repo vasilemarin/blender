@@ -146,10 +146,6 @@ typedef struct FileData {
   struct IDNameLib_Map *old_idmap;
 
   struct BlendFileReadReport *reports;
-  /* Counters for amount of missing libraries, and missing IDs in libraries.
-   * Used to generate a synthetic report in the UI. */
-  int library_file_missing_count;
-  int library_id_missing_count;
 } FileData;
 
 #define SIZEOFBLENDERHEADER 12
