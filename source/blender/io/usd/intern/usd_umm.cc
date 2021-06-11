@@ -591,6 +591,11 @@ static void set_shader_properties(const USDExporterContext &usd_export_context,
           asset_input.Set(pxr::SdfAssetPath(asset_path));
           asset_input.GetAttr().SetColorSpace(pxr::TfToken(color_space));
         }
+        else if (PyFloat_Check(item0) && PyFloat_Check(item1)) {
+          float f0 = static_cast<float>(PyFloat_AsDouble(item0));
+          float f1 = static_cast<float>(PyFloat_AsDouble(item1));
+          usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Float2).Set(pxr::GfVec2f(f0, f1));
+        }
       }
       else if (PyTuple_Check(second) && PyTuple_Size(second) == 3) {
         pxr::GfVec3f f3val;
