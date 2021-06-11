@@ -822,23 +822,44 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
       const int duration_lib_override_recursive_resync_minutes = (int)floor(
           bf_reports.duration_lib_overrides_recursive_resync / 60.0);
 
-      BKE_reportf(reports,
-                  RPT_INFO,
-                  "Blender file read in %d min %f sec (loading libraries: %d min %f sec, applying "
-                  "overrides: %d min %f sec, resyncing overrides: %d min %f sec, recursive resync "
-                  "of overrides: %d min %f sec)",
-                  duration_whole_minutes,
-                  bf_reports.duration_whole - (duration_whole_minutes * 60.0),
-                  duration_libraries_minutes,
-                  bf_reports.duration_libraries - (duration_libraries_minutes * 60.0),
-                  duration_lib_override_minutes,
-                  bf_reports.duration_lib_overrides - (duration_lib_override_minutes * 60.0),
-                  duration_lib_override_resync_minutes,
-                  bf_reports.duration_lib_overrides_resync -
-                      (duration_lib_override_resync_minutes * 60.0),
-                  duration_lib_override_recursive_resync_minutes,
-                  bf_reports.duration_lib_overrides_recursive_resync -
-                      (duration_lib_override_recursive_resync_minutes * 60.0));
+      BKE_reportf(
+          reports,
+          RPT_INFO,
+          "Blender file read in %d min %.2f sec (loading libraries: %d min %.2f sec, applying "
+          "overrides: %d min %.2f sec, resyncing overrides: %d min %.2f sec (%d root "
+          "overrides), among which recursive resync of overrides: %d min %.2f sec)",
+          duration_whole_minutes,
+          bf_reports.duration_whole - (duration_whole_minutes * 60.0),
+          duration_libraries_minutes,
+          bf_reports.duration_libraries - (duration_libraries_minutes * 60.0),
+          duration_lib_override_minutes,
+          bf_reports.duration_lib_overrides - (duration_lib_override_minutes * 60.0),
+          duration_lib_override_resync_minutes,
+          bf_reports.duration_lib_overrides_resync - (duration_lib_override_resync_minutes * 60.0),
+          bf_reports.num_resynced_lib_overrides,
+          duration_lib_override_recursive_resync_minutes,
+          bf_reports.duration_lib_overrides_recursive_resync -
+              (duration_lib_override_recursive_resync_minutes * 60.0));
+      if (bf_reports.num_resynced_lib_overrides_libraries != 0) {
+        for (LinkNode *node_lib = bf_reports.libraries_recursive_linked; node_lib != NULL;
+             node_lib = node_lib->next) {
+          Library *library = node_lib->link;
+          BKE_reportf(reports, RPT_INFO, "Library %s needs overrides resync.", library->filepath);
+        }
+        BKE_reportf(reports,
+                    RPT_WARNING,
+                    "%d libraries have overrides needing resync, this costed %d min %.2f seconds "
+                    "of the total %d min %.2f sec file reading.",
+                    bf_reports.num_resynced_lib_overrides_libraries,
+                    duration_lib_override_recursive_resync_minutes,
+                    bf_reports.duration_lib_overrides_recursive_resync -
+                        (duration_lib_override_recursive_resync_minutes * 60.0),
+                    duration_whole_minutes,
+                    bf_reports.duration_whole - (duration_whole_minutes * 60.0));
+      }
+
+      BLI_linklist_free(bf_reports.libraries_recursive_linked, NULL);
+      bf_reports.libraries_recursive_linked = NULL;
 
       success = true;
     }

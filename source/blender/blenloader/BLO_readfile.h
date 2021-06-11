@@ -104,11 +104,12 @@ typedef struct BlendFileReadReport {
    * during this file read. */
   int num_missing_libraries;
   int num_missing_linked_id;
+  /* Number of root override IDs that were resynced. */
   int num_resynced_lib_overrides;
 
   /* Number of libraries which had overrides that needed to be resynced, and a single linked list
    * of those. */
-  int num_resynced_linked_lib_overrides;
+  int num_resynced_lib_overrides_libraries;
   struct LinkNode *libraries_recursive_linked;
 } BlendFileReadReport;
 

@@ -55,6 +55,7 @@
 #include "BLO_readfile.h"
 
 #include "BLI_ghash.h"
+#include "BLI_linklist.h"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_task.h"
@@ -1537,6 +1538,7 @@ static void lib_override_library_main_resync_on_library_indirect_level(
             (!ID_IS_LINKED(id) && library_indirect_level != 0)) {
           continue;
         }
+        Library *library = id->lib;
 
         int level = 0;
         /* In complex non-supported cases, with several different override hierarchies sharing
@@ -1548,12 +1550,21 @@ static void lib_override_library_main_resync_on_library_indirect_level(
         id = lib_override_library_main_resync_find_root_recurse(id, &level);
         id->tag &= ~LIB_TAG_LIB_OVERRIDE_NEED_RESYNC;
         BLI_assert(ID_IS_OVERRIDE_LIBRARY_REAL(id));
+        BLI_assert(id->lib == library);
         do_continue = true;
 
-        CLOG_INFO(&LOG, 2, "Resyncing %s (%p)...", id->name, id->lib);
+        CLOG_INFO(&LOG, 2, "Resyncing %s (%p)...", id->name, library);
         const bool success = BKE_lib_override_library_resync(
             bmain, scene, view_layer, id, override_resync_residual_storage, false, false, reports);
         CLOG_INFO(&LOG, 2, "\tSuccess: %d", success);
+        if (success && reports != NULL) {
+          reports->num_resynced_lib_overrides++;
+          if (library_indirect_level > 0 &&
+              BLI_linklist_index(reports->libraries_recursive_linked, library) < 0) {
+            BLI_linklist_prepend(&reports->libraries_recursive_linked, library);
+            reports->num_resynced_lib_overrides_libraries++;
+          }
+        }
         break;
       }
       FOREACH_MAIN_LISTBASE_ID_END;
