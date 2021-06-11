@@ -73,6 +73,10 @@ void export_texture(bNode *node, const pxr::UsdStageRefPtr stage);
 
 void export_textures(const Material *material, const pxr::UsdStageRefPtr stage);
 
+std::string get_node_tex_image_filepath(bNode *node,
+                                        const pxr::UsdStageRefPtr stage,
+                                        const USDExportParams &export_params);
+
 std::string get_texture_filepath(const std::string &tex_filepath,
                                  const pxr::UsdStageRefPtr stage,
                                  const USDExportParams &export_params);

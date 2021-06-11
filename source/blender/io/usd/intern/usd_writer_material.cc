@@ -640,18 +640,6 @@ static std::string get_node_tex_image_filepath(bNode *node)
   return std::string(filepath);
 }
 
-/* Gets a NodeTexImage's filepath, returning a path in the texture export directory or a relative
- * path, if the export parameters require it.
- */
-static std::string get_node_tex_image_filepath(bNode *node,
-                                               const pxr::UsdStageRefPtr stage,
-                                               const USDExportParams &export_params)
-{
-  std::string image_path = get_node_tex_image_filepath(node);
-
-  return get_texture_filepath(image_path, stage, export_params);
-}
-
 static pxr::TfToken get_node_tex_image_color_space(bNode *node)
 {
   if (node->type != SH_NODE_TEX_IMAGE) {
@@ -2276,10 +2264,23 @@ void create_mdl_material(const USDExporterContext &usd_export_context,
 #endif
 }
 
+/* Gets a NodeTexImage's filepath, returning a path in the texture export directory or a relative
+ * path, if the export parameters require it.
+ */
+std::string get_node_tex_image_filepath(bNode *node,
+                                        const pxr::UsdStageRefPtr stage,
+                                        const USDExportParams &export_params)
+{
+  std::string image_path = get_node_tex_image_filepath(node);
+
+  return get_texture_filepath(image_path, stage, export_params);
+}
+
 /* Based on ImagesExporter::export_UV_Image() */
 void export_texture(bNode *node, const pxr::UsdStageRefPtr stage)
 {
-  if (!stage || !node || node->type != SH_NODE_TEX_IMAGE) {
+  if (!stage || !node ||
+      (node->type != SH_NODE_TEX_IMAGE && node->type != SH_NODE_TEX_ENVIRONMENT)) {
     return;
   }
 
@@ -2292,8 +2293,6 @@ void export_texture(bNode *node, const pxr::UsdStageRefPtr stage)
   if (stage_path.empty()) {
     return;
   }
-
-  NodeTexImage *tex_image = reinterpret_cast<NodeTexImage *>(node->storage);
 
   Image *ima = reinterpret_cast<Image *>(node->id);
 

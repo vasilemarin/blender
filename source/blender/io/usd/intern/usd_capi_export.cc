@@ -20,6 +20,7 @@
 #include "usd.h"
 #include "usd_common.h"
 #include "usd_hierarchy_iterator.h"
+#include "usd_light_convert.h"
 #include "usd_umm.h"
 #include "usd_writer_material.h"
 
@@ -30,8 +31,6 @@
 #include <pxr/usd/usdGeom/scope.h>
 #include <pxr/usd/usdGeom/tokens.h>
 #include <pxr/usd/usdGeom/xformCommonAPI.h>
-#include <pxr/usd/usdLux/domeLight.h>
-#include <pxr/usd/usdShade/materialBindingAPI.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -40,19 +39,15 @@
 #include "DEG_depsgraph_query.h"
 
 #include "DNA_scene_types.h"
-#include "DNA_world_types.h"
 
 #include "BKE_appdir.h"
 #include "BKE_blender_version.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
-#include "BKE_node.h"
 #include "BKE_scene.h"
-//#include "BKE_world.h"
 
 #include "BLI_fileops.h"
-#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 #include "BLI_path_util.h"
@@ -169,85 +164,8 @@ static void export_startjob(void *customdata,
     return;
   }
 
-  // Handle World Surface (Environment Lights)
-  // TODO: This should live somewhere else. But cannot live in usd_writer_light as it stands
-  //      Few assumptions:
-  //        - primpath (/lights/environment)
-  //        - transform
-  //        - no blender specific nodes used
-  if (data->params.export_lights && scene && scene->world && scene->world->use_nodes &&
-      !data->params.selected_objects_only) {
-
-    float world_color[3];
-    float world_intensity = 0.0f;
-
-    char filepath[1024] = "\0";
-
-    bool background_found = false;
-    bool env_tex_found = false;
-    pxr::SdfPath environment_light_path(std::string(data->params.root_prim_path) +
-                                        "/lights/environment");
-
-    // Store Light node tree
-    pxr::UsdShadeMaterial world_mat = pxr::UsdShadeMaterial::Define(
-        usd_stage, environment_light_path.AppendChild(pxr::TfToken("world_material")));
-    create_usd_cycles_material(usd_stage, scene->world->nodetree, world_mat, data->params);
-
-    // Convert node graph to USD Dome Light
-
-    for (bNode *node = (bNode *)scene->world->nodetree->nodes.first; node; node = node->next) {
-
-      // Get light intensity
-      if (ELEM(node->type, SH_NODE_BACKGROUND)) {
-
-        bNodeSocketValueRGBA *color_data =
-            (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&node->inputs, 0))->default_value;
-        bNodeSocketValueFloat *strength_data =
-            (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(&node->inputs, 1))
-                ->default_value;
-
-        background_found = true;
-        world_intensity = strength_data->value;
-        world_color[0] = color_data->value[0];
-        world_color[1] = color_data->value[1];
-        world_color[2] = color_data->value[2];
-      }
-
-      // Get env tex path
-      if (ELEM(node->type, SH_NODE_TEX_ENVIRONMENT)) {
-        Image *ima = (Image *)node->id;
-
-        STRNCPY(filepath, ima->filepath);
-        BLI_path_abs(filepath, BKE_main_blendfile_path_from_global());
-
-        BLI_str_replace_char(filepath, '\\', '/');
-
-        env_tex_found = true;
-      }
-    }
-
-    // Create USDLux light
-    if (background_found) {
-
-      pxr::UsdLuxDomeLight dome_light = pxr::UsdLuxDomeLight::Define(usd_stage,
-                                                                     environment_light_path);
-
-      pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(dome_light.GetPrim());
-      api.Bind(world_mat);
-
-      // TODO(bjs): Should be handled more correctly
-      if (data->params.convert_orientation)
-        pxr::UsdGeomXformCommonAPI(dome_light).SetRotate(pxr::GfVec3f(0.0f, 90.0f, 0.0f));
-      else
-        pxr::UsdGeomXformCommonAPI(dome_light);  //.SetRotate(pxr::GfVec3f(-90.0f, 0.0f, 90.0f));
-
-      if (env_tex_found)
-        dome_light.CreateTextureFileAttr().Set(pxr::SdfAssetPath(filepath));
-      else
-        dome_light.CreateColorAttr().Set(
-            pxr::VtValue(pxr::GfVec3f(world_color[0], world_color[1], world_color[2])));
-      dome_light.CreateIntensityAttr().Set(pxr::VtValue(world_intensity));
-    }
+  if (data->params.export_lights && !data->params.selected_objects_only) {
+    world_material_to_dome_light(data->params, scene, usd_stage);
   }
 
   // Define material prim path as a scope

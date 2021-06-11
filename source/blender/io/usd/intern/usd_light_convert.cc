@@ -18,12 +18,43 @@
  */
 
 #include "usd_light_convert.h"
+#include "usd_writer_material.h"
+
+#include "usd.h"
+
+#include <pxr/usd/usdGeom/scope.h>
+#include <pxr/usd/usdGeom/xformCommonAPI.h>
+#include <pxr/usd/usdLux/domeLight.h>
+#include <pxr/usd/usdShade/material.h>
+#include <pxr/usd/usdShade/materialBindingAPI.h>
 
 #include "BKE_light.h"
+#include "BKE_main.h"
+#include "BKE_node.h"
+#include "BKE_scene.h"
+#include "BLI_listbase.h"
+#include "BLI_path_util.h"
+#include "BLI_string.h"
 #include "BlI_math.h"
+
 #include "DNA_light_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_world_types.h"
+
+#include <string>
+
+namespace usdtokens {
+// Attribute names.
+static const pxr::TfToken color("color", pxr::TfToken::Immortal);
+static const pxr::TfToken intensity("intensity", pxr::TfToken::Immortal);
+static const pxr::TfToken texture_file("texture:file", pxr::TfToken::Immortal);
+}  // namespace usdtokens
 
 namespace blender::io::usd {
+
+static const float nits_to_watts_per_meter_sq = 0.0014641f;
+
+static const float watts_per_meter_sq_to_nits = 1.0f / nits_to_watts_per_meter_sq;
 
 /* Return the scale factor to convert nits to light energy
  * (Watts or Watts per meter squared) for the given light. */
@@ -34,8 +65,6 @@ float nits_to_energy_scale_factor(const Light *light,
   if (!light) {
     return 1.0f;
   }
-
-  const float nits_to_watts_per_meter_sq = 0.0014641f;
 
   /* Compute meters per unit squared. */
   const float mpu_sq = meters_per_unit * meters_per_unit;
@@ -82,6 +111,130 @@ float nits_to_energy_scale_factor(const Light *light,
   }
 
   return scale;
+}
+
+/* If the Blender scene has an environment texture,
+ * export it as a USD dome light. */
+void world_material_to_dome_light(const USDExportParams &params,
+                                  const Scene *scene,
+                                  pxr::UsdStageRefPtr stage)
+{
+  if (!(stage && scene && scene->world && scene->world->use_nodes)) {
+    return;
+  }
+
+  float world_color[3] = {1.0f, 1.0f, 1.0f};
+  float world_intensity = 0.0f;
+  float tex_rot[3] = {0.0f, 0.0f, 0.0f};
+
+  std::string file_path;
+
+  bool background_found = false;
+  bool env_tex_found = false;
+
+  pxr::SdfPath light_path(std::string(params.root_prim_path) + "/lights");
+
+  usd_define_or_over<pxr::UsdGeomScope>(stage, light_path, params.export_as_overs);
+
+  /* Convert node graph to USD Dome Light.
+   * TODO(makowalski): verify node connections. */
+  for (bNode *node = (bNode *)scene->world->nodetree->nodes.first; node; node = node->next) {
+
+    if (ELEM(node->type, SH_NODE_BACKGROUND)) {
+      /* Get light color and intensity */
+      bNodeSocketValueRGBA *color_data =
+          (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&node->inputs, 0))->default_value;
+      bNodeSocketValueFloat *strength_data =
+          (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(&node->inputs, 1))->default_value;
+
+      background_found = true;
+      world_intensity = strength_data->value;
+      world_color[0] = color_data->value[0];
+      world_color[1] = color_data->value[1];
+      world_color[2] = color_data->value[2];
+    }
+    else if (ELEM(node->type, SH_NODE_TEX_ENVIRONMENT)) {
+      /* Get env tex path. */
+
+      file_path = get_node_tex_image_filepath(node, stage, params);
+
+      if (!file_path.empty()) {
+        /* Get the rotation. */
+        NodeTexEnvironment *tex = static_cast<NodeTexEnvironment *>(node->storage);
+        copy_v3_v3(tex_rot, tex->base.tex_mapping.rot);
+
+        env_tex_found = true;
+
+        if (params.export_textures) {
+          export_texture(node, stage);
+        }
+      }
+    }
+  }
+
+  // Create USD dome light
+  if (background_found || env_tex_found) {
+
+    pxr::SdfPath env_light_path = light_path.AppendChild(pxr::TfToken("environment"));
+
+    pxr::UsdLuxDomeLight dome_light = usd_define_or_over<pxr::UsdLuxDomeLight>(
+        stage, env_light_path, params.export_as_overs);
+
+    if (env_tex_found) {
+
+      /* Convert radians to degrees. */
+      mul_v3_fl(tex_rot, 180.0f / M_PI);
+
+      /* For now, just setting the z-rotation.
+       * Note the negative Z rotation with 180 deg offset, to match Create and Maya. */
+      pxr::GfVec3f rot(0.0f, 0.0f, -tex_rot[2] + 180.0f);
+
+      pxr::UsdGeomXformCommonAPI xform_api(dome_light);
+
+      xform_api.SetRotate(rot);
+
+      pxr::SdfAssetPath path(file_path);
+      dome_light.CreateTextureFileAttr().Set(path);
+
+      if (params.backward_compatible) {
+        pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
+            usdtokens::texture_file, pxr::SdfValueTypeNames->Asset, true);
+        if (attr) {
+          attr.Set(path);
+        }
+      }
+    }
+    else {
+      pxr::GfVec3f color_val(world_color[0], world_color[1], world_color[2]);
+      dome_light.CreateColorAttr().Set(color_val);
+
+      if (params.backward_compatible) {
+        pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
+            usdtokens::color, pxr::SdfValueTypeNames->Color3f, true);
+        if (attr) {
+          attr.Set(color_val);
+        }
+      }
+    }
+
+    if (background_found) {
+      float usd_intensity = world_intensity * params.light_intensity_scale;
+
+      if (params.convert_light_to_nits) {
+        usd_intensity *= watts_per_meter_sq_to_nits;
+      }
+
+      dome_light.CreateIntensityAttr().Set(usd_intensity);
+
+      if (params.backward_compatible) {
+        pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
+            usdtokens::intensity, pxr::SdfValueTypeNames->Float, true);
+        if (attr) {
+          attr.Set(usd_intensity);
+        }
+      }
+    }
+  }
 }
 
 }  // namespace blender::io::usd
