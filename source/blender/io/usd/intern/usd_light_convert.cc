@@ -31,9 +31,9 @@
 #include "DNA_world_types.h"
 #include "ED_node.h"
 
-#include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/gf/rotation.h>
+#include <pxr/base/gf/vec3f.h>
 #include <pxr/usd/usdGeom/xformCache.h>
 
 #include <iostream>
@@ -104,11 +104,11 @@ float nits_to_energy_scale_factor(const Light *light,
 /* Import the dome light as a world material. */
 
 void dome_light_to_world_material(const USDImportParams &params,
-  const ImportSettings &settings,
-  Scene *scene,
-  Main *bmain,
-  const pxr::UsdLuxDomeLight &dome_light,
-  const double time)
+                                  const ImportSettings &settings,
+                                  Scene *scene,
+                                  Main *bmain,
+                                  const pxr::UsdLuxDomeLight &dome_light,
+                                  const double time)
 {
   if (!(scene && scene->world && dome_light)) {
     return;
@@ -170,10 +170,10 @@ void dome_light_to_world_material(const USDImportParams &params,
     }
 
     nodeAddLink(scene->world->nodetree,
-      shader,
-      nodeFindSocket(shader, SOCK_OUT, "Background"),
-      output,
-      nodeFindSocket(output, SOCK_IN, "Surface"));
+                shader,
+                nodeFindSocket(shader, SOCK_OUT, "Background"),
+                output,
+                nodeFindSocket(output, SOCK_IN, "Surface"));
 
     bNodeSocket *color_sock = nodeFindSocket(shader, SOCK_IN, "Color");
     copy_v3_v3(((bNodeSocketValueRGBA *)color_sock->default_value)->value, &scene->world->horr);
@@ -183,7 +183,7 @@ void dome_light_to_world_material(const USDImportParams &params,
   }
 
   /* Make sure the first input to the shader node is disconnected. */
-  bNodeSocket *shader_input = static_cast<bNodeSocket*>(BLI_findlink(&shader->inputs, 0));
+  bNodeSocket *shader_input = static_cast<bNodeSocket *>(BLI_findlink(&shader->inputs, 0));
 
   if (shader_input && shader_input->link) {
     nodeRemLink(ntree, shader_input->link);
@@ -237,10 +237,10 @@ void dome_light_to_world_material(const USDImportParams &params,
     }
 
     nodeAddLink(scene->world->nodetree,
-      mult,
-      nodeFindSocket(mult, SOCK_OUT, "Vector"),
-      shader,
-      nodeFindSocket(shader, SOCK_IN, "Color"));
+                mult,
+                nodeFindSocket(mult, SOCK_OUT, "Vector"),
+                shader,
+                nodeFindSocket(shader, SOCK_IN, "Color"));
 
     mult->locx = shader->locx - 200;
     mult->locy = shader->locy;
@@ -269,20 +269,20 @@ void dome_light_to_world_material(const USDImportParams &params,
 
   if (mult) {
     nodeAddLink(scene->world->nodetree,
-      tex,
-      nodeFindSocket(tex, SOCK_OUT, "Color"),
-      mult,
-      nodeFindSocket(mult, SOCK_IN, "Vector"));
+                tex,
+                nodeFindSocket(tex, SOCK_OUT, "Color"),
+                mult,
+                nodeFindSocket(mult, SOCK_IN, "Vector"));
 
     tex->locx = mult->locx - 400;
     tex->locy = mult->locy;
   }
   else {
     nodeAddLink(scene->world->nodetree,
-      tex,
-      nodeFindSocket(tex, SOCK_OUT, "Color"),
-      shader,
-      nodeFindSocket(shader, SOCK_IN, "Color"));
+                tex,
+                nodeFindSocket(tex, SOCK_OUT, "Color"),
+                shader,
+                nodeFindSocket(shader, SOCK_IN, "Color"));
 
     tex->locx = shader->locx - 400;
     tex->locy = shader->locy;
@@ -294,13 +294,15 @@ void dome_light_to_world_material(const USDImportParams &params,
   std::string tex_path_str = tex_path.GetResolvedPath();
 
   if (tex_path_str.empty()) {
-    std::cerr << "WARNING: Couldn't get resolved path for asset " << tex_path << " for Texture Image node.\n";
+    std::cerr << "WARNING: Couldn't get resolved path for asset " << tex_path
+              << " for Texture Image node.\n";
     return;
   }
 
   Image *image = BKE_image_load_exists(bmain, tex_path_str.c_str());
   if (!image) {
-    std::cerr << "WARNING: Couldn't open image file '" << tex_path_str << "' for Texture Image node.\n";
+    std::cerr << "WARNING: Couldn't open image file '" << tex_path_str
+              << "' for Texture Image node.\n";
     return;
   }
 
@@ -319,7 +321,8 @@ void dome_light_to_world_material(const USDImportParams &params,
 
   pxr::GfRotation rot = xf.ExtractRotation();
 
-  pxr::GfVec3d rot_vec = rot.Decompose(pxr::GfVec3d::XAxis(), pxr::GfVec3d::YAxis(), pxr::GfVec3d::ZAxis());
+  pxr::GfVec3d rot_vec = rot.Decompose(
+      pxr::GfVec3d::XAxis(), pxr::GfVec3d::YAxis(), pxr::GfVec3d::ZAxis());
 
   NodeTexEnvironment *tex_env = static_cast<NodeTexEnvironment *>(tex->storage);
   tex_env->base.tex_mapping.rot[0] = -static_cast<float>(rot_vec[0]);

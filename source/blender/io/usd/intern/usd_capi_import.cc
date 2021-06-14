@@ -371,8 +371,10 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
 
   archive->collect_readers(data->bmain, data->params, data->settings);
 
-  if (data->params.import_lights && data->params.create_background_shader && !archive->dome_lights().empty()) {
-    dome_light_to_world_material(data->params, data->settings, data->scene, data->bmain, archive->dome_lights().front());
+  if (data->params.import_lights && data->params.create_background_shader &&
+      !archive->dome_lights().empty()) {
+    dome_light_to_world_material(
+        data->params, data->settings, data->scene, data->bmain, archive->dome_lights().front());
   }
 
   *data->progress = 0.2f;

@@ -362,7 +362,8 @@ void USDStageReader::collect_readers(Main *bmain,
 
     for (const pxr::UsdPrim &proto_prim : protos) {
       std::vector<USDPrimReader *> proto_readers;
-      _handlePrim(bmain, stage_, params, proto_prim, proto_readers, &dome_lights_, settings, &xf_cache);
+      _handlePrim(
+          bmain, stage_, params, proto_prim, proto_readers, &dome_lights_, settings, &xf_cache);
       proto_readers_.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
     }
   }

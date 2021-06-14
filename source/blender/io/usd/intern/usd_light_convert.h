@@ -40,5 +40,4 @@ void dome_light_to_world_material(const USDImportParams &params,
                                   const pxr::UsdLuxDomeLight &dome_light,
                                   const double time = 0.0);
 
-
 }  // namespace blender::io::usd

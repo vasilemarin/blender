@@ -581,10 +581,10 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   "to the radius size of spot and local lights");
 
   RNA_def_boolean(ot->srna,
-    "create_background_shader",
-    true,
-    "Create Background Shader",
-    "Convert USD dome lights to world background shaders");
+                  "create_background_shader",
+                  true,
+                  "Create Background Shader",
+                  "Convert USD dome lights to world background shaders");
 }
 
 #endif /* WITH_USD */
