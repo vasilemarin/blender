@@ -297,21 +297,10 @@ static void poselib_blend_cursor_update(bContext *C, wmOperator *op)
 
 /* ---------------------------- */
 
-/* Get object that Pose Lib should be found on */
-/* XXX C can be zero */
 static Object *get_poselib_object(bContext *C)
 {
-  ScrArea *area;
-
-  /* sanity check */
   if (C == NULL) {
     return NULL;
-  }
-
-  area = CTX_wm_area(C);
-
-  if (area && (area->spacetype == SPACE_PROPERTIES)) {
-    return ED_object_context(C);
   }
   return BKE_object_pose_armature_get(CTX_data_active_object(C));
 }
