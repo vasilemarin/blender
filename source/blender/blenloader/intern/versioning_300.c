@@ -30,7 +30,9 @@
 #include "DNA_listBase.h"
 #include "DNA_modifier_types.h"
 #include "DNA_text_types.h"
+#include "DNA_workspace_types.h"
 
+#include "BKE_asset.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -256,6 +258,15 @@ void blo_do_versions_300(FileData *fd, Library *UNUSED(lib), Main *bmain)
               }
             }
           }
+        }
+      }
+    }
+
+    {
+      if (!DNA_struct_elem_find(
+              fd->filesdna, "WorkSpace", "AssetLibraryReference", "active_asset_library")) {
+        LISTBASE_FOREACH (WorkSpace *, workspace, &bmain->workspaces) {
+          BKE_asset_library_reference_init_default(&workspace->active_asset_library);
         }
       }
     }
