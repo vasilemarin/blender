@@ -21,8 +21,6 @@
 #include "BKE_cryptomatte.hh"
 #include "BKE_image.h"
 
-#include "DNA_node_types.h"
-
 #include "RE_pipeline.h"
 
 #include "MEM_guardedalloc.h"
