@@ -57,8 +57,6 @@
 
 #include "armature_intern.h"
 
-struct ScrArea;
-
 typedef enum ePoseBlendState {
   POSE_BLEND_INIT,
   POSE_BLEND_BLENDING,
@@ -90,8 +88,8 @@ typedef struct PoseBlendData {
   bAction *act; /* Pose to blend into the current pose. */
   bool free_action;
 
-  Scene *scene;         /* For auto-keying. */
-  struct ScrArea *area; /* For drawing status text. */
+  Scene *scene;  /* For auto-keying. */
+  ScrArea *area; /* For drawing status text. */
 
   /** Info-text to print in header. */
   char headerstr[UI_MAX_DRAW_STR];
@@ -125,14 +123,13 @@ static void poselib_keytag_pose(bContext *C, Scene *scene, PoseBlendData *pbd)
 
   bPose *pose = pbd->ob->pose;
   bAction *act = pbd->act;
-  bActionGroup *agrp;
 
   KeyingSet *ks = ANIM_get_keyingset_for_autokeying(scene, ANIM_KS_WHOLE_CHARACTER_ID);
   ListBase dsources = {NULL, NULL};
 
   /* start tagging/keying */
   const bArmature *armature = pbd->ob->data;
-  for (agrp = act->groups.first; agrp; agrp = agrp->next) {
+  LISTBASE_FOREACH (bActionGroup *, agrp, &act->groups) {
     /* only for selected bones unless there aren't any selected, in which case all are included  */
     bPoseChannel *pchan = BKE_pose_channel_find_name(pose, agrp->name);
     if (pchan == NULL) {

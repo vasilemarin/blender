@@ -402,9 +402,7 @@ void AssetListStorage::fetch_library(const AssetLibraryReference &library_refere
     return;
   }
 
-  std::tuple list_create_info = ensure_list_storage(library_reference, *filesel_type);
-  AssetList &list = std::get<0>(list_create_info);
-  const bool is_new = std::get<1>(list_create_info);
+  auto [list, is_new] = ensure_list_storage(library_reference, *filesel_type);
   if (is_new || list.needsRefetch()) {
     list.setup(filter_settings);
     list.fetch(C);
