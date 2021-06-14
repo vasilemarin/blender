@@ -208,11 +208,12 @@ void world_material_to_dome_light(const USDExportParams &params,
 
       /* For now, just setting the z-rotation.
        * Note the negative Z rotation with 180 deg offset, to match Create and Maya. */
-      pxr::GfVec3f rot(0.0f, 0.0f, -tex_rot[2] + 180.0f);
+      pxr::GfVec3f rot(-tex_rot[0], -tex_rot[1], -tex_rot[2] - 180.0f);
 
       pxr::UsdGeomXformCommonAPI xform_api(dome_light);
 
-      xform_api.SetRotate(rot);
+      /* We reverse the rotation order to convert between extrinsic and intrinsic euler angles. */
+      xform_api.SetRotate(rot, pxr::UsdGeomXformCommonAPI::RotationOrderZYX);
 
       pxr::SdfAssetPath path(file_path);
       dome_light.CreateTextureFileAttr().Set(path);
