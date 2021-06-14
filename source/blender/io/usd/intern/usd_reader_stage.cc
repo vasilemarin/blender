@@ -34,6 +34,7 @@
 #include <pxr/usd/usdGeom/mesh.h>
 #include <pxr/usd/usdGeom/nurbsCurves.h>
 #include <pxr/usd/usdGeom/scope.h>
+#include <pxr/usd/usdLux/domeLight.h>
 #include <pxr/usd/usdLux/light.h>
 
 #include <iostream>
@@ -83,6 +84,9 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
   else if (params.import_meshes && prim.IsA<pxr::UsdGeomMesh>()) {
     reader = new USDMeshReader(prim, params, settings);
   }
+  else if (params.import_lights && prim.IsA<pxr::UsdLuxDomeLight>()) {
+    reader = new USDXformReader(prim, params, settings);
+  }
   else if (params.import_lights && prim.IsA<pxr::UsdLuxLight>()) {
     reader = new USDLightReader(prim, params, settings, xf_cache);
   }
@@ -117,6 +121,9 @@ USDPrimReader *USDStageReader::create_reader(const USDStageReader *archive,
   }
   else if (prim.IsA<pxr::UsdGeomMesh>()) {
     reader = new USDMeshReader(prim, archive->params(), archive->settings());
+  }
+  else if (prim.IsA<pxr::UsdLuxDomeLight>()) {
+    reader = new USDXformReader(prim, archive->params(), archive->settings());
   }
   else if (prim.IsA<pxr::UsdLuxLight>()) {
     reader = new USDLightReader(prim, archive->params(), archive->settings());
@@ -234,6 +241,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
                                   const USDImportParams &params,
                                   pxr::UsdPrim prim,
                                   std::vector<USDPrimReader *> &readers,
+                                  std::vector<pxr::UsdLuxDomeLight> *dome_lights,
                                   const ImportSettings &settings,
                                   pxr::UsdGeomXformCache *xf_cache = nullptr)
 {
@@ -249,6 +257,10 @@ static USDPrimReader *_handlePrim(Main *bmain,
     }
   }
 
+  if (dome_lights && prim.IsA<pxr::UsdLuxDomeLight>()) {
+    dome_lights->push_back(pxr::UsdLuxDomeLight(prim));
+  }
+
   pxr::Usd_PrimFlagsPredicate filter_predicate = pxr::UsdPrimDefaultPredicate;
 
   if (!params.use_instancing && params.import_instance_proxies) {
@@ -261,7 +273,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
 
   for (const auto &childPrim : children) {
     USDPrimReader *child_reader = _handlePrim(
-        bmain, stage, params, childPrim, readers, settings, xf_cache);
+        bmain, stage, params, childPrim, readers, dome_lights, settings, xf_cache);
     if (child_reader) {
       child_readers.push_back(child_reader);
     }
@@ -315,6 +327,7 @@ void USDStageReader::collect_readers(Main *bmain,
 
   clear_readers(true);
   clear_proto_readers(true);
+  dome_lights_.clear();
 
   // Iterate through stage
   pxr::UsdPrim root = stage_->GetPseudoRoot();
@@ -341,7 +354,7 @@ void USDStageReader::collect_readers(Main *bmain,
   stage_->SetInterpolationType(pxr::UsdInterpolationType::UsdInterpolationTypeHeld);
 
   pxr::UsdGeomXformCache xf_cache;
-  _handlePrim(bmain, stage_, params, root, readers_, settings, &xf_cache);
+  _handlePrim(bmain, stage_, params, root, readers_, &dome_lights_, settings, &xf_cache);
 
   if (params.use_instancing) {
     // Collect the scenegraph instance prototypes.
@@ -349,7 +362,8 @@ void USDStageReader::collect_readers(Main *bmain,
 
     for (const pxr::UsdPrim &proto_prim : protos) {
       std::vector<USDPrimReader *> proto_readers;
-      _handlePrim(bmain, stage_, params, proto_prim, proto_readers, settings, &xf_cache);
+      _handlePrim(
+          bmain, stage_, params, proto_prim, proto_readers, &dome_lights_, settings, &xf_cache);
       proto_readers_.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
     }
   }

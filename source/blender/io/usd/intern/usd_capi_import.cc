@@ -21,6 +21,7 @@
 #include "usd.h"
 #include "usd_common.h"
 #include "usd_hierarchy_iterator.h"
+#include "usd_light_convert.h"
 #include "usd_reader_instance.h"
 #include "usd_reader_mesh.h"
 #include "usd_reader_prim.h"
@@ -378,6 +379,12 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
 
   archive->collect_readers(data->bmain, data->params, data->settings);
 
+  if (data->params.import_lights && data->params.create_background_shader &&
+      !archive->dome_lights().empty()) {
+    dome_light_to_world_material(
+        data->params, data->settings, data->scene, data->bmain, archive->dome_lights().front());
+  }
+
   *data->progress = 0.2f;
 
   const float size = static_cast<float>(archive->readers().size());
@@ -522,6 +529,9 @@ static void import_endjob(void *customdata)
     }
 
     DEG_id_tag_update(&data->scene->id, ID_RECALC_BASE_FLAGS);
+    if (!data->archive->dome_lights().empty()) {
+      DEG_id_tag_update(&data->scene->world->id, ID_RECALC_COPY_ON_WRITE);
+    }
     DEG_relations_tag_update(data->bmain);
   }
 

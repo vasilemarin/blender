@@ -27,6 +27,7 @@ struct Scene;
 #include <pxr/pxr.h>
 #include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/xformCache.h>
+#include <pxr/usd/usdLux/domeLight.h>
 
 #include <map>
 #include <vector>
@@ -48,6 +49,10 @@ class USDStageReader {
 
   // Readers for scenegraph instance prototypes.
   ProtoReaderMap proto_readers_;
+
+  /* USD dome lights are converted to a world material,
+   * rather than light objects, so are handled differently */
+  std::vector<pxr::UsdLuxDomeLight> dome_lights_;
 
  public:
   USDStageReader(const char *filename);
@@ -104,6 +109,11 @@ class USDStageReader {
   const std::vector<USDPrimReader *> &readers() const
   {
     return readers_;
+  };
+
+  const std::vector<pxr::UsdLuxDomeLight> &dome_lights() const
+  {
+    return dome_lights_;
   };
 };
 

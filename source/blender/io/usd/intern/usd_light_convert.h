@@ -18,13 +18,18 @@
  */
 #pragma once
 
+#include <pxr/usd/usdLux/domeLight.h>
 #include <pxr/usd/usd/stage.h>
 
 struct Light;
+struct Main;
 struct Scene;
 struct USDExportParams;
+struct USDImportParams;
 
 namespace blender::io::usd {
+
+struct ImportSettings;
 
 float nits_to_energy_scale_factor(const Light *light,
                                   float meters_per_unit,
@@ -33,5 +38,12 @@ float nits_to_energy_scale_factor(const Light *light,
 void world_material_to_dome_light(const USDExportParams &params,
                                   const Scene *scene,
                                   pxr::UsdStageRefPtr stage);
+
+void dome_light_to_world_material(const USDImportParams &params,
+                                  const ImportSettings &settings,
+                                  Scene *scene,
+                                  Main *bmain,
+                                  const pxr::UsdLuxDomeLight &dome_light,
+                                  const double time = 0.0);
 
 }  // namespace blender::io::usd
