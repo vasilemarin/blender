@@ -218,9 +218,6 @@ static void poselib_blend_set_factor(PoseBlendData *pbd, const float new_factor)
   pbd->needs_redraw = true;
 }
 
-#define BLEND_FACTOR_BY_WAVING_MOUSE_AROUND
-
-#ifdef BLEND_FACTOR_BY_WAVING_MOUSE_AROUND
 static void poselib_slide_mouse_update_blendfactor(PoseBlendData *pbd, const wmEvent *event)
 {
   if (pbd->release_confirm_info.use_release_confirm) {
@@ -234,28 +231,16 @@ static void poselib_slide_mouse_update_blendfactor(PoseBlendData *pbd, const wmE
     poselib_blend_set_factor(pbd, new_factor);
   }
 }
-#else
-static void poselib_blend_step_factor(PoseBlendData *pbd,
-                                      const float blend_factor_step,
-                                      const bool reduce_step)
-{
-  const float step_size = reduce_step ? blend_factor_step / 10.0f : blend_factor_step;
-  const float new_factor = pbd->blend_factor + step_size;
-  poselib_blend_set_factor(pbd, new_factor);
-}
-#endif
 
 /* Return operator return value. */
 static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const wmEvent *event)
 {
   PoseBlendData *pbd = op->customdata;
 
-#ifdef BLEND_FACTOR_BY_WAVING_MOUSE_AROUND
   if (event->type == MOUSEMOVE) {
     poselib_slide_mouse_update_blendfactor(pbd, event);
     return OPERATOR_RUNNING_MODAL;
   }
-#endif
 
   /* Handle the release confirm event directly, it has priority over others. */
   if (pbd->release_confirm_info.use_release_confirm &&
@@ -268,28 +253,6 @@ static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const
   if (ELEM(event->val, KM_PRESS, KM_NOTHING) == 0) {
     return OPERATOR_RUNNING_MODAL;
   }
-
-#ifndef BLEND_FACTOR_BY_WAVING_MOUSE_AROUND
-  if (ELEM(event->type,
-           EVT_HOMEKEY,
-           EVT_PAD0,
-           EVT_PAD1,
-           EVT_PAD2,
-           EVT_PAD3,
-           EVT_PAD4,
-           EVT_PAD5,
-           EVT_PAD6,
-           EVT_PAD7,
-           EVT_PAD8,
-           EVT_PAD9,
-           EVT_PADMINUS,
-           EVT_PADPLUSKEY,
-           MIDDLEMOUSE,
-           MOUSEMOVE)) {
-    /* Pass-through of view manipulation events. */
-    return OPERATOR_PASS_THROUGH;
-  }
-#endif
 
   /* NORMAL EVENT HANDLING... */
   /* searching takes priority over normal activity */
@@ -315,14 +278,6 @@ static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const
       break;
 
       /* TODO(Sybren): use better UI for slider. */
-#ifndef BLEND_FACTOR_BY_WAVING_MOUSE_AROUND
-    case WHEELUPMOUSE:
-      poselib_blend_step_factor(pbd, 0.1f, event->shift);
-      break;
-    case WHEELDOWNMOUSE:
-      poselib_blend_step_factor(pbd, -0.1f, event->shift);
-      break;
-#endif
   }
 
   return OPERATOR_RUNNING_MODAL;
