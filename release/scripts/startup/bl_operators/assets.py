@@ -147,19 +147,6 @@ class ASSET_OT_open_containing_blend_file(Operator):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
 
-    @staticmethod
-    def active_asset_library_path(context):
-        asset_library_name: str = context.space_data.params.asset_library
-        paths = context.preferences.filepaths
-        asset_lib = paths.asset_libraries[asset_library_name]
-        return Path(asset_lib.path)
-
-    def path_of_active_asset(self, context):
-        file_and_datablock_name: str = context.space_data.params.filename
-        filename, _id_type, _id_name = file_and_datablock_name.split("/", 2)
-        filepath: Path = self.active_asset_library_path(context) / filename
-        return filepath
-
     def open_in_new_blender(self, filepath):
         import subprocess
 
