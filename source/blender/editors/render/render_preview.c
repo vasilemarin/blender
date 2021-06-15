@@ -820,7 +820,7 @@ static void object_preview_render(IconPreview *preview, IconPreviewSize *preview
 /** \name Action Preview
  * \{ */
 
-static PoseBackup *action_preview_render_prepare(IconPreview *preview)
+static struct PoseBackup *action_preview_render_prepare(IconPreview *preview)
 {
   Object *object = preview->active_object;
   if (object == NULL) {
@@ -836,7 +836,7 @@ static PoseBackup *action_preview_render_prepare(IconPreview *preview)
 
   /* Create a backup of the current pose. */
   struct bAction *action = (struct bAction *)preview->id;
-  PoseBackup *pose_backup = ED_pose_backup_create_all_bones(object, action);
+  struct PoseBackup *pose_backup = ED_pose_backup_create_all_bones(object, action);
 
   /* Apply the Action as pose, so that it can be rendered. This assumes the Action represents a
    * single pose, and that thus the evaluation time doesn't matter. */
@@ -850,7 +850,7 @@ static PoseBackup *action_preview_render_prepare(IconPreview *preview)
   return pose_backup;
 }
 
-static void action_preview_render_cleanup(IconPreview *preview, PoseBackup *pose_backup)
+static void action_preview_render_cleanup(IconPreview *preview, struct PoseBackup *pose_backup)
 {
   if (pose_backup == NULL) {
     return;
@@ -876,7 +876,7 @@ static void action_preview_render(IconPreview *preview, IconPreviewSize *preview
   BLI_assert(preview->scene == DEG_get_input_scene(depsgraph));
 
   /* Apply the pose before getting the evaluated scene, so that the new pose is evaluated. */
-  PoseBackup *pose_backup = action_preview_render_prepare(preview);
+  struct PoseBackup *pose_backup = action_preview_render_prepare(preview);
 
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Object *camera_eval = scene_eval->camera;

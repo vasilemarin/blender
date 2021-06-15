@@ -44,6 +44,11 @@ typedef struct PoseChannelBackup {
   struct IDProperty *oldprops; /* Backup copy (needs freeing) of pose channel's ID properties. */
 } PoseChannelBackup;
 
+typedef struct PoseBackup {
+  bool is_bone_selection_relevant;
+  ListBase /* PoseChannelBackup* */ backups;
+} PoseBackup;
+
 static PoseBackup *pose_backup_create(const Object *ob,
                                       const bAction *action,
                                       const bool is_bone_selection_relevant)
@@ -101,6 +106,11 @@ PoseBackup *ED_pose_backup_create_selected_bones(const Object *ob, const bAction
   /* If no bones are selected, act as if all are. */
   const bool is_bone_selection_relevant = !all_bones_selected && !no_bones_selected;
   return pose_backup_create(ob, action, is_bone_selection_relevant);
+}
+
+bool ED_pose_backup_is_selection_relevant(const struct PoseBackup *pose_backup)
+{
+  return pose_backup->is_bone_selection_relevant;
 }
 
 void ED_pose_backup_restore(const PoseBackup *pbd)

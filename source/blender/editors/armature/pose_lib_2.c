@@ -82,7 +82,7 @@ typedef struct PoseBlendData {
 
   /* Blend factor, interval [0, 1] for interpolating between current and given pose. */
   float blend_factor;
-  PoseBackup *pose_backup;
+  struct PoseBackup *pose_backup;
 
   Object *ob;   /* Object to work on. */
   bAction *act; /* Pose to blend into the current pose. */
@@ -136,7 +136,8 @@ static void poselib_keytag_pose(bContext *C, Scene *scene, PoseBlendData *pbd)
       continue;
     }
 
-    if (pbd->pose_backup->is_bone_selection_relevant && !PBONE_SELECTED(armature, pchan->bone)) {
+    if (ED_pose_backup_is_selection_relevant(pbd->pose_backup) &&
+        !PBONE_SELECTED(armature, pchan->bone)) {
       continue;
     }
 
