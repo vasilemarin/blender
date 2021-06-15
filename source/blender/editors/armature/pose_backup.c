@@ -119,15 +119,11 @@ void ED_pose_backup_restore(const PoseBackup *pbd)
 
 void ED_pose_backup_free(PoseBackup *pbd)
 {
-  for (PoseChannelBackup *chan_bak = pbd->backups.first; chan_bak;) {
-    PoseChannelBackup *next = chan_bak->next;
-
+  LISTBASE_FOREACH_MUTABLE (PoseChannelBackup *, chan_bak, &pbd->backups) {
     if (chan_bak->oldprops) {
       IDP_FreeProperty(chan_bak->oldprops);
     }
     BLI_freelinkN(&pbd->backups, chan_bak);
-
-    chan_bak = next;
   }
   MEM_freeN(pbd);
 }
