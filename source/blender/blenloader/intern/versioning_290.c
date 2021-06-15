@@ -54,7 +54,6 @@
 
 #include "BKE_animsys.h"
 #include "BKE_armature.h"
-#include "BKE_asset.h"
 #include "BKE_attribute.h"
 #include "BKE_collection.h"
 #include "BKE_colortools.h"
