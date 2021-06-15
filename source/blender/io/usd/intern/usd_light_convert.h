@@ -18,8 +18,8 @@
  */
 #pragma once
 
-#include <pxr/usd/usdLux/domeLight.h>
 #include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdLux/domeLight.h>
 
 struct Light;
 struct Main;

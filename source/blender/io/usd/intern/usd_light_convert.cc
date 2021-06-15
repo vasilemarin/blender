@@ -39,9 +39,9 @@
 #include "BKE_node.h"
 #include "BKE_scene.h"
 #include "BLI_listbase.h"
-#include "BlI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
+#include "BlI_math.h"
 #include "DNA_light_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_world_types.h"
@@ -59,40 +59,42 @@ static const pxr::TfToken texture_file("texture:file", pxr::TfToken::Immortal);
 
 namespace {
 
-  template<typename T>
-  bool get_authored_value(const pxr::UsdAttribute attr, const double motionSampleTime, T *r_value)
-  {
-    if (attr && attr.HasAuthoredValue()) {
-      return attr.Get<T>(r_value, motionSampleTime);
-    }
-
-    return false;
+template<typename T>
+bool get_authored_value(const pxr::UsdAttribute attr, const double motionSampleTime, T *r_value)
+{
+  if (attr && attr.HasAuthoredValue()) {
+    return attr.Get<T>(r_value, motionSampleTime);
   }
 
-  struct WorldNtreeSearchResults {
-    const USDExportParams params;
-    pxr::UsdStageRefPtr stage;
+  return false;
+}
 
-    float world_color[3];
-    float world_intensity;
-    float tex_rot[3];
+struct WorldNtreeSearchResults {
+  const USDExportParams params;
+  pxr::UsdStageRefPtr stage;
 
-    std::string file_path;
+  float world_color[3];
+  float world_intensity;
+  float tex_rot[3];
 
-    float color_mult[3];
+  std::string file_path;
 
-    bool background_found;
-    bool env_tex_found;
-    bool mult_found;
+  float color_mult[3];
 
-    WorldNtreeSearchResults(const USDExportParams &in_params, pxr::UsdStageRefPtr in_stage) :
-      params(in_params),
-      stage(in_stage),
-      world_intensity(0.0f),
-      background_found(false),
-      env_tex_found(false),
-      mult_found(false) {}
-  };
+  bool background_found;
+  bool env_tex_found;
+  bool mult_found;
+
+  WorldNtreeSearchResults(const USDExportParams &in_params, pxr::UsdStageRefPtr in_stage)
+      : params(in_params),
+        stage(in_stage),
+        world_intensity(0.0f),
+        background_found(false),
+        env_tex_found(false),
+        mult_found(false)
+  {
+  }
+};
 
 }  // End anonymous namespace.
 
@@ -102,11 +104,7 @@ static const float nits_to_watts_per_meter_sq = 0.0014641f;
 
 static const float watts_per_meter_sq_to_nits = 1.0f / nits_to_watts_per_meter_sq;
 
-
-static bool node_search(bNode *fromnode,
-  bNode *tonode,
-  void *userdata,
-  const bool reversed)
+static bool node_search(bNode *fromnode, bNode *tonode, void *userdata, const bool reversed)
 {
   if (!(userdata && fromnode && tonode)) {
     return true;
@@ -114,14 +112,15 @@ static bool node_search(bNode *fromnode,
 
   /* TODO(makowalski): can we validate that node connectiona are correct? */
 
-  WorldNtreeSearchResults *res = reinterpret_cast<WorldNtreeSearchResults*>(userdata);
+  WorldNtreeSearchResults *res = reinterpret_cast<WorldNtreeSearchResults *>(userdata);
 
   if (!res->background_found && ELEM(fromnode->type, SH_NODE_BACKGROUND)) {
     /* Get light color and intensity */
     bNodeSocketValueRGBA *color_data =
-      (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&fromnode->inputs, 0))->default_value;
-    bNodeSocketValueFloat *strength_data =
-      (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(&fromnode->inputs, 1))->default_value;
+        (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&fromnode->inputs, 0))->default_value;
+    bNodeSocketValueFloat *strength_data = (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(
+                                                                         &fromnode->inputs, 1))
+                                               ->default_value;
 
     res->background_found = true;
     res->world_intensity = strength_data->value;
@@ -225,8 +224,8 @@ float nits_to_energy_scale_factor(const Light *light,
 /* If the Blender scene has an environment texture,
  * export it as a USD dome light. */
 void world_material_to_dome_light(const USDExportParams &params,
-  const Scene *scene,
-  pxr::UsdStageRefPtr stage)
+                                  const Scene *scene,
+                                  pxr::UsdStageRefPtr stage)
 {
   if (!(stage && scene && scene->world && scene->world->use_nodes && scene->world->nodetree)) {
     return;
@@ -258,7 +257,7 @@ void world_material_to_dome_light(const USDExportParams &params,
   pxr::SdfPath env_light_path = light_path.AppendChild(pxr::TfToken("environment"));
 
   pxr::UsdLuxDomeLight dome_light = usd_define_or_over<pxr::UsdLuxDomeLight>(
-    stage, env_light_path, params.export_as_overs);
+      stage, env_light_path, params.export_as_overs);
 
   if (res.env_tex_found) {
 
@@ -278,7 +277,7 @@ void world_material_to_dome_light(const USDExportParams &params,
 
     if (params.backward_compatible) {
       pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
-        usdtokens::texture_file, pxr::SdfValueTypeNames->Asset, true);
+          usdtokens::texture_file, pxr::SdfValueTypeNames->Asset, true);
       if (attr) {
         attr.Set(path);
       }
@@ -290,7 +289,7 @@ void world_material_to_dome_light(const USDExportParams &params,
 
       if (params.backward_compatible) {
         pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
-          usdtokens::color, pxr::SdfValueTypeNames->Color3f, true);
+            usdtokens::color, pxr::SdfValueTypeNames->Color3f, true);
         if (attr) {
           attr.Set(color_val);
         }
@@ -303,7 +302,7 @@ void world_material_to_dome_light(const USDExportParams &params,
 
     if (params.backward_compatible) {
       pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
-        usdtokens::color, pxr::SdfValueTypeNames->Color3f, true);
+          usdtokens::color, pxr::SdfValueTypeNames->Color3f, true);
       if (attr) {
         attr.Set(color_val);
       }
@@ -321,13 +320,12 @@ void world_material_to_dome_light(const USDExportParams &params,
 
     if (params.backward_compatible) {
       pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
-        usdtokens::intensity, pxr::SdfValueTypeNames->Float, true);
+          usdtokens::intensity, pxr::SdfValueTypeNames->Float, true);
       if (attr) {
         attr.Set(usd_intensity);
       }
     }
   }
-
 }
 
 /* Import the dome light as a world material. */
@@ -442,7 +440,7 @@ void dome_light_to_world_material(const USDImportParams &params,
   if (!has_tex) {
     has_tex = dome_light.GetPrim().GetAttribute(usdtokens::texture_file).Get(&tex_path, time);
   }
-    
+
   pxr::GfVec3f color;
   bool has_color = get_authored_value(dome_light.GetColorAttr(), time, &color);
 
