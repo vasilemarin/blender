@@ -69,6 +69,31 @@ namespace {
     return false;
   }
 
+  struct WorldNtreeSearchResults {
+    const USDExportParams params;
+    pxr::UsdStageRefPtr stage;
+
+    float world_color[3];
+    float world_intensity;
+    float tex_rot[3];
+
+    std::string file_path;
+
+    float color_mult[3];
+
+    bool background_found;
+    bool env_tex_found;
+    bool mult_found;
+
+    WorldNtreeSearchResults(const USDExportParams &in_params, pxr::UsdStageRefPtr in_stage) :
+      params(in_params),
+      stage(in_stage),
+      world_intensity(0.0f),
+      background_found(false),
+      env_tex_found(false),
+      mult_found(false) {}
+  };
+
 }  // End anonymous namespace.
 
 namespace blender::io::usd {
@@ -76,6 +101,69 @@ namespace blender::io::usd {
 static const float nits_to_watts_per_meter_sq = 0.0014641f;
 
 static const float watts_per_meter_sq_to_nits = 1.0f / nits_to_watts_per_meter_sq;
+
+
+static bool node_search(bNode *fromnode,
+  bNode *tonode,
+  void *userdata,
+  const bool reversed)
+{
+  if (!(userdata && fromnode && tonode)) {
+    return true;
+  }
+
+  /* TODO(makowalski): can we validate that node connectiona are correct? */
+
+  WorldNtreeSearchResults *res = reinterpret_cast<WorldNtreeSearchResults*>(userdata);
+
+  if (!res->background_found && ELEM(fromnode->type, SH_NODE_BACKGROUND)) {
+    /* Get light color and intensity */
+    bNodeSocketValueRGBA *color_data =
+      (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&fromnode->inputs, 0))->default_value;
+    bNodeSocketValueFloat *strength_data =
+      (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(&fromnode->inputs, 1))->default_value;
+
+    res->background_found = true;
+    res->world_intensity = strength_data->value;
+    res->world_color[0] = color_data->value[0];
+    res->world_color[1] = color_data->value[1];
+    res->world_color[2] = color_data->value[2];
+  }
+  else if (!res->env_tex_found && ELEM(fromnode->type, SH_NODE_TEX_ENVIRONMENT)) {
+    /* Get env tex path. */
+
+    res->file_path = get_node_tex_image_filepath(fromnode, res->stage, res->params);
+
+    if (!res->file_path.empty()) {
+      /* Get the rotation. */
+      NodeTexEnvironment *tex = static_cast<NodeTexEnvironment *>(fromnode->storage);
+      copy_v3_v3(res->tex_rot, tex->base.tex_mapping.rot);
+
+      res->env_tex_found = true;
+
+      if (res->params.export_textures) {
+        export_texture(fromnode, res->stage);
+      }
+    }
+  }
+  else if (!res->env_tex_found && !res->mult_found && ELEM(fromnode->type, SH_NODE_VECTOR_MATH)) {
+
+    if (fromnode->custom1 == NODE_VECTOR_MATH_MULTIPLY) {
+      res->mult_found = true;
+
+      bNodeSocket *vec_sock = nodeFindSocket(fromnode, SOCK_IN, "Vector");
+      if (vec_sock) {
+        vec_sock = vec_sock->next;
+      }
+
+      if (vec_sock) {
+        copy_v3_v3(res->color_mult, ((bNodeSocketValueVector *)vec_sock->default_value)->value);
+      }
+    }
+  }
+
+  return true;
+}
 
 /* Return the scale factor to convert nits to light energy
  * (Watts or Watts per meter squared) for the given light. */
@@ -140,94 +228,64 @@ void world_material_to_dome_light(const USDExportParams &params,
   const Scene *scene,
   pxr::UsdStageRefPtr stage)
 {
-  if (!(stage && scene && scene->world && scene->world->use_nodes)) {
+  if (!(stage && scene && scene->world && scene->world->use_nodes && scene->world->nodetree)) {
     return;
   }
 
-  float world_color[3] = { 1.0f, 1.0f, 1.0f };
-  float world_intensity = 0.0f;
-  float tex_rot[3] = { 0.0f, 0.0f, 0.0f };
+  /* Find the world output. */
+  bNode *output = ntreeFindType(scene->world->nodetree, SH_NODE_OUTPUT_WORLD);
 
-  std::string file_path;
-
-  bool background_found = false;
-  bool env_tex_found = false;
+  if (!output) {
+    /* No output, no valid network to convert. */
+    return;
+  }
 
   pxr::SdfPath light_path(std::string(params.root_prim_path) + "/lights");
 
   usd_define_or_over<pxr::UsdGeomScope>(stage, light_path, params.export_as_overs);
 
-  /* Convert node graph to USD Dome Light.
-   * TODO(makowalski): verify node connections. */
-  for (bNode *node = (bNode *)scene->world->nodetree->nodes.first; node; node = node->next) {
+  WorldNtreeSearchResults res(params, stage);
 
-    if (ELEM(node->type, SH_NODE_BACKGROUND)) {
-      /* Get light color and intensity */
-      bNodeSocketValueRGBA *color_data =
-        (bNodeSocketValueRGBA *)((bNodeSocket *)BLI_findlink(&node->inputs, 0))->default_value;
-      bNodeSocketValueFloat *strength_data =
-        (bNodeSocketValueFloat *)((bNodeSocket *)BLI_findlink(&node->inputs, 1))->default_value;
+  nodeChainIter(scene->world->nodetree, output, node_search, &res, true);
 
-      background_found = true;
-      world_intensity = strength_data->value;
-      world_color[0] = color_data->value[0];
-      world_color[1] = color_data->value[1];
-      world_color[2] = color_data->value[2];
-    }
-    else if (ELEM(node->type, SH_NODE_TEX_ENVIRONMENT)) {
-      /* Get env tex path. */
-
-      file_path = get_node_tex_image_filepath(node, stage, params);
-
-      if (!file_path.empty()) {
-        /* Get the rotation. */
-        NodeTexEnvironment *tex = static_cast<NodeTexEnvironment *>(node->storage);
-        copy_v3_v3(tex_rot, tex->base.tex_mapping.rot);
-
-        env_tex_found = true;
-
-        if (params.export_textures) {
-          export_texture(node, stage);
-        }
-      }
-    }
+  if (!(res.background_found || res.env_tex_found)) {
+    /* No nodes to convert */
+    return;
   }
 
-  // Create USD dome light
-  if (background_found || env_tex_found) {
+  /* Create USD dome light. */
 
-    pxr::SdfPath env_light_path = light_path.AppendChild(pxr::TfToken("environment"));
+  pxr::SdfPath env_light_path = light_path.AppendChild(pxr::TfToken("environment"));
 
-    pxr::UsdLuxDomeLight dome_light = usd_define_or_over<pxr::UsdLuxDomeLight>(
-      stage, env_light_path, params.export_as_overs);
+  pxr::UsdLuxDomeLight dome_light = usd_define_or_over<pxr::UsdLuxDomeLight>(
+    stage, env_light_path, params.export_as_overs);
 
-    if (env_tex_found) {
+  if (res.env_tex_found) {
 
-      /* Convert radians to degrees. */
-      mul_v3_fl(tex_rot, 180.0f / M_PI);
+    /* Convert radians to degrees. */
+    mul_v3_fl(res.tex_rot, 180.0f / M_PI);
 
-      /* For now, just setting the z-rotation.
-       * Note the negative Z rotation with 180 deg offset, to match Create and Maya. */
-      pxr::GfVec3f rot(-tex_rot[0], -tex_rot[1], -tex_rot[2] - 180.0f);
+    /* Note the negative Z rotation with 180 deg offset, to match Create and Maya. */
+    pxr::GfVec3f rot(-res.tex_rot[0], -res.tex_rot[1], -res.tex_rot[2] - 180.0f);
 
-      pxr::UsdGeomXformCommonAPI xform_api(dome_light);
+    pxr::UsdGeomXformCommonAPI xform_api(dome_light);
 
-      /* We reverse the rotation order to convert between extrinsic and intrinsic euler angles. */
-      xform_api.SetRotate(rot, pxr::UsdGeomXformCommonAPI::RotationOrderZYX);
+    /* We reverse the rotation order to convert between extrinsic and intrinsic euler angles. */
+    xform_api.SetRotate(rot, pxr::UsdGeomXformCommonAPI::RotationOrderZYX);
 
-      pxr::SdfAssetPath path(file_path);
-      dome_light.CreateTextureFileAttr().Set(path);
+    pxr::SdfAssetPath path(res.file_path);
+    dome_light.CreateTextureFileAttr().Set(path);
 
-      if (params.backward_compatible) {
-        pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
-          usdtokens::texture_file, pxr::SdfValueTypeNames->Asset, true);
-        if (attr) {
-          attr.Set(path);
-        }
+    if (params.backward_compatible) {
+      pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
+        usdtokens::texture_file, pxr::SdfValueTypeNames->Asset, true);
+      if (attr) {
+        attr.Set(path);
       }
     }
-    else {
-      pxr::GfVec3f color_val(world_color[0], world_color[1], world_color[2]);
+
+    if (res.mult_found) {
+      pxr::GfVec3f color_val(res.color_mult[0], res.color_mult[1], res.color_mult[2]);
       dome_light.CreateColorAttr().Set(color_val);
 
       if (params.backward_compatible) {
@@ -238,25 +296,38 @@ void world_material_to_dome_light(const USDExportParams &params,
         }
       }
     }
+  }
+  else {
+    pxr::GfVec3f color_val(res.world_color[0], res.world_color[1], res.world_color[2]);
+    dome_light.CreateColorAttr().Set(color_val);
 
-    if (background_found) {
-      float usd_intensity = world_intensity * params.light_intensity_scale;
-
-      if (params.convert_light_to_nits) {
-        usd_intensity *= watts_per_meter_sq_to_nits;
-      }
-
-      dome_light.CreateIntensityAttr().Set(usd_intensity);
-
-      if (params.backward_compatible) {
-        pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
-          usdtokens::intensity, pxr::SdfValueTypeNames->Float, true);
-        if (attr) {
-          attr.Set(usd_intensity);
-        }
+    if (params.backward_compatible) {
+      pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
+        usdtokens::color, pxr::SdfValueTypeNames->Color3f, true);
+      if (attr) {
+        attr.Set(color_val);
       }
     }
   }
+
+  if (res.background_found) {
+    float usd_intensity = res.world_intensity * params.light_intensity_scale;
+
+    if (params.convert_light_to_nits) {
+      usd_intensity *= watts_per_meter_sq_to_nits;
+    }
+
+    dome_light.CreateIntensityAttr().Set(usd_intensity);
+
+    if (params.backward_compatible) {
+      pxr::UsdAttribute attr = dome_light.GetPrim().CreateAttribute(
+        usdtokens::intensity, pxr::SdfValueTypeNames->Float, true);
+      if (attr) {
+        attr.Set(usd_intensity);
+      }
+    }
+  }
+
 }
 
 /* Import the dome light as a world material. */
