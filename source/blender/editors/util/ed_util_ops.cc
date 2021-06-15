@@ -28,8 +28,6 @@
 #include "BLI_fileops.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_animsys.h"
-#include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_icons.h"
 #include "BKE_lib_id.h"
@@ -38,7 +36,6 @@
 
 #include "BLT_translation.h"
 
-#include "ED_armature.h"
 #include "ED_asset.h"
 #include "ED_render.h"
 #include "ED_undo.h"
@@ -50,8 +47,6 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
-
-#include "DEG_depsgraph.h"
 
 /* -------------------------------------------------------------------- */
 /** \name ID Previews
