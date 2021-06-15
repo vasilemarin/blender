@@ -467,7 +467,7 @@ static void panel_list_copy(ListBase *newlb, const ListBase *lb)
   Panel *panel = lb->first;
   for (; new_panel; new_panel = new_panel->next, panel = panel->next) {
     new_panel->activedata = NULL;
-    new_panel->runtime.custom_data_ptr = NULL;
+    memset(&new_panel->runtime, 0x0, sizeof(new_panel->runtime));
     panel_list_copy(&new_panel->children, &panel->children);
   }
 }
@@ -475,6 +475,8 @@ static void panel_list_copy(ListBase *newlb, const ListBase *lb)
 ARegion *BKE_area_region_copy(const SpaceType *st, const ARegion *region)
 {
   ARegion *newar = MEM_dupallocN(region);
+
+  memset(&newar->runtime, 0x0, sizeof(newar->runtime));
 
   newar->prev = newar->next = NULL;
   BLI_listbase_clear(&newar->handlers);
@@ -1413,6 +1415,8 @@ static void direct_link_panel_list(BlendDataReader *reader, ListBase *lb)
 
 static void direct_link_region(BlendDataReader *reader, ARegion *region, int spacetype)
 {
+  memset(&region->runtime, 0x0, sizeof(region->runtime));
+
   direct_link_panel_list(reader, &region->panels);
 
   BLO_read_list(reader, &region->panels_category_active);
@@ -1554,15 +1558,14 @@ static void direct_link_area(BlendDataReader *reader, ScrArea *area)
 
     if (sl->spacetype == SPACE_VIEW3D) {
       View3D *v3d = (View3D *)sl;
+
+      memset(&v3d->runtime, 0x0, sizeof(v3d->runtime));
+
       if (v3d->gpd) {
         BLO_read_data_address(reader, &v3d->gpd);
         BKE_gpencil_blend_read_data(reader, v3d->gpd);
       }
       BLO_read_data_address(reader, &v3d->localvd);
-
-      /* Runtime data */
-      v3d->runtime.properties_storage = NULL;
-      v3d->runtime.flag = 0;
 
       /* render can be quite heavy, set to solid on load */
       if (v3d->shading.type == OB_RENDER) {
@@ -1578,7 +1581,7 @@ static void direct_link_area(BlendDataReader *reader, ScrArea *area)
       SpaceGraph *sipo = (SpaceGraph *)sl;
 
       BLO_read_data_address(reader, &sipo->ads);
-      BLI_listbase_clear(&sipo->runtime.ghost_curves);
+      memset(&sipo->runtime, 0x0, sizeof(sipo->runtime));
     }
     else if (sl->spacetype == SPACE_NLA) {
       SpaceNla *snla = (SpaceNla *)sl;
@@ -1646,7 +1649,7 @@ static void direct_link_area(BlendDataReader *reader, ScrArea *area)
     }
     else if (sl->spacetype == SPACE_TEXT) {
       SpaceText *st = (SpaceText *)sl;
-      memset(&st->runtime, 0, sizeof(st->runtime));
+      memset(&st->runtime, 0x0, sizeof(st->runtime));
     }
     else if (sl->spacetype == SPACE_SEQ) {
       SpaceSeq *sseq = (SpaceSeq *)sl;
@@ -1725,6 +1728,11 @@ static void direct_link_area(BlendDataReader *reader, ScrArea *area)
       if (sfile->asset_params) {
         sfile->asset_params->base_params.renamefile_uuid[0] = FILE_UUID_UNSET;
       }
+    }
+    else if (sl->spacetype == SPACE_ACTION) {
+      SpaceAction *saction = (SpaceAction *)sl;
+
+      memset(&saction->runtime, 0x0, sizeof(saction->runtime));
     }
     else if (sl->spacetype == SPACE_CLIP) {
       SpaceClip *sclip = (SpaceClip *)sl;
