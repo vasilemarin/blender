@@ -164,7 +164,8 @@ static void export_startjob(void *customdata,
     return;
   }
 
-  if (data->params.export_lights && !data->params.selected_objects_only) {
+  if (data->params.export_lights && !data->params.selected_objects_only &&
+      data->params.convert_world_material) {
     world_material_to_dome_light(data->params, scene, usd_stage);
   }
 

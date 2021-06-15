@@ -110,6 +110,7 @@ struct USDExportParams {
   bool convert_to_cm;
   bool convert_light_to_nits;
   bool scale_light_radius;
+  bool convert_world_material;
 };
 
 struct USDImportParams {

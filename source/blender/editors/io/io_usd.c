@@ -261,6 +261,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const bool scale_light_radius = RNA_boolean_get(op->ptr, "scale_light_radius");
 
+  const bool convert_world_material = RNA_boolean_get(op->ptr, "convert_world_material");
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -309,7 +311,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    generate_mdl,
                                    convert_to_cm,
                                    convert_light_to_nits,
-                                   scale_light_radius};
+                                   scale_light_radius,
+                                   convert_world_material};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -429,6 +432,7 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
     uiItemR(box, ptr, "convert_light_to_nits", 0, NULL, ICON_NONE);
     uiItemR(box, ptr, "scale_light_radius", 0, NULL, ICON_NONE);
+    uiItemR(box, ptr, "convert_world_material", 0, NULL, ICON_NONE);
   }
 
   if (RNA_boolean_get(ptr, "export_uvmaps"))
@@ -774,6 +778,15 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                   "Scale Light Radius",
                   "Apply the scene scale factor (from unit conversion or manual scaling) "
                   "to the radius size of spot and sphere lights");
+
+  RNA_def_boolean(
+      ot->srna,
+      "convert_world_material",
+      true,
+      "Convert World Material",
+      "Convert the world material to a USD dome light. "
+      "Currently works for simple materials, consisting of an environment texture "
+      "connected to a background shader, with an optional vector multiply of the texture color.");
 }
 
 /* ====== USD Import ====== */
