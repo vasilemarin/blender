@@ -1518,7 +1518,7 @@ uint8_t *GHOST_SystemWayland::getClipboard(bool /*selection*/) const
   return clipboard;
 }
 
-void GHOST_SystemWayland::putClipboard(int8_t *buffer, bool /*selection*/) const
+void GHOST_SystemWayland::putClipboard(char *buffer, bool /*selection*/) const
 {
   if (!d->data_device_manager || d->inputs.empty()) {
     return;

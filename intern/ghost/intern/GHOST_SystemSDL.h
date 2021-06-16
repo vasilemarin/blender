@@ -58,7 +58,7 @@ class GHOST_SystemSDL : public GHOST_System {
 
   uint8_t *getClipboard(bool selection) const;
 
-  void putClipboard(int8_t *buffer, bool selection) const;
+  void putClipboard(char *buffer, bool selection) const;
 
   uint64_t getMilliSeconds();
 

@@ -1806,7 +1806,7 @@ uint8_t *GHOST_SystemWin32::getClipboard(bool selection) const
   }
 }
 
-void GHOST_SystemWin32::putClipboard(int8_t *buffer, bool selection) const
+void GHOST_SystemWin32::putClipboard(char *buffer, bool selection) const
 {
   if (selection) {
     return;

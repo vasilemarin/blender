@@ -61,7 +61,7 @@ class GHOST_SystemWayland : public GHOST_System {
 
   uint8_t *getClipboard(bool selection) const override;
 
-  void putClipboard(int8_t *buffer, bool selection) const override;
+  void putClipboard(char *buffer, bool selection) const override;
 
   uint8_t getNumDisplays() const override;
 

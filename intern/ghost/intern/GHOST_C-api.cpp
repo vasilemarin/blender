@@ -829,7 +829,7 @@ uint8_t *GHOST_getClipboard(int selection)
   return system->getClipboard(selection);
 }
 
-void GHOST_putClipboard(int8_t *buffer, int selection)
+void GHOST_putClipboard(char *buffer, int selection)
 {
   GHOST_ISystem *system = GHOST_ISystem::getSystem();
   system->putClipboard(buffer, selection);

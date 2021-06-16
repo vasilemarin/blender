@@ -2245,7 +2245,7 @@ uint8_t *GHOST_SystemX11::getClipboard(bool selection) const
   return NULL;
 }
 
-void GHOST_SystemX11::putClipboard(int8_t *buffer, bool selection) const
+void GHOST_SystemX11::putClipboard(char *buffer, bool selection) const
 {
   Window m_window, owner;
 

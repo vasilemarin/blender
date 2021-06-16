@@ -910,7 +910,7 @@ extern uint8_t *GHOST_getClipboard(int selection);
  * \param buffer: the string buffer to set.
  * \param selection: Set the selection instead, X11 only feature.
  */
-extern void GHOST_putClipboard(int8_t *buffer, int selection);
+extern void GHOST_putClipboard(char *buffer, int selection);
 
 /**
  * Toggles console
