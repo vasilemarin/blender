@@ -80,7 +80,7 @@ class GHOST_XrSession {
                                                * action sets will be synced. */
   bool applyHapticAction(const char *action_set_name,
                          const char *action_name,
-                         const GHOST_TInt64 &duration,
+                         const int64_t &duration,
                          const float &frequency,
                          const float &amplitude);
   void stopHapticAction(const char *action_set_name, const char *action_name);

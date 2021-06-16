@@ -39,7 +39,7 @@ class GHOST_EventKey : public GHOST_Event {
    * \param type: The type of key event.
    * \param key: The key code of the key.
    */
-  GHOST_EventKey(GHOST_TUns64 msec,
+  GHOST_EventKey(uint64_t msec,
                  GHOST_TEventType type,
                  GHOST_IWindow *window,
                  GHOST_TKey key,
@@ -60,7 +60,7 @@ class GHOST_EventKey : public GHOST_Event {
    * \param key: The key code of the key.
    * \param ascii: The ascii code for the key event.
    */
-  GHOST_EventKey(GHOST_TUns64 msec,
+  GHOST_EventKey(uint64_t msec,
                  GHOST_TEventType type,
                  GHOST_IWindow *window,
                  GHOST_TKey key,

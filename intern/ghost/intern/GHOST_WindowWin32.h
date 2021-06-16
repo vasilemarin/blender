@@ -57,11 +57,11 @@ typedef BOOL(API *GHOST_WIN32_WTOverlap)(HCTX, BOOL);
 typedef UINT(API *GHOST_WIN32_GetDpiForWindow)(HWND);
 
 struct GHOST_PointerInfoWin32 {
-  GHOST_TInt32 pointerId;
-  GHOST_TInt32 isPrimary;
+  int32_t pointerId;
+  int32_t isPrimary;
   GHOST_TButtonMask buttonMask;
   POINT pixelLocation;
-  GHOST_TUns64 time;
+  uint64_t time;
 
   GHOST_TabletData tabletData;
 };
@@ -94,10 +94,10 @@ class GHOST_WindowWin32 : public GHOST_Window {
    */
   GHOST_WindowWin32(GHOST_SystemWin32 *system,
                     const char *title,
-                    GHOST_TInt32 left,
-                    GHOST_TInt32 top,
-                    GHOST_TUns32 width,
-                    GHOST_TUns32 height,
+                    int32_t left,
+                    int32_t top,
+                    uint32_t width,
+                    uint32_t height,
                     GHOST_TWindowState state,
                     GHOST_TDrawingContextType type = GHOST_kDrawingContextTypeNone,
                     bool wantStereoVisual = false,
@@ -155,20 +155,20 @@ class GHOST_WindowWin32 : public GHOST_Window {
    * Resizes client rectangle width.
    * \param width: The new width of the client area of the window.
    */
-  GHOST_TSuccess setClientWidth(GHOST_TUns32 width);
+  GHOST_TSuccess setClientWidth(uint32_t width);
 
   /**
    * Resizes client rectangle height.
    * \param height: The new height of the client area of the window.
    */
-  GHOST_TSuccess setClientHeight(GHOST_TUns32 height);
+  GHOST_TSuccess setClientHeight(uint32_t height);
 
   /**
    * Resizes client rectangle.
    * \param width: The new width of the client area of the window.
    * \param height: The new height of the client area of the window.
    */
-  GHOST_TSuccess setClientSize(GHOST_TUns32 width, GHOST_TUns32 height);
+  GHOST_TSuccess setClientSize(uint32_t width, uint32_t height);
 
   /**
    * Returns the state of the window (normal, minimized, maximized).
@@ -183,10 +183,10 @@ class GHOST_WindowWin32 : public GHOST_Window {
    * \param outX: The x-coordinate in the client rectangle.
    * \param outY: The y-coordinate in the client rectangle.
    */
-  void screenToClient(GHOST_TInt32 inX,
-                      GHOST_TInt32 inY,
-                      GHOST_TInt32 &outX,
-                      GHOST_TInt32 &outY) const;
+  void screenToClient(int32_t inX,
+                      int32_t inY,
+                      int32_t &outX,
+                      int32_t &outY) const;
 
   /**
    * Converts a point in screen coordinates to client rectangle coordinates
@@ -195,10 +195,10 @@ class GHOST_WindowWin32 : public GHOST_Window {
    * \param outX: The x-coordinate on the screen.
    * \param outY: The y-coordinate on the screen.
    */
-  void clientToScreen(GHOST_TInt32 inX,
-                      GHOST_TInt32 inY,
-                      GHOST_TInt32 &outX,
-                      GHOST_TInt32 &outY) const;
+  void clientToScreen(int32_t inX,
+                      int32_t inY,
+                      int32_t &outX,
+                      int32_t &outY) const;
 
   /**
    * Sets the state of the window (normal, minimized, maximized).
@@ -293,7 +293,7 @@ class GHOST_WindowWin32 : public GHOST_Window {
     return GHOST_kFailure;
   }
 
-  GHOST_TUns16 getDPIHint() override;
+  uint16_t getDPIHint() override;
 
   /** Whether a tablet stylus is being tracked. */
   bool m_tabletInRange;
@@ -307,7 +307,7 @@ class GHOST_WindowWin32 : public GHOST_Window {
     return &m_imeInput;
   }
 
-  void beginIME(GHOST_TInt32 x, GHOST_TInt32 y, GHOST_TInt32 w, GHOST_TInt32 h, int completed);
+  void beginIME(int32_t x, int32_t y, int32_t w, int32_t h, int completed);
 
   void endIME();
 #endif /* WITH_INPUT_IME */
@@ -343,8 +343,8 @@ class GHOST_WindowWin32 : public GHOST_Window {
    * Sets the cursor shape on the window using
    * native window system calls.
    */
-  GHOST_TSuccess setWindowCustomCursorShape(GHOST_TUns8 *bitmap,
-                                            GHOST_TUns8 *mask,
+  GHOST_TSuccess setWindowCustomCursorShape(uint8_t *bitmap,
+                                            uint8_t *mask,
                                             int sizex,
                                             int sizey,
                                             int hotX,

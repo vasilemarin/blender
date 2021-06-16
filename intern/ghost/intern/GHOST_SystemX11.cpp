@@ -186,7 +186,7 @@ GHOST_SystemX11::GHOST_SystemX11() : GHOST_System(), m_xkb_descr(NULL), m_start_
   }
 
   /* Taking care not to overflow the `tv.tv_sec * 1000`. */
-  m_start_time = GHOST_TUns64(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
+  m_start_time = uint64_t(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
 
   /* Use detectable auto-repeat, mac and windows also do this. */
   int use_xkb;
@@ -279,7 +279,7 @@ GHOST_TSuccess GHOST_SystemX11::init()
   return GHOST_kFailure;
 }
 
-GHOST_TUns64 GHOST_SystemX11::getMilliSeconds() const
+uint64_t GHOST_SystemX11::getMilliSeconds() const
 {
   timeval tv;
   if (gettimeofday(&tv, NULL) == -1) {
@@ -287,19 +287,19 @@ GHOST_TUns64 GHOST_SystemX11::getMilliSeconds() const
   }
 
   /* Taking care not to overflow the tv.tv_sec * 1000 */
-  return GHOST_TUns64(tv.tv_sec) * 1000 + tv.tv_usec / 1000 - m_start_time;
+  return uint64_t(tv.tv_sec) * 1000 + tv.tv_usec / 1000 - m_start_time;
 }
 
-GHOST_TUns8 GHOST_SystemX11::getNumDisplays() const
+uint8_t GHOST_SystemX11::getNumDisplays() const
 {
-  return GHOST_TUns8(1);
+  return uint8_t(1);
 }
 
 /**
  * Returns the dimensions of the main display on this system.
  * \return The dimension of the main display.
  */
-void GHOST_SystemX11::getMainDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32 &height) const
+void GHOST_SystemX11::getMainDisplayDimensions(uint32_t &width, uint32_t &height) const
 {
   if (m_display) {
     /* note, for this to work as documented,
@@ -313,7 +313,7 @@ void GHOST_SystemX11::getMainDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32
  * Returns the dimensions of the main display on this system.
  * \return The dimension of the main display.
  */
-void GHOST_SystemX11::getAllDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32 &height) const
+void GHOST_SystemX11::getAllDisplayDimensions(uint32_t &width, uint32_t &height) const
 {
   if (m_display) {
     width = DisplayWidth(m_display, DefaultScreen(m_display));
@@ -339,10 +339,10 @@ void GHOST_SystemX11::getAllDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32 
  * \return The new window (or 0 if creation failed).
  */
 GHOST_IWindow *GHOST_SystemX11::createWindow(const char *title,
-                                             GHOST_TInt32 left,
-                                             GHOST_TInt32 top,
-                                             GHOST_TUns32 width,
-                                             GHOST_TUns32 height,
+                                             int32_t left,
+                                             int32_t top,
+                                             uint32_t width,
+                                             uint32_t height,
                                              GHOST_TWindowState state,
                                              GHOST_TDrawingContextType type,
                                              GHOST_GLSettings glSettings,
@@ -568,7 +568,7 @@ GHOST_WindowX11 *GHOST_SystemX11::findGhostWindow(Window xwind) const
   return NULL;
 }
 
-static void SleepTillEvent(Display *display, GHOST_TInt64 maxSleep)
+static void SleepTillEvent(Display *display, int64_t maxSleep)
 {
   int fd = ConnectionNumber(display);
   fd_set fds;
@@ -649,13 +649,13 @@ bool GHOST_SystemX11::processEvents(bool waitForEvent)
     GHOST_TimerManager *timerMgr = getTimerManager();
 
     if (waitForEvent && m_dirty_windows.empty() && !XPending(m_display)) {
-      GHOST_TUns64 next = timerMgr->nextFireTime();
+      uint64_t next = timerMgr->nextFireTime();
 
       if (next == GHOST_kFireTimeNever) {
         SleepTillEvent(m_display, -1);
       }
       else {
-        GHOST_TInt64 maxSleep = next - getMilliSeconds();
+        int64_t maxSleep = next - getMilliSeconds();
 
         if (maxSleep >= 0)
           SleepTillEvent(m_display, next - getMilliSeconds());
@@ -965,9 +965,9 @@ void GHOST_SystemX11::processEvent(XEvent *xe)
       bool is_tablet = window->GetTabletData().Active != GHOST_kTabletModeNone;
 
       if (is_tablet == false && window->getCursorGrabModeIsWarp()) {
-        GHOST_TInt32 x_new = xme.x_root;
-        GHOST_TInt32 y_new = xme.y_root;
-        GHOST_TInt32 x_accum, y_accum;
+        int32_t x_new = xme.x_root;
+        int32_t y_new = xme.y_root;
+        int32_t x_accum, y_accum;
         GHOST_Rect bounds;
 
         /* fallback to window bounds */
@@ -1641,8 +1641,8 @@ GHOST_TSuccess GHOST_SystemX11::getButtons(GHOST_Buttons &buttons) const
 }
 
 static GHOST_TSuccess getCursorPosition_impl(Display *display,
-                                             GHOST_TInt32 &x,
-                                             GHOST_TInt32 &y,
+                                             int32_t &x,
+                                             int32_t &y,
                                              Window *child_return)
 {
   int rx, ry, wx, wy;
@@ -1667,13 +1667,13 @@ static GHOST_TSuccess getCursorPosition_impl(Display *display,
   return GHOST_kSuccess;
 }
 
-GHOST_TSuccess GHOST_SystemX11::getCursorPosition(GHOST_TInt32 &x, GHOST_TInt32 &y) const
+GHOST_TSuccess GHOST_SystemX11::getCursorPosition(int32_t &x, int32_t &y) const
 {
   Window child_return;
   return getCursorPosition_impl(m_display, x, y, &child_return);
 }
 
-GHOST_TSuccess GHOST_SystemX11::setCursorPosition(GHOST_TInt32 x, GHOST_TInt32 y)
+GHOST_TSuccess GHOST_SystemX11::setCursorPosition(int32_t x, int32_t y)
 {
 
   /* This is a brute force move in screen coordinates
@@ -2139,7 +2139,7 @@ void GHOST_SystemX11::getClipboard_xcout(const XEvent *evt,
   return;
 }
 
-GHOST_TUns8 *GHOST_SystemX11::getClipboard(bool selection) const
+uint8_t *GHOST_SystemX11::getClipboard(bool selection) const
 {
   Atom sseln;
   Atom target = m_atom.UTF8_STRING;
@@ -2245,7 +2245,7 @@ GHOST_TUns8 *GHOST_SystemX11::getClipboard(bool selection) const
   return NULL;
 }
 
-void GHOST_SystemX11::putClipboard(GHOST_TInt8 *buffer, bool selection) const
+void GHOST_SystemX11::putClipboard(int8_t *buffer, bool selection) const
 {
   Window m_window, owner;
 
