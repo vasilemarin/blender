@@ -571,9 +571,8 @@ static void set_shader_properties(const USDExporterContext &usd_export_context,
         usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Bool).Set(bval);
       }
       else if (PyLong_Check(second)) {
-        // For now, assume int values should be floats.
-        float fval = static_cast<float>(PyLong_AsDouble(second));
-        usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Float).Set(fval);
+        int ival = static_cast<int>(PyLong_AsLong(second));
+        usd_shader.CreateInput(pxr::TfToken(name), pxr::SdfValueTypeNames->Int).Set(ival);
       }
       else if (PyList_Check(second) && PyList_Size(second) == 2) {
         PyObject *item0 = PyList_GetItem(second, 0);
