@@ -41,6 +41,7 @@
 
 #include "RNA_access.h"
 
+#include "SEQ_iterator.h"
 #include "SEQ_sequencer.h"
 #include "SEQ_time.h"
 
@@ -1431,25 +1432,96 @@ void snapFrameTransform(TransInfo *t,
 }
 
 /*================================================================*/
-
-void snapSequenceBounds(TransInfo *t, const int mval[2])
+static bool seq_snap_use_snapping(const TransInfo *t)
 {
-  /* Reuse increment, strictly speaking could be another snap mode, but leave as is. */
-  if (!(t->modifiers & MOD_SNAP_INVERT)) {
-    return;
+  SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(t->scene);
+  return (bool)(tool_settings->transform_flag & SEQ_USE_SNAPPING) ^
+         (bool)(t->modifiers & MOD_SNAP_INVERT);
+}
+
+static SeqCollection *seq_snap_targets_get(const TransInfo *t)
+{
+  ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(t->scene, false));
+  SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(t->scene);
+
+  SeqCollection *collection = SEQ_collection_create();
+  LISTBASE_FOREACH (Sequence *, seq, seqbase) {
+    if ((seq->flag & SELECT)) {
+      continue; /* Selected are being transformed. */
+    }
+    if ((seq->flag & SEQ_MUTE) && (tool_settings->transform_flag & SEQ_SNAP_IGNORE_HIDDEN)) {
+      continue;
+    }
+    if (seq->type == SEQ_TYPE_SOUND_RAM &&
+        (tool_settings->transform_flag & SEQ_SNAP_IGNORE_SOUND)) {
+      continue;
+    }
+    SEQ_collection_append_strip(seq, collection);
   }
+  return collection;
+}
+
+static int seq_snap_offset_get(TransInfo *t, const int mval[2])
+{
+  Scene *scene = t->scene;
+  SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(scene);
 
   /* Convert to frame range. */
   float xmouse, ymouse;
   UI_view2d_region_to_view(&t->region->v2d, mval[0], mval[1], &xmouse, &ymouse);
-  const int frame_curr = round_fl_to_int(xmouse);
+  float threshold_dist = UI_view2d_region_to_view_x(&t->region->v2d,
+                                                    mval[0] + tool_settings->snap_threshold);
+  threshold_dist -= xmouse;
 
-  /* Now find the closest sequence. */
-  const int frame_near = SEQ_time_find_next_prev_edit(
-      t->scene, frame_curr, SEQ_SIDE_BOTH, true, false, true);
+  SeqCollection *snap_targets = seq_snap_targets_get(t);
 
-  const int frame_snap = transform_convert_sequencer_get_snap_bound(t);
-  t->values[0] = frame_near - frame_snap;
+  int best_dist = MAXFRAME, best_target_frame, best_source_frame;
+  int *points, point_count;
+
+  points = transform_convert_sequencer_get_snap_points(t, &point_count);
+  for (int i = 0; i < point_count; i++) {
+    int snap_source_frame = points[i]+  round_fl_to_int(t->values[0]);
+
+    Sequence *seq;
+    SEQ_ITERATOR_FOREACH (seq, snap_targets) {
+      if (tool_settings->transform_flag & SEQ_SNAP_TO_STRIP_START) {
+        if (abs(seq->startdisp - snap_source_frame) < best_dist) {
+          best_dist = abs(seq->startdisp - snap_source_frame);
+          best_target_frame = seq->startdisp;
+          best_source_frame = snap_source_frame;
+        }
+      }
+      if (tool_settings->transform_flag & SEQ_SNAP_TO_STRIP_END) {
+        if (abs(seq->enddisp - snap_source_frame) < best_dist) {
+          best_dist = abs(seq->enddisp - snap_source_frame);
+          best_target_frame = seq->enddisp;
+          best_source_frame = snap_source_frame;
+        }
+      }
+      if (tool_settings->transform_flag & SEQ_SNAP_TO_PLAYHEAD) {
+        if (abs(CFRA - snap_source_frame) < best_dist) {
+          best_dist = abs(CFRA - snap_source_frame);
+          best_target_frame = CFRA;
+          best_source_frame = snap_source_frame;
+        }
+      }
+    }
+  }
+
+  if (best_dist > round_fl_to_int(threshold_dist)) {
+    return 0;
+  }
+
+  return best_target_frame - best_source_frame;
+}
+
+void snapSequenceBounds(TransInfo *t, const int mval[2])
+{
+  if (!seq_snap_use_snapping(t)) {
+    return;
+  }
+
+  t->values[0] += seq_snap_offset_get(t, mval);
 }
 
 static void snap_grid_apply(

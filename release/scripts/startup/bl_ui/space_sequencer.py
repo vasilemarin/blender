@@ -162,6 +162,14 @@ class SEQUENCER_HT_header(Header):
                 if tool_settings.use_proportional_edit:
                     row.prop(tool_settings, "proportional_edit_falloff", icon_only=True)
 
+        if st.view_type in {'SEQUENCER', 'SEQUENCER_PREVIEW'}:
+            tool_settings = context.tool_settings.sequencer_tool_settings
+            row = layout.row(align=True)
+            row.prop(tool_settings, "use_snapping", text="")
+            sub = row.row(align=True)
+            sub.popover(panel="SEQUENCER_PT_snapping")
+            layout.separator_spacer()
+
         row = layout.row(align=True)
         row.prop(st, "show_strip_overlay", text="", icon='OVERLAY')
         sub = row.row(align=True)
@@ -2265,6 +2273,40 @@ class SEQUENCER_PT_custom_props(SequencerButtonsPanel, PropertyPanel, Panel):
     bl_category = "Strip"
 
 
+class SEQUENCER_PT_snapping(Panel):
+    bl_space_type = 'SEQUENCE_EDITOR'
+    bl_region_type = 'HEADER'
+    bl_label = "Snapping"
+
+    def draw(self, context):
+        tool_settings = context.tool_settings.sequencer_tool_settings
+
+        layout = self.layout
+        col = layout.column()
+        col.label(text="Snap To")
+        col.prop(tool_settings, "snap_to_strip_start")
+        col.prop(tool_settings, "snap_to_strip_end")
+        col.prop(tool_settings, "snap_to_playhead")
+        col.separator()
+        col.prop(tool_settings, "snap_ignore_hidden")
+        col.prop(tool_settings, "snap_ignore_sound")
+        col.separator()
+
+        col.label(text="Snap points")
+        col.prop(tool_settings, "snap_threshold", slider=True)
+        col.prop(tool_settings, "snap_sensitivity", slider=True)
+        col.separator()
+
+        col.label(text="Snap source")
+        col.prop(tool_settings, "snap_source")
+        col.prop(tool_settings, "snap_side")
+        col.separator()
+
+        col.label(text="Snap Settings")
+        col.prop(tool_settings, "snap_use_mouse_position")
+        col.prop(tool_settings, "snap_playhead_to_strips")
+
+
 classes = (
     SEQUENCER_MT_change,
     SEQUENCER_HT_tool_header,
@@ -2334,6 +2376,8 @@ classes = (
 
     SEQUENCER_PT_annotation,
     SEQUENCER_PT_annotation_onion,
+
+    SEQUENCER_PT_snapping,
 )
 
 if __name__ == "__main__":  # only for live edit.

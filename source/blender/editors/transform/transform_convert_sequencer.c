@@ -63,9 +63,9 @@ typedef struct TransDataSeq {
  */
 typedef struct TransSeq {
   TransDataSeq *tdseq;
-  int min;
-  int max;
-  bool snap_left;
+  int *source_snap_points;
+  int source_snap_point_count;
+  eSeqTransformFlag snap_side;
   int selection_channel_range_min;
   int selection_channel_range_max;
 } TransSeq;
@@ -252,40 +252,123 @@ static int SeqToTransData_build(
   return tot;
 }
 
-static void SeqTransDataBounds(TransInfo *t, ListBase *seqbase, TransSeq *ts)
+// TODO SEQ_SNAP_SOURCE_MOUSE
+static int seq_get_snap_points_count(TransInfo *t, SeqCollection *snap_sources)
 {
+  SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(t->scene);
+
+  int count = 1; /* in case of SEQ_SNAP_SELECTION */
+  if (tool_settings->snap_source == SEQ_SNAP_EACH_STRIP) {
+    count = SEQ_collection_count(snap_sources);
+  }
+
+  if (tool_settings->snap_side == SEQ_SNAP_SOURCE_BOTH) {
+    count *= 2;
+  }
+  return count;
+}
+
+static void seq_snap_points_alloc(TransInfo *t, TransSeq *ts, SeqCollection *snap_sources)
+{
+  size_t point_count = seq_get_snap_points_count(t, snap_sources);
+  ts->source_snap_points = MEM_callocN(sizeof(int) * point_count, __func__);
+  memset(ts->source_snap_points, 0, sizeof(int));
+  ts->source_snap_point_count = point_count;
+}
+
+static eSeqTransformFlag seq_snap_side_get(TransInfo *t, TransSeq *ts, SeqCollection *snap_sources)
+{
+  SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(t->scene);
+
+  if ((tool_settings->snap_side & SEQ_SNAP_SOURCE_MOUSE) == 0) {
+    return tool_settings->snap_side;
+  }
+
+  int boundbox_min = MAXFRAME;
+  int boundbox_max = MINFRAME;
+
   Sequence *seq;
-  int count, flag;
-  int max = INT32_MIN, min = INT32_MAX;
-
-  for (seq = seqbase->first; seq; seq = seq->next) {
-
-    /* just to get the flag since there are corner cases where this isn't totally obvious */
-    SeqTransInfo(t, seq, &count, &flag);
-
-    /* use 'flag' which is derived from seq->flag but modified for special cases */
-    if (flag & SELECT) {
-      if (flag & (SEQ_LEFTSEL | SEQ_RIGHTSEL)) {
-        if (flag & SEQ_LEFTSEL) {
-          min = min_ii(seq->startdisp, min);
-          max = max_ii(seq->startdisp, max);
-        }
-        if (flag & SEQ_RIGHTSEL) {
-          min = min_ii(seq->enddisp, min);
-          max = max_ii(seq->enddisp, max);
-        }
-      }
-      else {
-        min = min_ii(seq->startdisp, min);
-        max = max_ii(seq->enddisp, max);
-      }
+  SEQ_ITERATOR_FOREACH (seq, snap_sources) {
+    if (seq->startdisp < boundbox_min) {
+      boundbox_min = seq->startdisp;
+    }
+    if (seq->enddisp > boundbox_max) {
+      boundbox_max = seq->enddisp;
     }
   }
 
-  if (ts) {
-    ts->max = max;
-    ts->min = min;
+  /* Set the snap mode based on how close the mouse is at the end/start points. */
+  int xmouse = (int)UI_view2d_region_to_view_x((View2D *)t->view, t->mouse.imval[0]);
+  if (abs(xmouse - boundbox_max) > abs(xmouse - boundbox_min)) {
+    return SEQ_SNAP_SOURCE_LEFT;
   }
+  return SEQ_SNAP_SOURCE_RIGHT;
+}
+
+static void seq_snap_points_build_set_min_max(
+    TransInfo *t, TransSeq *ts, int min, int max, int *r_i)
+{
+  if (ts->snap_side & (SEQ_SNAP_SOURCE_LEFT | SEQ_SNAP_SOURCE_BOTH)) {
+    ts->source_snap_points[*r_i] = min;
+    *r_i += 1;
+  }
+  if (ts->snap_side & (SEQ_SNAP_SOURCE_RIGHT | SEQ_SNAP_SOURCE_BOTH)) {
+    ts->source_snap_points[*r_i] = max;
+    *r_i += 1;
+  }
+  BLI_assert(*r_i <= ts->source_snap_point_count);
+
+  SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(t->scene);
+  if (tool_settings->snap_source == SEQ_SNAP_SELECTION) {
+    *r_i = 0;
+  }
+}
+
+static int cmp_fn(const void *a, const void *b)
+{
+  return (*(int *)a - *(int *)b);
+}
+
+// XXX this is quite ugly function, I think this can be simplified
+static void seq_snap_points_build(TransInfo *t, TransSeq *ts, SeqCollection *snap_sources)
+{
+
+  int max = INT32_MIN, min = INT32_MAX;
+  int i = 0;
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, snap_sources) {
+    /* just to get the flag since there are corner cases where this isn't totally obvious */
+    int count, flag;
+    SeqTransInfo(t, seq, &count, &flag);
+
+    /* use 'flag' which is derived from seq->flag but modified for special cases */
+    if (flag & (SEQ_LEFTSEL | SEQ_RIGHTSEL)) {
+      if (flag & SEQ_LEFTSEL) {
+        min = min_ii(seq->startdisp, min);
+        max = max_ii(seq->startdisp, max);
+      }
+      if (flag & SEQ_RIGHTSEL) {
+        min = min_ii(seq->enddisp, min);
+        max = max_ii(seq->enddisp, max);
+      }
+    }
+    else {
+      min = min_ii(seq->startdisp, min);
+      max = max_ii(seq->enddisp, max);
+    }
+    seq_snap_points_build_set_min_max(t, ts, min, max, &i);
+  }
+
+  qsort(ts->source_snap_points, ts->source_snap_point_count, sizeof(int), cmp_fn);
+}
+
+static void SeqTransDataBounds(TransInfo *t, ListBase *seqbase, TransSeq *ts)
+{
+  SeqCollection *snap_sources = SEQ_query_selected_strips(seqbase);
+  ts->snap_side = seq_snap_side_get(t, ts, snap_sources);
+  seq_snap_points_alloc(t, ts, snap_sources);
+  seq_snap_points_build(t, ts, snap_sources);
+  SEQ_collection_free(snap_sources);
 }
 
 static void free_transform_custom_data(TransCustomData *custom_data)
@@ -293,6 +376,7 @@ static void free_transform_custom_data(TransCustomData *custom_data)
   if ((custom_data->data != NULL) && custom_data->use_free) {
     TransSeq *ts = custom_data->data;
     MEM_freeN(ts->tdseq);
+    MEM_freeN(ts->source_snap_points);
     MEM_freeN(custom_data->data);
     custom_data->data = NULL;
   }
@@ -353,7 +437,7 @@ static void seq_transform_update_effects(TransInfo *t, SeqCollection *collection
   Sequence *seq;
   SEQ_ITERATOR_FOREACH (seq, collection) {
     if ((seq->type & SEQ_TYPE_EFFECT) && (seq->seq1 || seq->seq2 || seq->seq3)) {
-        SEQ_time_update_sequence(t->scene, seq);
+      SEQ_time_update_sequence(t->scene, seq);
     }
   }
 }
@@ -544,14 +628,6 @@ void createTransSeqData(TransInfo *t)
   SeqToTransData_build(t, ed->seqbasep, td, td2d, tdsq);
   SeqTransDataBounds(t, ed->seqbasep, ts);
 
-  if (t->flag & T_MODAL) {
-    /* set the snap mode based on how close the mouse is at the end/start points */
-    int xmouse = (int)UI_view2d_region_to_view_x((View2D *)t->view, t->mouse.imval[0]);
-    if (abs(xmouse - ts->max) > abs(xmouse - ts->min)) {
-      ts->snap_left = true;
-    }
-  }
-
   ts->selection_channel_range_min = MAXSEQ + 1;
   LISTBASE_FOREACH (Sequence *, seq, SEQ_active_seqbase_get(ed)) {
     if ((seq->flag & SELECT) != 0) {
@@ -732,10 +808,11 @@ void transform_convert_sequencer_channel_clamp(TransInfo *t)
   }
 }
 
-int transform_convert_sequencer_get_snap_bound(TransInfo *t)
+int *transform_convert_sequencer_get_snap_points(TransInfo *t, int *point_count)
 {
   TransSeq *ts = TRANS_DATA_CONTAINER_FIRST_SINGLE(t)->custom.type.data;
-  return ts->snap_left ? ts->min : ts->max;
+  *point_count = ts->source_snap_point_count;
+  return ts->source_snap_points;
 }
 
 /** \} */
