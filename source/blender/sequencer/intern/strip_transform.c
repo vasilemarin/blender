@@ -308,7 +308,7 @@ static int shuffle_seq_time_offset_test(SeqCollection *strips_to_shuffle,
                                         char dir)
 {
   int offset = 0;
-  Sequence *seq, *seq_other;
+  Sequence *seq;
 
   SEQ_ITERATOR_FOREACH (seq, strips_to_shuffle) {
     LISTBASE_FOREACH (Sequence *, seq_other, seqbasep) {
