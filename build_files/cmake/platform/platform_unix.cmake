@@ -595,6 +595,8 @@ endif()
 if(WITH_GHOST_X11)
   find_package(X11 REQUIRED)
 
+  set(WITH_GL_EGL ON)
+
   find_path(X11_XF86keysym_INCLUDE_PATH X11/XF86keysym.h ${X11_INC_SEARCH_PATH})
   mark_as_advanced(X11_XF86keysym_INCLUDE_PATH)
 
