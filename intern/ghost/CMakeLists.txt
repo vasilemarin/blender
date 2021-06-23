@@ -294,7 +294,13 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
     )
 
     pkg_get_variable(WAYLAND_SCANNER wayland-scanner wayland_scanner)
-    pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
+
+    pkg_check_modules(wayland-protocols REQUIRED wayland-protocols>=1.15)
+    if (wayland-protocols_FOUND)
+      pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
+    else()
+      set(WAYLAND_PROTOCOLS_DIR STRING ${CMAKE_SOURCE_DIR}"/extern/wayland-protocols")
+    endif()
 
     # Generate protocols bindings.
     macro(generate_protocol_bindings NAME PROT_DEF)
