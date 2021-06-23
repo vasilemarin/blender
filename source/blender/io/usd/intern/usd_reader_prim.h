@@ -57,8 +57,6 @@ struct ImportSettings {
 
   CacheFile *cache_file;
 
-  float vel_scale;
-
   ImportSettings()
       : do_convert_mat(false),
         from_up(0),
@@ -70,8 +68,7 @@ struct ImportSettings {
         sequence_offset(0),
         read_flag(0),
         validate_meshes(false),
-        cache_file(NULL),
-        vel_scale(1.0f)
+        cache_file(NULL)
   {
   }
 };
@@ -115,6 +112,15 @@ class USDPrimReader {
     parent_reader_ = parent;
   }
 
+  /* Since readers might be referenced through handles
+   * maintained by modifiers and constraints, we provide
+   * a reference count to facilitate managing the object
+   * lifetime.
+   * TODO(makowalski): investigate transitioning to using
+   * smart pointers for readers, or, alternatively look into
+   * making the lifetime management more robust, e.g., by
+   * making the destructors protected and implementing deletion
+   * in decref(), etc. */
   int refcount() const;
   void incref();
   void decref();

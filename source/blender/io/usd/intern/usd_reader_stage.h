@@ -55,22 +55,18 @@ class USDStageReader {
   std::vector<pxr::UsdLuxDomeLight> dome_lights_;
 
  public:
-  USDStageReader(const char *filename);
+  USDStageReader(pxr::UsdStageRefPtr stage,
+                 const USDImportParams &params,
+                 const ImportSettings &settings);
+
   ~USDStageReader();
 
-  static USDPrimReader *create_reader(const pxr::UsdPrim &prim,
-                                      const USDImportParams &params,
-                                      const ImportSettings &settings,
-                                      pxr::UsdGeomXformCache *xf_cache = nullptr);
+  USDPrimReader *create_reader_if_allowed(const pxr::UsdPrim &prim,
+                                          pxr::UsdGeomXformCache *xf_cache);
 
-  // This version of create_reader() does not filter by primitive type.  I.e.,
-  // it will convert any prim to a reader, if possible, regardless of the
-  // primitive types specified by the user in the import options.
-  static USDPrimReader *create_reader(const USDStageReader *archive, const pxr::UsdPrim &prim);
+  USDPrimReader *create_reader(const pxr::UsdPrim &prim, pxr::UsdGeomXformCache *xf_cache);
 
-  void collect_readers(struct Main *bmain,
-                       const USDImportParams &params,
-                       const ImportSettings &settings);
+  void collect_readers(struct Main *bmain);
 
   bool valid() const;
 
@@ -88,18 +84,9 @@ class USDStageReader {
     return settings_;
   }
 
-  void params(const USDImportParams &a_params)
-  {
-    params_ = a_params;
-  }
-  void settings(const ImportSettings &a_settings)
-  {
-    settings_ = a_settings;
-  }
+  void clear_readers();
 
-  void clear_readers(bool decref = true);
-
-  void clear_proto_readers(bool decref = true);
+  void clear_proto_readers();
 
   const ProtoReaderMap &proto_readers() const
   {
@@ -115,6 +102,18 @@ class USDStageReader {
   {
     return dome_lights_;
   };
+
+ private:
+  USDPrimReader *collect_readers(Main *bmain,
+                                 const pxr::UsdPrim &prim,
+                                 pxr::UsdGeomXformCache *xf_cache,
+                                 std::vector<USDPrimReader *> &r_readers);
+
+  bool include_by_visibility(const pxr::UsdGeomImageable &imageable) const;
+
+  bool include_by_purpose(const pxr::UsdGeomImageable &imageable) const;
+
+  bool merge_with_parent(USDPrimReader *reader) const;
 };
 
 };  // namespace blender::io::usd
