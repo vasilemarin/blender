@@ -41,19 +41,17 @@
 
 namespace blender::io::usd {
 
-USDStageReader::USDStageReader(const char *filename)
+USDStageReader::USDStageReader(pxr::UsdStageRefPtr stage,
+                               const USDImportParams &params,
+                               const ImportSettings &settings)
+    : stage_(stage), params_(params), settings_(settings)
 {
-  stage_ = pxr::UsdStage::Open(filename);
 }
 
 USDStageReader::~USDStageReader()
 {
-  clear_readers(true);
-  clear_proto_readers(true);
-
-  if (stage_) {
-    stage_->Unload();
-  }
+  clear_proto_readers();
+  clear_readers();
 }
 
 bool USDStageReader::valid() const
@@ -61,142 +59,144 @@ bool USDStageReader::valid() const
   return stage_;
 }
 
+USDPrimReader *USDStageReader::create_reader_if_allowed(const pxr::UsdPrim &prim,
+                                                        pxr::UsdGeomXformCache *xf_cache)
+{
+  if (params_.use_instancing && prim.IsInstance()) {
+    return new USDInstanceReader(prim, params_, settings_);
+  }
+  if (params_.import_cameras && prim.IsA<pxr::UsdGeomCamera>()) {
+    return new USDCameraReader(prim, params_, settings_);
+  }
+  if (params_.import_curves && prim.IsA<pxr::UsdGeomBasisCurves>()) {
+    return new USDCurvesReader(prim, params_, settings_);
+  }
+  if (params_.import_curves && prim.IsA<pxr::UsdGeomNurbsCurves>()) {
+    return new USDNurbsReader(prim, params_, settings_);
+  }
+  if (params_.import_meshes && prim.IsA<pxr::UsdGeomMesh>()) {
+    return new USDMeshReader(prim, params_, settings_);
+  }
+  if (params_.import_lights && prim.IsA<pxr::UsdLuxDomeLight>()) {
+    return new USDXformReader(prim, params_, settings_);
+  }
+  if (params_.import_lights && prim.IsA<pxr::UsdLuxLight>()) {
+    return new USDLightReader(prim, params_, settings_, xf_cache);
+  }
+  if (params_.import_volumes && prim.IsA<pxr::UsdVolVolume>()) {
+    return new USDVolumeReader(prim, params_, settings_);
+  }
+  if (prim.IsA<pxr::UsdGeomImageable>()) {
+    return new USDXformReader(prim, params_, settings_);
+  }
+  if (prim.GetPrimTypeInfo() == pxr::UsdPrimTypeInfo::GetEmptyPrimType()) {
+    /* Handle the less common case where the prim has no type specified. */
+    return new USDXformReader(prim, params_, settings_);
+  }
+
+  return nullptr;
+}
+
 USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim,
-                                             const USDImportParams &params,
-                                             const ImportSettings &settings,
                                              pxr::UsdGeomXformCache *xf_cache)
 {
-
-  USDPrimReader *reader = nullptr;
-
-  if (params.use_instancing && prim.IsInstance()) {
-    reader = new USDInstanceReader(prim, params, settings);
-  }
-  else if (params.import_cameras && prim.IsA<pxr::UsdGeomCamera>()) {
-    reader = new USDCameraReader(prim, params, settings);
-  }
-  else if (params.import_curves && prim.IsA<pxr::UsdGeomBasisCurves>()) {
-    reader = new USDCurvesReader(prim, params, settings);
-  }
-  else if (params.import_curves && prim.IsA<pxr::UsdGeomNurbsCurves>()) {
-    reader = new USDNurbsReader(prim, params, settings);
-  }
-  else if (params.import_meshes && prim.IsA<pxr::UsdGeomMesh>()) {
-    reader = new USDMeshReader(prim, params, settings);
-  }
-  else if (params.import_lights && prim.IsA<pxr::UsdLuxDomeLight>()) {
-    reader = new USDXformReader(prim, params, settings);
-  }
-  else if (params.import_lights && prim.IsA<pxr::UsdLuxLight>()) {
-    reader = new USDLightReader(prim, params, settings, xf_cache);
-  }
-  else if (params.import_volumes && prim.IsA<pxr::UsdVolVolume>()) {
-    reader = new USDVolumeReader(prim, params, settings);
-  }
-  else if (prim.IsA<pxr::UsdGeomImageable>()) {
-    reader = new USDXformReader(prim, params, settings);
-  }
-  else if (prim.GetPrimTypeInfo() == pxr::UsdPrimTypeInfo::GetEmptyPrimType()) {
-    /* Handle the less common case where the prim has no type specified. */
-    reader = new USDXformReader(prim, params, settings);
-  }
-
-  return reader;
-}
-
-// TODO(makowalski): The handle does not have the proper import params or settings
-USDPrimReader *USDStageReader::create_reader(const USDStageReader *archive,
-                                             const pxr::UsdPrim &prim)
-{
-  USDPrimReader *reader = nullptr;
-
   if (prim.IsA<pxr::UsdGeomCamera>()) {
-    reader = new USDCameraReader(prim, archive->params(), archive->settings());
+    return new USDCameraReader(prim, params_, settings_);
   }
-  else if (prim.IsA<pxr::UsdGeomBasisCurves>()) {
-    reader = new USDCurvesReader(prim, archive->params(), archive->settings());
+  if (prim.IsA<pxr::UsdGeomBasisCurves>()) {
+    return new USDCurvesReader(prim, params_, settings_);
   }
-  else if (prim.IsA<pxr::UsdGeomNurbsCurves>()) {
-    reader = new USDNurbsReader(prim, archive->params(), archive->settings());
+  if (prim.IsA<pxr::UsdGeomNurbsCurves>()) {
+    return new USDNurbsReader(prim, params_, settings_);
   }
-  else if (prim.IsA<pxr::UsdGeomMesh>()) {
-    reader = new USDMeshReader(prim, archive->params(), archive->settings());
+  if (prim.IsA<pxr::UsdGeomMesh>()) {
+    return new USDMeshReader(prim, params_, settings_);
   }
-  else if (prim.IsA<pxr::UsdLuxDomeLight>()) {
-    reader = new USDXformReader(prim, archive->params(), archive->settings());
+  if (prim.IsA<pxr::UsdLuxDomeLight>()) {
+    return new USDXformReader(prim, params_, settings_);
   }
-  else if (prim.IsA<pxr::UsdLuxLight>()) {
-    reader = new USDLightReader(prim, archive->params(), archive->settings());
+  if (prim.IsA<pxr::UsdLuxLight>()) {
+    return new USDLightReader(prim, params_, settings_, xf_cache);
   }
-  else if (prim.IsA<pxr::UsdVolVolume>()) {
-    reader = new USDVolumeReader(prim, archive->params(), archive->settings());
+  if (prim.IsA<pxr::UsdVolVolume>()) {
+    return new USDVolumeReader(prim, params_, settings_);
   }
-  else if (prim.IsA<pxr::UsdGeomImageable>()) {
-    reader = new USDXformReader(prim, archive->params(), archive->settings());
+  if (prim.IsA<pxr::UsdGeomImageable>()) {
+    return new USDXformReader(prim, params_, settings_);
   }
-  return reader;
+  return nullptr;
 }
 
-/* Returns true if the given prim should be excluded from the
- * traversal because it's invisible. */
-static bool _prune_by_visibility(const pxr::UsdGeomImageable &imageable,
-                                 const USDImportParams &params)
+/* Returns true if the given prim should be included in the
+ * traversal based on the import options and the prim's visibility
+ * attribute.  Note that the prim will be trivially included
+ * if it has no visibility attribute or if the visibility
+ * is inherited. */
+bool USDStageReader::include_by_visibility(const pxr::UsdGeomImageable &imageable) const
 {
-  if (!(imageable && params.import_visible_only)) {
-    return false;
+  if (!params_.import_visible_only) {
+    /* Invisible prims are allowed. */
+    return true;
   }
 
-  if (pxr::UsdAttribute visibility_attr = imageable.GetVisibilityAttr()) {
-    // Prune if the prim has a non-animating visibility attribute and is
-    // invisible.
-    if (!visibility_attr.ValueMightBeTimeVarying()) {
-      pxr::TfToken visibility;
-      visibility_attr.Get(&visibility);
-      return visibility == pxr::UsdGeomTokens->invisible;
-    }
+  pxr::UsdAttribute visibility_attr = imageable.GetVisibilityAttr();
+
+  if (!visibility_attr) {
+    /* No visibility attribute, so allow. */
+    return true;
   }
 
-  return false;
+  /* Include if the prim has an animating visibility attribute or is not invisible. */
+
+  if (visibility_attr.ValueMightBeTimeVarying()) {
+    return true;
+  }
+
+  pxr::TfToken visibility;
+  visibility_attr.Get(&visibility);
+  return visibility != pxr::UsdGeomTokens->invisible;
 }
 
-/* Returns true if the given prim should be excluded from the
- * traversal because it has a purpose which was not requested
- * by the user; e.g., the prim represents guide geometry and
- * the import_guide parameter is toggled off. */
-static bool _prune_by_purpose(const pxr::UsdGeomImageable &imageable,
-                              const USDImportParams &params)
+/* Returns true if the given prim should be included in the
+ * traversal based on the import options and the prim's purpose
+ * attribute. E.g., return false (to exclude the prim) if the prim
+ * represents guide geometry and the 'Import Guide' option is
+ * toggled off. */
+bool USDStageReader::include_by_purpose(const pxr::UsdGeomImageable &imageable) const
 {
-  if (!imageable) {
-    return false;
+  if (params_.import_guide && params_.import_proxy && params_.import_render) {
+    /* The options allow any purpose, so we trivially include the prim. */
+    return true;
   }
 
-  if (params.import_guide && params.import_proxy && params.import_render) {
-    return false;
+  pxr::UsdAttribute purpose_attr = imageable.GetPurposeAttr();
+
+  if (!purpose_attr) {
+    /* No purpose attribute, so trivially include the prim. */
+    return true;
   }
 
-  if (pxr::UsdAttribute purpose_attr = imageable.GetPurposeAttr()) {
-    pxr::TfToken purpose;
-    if (!purpose_attr.Get(&purpose)) {
-      return false;
-    }
-    if (purpose == pxr::UsdGeomTokens->guide && !params.import_guide) {
-      return true;
-    }
-    if (purpose == pxr::UsdGeomTokens->proxy && !params.import_proxy) {
-      return true;
-    }
-    if (purpose == pxr::UsdGeomTokens->render && !params.import_render) {
-      return true;
-    }
+  pxr::TfToken purpose;
+  purpose_attr.Get(&purpose);
+
+  if (purpose == pxr::UsdGeomTokens->guide) {
+    return params_.import_guide;
+  }
+  if (purpose == pxr::UsdGeomTokens->proxy) {
+    return params_.import_proxy;
+  }
+  if (purpose == pxr::UsdGeomTokens->render) {
+    return params_.import_render;
   }
 
-  return false;
+  return true;
 }
 
 /* Determine if the given reader can use the parent of the encapsulated USD prim
  * to compute the Blender object's transform. If so, the reader is appropriately
  * flagged and the function returns true. Otherwise, the function returns false. */
-static bool _merge_with_parent(USDPrimReader *reader, const USDImportParams &params)
+
+bool USDStageReader::merge_with_parent(USDPrimReader *reader) const
 {
   USDXformReader *xform_reader = dynamic_cast<USDXformReader *>(reader);
 
@@ -215,7 +215,7 @@ static bool _merge_with_parent(USDPrimReader *reader, const USDImportParams &par
   }
 
   /* Don't merge if instancing is enabled and the parent is an instance. */
-  if (params.use_instancing && xform_reader->prim().GetParent().IsInstance()) {
+  if (params_.use_instancing && xform_reader->prim().GetParent().IsInstance()) {
     return false;
   }
 
@@ -236,34 +236,30 @@ static bool _merge_with_parent(USDPrimReader *reader, const USDImportParams &par
   return true;
 }
 
-static USDPrimReader *_handlePrim(Main *bmain,
-                                  pxr::UsdStageRefPtr stage,
-                                  const USDImportParams &params,
-                                  pxr::UsdPrim prim,
-                                  std::vector<USDPrimReader *> &readers,
-                                  std::vector<pxr::UsdLuxDomeLight> *dome_lights,
-                                  const ImportSettings &settings,
-                                  pxr::UsdGeomXformCache *xf_cache = nullptr)
+USDPrimReader *USDStageReader::collect_readers(Main *bmain,
+                                               const pxr::UsdPrim &prim,
+                                               pxr::UsdGeomXformCache *xf_cache,
+                                               std::vector<USDPrimReader *> &r_readers)
 {
   if (prim.IsA<pxr::UsdGeomImageable>()) {
     pxr::UsdGeomImageable imageable(prim);
 
-    if (_prune_by_purpose(imageable, params)) {
+    if (!include_by_purpose(imageable)) {
       return nullptr;
     }
 
-    if (_prune_by_visibility(imageable, params)) {
+    if (!include_by_visibility(imageable)) {
       return nullptr;
     }
   }
 
-  if (dome_lights && prim.IsA<pxr::UsdLuxDomeLight>()) {
-    dome_lights->push_back(pxr::UsdLuxDomeLight(prim));
+  if (prim.IsA<pxr::UsdLuxDomeLight>()) {
+    dome_lights_.push_back(pxr::UsdLuxDomeLight(prim));
   }
 
   pxr::Usd_PrimFlagsPredicate filter_predicate = pxr::UsdPrimDefaultPredicate;
 
-  if (!params.use_instancing && params.import_instance_proxies) {
+  if (!params_.use_instancing && params_.import_instance_proxies) {
     filter_predicate = pxr::UsdTraverseInstanceProxies(filter_predicate);
   }
 
@@ -272,9 +268,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
   std::vector<USDPrimReader *> child_readers;
 
   for (const auto &childPrim : children) {
-    USDPrimReader *child_reader = _handlePrim(
-        bmain, stage, params, childPrim, readers, dome_lights, settings, xf_cache);
-    if (child_reader) {
+    if (USDPrimReader *child_reader = collect_readers(bmain, childPrim, xf_cache, r_readers)) {
       child_readers.push_back(child_reader);
     }
   }
@@ -282,7 +276,7 @@ static USDPrimReader *_handlePrim(Main *bmain,
   /* We prune the current prim if it's a Scope
    * and we didn't convert any of its children. */
   if (child_readers.empty() && prim.IsA<pxr::UsdGeomScope>() &&
-      !(params.use_instancing && prim.IsInstance())) {
+      !(params_.use_instancing && prim.IsInstance())) {
     return nullptr;
   }
 
@@ -290,95 +284,85 @@ static USDPrimReader *_handlePrim(Main *bmain,
   if (child_readers.size() == 1) {
     USDPrimReader *child_reader = child_readers.front();
 
-    if (_merge_with_parent(child_reader, params)) {
+    if (merge_with_parent(child_reader)) {
       return child_reader;
     }
   }
 
-  USDPrimReader *reader = nullptr;
+  if (prim.IsPseudoRoot() || prim.IsMaster()) {
+    return nullptr;
+  }
 
-  if (!(prim.IsPseudoRoot() || prim.IsMaster())) {
-    reader = USDStageReader::create_reader(prim, params, settings, xf_cache);
+  USDPrimReader *reader = create_reader_if_allowed(prim, xf_cache);
 
-    if (reader == nullptr) {
-      return nullptr;
-    }
+  if (!reader) {
+    return nullptr;
+  }
 
-    reader->create_object(bmain, 0.0);
+  reader->create_object(bmain, 0.0);
 
-    readers.push_back(reader);
-    reader->incref();
+  r_readers.push_back(reader);
+  reader->incref();
 
-    /* Set each child reader's parent. */
-    for (USDPrimReader *child_reader : child_readers) {
-      child_reader->parent(reader);
-    }
+  /* Set each child reader's parent. */
+  for (USDPrimReader *child_reader : child_readers) {
+    child_reader->parent(reader);
   }
 
   return reader;
 }
 
-void USDStageReader::collect_readers(Main *bmain,
-                                     const USDImportParams &params,
-                                     const ImportSettings &settings)
+void USDStageReader::collect_readers(Main *bmain)
 {
-  params_ = params;
-  settings_ = settings;
+  if (!valid()) {
+    return;
+  }
 
-  clear_readers(true);
-  clear_proto_readers(true);
+  clear_readers();
+  clear_proto_readers();
   dome_lights_.clear();
 
   // Iterate through stage
   pxr::UsdPrim root = stage_->GetPseudoRoot();
 
-  std::string prim_path_mask(params.prim_path_mask);
+  std::string prim_path_mask(params_.prim_path_mask);
 
-  if (prim_path_mask.size() > 0) {
-    std::cout << prim_path_mask << '\n';
-    pxr::SdfPath path = pxr::SdfPath(prim_path_mask);
-    pxr::UsdPrim prim = stage_->GetPrimAtPath(path.StripAllVariantSelections());
+  if (!prim_path_mask.empty()) {
+    pxr::UsdPrim prim = stage_->GetPrimAtPath(pxr::SdfPath(prim_path_mask));
     if (prim.IsValid()) {
       root = prim;
-      if (path.ContainsPrimVariantSelection()) {
-        // TODO(makowalski): This will not work properly with setting variants on child prims
-        while (path.ContainsPrimVariantSelection()) {
-          std::pair<std::string, std::string> variantSelection = path.GetVariantSelection();
-          root.GetVariantSet(variantSelection.first).SetVariantSelection(variantSelection.second);
-          path = path.GetParentPath();
-        }
-      }
+    }
+    else {
+      std::cerr << "WARNING: Prim Path Mask " << prim_path_mask
+                << " does not specify a valid prim.\n";
     }
   }
 
   stage_->SetInterpolationType(pxr::UsdInterpolationType::UsdInterpolationTypeHeld);
 
   pxr::UsdGeomXformCache xf_cache;
-  _handlePrim(bmain, stage_, params, root, readers_, &dome_lights_, settings, &xf_cache);
+  collect_readers(bmain, root, &xf_cache, readers_);
 
-  if (params.use_instancing) {
+  if (params_.use_instancing) {
     // Collect the scenegraph instance prototypes.
     std::vector<pxr::UsdPrim> protos = stage_->GetMasters();
 
     for (const pxr::UsdPrim &proto_prim : protos) {
       std::vector<USDPrimReader *> proto_readers;
-      _handlePrim(
-          bmain, stage_, params, proto_prim, proto_readers, &dome_lights_, settings, &xf_cache);
+      collect_readers(bmain, proto_prim, &xf_cache, proto_readers);
       proto_readers_.insert(std::make_pair(proto_prim.GetPath(), proto_readers));
     }
   }
 }
 
-void USDStageReader::clear_readers(bool decref)
+void USDStageReader::clear_readers()
 {
   for (USDPrimReader *reader : readers_) {
     if (!reader) {
       continue;
     }
 
-    if (decref) {
-      reader->decref();
-    }
+    reader->decref();
 
     if (reader->refcount() == 0) {
       delete reader;
@@ -388,7 +372,7 @@ void USDStageReader::clear_readers(bool decref)
   readers_.clear();
 }
 
-void USDStageReader::clear_proto_readers(bool decref)
+void USDStageReader::clear_proto_readers()
 {
   for (auto &pair : proto_readers_) {
 
@@ -398,9 +382,7 @@ void USDStageReader::clear_proto_readers(bool decref)
         continue;
       }
 
-      if (decref) {
-        reader->decref();
-      }
+      reader->decref();
 
       if (reader->refcount() == 0) {
         delete reader;
