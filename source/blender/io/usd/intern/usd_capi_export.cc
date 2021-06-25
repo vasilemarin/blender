@@ -50,6 +50,7 @@
 #include "BLI_fileops.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
+#include "BLI_math_vector.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
@@ -111,6 +112,9 @@ static void ensure_root_prim(pxr::UsdStageRefPtr stage, const USDExportParams &p
 
     float eul[3];
     mat3_to_eul(eul, mrot);
+
+    /* Convert radians to degrees. */
+    mul_v3_fl(eul, 180.0f / M_PI);
 
     xf_api.SetRotate(pxr::GfVec3f(eul[0], eul[1], eul[2]));
   }
