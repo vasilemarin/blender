@@ -132,7 +132,7 @@ pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material)
                      pxr::UsdShadeMaterial::Define(usd_export_context_.stage, usd_path);
 
   // TODO(bskinner) maybe always export viewport material as variant...
-  if (material->use_nodes) {
+  if (material->use_nodes && this->usd_export_context_.export_params.generate_cycles_shaders) {
     create_usd_cycles_material(this->usd_export_context_.stage,
                                material,
                                usd_material,

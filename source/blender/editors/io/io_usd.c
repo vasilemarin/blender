@@ -263,6 +263,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const bool convert_world_material = RNA_boolean_get(op->ptr, "convert_world_material");
 
+  const bool generate_cycles_shaders = RNA_boolean_get(op->ptr, "generate_cycles_shaders");
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -312,7 +314,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    convert_to_cm,
                                    convert_light_to_nits,
                                    scale_light_radius,
-                                   convert_world_material};
+                                   convert_world_material,
+                                   generate_cycles_shaders};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -422,6 +425,7 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
   uiItemR(box, ptr, "convert_to_cm", 0, NULL, ICON_NONE);
 
   if (RNA_boolean_get(ptr, "export_materials")) {
+    uiItemR(box, ptr, "generate_cycles_shaders", 0, NULL, ICON_NONE);
     uiItemR(box, ptr, "generate_preview_surface", 0, NULL, ICON_NONE);
     if (USD_umm_module_loaded()) {
       uiItemR(box, ptr, "generate_mdl", 0, NULL, ICON_NONE);
@@ -602,6 +606,11 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                  "Material Prim Path",
                  "This specifies where all generated USD Shade Materials and Shaders get placed");
 
+  RNA_def_boolean(ot->srna,
+                  "generate_cycles_shaders",
+                  false,
+                  "Export Cycles Shaders",
+                  "Export Cycles shader nodes to USD");
   RNA_def_boolean(
       ot->srna,
       "generate_preview_surface",
