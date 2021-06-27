@@ -1257,7 +1257,7 @@ pxr::UsdShadeShader create_cycles_shader_node(pxr::UsdStageRefPtr a_stage,
       usd_handle_shader_enum(
           pxr::TfToken("Type"), node_mix_rgb_type_conversion, shader, (int)node->custom1);
       shader.CreateInput(pxr::TfToken("Use_Clamp"), pxr::SdfValueTypeNames->Bool)
-          .Set(node->custom1 & SHD_MIXRGB_CLAMP);
+          .Set(static_cast<bool>(node->custom1 & SHD_MIXRGB_CLAMP));
     } break;
     case SH_NODE_VECTOR_DISPLACEMENT: {
       usd_handle_shader_enum(
