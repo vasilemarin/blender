@@ -1024,6 +1024,7 @@ elseif(APPLE)
   install(
     TARGETS blender
     DESTINATION "."
+    PERMISSIONS OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE
   )
 
   # install release and app files
