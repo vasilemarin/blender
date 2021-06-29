@@ -825,6 +825,8 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
   bNodeTree *ntree = snode->edittree;
   bNodeLinkDrag *nldrag = (bNodeLinkDrag *)op->customdata;
   bool do_tag_update = false;
+  /* View will be reset if no links connect. */
+  bool reset_view = true;
 
   /* avoid updates while applying links */
   ntree->is_updating = true;
@@ -862,6 +864,8 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
       if (link->tonode) {
         do_tag_update |= (do_tag_update || node_connected_to_output(bmain, ntree, link->tonode));
       }
+
+      reset_view = false;
     }
     else {
       nodeRemLink(ntree, link);
@@ -875,7 +879,9 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
     snode_dag_update(C, snode);
   }
 
-  UI_view2d_edge_pan_cancel(C, &nldrag->pan_data);
+  if (reset_view) {
+    UI_view2d_edge_pan_cancel(C, &nldrag->pan_data);
+  }
 
   BLI_remlink(&snode->runtime->linkdrag, nldrag);
   /* links->data pointers are either held by the tree or freed already */

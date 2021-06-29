@@ -169,7 +169,9 @@ static float edge_pan_speed(View2DEdgePanData *vpd,
 
   /* Apply a fade in to the speed based on a start time delay. */
   const double start_time = x_dir ? vpd->edge_pan_start_time_x : vpd->edge_pan_start_time_y;
-  const float delay_factor = smootherstep(vpd->delay, (float)(current_time - start_time));
+  const float delay_factor = vpd->delay > 0.01f ?
+                                 smootherstep(vpd->delay, (float)(current_time - start_time)) :
+                                 1.0f;
 
   return distance_factor * delay_factor * vpd->max_speed * U.widget_unit * (float)U.dpi_fac;
 }
