@@ -26,6 +26,7 @@
 #pragma once
 
 #include "BLI_compiler_attrs.h"
+#include "BLI_rect.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -320,6 +321,9 @@ typedef struct View2DEdgePanData {
   /** Delay in seconds before maximum speed is reached. */
   float delay;
 
+  /** Initial view rect. */
+  rctf initial_rect;
+
   /** Amount to move view relative to zoom. */
   float facx, facy;
 
@@ -340,13 +344,15 @@ void UI_view2d_edge_pan_init(struct bContext *C,
 
 void UI_view2d_edge_pan_reset(struct View2DEdgePanData *vpd);
 
-/* Apply transform to view (i.e. adjust 'cur' rect). */
+    /* Apply transform to view (i.e. adjust 'cur' rect). */
 void UI_view2d_edge_pan_apply(struct bContext *C, struct View2DEdgePanData *vpd, int x, int y);
 
 /* Apply transform to view using mouse events. */
 void UI_view2d_edge_pan_apply_event(struct bContext *C,
                                     struct View2DEdgePanData *vpd,
                                     const struct wmEvent *event);
+
+void UI_view2d_edge_pan_cancel(struct bContext *C, struct View2DEdgePanData *vpd);
 
 void UI_view2d_edge_pan_operator_properties(struct wmOperatorType *ot);
 
