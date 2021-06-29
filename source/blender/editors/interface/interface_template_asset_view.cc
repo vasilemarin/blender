@@ -96,8 +96,8 @@ static void asset_view_draw_item(uiList *ui_list,
 
   uiBlock *block = uiLayoutGetBlock(layout);
   /* TODO ED_fileselect_init_layout(). Share somehow? */
-  float size_x = (96.0f / 20.0f) * UI_UNIT_X;
-  float size_y = (96.0f / 20.0f) * UI_UNIT_Y;
+  const float size_x = (96.0f / 20.0f) * UI_UNIT_X;
+  const float size_y = (96.0f / 20.0f) * UI_UNIT_Y;
   uiBut *but = uiDefIconTextBut(block,
                                 UI_BTYPE_PREVIEW_TILE,
                                 0,

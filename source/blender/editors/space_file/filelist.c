@@ -3498,7 +3498,7 @@ static void filelist_readjob_free(void *flrjv)
   MEM_freeN(flrj);
 }
 
-void filelist_readjob_start(FileList *filelist, int space_notifier, const bContext *C)
+void filelist_readjob_start(FileList *filelist, const int space_notifier, const bContext *C)
 {
   Main *bmain = CTX_data_main(C);
   wmJob *wm_job;

@@ -534,12 +534,12 @@ void rna_uiTemplateList(uiLayout *layout,
                         struct PointerRNA *active_dataptr,
                         const char *active_propname,
                         const char *item_dyntip_propname,
-                        int rows,
-                        int maxrows,
-                        int layout_type,
-                        int columns,
-                        bool sort_reverse,
-                        bool sort_lock)
+                        const int rows,
+                        const int maxrows,
+                        const int layout_type,
+                        const int columns,
+                        const bool sort_reverse,
+                        const bool sort_lock)
 {
   int flags = UI_TEMPLATE_LIST_FLAG_NONE;
   if (sort_reverse) {
