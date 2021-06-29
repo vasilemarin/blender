@@ -52,27 +52,27 @@ static void asset_view_item_but_drag_set(uiBut *but,
                                          AssetViewListData *list_data,
                                          AssetHandle *asset_handle)
 {
-  if (ID *id = asset_handle->file_data->id) {
+  ID *id = asset_handle->file_data->id;
+  if (id != NULL) {
     UI_but_drag_set_id(but, id);
+    return;
   }
-  else {
-    const blender::StringRef asset_list_path = ED_assetlist_library_path(
-        &list_data->asset_library);
-    char blend_path[FILE_MAX_LIBEXTRA];
 
-    char path[FILE_MAX_LIBEXTRA];
-    BLI_join_dirfile(path, sizeof(path), asset_list_path.data(), asset_handle->file_data->relpath);
-    if (BLO_library_path_explode(path, blend_path, nullptr, nullptr)) {
-      ImBuf *imbuf = ED_assetlist_asset_image_get(asset_handle);
-      UI_but_drag_set_asset(but,
-                            asset_handle->file_data->name,
-                            BLI_strdup(blend_path),
-                            asset_handle->file_data->blentype,
-                            FILE_ASSET_IMPORT_APPEND,
-                            asset_handle->file_data->preview_icon_id,
-                            imbuf,
-                            1.0f);
-    }
+  const blender::StringRef asset_list_path = ED_assetlist_library_path(&list_data->asset_library);
+  char blend_path[FILE_MAX_LIBEXTRA];
+
+  char path[FILE_MAX_LIBEXTRA];
+  BLI_join_dirfile(path, sizeof(path), asset_list_path.data(), asset_handle->file_data->relpath);
+  if (BLO_library_path_explode(path, blend_path, nullptr, nullptr)) {
+    ImBuf *imbuf = ED_assetlist_asset_image_get(asset_handle);
+    UI_but_drag_set_asset(but,
+                          asset_handle->file_data->name,
+                          BLI_strdup(blend_path),
+                          asset_handle->file_data->blentype,
+                          FILE_ASSET_IMPORT_APPEND,
+                          asset_handle->file_data->preview_icon_id,
+                          imbuf,
+                          1.0f);
   }
 }
 
