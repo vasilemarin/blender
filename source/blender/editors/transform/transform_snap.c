@@ -61,6 +61,8 @@
 #include "transform_convert.h"
 #include "transform_snap.h"
 
+static bool doForceIncrementSnap(const TransInfo *t);
+
 /* this should be passed as an arg for use in snap functions */
 #undef BASACT
 
@@ -131,6 +133,23 @@ bool activeSnap(const TransInfo *t)
 {
   return ((t->modifiers & (MOD_SNAP | MOD_SNAP_INVERT)) == MOD_SNAP) ||
          ((t->modifiers & (MOD_SNAP | MOD_SNAP_INVERT)) == MOD_SNAP_INVERT);
+}
+
+bool activeSnap_with_project(const TransInfo *t)
+{
+  if (!t->tsnap.project) {
+    return false;
+  }
+
+  if (!activeSnap(t) || (t->flag & T_NO_PROJECT)) {
+    return false;
+  }
+
+  if (doForceIncrementSnap(t)) {
+    return false;
+  }
+
+  return true;
 }
 
 bool transformModeUseSnap(const TransInfo *t)
@@ -299,15 +318,7 @@ eRedrawFlag handleSnapping(TransInfo *t, const wmEvent *event)
 
 void applyProject(TransInfo *t)
 {
-  if (!t->tsnap.project) {
-    return;
-  }
-
-  if (!activeSnap(t) || (t->flag & T_NO_PROJECT)) {
-    return;
-  }
-
-  if (doForceIncrementSnap(t)) {
+  if (!activeSnap_with_project(t)) {
     return;
   }
 
@@ -1506,7 +1517,7 @@ bool transform_snap_grid(TransInfo *t, float *val)
   return true;
 }
 
-static void snap_increment_apply_ex(TransInfo *UNUSED(t),
+static void snap_increment_apply_ex(const TransInfo *UNUSED(t),
                                     const int max_index,
                                     const float increment_val,
                                     const float aspect[3],
@@ -1520,8 +1531,8 @@ static void snap_increment_apply_ex(TransInfo *UNUSED(t),
   }
 }
 
-static void snap_increment_apply(TransInfo *t,
-                                 int max_index,
+static void snap_increment_apply(const TransInfo *t,
+                                 const int max_index,
                                  const float increment_dist,
                                  float *r_val)
 {
@@ -1553,7 +1564,7 @@ static void snap_increment_apply(TransInfo *t,
   snap_increment_apply_ex(t, max_index, increment_dist, asp, r_val, r_val);
 }
 
-bool transform_snap_increment_ex(TransInfo *t, bool use_local_space, float *r_val)
+bool transform_snap_increment_ex(const TransInfo *t, bool use_local_space, float *r_val)
 {
   if (!activeSnap(t)) {
     return false;
@@ -1584,7 +1595,7 @@ bool transform_snap_increment_ex(TransInfo *t, bool use_local_space, float *r_va
   return true;
 }
 
-bool transform_snap_increment(TransInfo *t, float *r_val)
+bool transform_snap_increment(const TransInfo *t, float *r_val)
 {
   return transform_snap_increment_ex(t, false, r_val);
 }
