@@ -127,7 +127,7 @@ static const EnumPropertyItem rna_enum_override_library_property_operation_items
 };
 
 /**
- * \note Uses #IDFilterEnumPropertyItem, not EnumPropertyItem to support 64 bit items.
+ * \note Uses #IDFilterEnumPropertyItem, not EnumPropertyItem, to support 64 bit items.
  */
 const struct IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
     /* Datablocks */
