@@ -20,7 +20,6 @@
  * Generic context popup menus.
  */
 
-#include <stdio.h>
 #include <string.h>
 
 #include "MEM_guardedalloc.h"
