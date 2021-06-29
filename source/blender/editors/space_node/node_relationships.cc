@@ -875,6 +875,8 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
     snode_dag_update(C, snode);
   }
 
+  UI_view2d_edge_pan_cancel(C, &nldrag->pan_data);
+
   BLI_remlink(&snode->runtime->linkdrag, nldrag);
   /* links->data pointers are either held by the tree or freed already */
   BLI_freelistN(&nldrag->links);
@@ -1151,6 +1153,8 @@ static void node_link_cancel(bContext *C, wmOperator *op)
   bNodeLinkDrag *nldrag = (bNodeLinkDrag *)op->customdata;
 
   BLI_remlink(&snode->runtime->linkdrag, nldrag);
+
+  UI_view2d_edge_pan_cancel(C, &nldrag->pan_data);
 
   BLI_freelistN(&nldrag->links);
   MEM_freeN(nldrag);

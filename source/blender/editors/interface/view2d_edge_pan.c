@@ -104,6 +104,7 @@ void UI_view2d_edge_pan_reset(View2DEdgePanData *vpd)
   vpd->edge_pan_start_time_x = 0.0;
   vpd->edge_pan_start_time_y = 0.0;
   vpd->edge_pan_last_time = PIL_check_seconds_timer();
+  vpd->initial_rect = vpd->region->v2d.cur;
 }
 
 /**
@@ -262,6 +263,27 @@ void UI_view2d_edge_pan_apply_event(bContext *C, View2DEdgePanData *vpd, const w
   }
 
   UI_view2d_edge_pan_apply(C, vpd, event->x, event->y);
+}
+
+void UI_view2d_edge_pan_cancel(bContext *C, View2DEdgePanData *vpd)
+{
+  View2D *v2d = vpd->v2d;
+  if (!v2d) {
+    return;
+  }
+
+  v2d->cur = vpd->initial_rect;
+
+  /* Inform v2d about changes after this operation. */
+  UI_view2d_curRect_changed(C, v2d);
+
+  /* Don't rebuild full tree in outliner, since we're just changing our view. */
+  ED_region_tag_redraw_no_rebuild(vpd->region);
+
+  /* Request updates to be done. */
+  WM_event_add_mousemove(CTX_wm_window(C));
+
+  UI_view2d_sync(vpd->screen, vpd->area, v2d, V2D_LOCK_COPY);
 }
 
 void UI_view2d_edge_pan_operator_properties(wmOperatorType *ot)
