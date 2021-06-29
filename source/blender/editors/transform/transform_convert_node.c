@@ -115,11 +115,6 @@ void createTransNodeData(TransInfo *t)
   const float dpi_fac = UI_DPI_FAC;
   SpaceNode *snode = t->area->spacedata.first;
 
-  if (t->mode == TFM_TRANSLATION) {
-    /* Disable cursor wrapping in the node editor for edge pan */
-    t->flag |= T_NO_CURSOR_WRAP;
-  }
-
   /* Custom data to enable edge panning during the node transform */
   NodeTransCustomData *customdata = MEM_callocN(sizeof(*customdata), __func__);
   UI_view2d_edge_pan_init(t->context,
@@ -178,7 +173,7 @@ void flushTransNodes(TransInfo *t)
 
   NodeTransCustomData *customdata = (NodeTransCustomData *)t->custom.type.data;
 
-  if (t->mode == TFM_TRANSLATION) {
+  if (t->options & CTX_VIEW2D_EDGE_PAN) {
     /* Edge panning functions expect window coordinates, mval is relative to region */
     const float x = t->region->winrct.xmin + t->mval[0];
     const float y = t->region->winrct.ymin + t->mval[1];
