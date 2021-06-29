@@ -159,6 +159,7 @@ if(UNIX)
   include(cmake/lzma.cmake)
   include(cmake/ssl.cmake)
   include(cmake/sqlite.cmake)
+  include(cmake/wayland_protocols.cmake)
 endif()
 
 if(UNIX AND NOT APPLE)
