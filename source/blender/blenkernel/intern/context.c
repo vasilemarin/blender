@@ -1455,8 +1455,6 @@ const AssetLibraryReference *CTX_wm_asset_library(const bContext *C)
 
 AssetHandle CTX_wm_asset_handle(const bContext *C, bool *r_is_valid)
 {
-  *r_is_valid = false;
-
   AssetHandle *asset_handle_p =
       (AssetHandle *)CTX_data_pointer_get_type(C, "asset_handle", &RNA_AssetHandle).data;
   if (asset_handle_p) {
@@ -1476,6 +1474,7 @@ AssetHandle CTX_wm_asset_handle(const bContext *C, bool *r_is_valid)
     return (AssetHandle){.file_data = file};
   }
 
+  *r_is_valid = false;
   return (AssetHandle){0};
 }
 
