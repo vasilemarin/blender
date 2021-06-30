@@ -1020,18 +1020,20 @@ elseif(APPLE)
   endif()
   execute_process(COMMAND SetFile -d ${SETFILE_DATE} -m ${SETFILE_DATE}
                   ${EXECUTABLE_OUTPUT_PATH}/Blender.app)
-  execute_process(COMMAND chmod a+rx,u+w ${EXECUTABLE_OUTPUT_PATH}/Blender.app)
-
-  set(CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
-    OWNER_READ    GROUP_READ    WORLD_READ
-    OWNER_WRITE
-    OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE
-  )
+  add_custom_command(TARGET blender
+    # Ensure that the binary exists.
+    POST_BUILD
+    # Permissions for all intermediate directories and the Blender binary.
+    COMMAND chmod -R a+rx,u+w
+    # ${EXECUTABLE_OUTPUT_PATH}/Blender.app is wrong path for Xcode generator.
+    "$<TARGET_BUNDLE_DIR:blender>"
+    "$<TARGET_BUNDLE_CONTENT_DIR:blender>"
+    "$<TARGET_BUNDLE_CONTENT_DIR:blender>/MacOS"
+    "$<TARGET_FILE:blender>")
 
   install(
     TARGETS blender
     DESTINATION "."
-    PERMISSIONS ${CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS}
   )
 
   # install release and app files
