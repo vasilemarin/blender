@@ -20,6 +20,7 @@
 
 #include "usd_hierarchy_iterator.h"
 #include "usd_writer_abstract.h"
+#include "usd_writer_armature.h"
 #include "usd_writer_camera.h"
 #include "usd_writer_curve.h"
 #include "usd_writer_hair.h"
@@ -133,6 +134,12 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
       }
       else
         return nullptr;
+    case OB_ARMATURE:
+      if (true) {
+        data_writer = new USDArmatureWriter(usd_export_context);
+      }
+      else
+        return nullptr;
       break;
 
     case OB_EMPTY:
@@ -141,7 +148,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
     case OB_SPEAKER:
     case OB_LIGHTPROBE:
     case OB_LATTICE:
-    case OB_ARMATURE:
     case OB_GPENCIL:
       return nullptr;
     case OB_TYPE_MAX:
