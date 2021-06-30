@@ -110,6 +110,11 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
+# The NEW behavior is to evaluate generator expressions for install(CODE) and install(SCRIPT).
+if(POLICY CMP0087)
+  cmake_policy(SET CMP0087 NEW)
+endif()
+
 #-----------------------------------------------------------------------------
 # Load some macros.
 include(build_files/cmake/macros.cmake)

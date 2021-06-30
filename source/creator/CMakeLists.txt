@@ -1020,16 +1020,6 @@ elseif(APPLE)
   endif()
   execute_process(COMMAND SetFile -d ${SETFILE_DATE} -m ${SETFILE_DATE}
                   ${EXECUTABLE_OUTPUT_PATH}/Blender.app)
-  add_custom_command(TARGET blender
-    # Ensure that the binary exists.
-    POST_BUILD
-    # Permissions for all intermediate directories and the Blender binary.
-    COMMAND chmod -R a+rx,u+w
-    # ${EXECUTABLE_OUTPUT_PATH}/Blender.app is wrong path for Xcode generator.
-    "$<TARGET_BUNDLE_DIR:blender>"
-    "$<TARGET_BUNDLE_CONTENT_DIR:blender>"
-    "$<TARGET_BUNDLE_CONTENT_DIR:blender>/MacOS"
-    "$<TARGET_FILE:blender>")
 
   install(
     TARGETS blender
@@ -1250,6 +1240,10 @@ endif()
 
 # -----------------------------------------------------------------------------
 # Post-install script
+
+if(APPLE)
+  install(CODE "execute_process(COMMAND chmod -R a+X,a+r,u+w '$<TARGET_BUNDLE_DIR:blender>')")
+endif()
 
 if(POSTINSTALL_SCRIPT)
   install(SCRIPT ${POSTINSTALL_SCRIPT})
