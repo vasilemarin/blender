@@ -1242,7 +1242,7 @@ endif()
 # Post-install script
 
 if(APPLE)
-  install(CODE "execute_process(COMMAND chmod -R a+X,a+r,u+w '$<TARGET_BUNDLE_DIR:blender>')")
+  install(CODE "execute_process(COMMAND chmod -R a+rX,u+w \"$<TARGET_BUNDLE_DIR:blender>\")")
 endif()
 
 if(POSTINSTALL_SCRIPT)
