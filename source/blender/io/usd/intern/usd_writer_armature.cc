@@ -26,13 +26,33 @@
 
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
+#include <pxr/usd/usdSkel/animation.h>
+#include <pxr/usd/usdSkel/bindingAPI.h>
 #include <pxr/usd/usdSkel/skeleton.h>
+#include <pxr/usd/usdSkel/tokens.h>
 
+#include <iostream>
 #include <string>
 #include <vector>
 
-namespace {
+namespace usdtokens {
+static const pxr::TfToken Anim("Anim", pxr::TfToken::Immortal);
+}  // namespace usdtokens
 
+static std::string build_path(const Bone *bone)
+{
+  std::string path(pxr::TfMakeValidIdentifier(bone->name));
+
+  const Bone *parent = bone->parent;
+  while (parent) {
+    path = pxr::TfMakeValidIdentifier(parent->name) + std::string("/") + path;
+    parent = parent->parent;
+  }
+
+  return path;
+}
+
+namespace {
 
 struct BoneVisitor  {
 public:
@@ -71,26 +91,11 @@ struct BoneDataBuilder : public BoneVisitor {
       rest_xforms.push_back(arm_mat);
     }
   }
-
-  std::string build_path(const Bone *bone) {
-    std::string path(pxr::TfMakeValidIdentifier(bone->name));
-
-    const Bone *parent = bone->parent;
-    while (parent) {
-      path = pxr::TfMakeValidIdentifier(parent->name) + std::string("/") + path;
-      parent = parent->parent;
-    }
-
-    return path;
-  }
-
 };
 
 
 } // End anonymous namespace
 
-
-namespace blender::io::usd {
 
 static void visit_bones(const Bone *bone, BoneVisitor *visitor)
 {
@@ -114,6 +119,26 @@ static void visit_bones(const Object *ob_arm, BoneVisitor *visitor)
   }
 }
 
+static void create_pose_joints(const pxr::UsdSkelAnimation &skel_anim, Object *obj)
+{
+  if (!(skel_anim && obj && obj->pose)) {
+    return;
+  }
+
+  pxr::VtTokenArray joints;
+
+  bPose * pose = obj->pose;
+
+  LISTBASE_FOREACH(bPoseChannel *, pchan, &pose->chanbase) {
+    if (pchan->bone) {
+      joints.push_back(pxr::TfToken(build_path(pchan->bone)));
+    }
+  }
+
+  skel_anim.GetJointsAttr().Set(joints);
+}
+
+namespace blender::io::usd {
 
 USDArmatureWriter::USDArmatureWriter(const USDExporterContext &ctx) : USDAbstractWriter(ctx)
 {
@@ -147,9 +172,32 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
 
   if (!usd_skel) {
     printf("WARNING: Couldn't define Skeleton %s\n", usd_export_context_.usd_path.GetString().c_str());
+    return;
   }
 
-  printf("Defined Skeleton %s\n", usd_export_context_.usd_path.GetString().c_str());
+  pxr::UsdSkelAnimation usd_skel_anim;
+
+  if (usd_export_context_.export_params.export_animation) {
+
+    /* Create the SkelAnimation primitive. */
+
+    /* TODO: Right now there is a remote possibility that the SkelAnimation path will clash
+     * with the USD path for another object in the scene.  Look into extending USDHierarchyIterator
+     * with a function that will provide a USD path that's guranteed to be unique (e.g., by
+     * examining paths of all the writers in the writer map).  The USDHierarchyIterator
+     * can be accessed for such a query like this:
+     * this->usd_export_context_.hierarchy_iterator */
+
+    pxr::SdfPath anim_path = usd_export_context_.usd_path.AppendChild(usdtokens::Anim);
+
+    usd_skel_anim = (usd_export_context_.export_params.export_as_overs) ?
+      pxr::UsdSkelAnimation(usd_export_context_.stage->OverridePrim(anim_path)) :
+      pxr::UsdSkelAnimation::Define(usd_export_context_.stage, anim_path);
+
+    if (!usd_skel_anim) {
+      printf("WARNING: Couldn't define SkelAnim %s\n", anim_path.GetString().c_str());
+    }
+  }
 
   if (!this->frame_has_been_written_) {
 
@@ -170,15 +218,27 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
 
     usd_skel.GetBindTransformsAttr().Set(bone_data.bind_xforms);
     usd_skel.GetRestTransformsAttr().Set(bone_data.rest_xforms);
+
+    if (usd_skel_anim) {
+      pxr::UsdSkelBindingAPI usd_skel_api(usd_skel.GetPrim());
+      usd_skel_api.CreateAnimationSourceRel().SetTargets(pxr::SdfPathVector({ pxr::SdfPath(usdtokens::Anim) }));
+
+      create_pose_joints(usd_skel_anim, context.object);
+    }
   }
 
-  /* TODO: Right now there is a remote possibility that the SkelAnimation path will clash
-   * with the USD path for another object in the scene.  Look into extending USDHierarchyIterator
-   * with a function that will provide a USD path that's guranteed to be unique (e.g., by
-   * examining paths of all the writers in the writer map.  The USDHierarchyIterator
-   * can be accessed for such a query like this: 
-   * this->usd_export_context_.hierarchy_iterator */
+}
 
+bool USDArmatureWriter::check_is_animated(const HierarchyContext &context) const
+{
+  const Object *obj = context.object;
+
+  if (!(obj && obj->type == OB_ARMATURE)) {
+    return false;
+  }
+
+  /* TODO(makowalski): Is this a sufficient check? */
+  return obj->adt != nullptr;
 }
 
 }  // namespace blender::io::usd

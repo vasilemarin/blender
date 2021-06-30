@@ -28,6 +28,8 @@ class USDArmatureWriter : public USDAbstractWriter {
 
  protected:
   virtual void do_write(HierarchyContext &context) override;
+
+  virtual bool check_is_animated(const HierarchyContext &context) const override;
 };
 
 }  // namespace blender::io::usd
