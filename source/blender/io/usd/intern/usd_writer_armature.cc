@@ -47,6 +47,12 @@ struct BoneDataBuilder : public BoneVisitor {
 
   pxr::VtArray<pxr::GfMatrix4d> rest_xforms;
 
+  pxr::GfMatrix4d world_mat;
+
+  BoneDataBuilder(const pxr::GfMatrix4d &in_world_mat) :
+    world_mat(in_world_mat)
+  {
+  }
 
   void Visit(const Bone *bone) override {
     if (!bone) {
@@ -54,9 +60,16 @@ struct BoneDataBuilder : public BoneVisitor {
     }
     paths.push_back(build_path(bone));
 
-    //pxr::GfMatrix4f rest4f(bone->arm_mat);
-    //rest_xforms.push_back(pxr::GfMatrix4d(rest4f));
+    pxr::GfMatrix4d arm_mat(pxr::GfMatrix4f(bone->arm_mat));
+    bind_xforms.push_back(arm_mat * world_mat);
 
+    if (bone->parent) {
+      pxr::GfMatrix4d parent_arm_mat(pxr::GfMatrix4f(bone->parent->arm_mat));
+      rest_xforms.push_back(arm_mat * parent_arm_mat.GetInverse());
+    }
+    else {
+      rest_xforms.push_back(arm_mat);
+    }
   }
 
   std::string build_path(const Bone *bone) {
@@ -140,7 +153,9 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
 
   if (!this->frame_has_been_written_) {
 
-    BoneDataBuilder bone_data;
+    pxr::GfMatrix4d world_mat(pxr::GfMatrix4f(context.matrix_world));
+    BoneDataBuilder bone_data(world_mat);
+
     visit_bones(context.object, &bone_data);
 
     if (!bone_data.paths.empty()) {
@@ -153,8 +168,8 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
       usd_skel.GetJointsAttr().Set(joints);
     }
 
-
-    //usd_skel.GetRestTransformsAttr().Set(bone_data.rest_xforms);
+    usd_skel.GetBindTransformsAttr().Set(bone_data.bind_xforms);
+    usd_skel.GetRestTransformsAttr().Set(bone_data.rest_xforms);
   }
 
   /* TODO: Right now there is a remote possibility that the SkelAnimation path will clash
