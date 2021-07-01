@@ -117,7 +117,8 @@ void createTransNodeData(TransInfo *t)
                           NODE_EDGE_PAN_OUTSIDE_PAD,
                           NODE_EDGE_PAN_SPEED_RAMP,
                           NODE_EDGE_PAN_MAX_SPEED,
-                          NODE_EDGE_PAN_DELAY);
+                          NODE_EDGE_PAN_DELAY,
+                          NODE_EDGE_PAN_ZOOM_INFLUENCE);
   t->custom.type.data = customdata;
   t->custom.type.use_free = true;
 

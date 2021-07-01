@@ -320,6 +320,11 @@ typedef struct View2DEdgePanData {
   float max_speed;
   /** Delay in seconds before maximum speed is reached. */
   float delay;
+  /** Influence factor for view zoom:
+   *    0 = Constant speed in UI units
+   *    1 = Constant speed in view space, UI speed slows down when zooming out
+   */
+  float zoom_influence;
 
   /** Initial view rect. */
   rctf initial_rect;
@@ -340,11 +345,12 @@ void UI_view2d_edge_pan_init(struct bContext *C,
                              float outside_pad,
                              float speed_ramp,
                              float max_speed,
-                             float delay);
+                             float delay,
+                             float zoom_influence);
 
 void UI_view2d_edge_pan_reset(struct View2DEdgePanData *vpd);
 
-    /* Apply transform to view (i.e. adjust 'cur' rect). */
+/* Apply transform to view (i.e. adjust 'cur' rect). */
 void UI_view2d_edge_pan_apply(struct bContext *C, struct View2DEdgePanData *vpd, int x, int y);
 
 /* Apply transform to view using mouse events. */
@@ -361,7 +367,8 @@ void UI_view2d_edge_pan_operator_properties_ex(struct wmOperatorType *ot,
                                                float outside_pad,
                                                float speed_ramp,
                                                float max_speed,
-                                               float delay);
+                                               float delay,
+                                               float zoom_influence);
 
 /* Initialize panning data with operator settings. */
 void UI_view2d_edge_pan_operator_init(struct bContext *C,
