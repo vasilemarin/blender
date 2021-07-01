@@ -138,6 +138,39 @@ static void create_pose_joints(const pxr::UsdSkelAnimation &skel_anim, Object *o
   skel_anim.GetJointsAttr().Set(joints);
 }
 
+static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj, pxr::UsdTimeCode time)
+{
+  if (!(skel_anim && obj && obj->pose)) {
+    return;
+  }
+
+  pxr::VtArray<pxr::GfMatrix4d> xforms;
+
+  bPose * pose = obj->pose;
+
+  LISTBASE_FOREACH(bPoseChannel *, pchan, &pose->chanbase) {
+
+    if (!pchan->bone) {
+      printf("WARNING: pchan %s is missing bone.\n", pchan->name);
+      continue;
+    }
+
+    pxr::GfMatrix4d pose_mat(pxr::GfMatrix4f(pchan->chan_mat));
+
+    pxr::GfMatrix4d arm_mat(pxr::GfMatrix4f(pchan->bone->arm_mat));
+
+    if (pchan->bone->parent) {
+      pxr::GfMatrix4d parent_arm_mat(pxr::GfMatrix4f(pchan->bone->parent->arm_mat));
+      xforms.push_back(pose_mat * arm_mat * parent_arm_mat.GetInverse());
+    }
+    else {
+      xforms.push_back(pose_mat * arm_mat);
+    }
+  }
+
+  skel_anim.SetTransforms(xforms, time);
+}
+
 namespace blender::io::usd {
 
 USDArmatureWriter::USDArmatureWriter(const USDExporterContext &ctx) : USDAbstractWriter(ctx)
@@ -165,10 +198,8 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
   pxr::UsdTimeCode timecode = get_export_time_code();
 
   pxr::UsdSkelSkeleton usd_skel = (usd_export_context_.export_params.export_as_overs) ?
-    pxr::UsdSkelSkeleton(usd_export_context_.stage->OverridePrim(
-      usd_export_context_.usd_path)) :
-    pxr::UsdSkelSkeleton::Define(usd_export_context_.stage,
-      usd_export_context_.usd_path);
+    pxr::UsdSkelSkeleton(stage->OverridePrim(usd_export_context_.usd_path)) :
+    pxr::UsdSkelSkeleton::Define(stage, usd_export_context_.usd_path);
 
   if (!usd_skel) {
     printf("WARNING: Couldn't define Skeleton %s\n", usd_export_context_.usd_path.GetString().c_str());
@@ -191,8 +222,8 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
     pxr::SdfPath anim_path = usd_export_context_.usd_path.AppendChild(usdtokens::Anim);
 
     usd_skel_anim = (usd_export_context_.export_params.export_as_overs) ?
-      pxr::UsdSkelAnimation(usd_export_context_.stage->OverridePrim(anim_path)) :
-      pxr::UsdSkelAnimation::Define(usd_export_context_.stage, anim_path);
+      pxr::UsdSkelAnimation(stage->OverridePrim(anim_path)) :
+      pxr::UsdSkelAnimation::Define(stage, anim_path);
 
     if (!usd_skel_anim) {
       printf("WARNING: Couldn't define SkelAnim %s\n", anim_path.GetString().c_str());
@@ -225,6 +256,10 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
 
       create_pose_joints(usd_skel_anim, context.object);
     }
+  }
+
+  if (usd_skel_anim) {
+    add_anim_sample(usd_skel_anim, context.object, timecode);
   }
 
 }
