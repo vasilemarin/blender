@@ -215,7 +215,7 @@ class AbstractHierarchyIterator {
   typedef std::map<ObjectIdentifier, ExportChildren> ExportGraph;
   /* Mapping from ID to its export path. This is used for instancing; given an
    * instanced datablock, the export path of the original can be looked up. */
-  typedef std::map<ID *, std::string> ExportPathMap;
+  typedef std::map<const ID *, std::string> ExportPathMap;
 
  protected:
   ExportGraph export_graph_;
@@ -258,6 +258,11 @@ class AbstractHierarchyIterator {
    * object->data. Overriding is necessary when the exported format does NOT expect the object's
    * data to be a child of the object. */
   virtual std::string get_object_data_path(const HierarchyContext *context) const;
+
+  /* Returns the export path computed for the object with the given ID.
+   * This should be called after only all writers have been created for the
+   * dependency graph. This currently works for non-instanced objects only. */
+  std::string get_object_export_path(const ID *id) const;
 
  private:
   void debug_print_export_graph(const ExportGraph &graph) const;

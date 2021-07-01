@@ -238,6 +238,17 @@ std::string AbstractHierarchyIterator::get_object_data_path(const HierarchyConte
   return path_concatenate(context->export_path, get_object_data_name(context->object));
 }
 
+std::string AbstractHierarchyIterator::get_object_export_path(const ID *id) const
+{
+  const ExportPathMap::const_iterator &it = duplisource_export_path_.find(id);
+
+  if (it != duplisource_export_path_.end()) {
+    return it->second;
+  }
+
+  return std::string();
+}
+
 void AbstractHierarchyIterator::debug_print_export_graph(const ExportGraph &graph) const
 {
   size_t total_graph_size = 0;

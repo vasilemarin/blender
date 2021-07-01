@@ -20,6 +20,7 @@
 #include "usd_hierarchy_iterator.h"
 
 #include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdSkel/bindingAPI.h>
 
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
@@ -27,6 +28,8 @@
 
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
+
+#include <string>
 
 namespace blender::io::usd {
 
@@ -43,6 +46,21 @@ bool is_skinned_mesh(Object *obj)
   return BKE_modifiers_findby_type(obj, eModifierType_Armature) != nullptr;
 }
 
+static Object *get_armature_obj(Object *obj)
+{
+  if (!(obj && obj->data)) {
+    return false;
+  }
+
+  if (obj->type != OB_MESH) {
+    return false;
+  }
+
+  ArmatureModifierData *mod = reinterpret_cast<ArmatureModifierData*>(BKE_modifiers_findby_type(obj, eModifierType_Armature));
+
+  return mod ? mod->object : nullptr;
+}
+
 USDSkinnedMeshWriter::USDSkinnedMeshWriter(const USDExporterContext &ctx) : USDMeshWriter(ctx)
 {
 }
@@ -50,6 +68,42 @@ USDSkinnedMeshWriter::USDSkinnedMeshWriter(const USDExporterContext &ctx) : USDM
 void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
 {
   USDMeshWriter::do_write(context);
+
+  pxr::UsdStageRefPtr stage = usd_export_context_.stage;
+  pxr::UsdTimeCode timecode = get_export_time_code();
+
+  pxr::UsdPrim mesh_prim = stage->GetPrimAtPath(usd_export_context_.usd_path);
+
+  if (!mesh_prim.IsValid()) {
+    printf("WARNING: couldn't get valid mesh prim for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
+
+  pxr::UsdSkelBindingAPI usd_skel_api(mesh_prim);
+
+  Object *obj = get_armature_obj(context.object);
+
+  if (!obj) {
+    printf("WARNING: couldn't get armature object for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
+
+  if (!obj->data) {
+    printf("WARNING: couldn't get armature object data for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
+
+  ID *arm_id = reinterpret_cast<ID*>(obj->data);
+
+  std::string skel_path = usd_export_context_.hierarchy_iterator->get_object_export_path(arm_id);
+
+  if (skel_path.empty()) {
+    printf("WARNING: couldn't get USD skeleton path for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
+
+  usd_skel_api.CreateSkeletonRel().SetTargets(pxr::SdfPathVector({ pxr::SdfPath(skel_path) }));
+
 }
 
 bool USDSkinnedMeshWriter::is_supported(const HierarchyContext *context) const
