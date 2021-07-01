@@ -28,6 +28,7 @@
 #include "usd_writer_mesh.h"
 #include "usd_writer_metaball.h"
 #include "usd_writer_particle.h"
+#include "usd_writer_skinned_mesh.h"
 #include "usd_writer_transform.h"
 
 #include <string>
@@ -108,8 +109,14 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
 
   switch (context->object->type) {
     case OB_MESH:
-      if (usd_export_context.export_params.export_meshes)
-        data_writer = new USDMeshWriter(usd_export_context);
+      if (usd_export_context.export_params.export_meshes) {
+        if (usd_export_context.export_params.export_armatures && is_skinned_mesh(context->object)) {
+          data_writer = new USDSkinnedMeshWriter(usd_export_context);
+        }
+        else {
+          data_writer = new USDMeshWriter(usd_export_context);
+        }
+      }
       else
         return nullptr;
       break;
@@ -135,7 +142,7 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
       else
         return nullptr;
     case OB_ARMATURE:
-      if (true) {
+      if (usd_export_context.export_params.export_armatures) {
         data_writer = new USDArmatureWriter(usd_export_context);
       }
       else
