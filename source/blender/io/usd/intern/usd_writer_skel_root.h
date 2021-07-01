@@ -13,30 +13,27 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2019 Blender Foundation.
+ * The Original Code is Copyright (C) 2021 Blender Foundation.
  * All rights reserved.
  */
 #pragma once
 
-#include "usd_writer_abstract.h"
+#include "usd_writer_transform.h"
 
-#include <pxr/usd/usdGeom/xform.h>
+#include <pxr/usd/usdGeom/xformable.h>
 
 namespace blender::io::usd {
 
-class USDTransformWriter : public USDAbstractWriter {
- private:
-  pxr::UsdGeomXformOp xformOp_;
+class USDSkelRootWriter : public USDTransformWriter {
 
  public:
-  USDTransformWriter(const USDExporterContext &ctx);
+   USDSkelRootWriter(const USDExporterContext &ctx) : USDTransformWriter(ctx)
+   {}
 
  protected:
-  void do_write(HierarchyContext &context) override;
-  bool check_is_animated(const HierarchyContext &context) const override;
 
-  /* Subclasses may override this to create prims other than UsdGeomXform. */
-  virtual pxr::UsdGeomXformable create_xformable() const;
+  /* Override to create UsdSkelRoot prim. */
+  pxr::UsdGeomXformable create_xformable() const override;
 };
 
 }  // namespace blender::io::usd

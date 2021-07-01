@@ -28,6 +28,7 @@
 #include "usd_writer_mesh.h"
 #include "usd_writer_metaball.h"
 #include "usd_writer_particle.h"
+#include "usd_writer_skel_root.h"
 #include "usd_writer_skinned_mesh.h"
 #include "usd_writer_transform.h"
 
@@ -90,7 +91,8 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
   pxr::SdfPath prim_path = pxr::SdfPath(std::string(params_.root_prim_path) +
                                         context->export_path);
   // TODO: Somewhat of a workaround. There could be a better way to incoporate this...
-  if (mergeTransformAndShape)
+  bool can_merge_with_xform = !(this->params_.export_armatures && is_skinned_mesh(context->object));
+  if (can_merge_with_xform && mergeTransformAndShape)
     prim_path = prim_path.GetParentPath();
   return USDExporterContext{depsgraph_, stage_, prim_path, this, params_};
 }
@@ -98,6 +100,10 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
 AbstractHierarchyWriter *USDHierarchyIterator::create_transform_writer(
     const HierarchyContext *context)
 {
+  if (this->params_.export_armatures && is_skinned_mesh(context->object)) {
+    return new USDSkelRootWriter(create_usd_export_context(context));
+  }
+
   return new USDTransformWriter(create_usd_export_context(context));
 }
 

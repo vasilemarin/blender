@@ -42,20 +42,20 @@ USDTransformWriter::USDTransformWriter(const USDExporterContext &ctx) : USDAbstr
 {
 }
 
-void USDTransformWriter::do_write(HierarchyContext &context)
+pxr::UsdGeomXformable USDTransformWriter::create_xformable() const
 {
   pxr::UsdGeomXform xform;
 
   if (usd_export_context_.export_params.export_as_overs) {
     // Override existing prim on stage
     xform = pxr::UsdGeomXform(
-        usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path));
+      usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path));
   }
   else {
     // If prim exists, cast to UsdGeomXform (Solves merge transform and shape issue for animated
     // exports)
     pxr::UsdPrim existing_prim = usd_export_context_.stage->GetPrimAtPath(
-        usd_export_context_.usd_path);
+      usd_export_context_.usd_path);
     if (existing_prim.IsValid()) {
       xform = pxr::UsdGeomXform(existing_prim);
     }
@@ -63,6 +63,13 @@ void USDTransformWriter::do_write(HierarchyContext &context)
       xform = pxr::UsdGeomXform::Define(usd_export_context_.stage, usd_export_context_.usd_path);
     }
   }
+
+  return xform;
+}
+
+void USDTransformWriter::do_write(HierarchyContext &context)
+{
+  pxr::UsdGeomXformable xform = create_xformable();
 
   if (usd_export_context_.export_params.export_transforms) {
     float parent_relative_matrix[4][4];  // The object matrix relative to the parent.
