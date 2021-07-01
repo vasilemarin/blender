@@ -232,6 +232,78 @@ void color3ubv_from_seq(Scene *curscene, Sequence *seq, uchar col[3])
   }
 }
 
+typedef struct WaveVizData {
+  float pos[2];
+  float rms_pos;
+  bool clip;
+  bool end;
+} WaveVizData;
+
+static int get_section_len(WaveVizData *start, WaveVizData *end)
+{
+  int len = 0;
+  while (start != end) {
+    len++;
+    if (start->end) {
+      return len;
+    }
+    start++;
+  }
+  return len;
+}
+
+static void draw_waveform(WaveVizData *iter, WaveVizData *end, GPUPrimType prim_type, bool use_rms)
+{
+  int strip_len = get_section_len(iter, end);
+  if (strip_len != 0) {
+    GPU_blend(GPU_BLEND_ALPHA);
+    GPUVertFormat *format = immVertexFormat();
+    uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+    uint col = GPU_vertformat_attr_add(format, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
+
+    immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
+    immBegin(prim_type, strip_len);
+
+    while (iter != end) {
+      if (iter->clip) {
+        immAttr4f(col, 1.0f, 0.0f, 0.0f, 0.5f);
+      }
+      else if (use_rms) {
+        immAttr4f(col, 1.0f, 1.0f, 1.0f, 0.8f);
+      }
+      else {
+        immAttr4f(col, 1.0f, 1.0f, 1.0f, 0.5f);
+      }
+
+      if (use_rms) {
+        immVertex2f(pos, iter->pos[0], iter->rms_pos);
+      }
+      else {
+        immVertex2f(pos, iter->pos[0], iter->pos[1]);
+      }
+
+      if (iter->end) {
+        /* End of line. */
+        iter++;
+        strip_len = get_section_len(iter, end);
+        if (strip_len != 0) {
+          immEnd();
+          immUnbindProgram();
+          immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
+          immBegin(prim_type, strip_len);
+        }
+      }
+      else {
+        iter++;
+      }
+    }
+    immEnd();
+    immUnbindProgram();
+
+    GPU_blend(GPU_BLEND_NONE);
+  }
+}
+
 /**
  * \param x1, x2, y1, y2: The starting and end X value to draw the wave, same for y1 and y2.
  * \param stepsize: The width of a pixel.
@@ -248,8 +320,8 @@ static void draw_seq_waveform_overlay(View2D *v2d,
                                       float stepsize)
 {
   /* Offset x1 and x2 values, to match view min/max, if strip is out of bounds. */
-  int x1_offset = max_ff(v2d->cur.xmin, x1);
-  int x2_offset = min_ff(v2d->cur.xmax + 1.0f, x2);
+  float x1_offset = max_ff(v2d->cur.xmin, x1);
+  float x2_offset = min_ff(v2d->cur.xmax + 1.0f, x2);
 
   if (seq->sound && ((sseq->flag & SEQ_ALL_WAVEFORMS) || (seq->flag & SEQ_AUDIO_DRAW_WAVEFORM))) {
     int length = floor((x2_offset - x1_offset) / stepsize) + 1;
@@ -258,7 +330,7 @@ static void draw_seq_waveform_overlay(View2D *v2d,
     float samplestep;
     float startsample, endsample;
     float volume = seq->volume;
-    float value1, value2;
+    float value_min, value_max, rms;
     bSound *sound = seq->sound;
     SoundWaveform *waveform;
 
@@ -288,10 +360,9 @@ static void draw_seq_waveform_overlay(View2D *v2d,
       return;
     }
 
-    startsample = floor((seq->startofs + seq->anim_startofs) / FPS *
-                        SOUND_WAVE_SAMPLES_PER_SECOND);
-    endsample = ceil((seq->startofs + seq->anim_startofs + seq->enddisp - seq->startdisp) / FPS *
-                     SOUND_WAVE_SAMPLES_PER_SECOND);
+    startsample = (seq->startofs + seq->anim_startofs) / FPS * SOUND_WAVE_SAMPLES_PER_SECOND;
+    endsample = (seq->startofs + seq->anim_startofs + seq->enddisp - seq->startdisp) / FPS *
+                SOUND_WAVE_SAMPLES_PER_SECOND;
     samplestep = (endsample - startsample) * stepsize / (x2 - x1);
 
     length = min_ii(
@@ -305,36 +376,43 @@ static void draw_seq_waveform_overlay(View2D *v2d,
     /* F-curve lookup is quite expensive, so do this after precondition. */
     FCurve *fcu = id_data_find_fcurve(&scene->id, seq, &RNA_Sequence, "volume", 0, NULL);
 
-    GPU_blend(GPU_BLEND_ALPHA);
-    GPUVertFormat *format = immVertexFormat();
-    uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-    uint col = GPU_vertformat_attr_add(format, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
-    immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
-    immBegin(GPU_PRIM_TRI_STRIP, length * 2);
+    WaveVizData *tri_strip_arr = MEM_callocN(sizeof(*tri_strip_arr) * length * 2, "tri_strip");
+    WaveVizData *line_strip_arr = MEM_callocN(sizeof(*line_strip_arr) * length, "line_strip");
+
+    int8_t was_line_strip = -1; /* -1 == no previous value. */
+
+    WaveVizData *tri_strip_iter = tri_strip_arr;
+    WaveVizData *line_strip_iter = line_strip_arr;
 
     for (int i = 0; i < length; i++) {
       float sampleoffset = startsample + ((x1_offset - x1) / stepsize + i) * samplestep;
       int p = sampleoffset;
 
-      value1 = waveform->data[p * 3];
-      value2 = waveform->data[p * 3 + 1];
+      value_min = waveform->data[p * 3];
+      value_max = waveform->data[p * 3 + 1];
+      rms = waveform->data[p * 3 + 2];
 
       if (samplestep > 1.0f) {
         for (int j = p + 1; (j < waveform->length) && (j < p + samplestep); j++) {
-          if (value1 > waveform->data[j * 3]) {
-            value1 = waveform->data[j * 3];
+          if (value_min > waveform->data[j * 3]) {
+            value_min = waveform->data[j * 3];
           }
 
-          if (value2 < waveform->data[j * 3 + 1]) {
-            value2 = waveform->data[j * 3 + 1];
+          if (value_max < waveform->data[j * 3 + 1]) {
+            value_max = waveform->data[j * 3 + 1];
+          }
+
+          if (rms < waveform->data[j * 3 + 2]) {
+            rms = waveform->data[j * 3 + 2];
           }
         }
       }
       else if (p + 1 < waveform->length) {
         /* Use simple linear interpolation. */
         float f = sampleoffset - p;
-        value1 = (1.0f - f) * value1 + f * waveform->data[p * 3 + 3];
-        value2 = (1.0f - f) * value2 + f * waveform->data[p * 3 + 4];
+        value_min = (1.0f - f) * value_min + f * waveform->data[p * 3 + 3];
+        value_max = (1.0f - f) * value_max + f * waveform->data[p * 3 + 4];
+        rms = (1.0f - f) * rms + f * waveform->data[p * 3 + 5];
       }
 
       if (fcu && !BKE_fcurve_is_empty(fcu)) {
@@ -342,26 +420,99 @@ static void draw_seq_waveform_overlay(View2D *v2d,
         volume = evaluate_fcurve(fcu, evaltime);
         CLAMP_MIN(volume, 0.0f);
       }
-      value1 *= volume;
-      value2 *= volume;
 
-      if (value2 > 1 || value1 < -1) {
-        immAttr4f(col, 1.0f, 0.0f, 0.0f, 0.5f);
+      value_min *= volume;
+      value_max *= volume;
+      rms *= volume;
 
-        CLAMP_MAX(value2, 1.0f);
-        CLAMP_MIN(value1, -1.0f);
+      bool clipping = false;
+
+      if (value_max > 1 || value_min < -1) {
+        clipping = true;
+
+        CLAMP_MAX(value_max, 1.0f);
+        CLAMP_MIN(value_min, -1.0f);
+      }
+
+      bool is_line_strip = (value_max - value_min < 0.05f);
+
+      if (was_line_strip != -1 && is_line_strip != was_line_strip) {
+        if (is_line_strip) {
+          /* This will be a line strip, end the tri strip. */
+          tri_strip_iter->pos[0] = x1_offset + i * stepsize;
+          tri_strip_iter->pos[1] = ymid + value_min * yscale;
+          tri_strip_iter->clip = clipping;
+          tri_strip_iter->rms_pos = tri_strip_iter->pos[1];
+          tri_strip_iter->end = true;
+
+          /* End of section. */
+          tri_strip_iter++;
+
+          /* Check if we are at the end.
+           * If so, skip one point line. */
+          if (i + 1 == length) {
+            continue;
+          }
+        }
+        else {
+          /* This will be a tri strip. */
+          line_strip_iter--;
+          tri_strip_iter->pos[0] = line_strip_iter->pos[0];
+          tri_strip_iter->pos[1] = line_strip_iter->pos[1];
+          tri_strip_iter->clip = line_strip_iter->clip;
+          tri_strip_iter->rms_pos = line_strip_iter->pos[1];
+          tri_strip_iter++;
+
+          /* Check if line had only one point. */
+          line_strip_iter--;
+          if (line_strip_iter < line_strip_arr || line_strip_iter->end) {
+            /* Only one point, skip it. */
+            line_strip_iter++;
+          }
+          else {
+            /* End of section. */
+            line_strip_iter++;
+            line_strip_iter->end = true;
+            line_strip_iter++;
+          }
+        }
+      }
+
+      was_line_strip = is_line_strip;
+
+      if (is_line_strip) {
+        line_strip_iter->pos[0] = x1_offset + i * stepsize;
+        line_strip_iter->pos[1] = ymid + value_min * yscale;
+        line_strip_iter->clip = clipping;
+        line_strip_iter++;
       }
       else {
-        immAttr4f(col, 1.0f, 1.0f, 1.0f, 0.5f);
-      }
+        tri_strip_iter->pos[0] = x1_offset + i * stepsize;
+        tri_strip_iter->pos[1] = ymid + value_min * yscale;
+        tri_strip_iter->clip = clipping;
+        tri_strip_iter->rms_pos = ymid + max_ff(-rms, value_min) * yscale;
+        tri_strip_iter++;
 
-      immVertex2f(pos, x1_offset + i * stepsize, ymid + value1 * yscale);
-      immVertex2f(pos, x1_offset + i * stepsize, ymid + value2 * yscale);
+        tri_strip_iter->pos[0] = x1_offset + i * stepsize;
+        tri_strip_iter->pos[1] = ymid + value_max * yscale;
+        tri_strip_iter->clip = clipping;
+        tri_strip_iter->rms_pos = ymid + min_ff(rms, value_max) * yscale;
+        tri_strip_iter++;
+      }
     }
 
-    immEnd();
-    immUnbindProgram();
-    GPU_blend(GPU_BLEND_NONE);
+    WaveVizData *tri_strip_end = tri_strip_iter;
+    WaveVizData *line_strip_end = line_strip_iter;
+
+    tri_strip_iter = tri_strip_arr;
+    line_strip_iter = line_strip_arr;
+
+    draw_waveform(line_strip_iter, line_strip_end, GPU_PRIM_LINE_STRIP, false);
+    draw_waveform(tri_strip_iter, tri_strip_end, GPU_PRIM_TRI_STRIP, false);
+    draw_waveform(tri_strip_iter, tri_strip_end, GPU_PRIM_TRI_STRIP, true);
+
+    MEM_freeN(tri_strip_arr);
+    MEM_freeN(line_strip_arr);
   }
 }
 
