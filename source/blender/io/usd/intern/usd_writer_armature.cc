@@ -67,9 +67,9 @@ struct BoneDataBuilder : public BoneVisitor {
 
   pxr::VtArray<pxr::GfMatrix4d> rest_xforms;
 
-  pxr::GfMatrix4d world_mat;
+  pxr::GfMatrix4f world_mat;
 
-  BoneDataBuilder(const pxr::GfMatrix4d &in_world_mat) :
+  BoneDataBuilder(const pxr::GfMatrix4f &in_world_mat) :
     world_mat(in_world_mat)
   {
   }
@@ -80,15 +80,19 @@ struct BoneDataBuilder : public BoneVisitor {
     }
     paths.push_back(build_path(bone));
 
-    pxr::GfMatrix4d arm_mat(pxr::GfMatrix4f(bone->arm_mat));
-    bind_xforms.push_back(arm_mat * world_mat);
+    pxr::GfMatrix4f arm_mat(bone->arm_mat);
+
+    pxr::GfMatrix4f bind_xf = arm_mat * world_mat;
+
+    bind_xforms.push_back(pxr::GfMatrix4d(bind_xf));
 
     if (bone->parent) {
-      pxr::GfMatrix4d parent_arm_mat(pxr::GfMatrix4f(bone->parent->arm_mat));
-      rest_xforms.push_back(arm_mat * parent_arm_mat.GetInverse());
+      pxr::GfMatrix4f parent_arm_mat(bone->parent->arm_mat);
+      pxr::GfMatrix4f rest_xf = arm_mat * parent_arm_mat.GetInverse();
+      rest_xforms.push_back(pxr::GfMatrix4d(rest_xf));
     }
     else {
-      rest_xforms.push_back(arm_mat);
+      rest_xforms.push_back(pxr::GfMatrix4d(arm_mat));
     }
   }
 };
@@ -155,17 +159,16 @@ static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj,
       continue;
     }
 
-    pxr::GfMatrix4d pose_mat(pxr::GfMatrix4f(pchan->chan_mat));
-
-    pxr::GfMatrix4d arm_mat(pxr::GfMatrix4f(pchan->bone->arm_mat));
+    pxr::GfMatrix4f chan_mat(pchan->chan_mat);
+    pxr::GfMatrix4f arm_mat(pchan->bone->arm_mat);
+    pxr::GfMatrix4f xf = chan_mat * arm_mat;
 
     if (pchan->bone->parent) {
-      pxr::GfMatrix4d parent_arm_mat(pxr::GfMatrix4f(pchan->bone->parent->arm_mat));
-      xforms.push_back(pose_mat * arm_mat * parent_arm_mat.GetInverse());
+      pxr::GfMatrix4f parent_arm_mat(pchan->bone->parent->arm_mat);
+      xf *= parent_arm_mat.GetInverse();
     }
-    else {
-      xforms.push_back(pose_mat * arm_mat);
-    }
+
+    xforms.push_back(pxr::GfMatrix4d(xf));
   }
 
   skel_anim.SetTransforms(xforms, time);
@@ -232,7 +235,7 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
 
   if (!this->frame_has_been_written_) {
 
-    pxr::GfMatrix4d world_mat(pxr::GfMatrix4f(context.matrix_world));
+    pxr::GfMatrix4f world_mat(context.matrix_world);
     BoneDataBuilder bone_data(world_mat);
 
     visit_bones(context.object, &bone_data);
