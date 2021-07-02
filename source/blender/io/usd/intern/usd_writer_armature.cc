@@ -191,7 +191,7 @@ static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj,
 
 namespace blender::io::usd {
 
-void get_armature_bone_names(Object *obj, std::vector<std::string> &r_names)
+void USDArmatureWriter::get_armature_bone_names(Object *obj, std::vector<std::string> &r_names)
 {
   if (!obj) {
     return;

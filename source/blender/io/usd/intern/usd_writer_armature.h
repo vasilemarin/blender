@@ -27,10 +27,10 @@ struct Object;
 
 namespace blender::io::usd {
 
-void get_armature_bone_names(Object *obj, std::vector<std::string> &r_names);
-
 class USDArmatureWriter : public USDAbstractWriter {
  public:
+  static void get_armature_bone_names(Object *obj, std::vector<std::string> &r_names);
+
   USDArmatureWriter(const USDExporterContext &ctx);
 
  protected:
