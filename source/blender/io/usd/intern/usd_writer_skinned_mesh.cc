@@ -21,13 +21,13 @@
 #include "usd_writer_armature.h"
 
 #include <pxr/usd/usdGeom/mesh.h>
-#include <pxr/usd/usdSkel/bindingAPI.h>
 
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 
 #include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 #include "DNA_meta_types.h"
 
 #include <string>
@@ -108,10 +108,116 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
   std::vector<std::string> bone_names;
   USDArmatureWriter::get_armature_bone_names(obj, bone_names);
 
-  for (const std::string &name : bone_names) {
-    printf("bone %s\n", name.c_str());
+  if (bone_names.empty()) {
+    printf("WARNING: no armature bones for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    return;
   }
 
+  bool needs_free = false;
+  Mesh *mesh = get_export_mesh(context.object, needs_free);
+  if (mesh == nullptr) {
+    printf("WARNING: couldn't get Blender mesh for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
+
+  write_weights(context.object, mesh, usd_skel_api, bone_names);
+
+  if (needs_free) {
+    free_export_mesh(mesh);
+  }
+}
+
+void USDSkinnedMeshWriter::write_weights(const Object *ob,
+  const Mesh *mesh,
+  const pxr::UsdSkelBindingAPI &skel_api,
+  const std::vector<std::string> &bone_names) const
+{
+  if (!(ob && mesh && mesh->dvert && mesh->totvert > 0)) {
+    return;
+  }
+
+  if (bone_names.empty()) {
+    return;
+  }
+
+  std::vector<int> group_to_bone_idx;
+
+  std::vector<pxr::VtArray<float>> pv_data;
+
+  for (bDeformGroup *def = (bDeformGroup *)ob->defbase.first; def; def = def->next) {
+
+    int bone_idx = -1;
+    /* For now, n-squared search is acceptable. */
+    for (int i = 0; i < bone_names.size(); ++i) {
+      if (bone_names[i] == def->name) {
+        bone_idx = i;
+        break;
+      }
+    }
+
+    if (bone_idx == -1) {
+      printf("WARNING: deform group %s in skinned mesh %s doesn't match any bones\n", def->name, this->usd_export_context_.usd_path.GetString().c_str());
+    }
+
+    group_to_bone_idx.push_back(bone_idx);
+  }
+
+  if (group_to_bone_idx.empty()) {
+    return;
+  }
+
+  const int ELEM_SIZE = 4;
+
+  int num_points = mesh->totvert;
+
+  pxr::VtArray<int> joint_indices(num_points * ELEM_SIZE, 0);
+  pxr::VtArray<float> joint_weights(num_points * ELEM_SIZE, 0.0f);
+
+  /* Current offset into the indices and weights arrays. */
+  int offset = 0;
+
+  for (int i = 0; i < mesh->totvert; ++i) {
+
+    MDeformVert &vert = mesh->dvert[i];
+
+    for (int j = 0; j < ELEM_SIZE; ++j, ++offset) {
+
+      if (offset >= joint_indices.size()) {
+        printf("Programmer error: out of bounds joint indices array offset.\n");
+        return;
+      }
+
+      if (j >= vert.totweight) {
+        continue;
+      }
+
+      int def_nr = static_cast<int>(vert.dw[j].def_nr);
+
+      /* This out of bounds check is necessary because MDeformVert.totweight can be
+       * larger than the number of bDeformGroup structs in Object.defbase. It appears to be
+       * a Blender bug that can cause this scenario. */
+      if (def_nr >= group_to_bone_idx.size()) {
+        printf("Out of bounds deform group number.\n");
+        continue;
+      }
+
+      int bone_idx = group_to_bone_idx[def_nr];
+
+      if (bone_idx == -1) {
+        continue;
+      }
+
+      joint_indices[offset] = bone_idx;
+
+      float w = vert.dw[j].weight;
+
+      joint_weights[offset] = w;
+    }
+
+  }
+
+  skel_api.CreateJointIndicesPrimvar(false, ELEM_SIZE).GetAttr().Set(joint_indices);
+  skel_api.CreateJointWeightsPrimvar(false, ELEM_SIZE).GetAttr().Set(joint_weights);
 }
 
 bool USDSkinnedMeshWriter::is_supported(const HierarchyContext *context) const

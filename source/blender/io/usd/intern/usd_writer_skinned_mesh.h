@@ -20,6 +20,11 @@
 
 #include "usd_writer_mesh.h"
 
+#include <pxr/usd/usdSkel/bindingAPI.h>
+
+#include <string>
+#include <vector>
+
 namespace blender::io::usd {
 
 bool is_skinned_mesh(Object *obj);
@@ -34,6 +39,11 @@ class USDSkinnedMeshWriter : public USDMeshWriter {
 
   virtual bool is_supported(const HierarchyContext *context) const override;
   virtual bool check_is_animated(const HierarchyContext &context) const override;
+
+  void write_weights(const Object *ob,
+    const Mesh *mesh,
+    const pxr::UsdSkelBindingAPI &skel_api,
+    const std::vector<std::string> &bone_names) const;
 };
 
 }  // namespace blender::io::usd
