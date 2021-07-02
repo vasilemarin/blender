@@ -59,6 +59,21 @@ public:
   virtual void Visit(const Bone *bone) = 0;
 };
 
+struct BoneNameList : public BoneVisitor
+{
+  std::vector<std::string> *names;
+
+  BoneNameList(std::vector<std::string> *in_names) : names(in_names)
+  {
+  }
+
+  void Visit(const Bone *bone) override {
+    if (bone && names) {
+      names->push_back(bone->name);
+    }
+  }
+};
+
 struct BoneDataBuilder : public BoneVisitor {
 
   std::vector<std::string> paths;
@@ -175,6 +190,16 @@ static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj,
 }
 
 namespace blender::io::usd {
+
+void get_armature_bone_names(Object *obj, std::vector<std::string> &r_names)
+{
+  if (!obj) {
+    return;
+  }
+
+  BoneNameList name_list(&r_names);
+  visit_bones(obj, &name_list);
+}
 
 USDArmatureWriter::USDArmatureWriter(const USDExporterContext &ctx) : USDAbstractWriter(ctx)
 {

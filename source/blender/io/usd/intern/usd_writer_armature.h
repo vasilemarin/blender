@@ -20,7 +20,14 @@
 
 #include "usd_writer_abstract.h"
 
+#include <string>
+#include <vector>
+
+struct Object;
+
 namespace blender::io::usd {
+
+void get_armature_bone_names(Object *obj, std::vector<std::string> &r_names);
 
 class USDArmatureWriter : public USDAbstractWriter {
  public:

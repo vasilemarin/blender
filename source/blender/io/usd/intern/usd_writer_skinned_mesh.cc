@@ -18,6 +18,7 @@
  */
 #include "usd_writer_skinned_mesh.h"
 #include "usd_hierarchy_iterator.h"
+#include "usd_writer_armature.h"
 
 #include <pxr/usd/usdGeom/mesh.h>
 #include <pxr/usd/usdSkel/bindingAPI.h>
@@ -103,6 +104,13 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
   }
 
   usd_skel_api.CreateSkeletonRel().SetTargets(pxr::SdfPathVector({ pxr::SdfPath(skel_path) }));
+
+  std::vector<std::string> bone_names;
+  get_armature_bone_names(obj, bone_names);
+
+  for (const std::string &name : bone_names) {
+    printf("bone %s\n", name.c_str());
+  }
 
 }
 
