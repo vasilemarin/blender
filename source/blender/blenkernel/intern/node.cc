@@ -1585,13 +1585,15 @@ static void socket_id_user_decrement(bNodeSocket *sock)
   }
 }
 
-void nodeModifySocketType(
-    bNodeTree *ntree, bNode *UNUSED(node), bNodeSocket *sock, int type, int subtype)
+void nodeModifySocketType(bNodeTree *ntree,
+                          bNode *UNUSED(node),
+                          bNodeSocket *sock,
+                          const char *idname)
 {
-  const char *idname = nodeStaticSocketType(type, subtype);
+  bNodeSocketType *socktype = nodeSocketTypeFind(idname);
 
-  if (!idname) {
-    CLOG_ERROR(&LOG, "static node socket type %d undefined", type);
+  if (!socktype) {
+    CLOG_ERROR(&LOG, "node socket type %s undefined", idname);
     return;
   }
 
@@ -1601,9 +1603,22 @@ void nodeModifySocketType(
     sock->default_value = nullptr;
   }
 
-  sock->type = type;
   BLI_strncpy(sock->idname, idname, sizeof(sock->idname));
-  node_socket_set_typeinfo(ntree, sock, nodeSocketTypeFind(idname));
+  sock->type = socktype->type;
+  node_socket_set_typeinfo(ntree, sock, socktype);
+}
+
+void nodeModifySocketTypeStatic(
+    bNodeTree *ntree, bNode *node, bNodeSocket *sock, int type, int subtype)
+{
+  const char *idname = nodeStaticSocketType(type, subtype);
+
+  if (!idname) {
+    CLOG_ERROR(&LOG, "static node socket type %d undefined", type);
+    return;
+  }
+
+  nodeModifySocketType(ntree, node, sock, idname);
 }
 
 bNodeSocket *nodeAddSocket(bNodeTree *ntree,

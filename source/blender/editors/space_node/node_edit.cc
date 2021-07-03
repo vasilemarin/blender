@@ -2424,7 +2424,7 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
   }
 
   /* Don't handle subtypes for now. */
-  nodeModifySocketType(ntree, NULL, iosock, sock_type, PROP_NONE);
+  nodeModifySocketTypeStatic(ntree, NULL, iosock, sock_type, PROP_NONE);
 
   /* Need the extra update here because the loop above does not check for valid links in the node
    * group we're currently editing. */

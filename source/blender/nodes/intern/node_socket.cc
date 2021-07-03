@@ -117,7 +117,7 @@ static bNodeSocket *verify_socket_template(bNodeTree *ntree,
   }
   if (sock) {
     if (sock->type != stemp->type) {
-      nodeModifySocketType(ntree, node, sock, stemp->type, stemp->subtype);
+      nodeModifySocketTypeStatic(ntree, node, sock, stemp->type, stemp->subtype);
     }
     sock->flag |= stemp->flag;
   }

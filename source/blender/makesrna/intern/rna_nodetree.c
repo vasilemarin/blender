@@ -2839,7 +2839,7 @@ static void rna_NodeSocket_type_set(PointerRNA *ptr, int value)
   bNodeSocket *sock = (bNodeSocket *)ptr->data;
   bNode *node;
   nodeFindNode(ntree, sock, &node, NULL);
-  nodeModifySocketType(ntree, node, sock, value, 0);
+  nodeModifySocketTypeStatic(ntree, node, sock, value, 0);
 }
 
 static void rna_NodeSocket_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)

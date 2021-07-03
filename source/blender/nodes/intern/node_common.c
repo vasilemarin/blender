@@ -139,7 +139,7 @@ static bNodeSocket *group_verify_socket(
 
     /* Update socket type if necessary */
     if (sock->typeinfo != iosock->typeinfo) {
-      nodeModifySocketType(ntree, gnode, sock, iosock->type, iosock->typeinfo->subtype);
+      nodeModifySocketType(ntree, gnode, sock, iosock->idname);
       /* Flag the tree to make sure link validity is updated after type changes. */
       ntree->update |= NTREE_UPDATE_LINKS;
     }
