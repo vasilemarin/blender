@@ -321,7 +321,7 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       message("wlp manual found: " ${WAYLAND_PROTOCOLS_DIR})
     endif()
 
-    if (NOT DEFINED WAYLAND_PROTOCOLS_DIR)
+    if (NOT ${WAYLAND_PROTOCOLS_DIR})
       message(FATAL_ERROR "path to wayland-protocols not found")
     endif()
 
