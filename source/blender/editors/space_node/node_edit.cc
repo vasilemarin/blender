@@ -2426,45 +2426,6 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
   /* Don't handle subtypes for now. */
   nodeModifySocketType(ntree, NULL, iosock, sock_type, PROP_NONE);
 
-  /* Update the group input or output node's matching socket so that existing links don't get
-   * deleted. */
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    if (node->type == (in_out == SOCK_IN) ? NODE_GROUP_INPUT : NODE_GROUP_OUTPUT) {
-      ListBase *group_sockets = (in_out != SOCK_IN) ? &node->inputs : &node->outputs;
-      /* Find the matching socket and update it. */
-      LISTBASE_FOREACH (bNodeSocket *, socket_iter, group_sockets) {
-        if (STREQ(socket_iter->identifier, iosock->identifier)) {
-          nodeModifySocketType(ntree, NULL, socket_iter, sock_type, PROP_NONE);
-          break;
-        }
-      }
-    }
-  }
-  /* Manually update the other node groups as well. */
-  if (id != NULL) {
-    FOREACH_NODETREE_BEGIN (main, ntree_iter, owner_id) {
-      bool tree_affected = false;
-      LISTBASE_FOREACH (bNode *, node, &ntree_iter->nodes) {
-        if (node->id == id) {
-          ListBase *group_sockets = (in_out == SOCK_IN) ? &node->inputs : &node->outputs;
-          /* Find the matching socket and update it. */
-          LISTBASE_FOREACH (bNodeSocket *, socket_iter, group_sockets) {
-            if (STREQ(socket_iter->identifier, iosock->identifier)) {
-              nodeModifySocketType(ntree, NULL, socket_iter, sock_type, PROP_NONE);
-              tree_affected = true;
-              break;
-            }
-          }
-        }
-      }
-      if (tree_affected) {
-        /* Some links might have been invalidated due to the changes in socket types. */
-        ntree_validate_links(ntree_iter);
-      }
-    }
-    FOREACH_NODETREE_END;
-  }
-
   /* Need the extra update here because the loop above does not check for valid links in the node
    * group we're currently editing. */
   ntree->update |= NTREE_UPDATE_GROUP | NTREE_UPDATE_LINKS;
