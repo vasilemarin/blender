@@ -153,6 +153,18 @@ static void draw_socket_list(const bContext *C,
   if (socket != NULL) {
     uiLayoutSetPropSep(layout, true);
     uiLayoutSetPropDecorate(layout, false);
+
+    /* Menus to change the socket type. */
+    PointerRNA props_ptr;
+    uiItemMenuEnumFullO(layout,
+                        (bContext *)C,
+                        "NODE_OT_tree_socket_change_type",
+                        "socket_type",
+                        "Socket Type",
+                        ICON_NONE,
+                        &props_ptr);
+    RNA_enum_set(&props_ptr, "in_out", in_out);
+
     PointerRNA socket_ptr;
     RNA_pointer_create((ID *)ntree, &RNA_NodeSocketInterface, socket, &socket_ptr);
     uiItemR(layout, &socket_ptr, "name", 0, NULL, ICON_NONE);

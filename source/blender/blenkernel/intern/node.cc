@@ -4267,7 +4267,7 @@ static void ntree_update_link_pointers(bNodeTree *ntree)
   ntreeTagUsedSockets(ntree);
 }
 
-static void ntree_validate_links(bNodeTree *ntree)
+void ntree_validate_links(bNodeTree *ntree)
 {
   LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
     link->flag |= NODE_LINK_VALID;

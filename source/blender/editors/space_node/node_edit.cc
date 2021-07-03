@@ -2400,6 +2400,147 @@ void NODE_OT_tree_socket_remove(wmOperatorType *ot)
   RNA_def_enum(ot->srna, "in_out", rna_enum_node_socket_in_out_items, SOCK_IN, "Socket Type", "");
 }
 
+/********************** Change interface socket type operator *********************/
+
+static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
+{
+  SpaceNode *snode = CTX_wm_space_node(C);
+  bNodeTree *ntree = snode->edittree;
+  const eNodeSocketInOut in_out = (eNodeSocketInOut)RNA_enum_get(op->ptr, "in_out");
+  const eNodeSocketDatatype sock_type = (eNodeSocketDatatype)RNA_enum_get(op->ptr, "socket_type");
+  ListBase *sockets = (in_out == SOCK_IN) ? &ntree->inputs : &ntree->outputs;
+
+  Main *main = CTX_data_main(C);
+  ID *id = &ntree->id;
+
+  bNodeSocket *iosock = ntree_get_active_interface_socket(sockets);
+  if (iosock == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
+  /* The type remains the same, so we don't need to change anything. */
+  if (iosock->typeinfo->type == sock_type) {
+    return OPERATOR_FINISHED;
+  }
+
+  /* Don't handle subtypes for now. */
+  nodeModifySocketType(ntree, NULL, iosock, sock_type, PROP_NONE);
+
+  /* Update the group input or output node's matching socket so that existing links don't get
+   * deleted. */
+  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    if (node->type == (in_out == SOCK_IN) ? NODE_GROUP_INPUT : NODE_GROUP_OUTPUT) {
+      ListBase *group_sockets = (in_out != SOCK_IN) ? &node->inputs : &node->outputs;
+      /* Find the matching socket and update it. */
+      LISTBASE_FOREACH (bNodeSocket *, socket_iter, group_sockets) {
+        if (STREQ(socket_iter->identifier, iosock->identifier)) {
+          nodeModifySocketType(ntree, NULL, socket_iter, sock_type, PROP_NONE);
+          break;
+        }
+      }
+    }
+  }
+  /* Manually update the other node groups as well. */
+  if (id != NULL) {
+    FOREACH_NODETREE_BEGIN (main, ntree_iter, owner_id) {
+      bool tree_affected = false;
+      LISTBASE_FOREACH (bNode *, node, &ntree_iter->nodes) {
+        if (node->id == id) {
+          ListBase *group_sockets = (in_out == SOCK_IN) ? &node->inputs : &node->outputs;
+          /* Find the matching socket and update it. */
+          LISTBASE_FOREACH (bNodeSocket *, socket_iter, group_sockets) {
+            if (STREQ(socket_iter->identifier, iosock->identifier)) {
+              nodeModifySocketType(ntree, NULL, socket_iter, sock_type, PROP_NONE);
+              tree_affected = true;
+              break;
+            }
+          }
+        }
+      }
+      if (tree_affected) {
+        /* Some links might have been invalidated due to the changes in socket types. */
+        ntree_validate_links(ntree_iter);
+      }
+    }
+    FOREACH_NODETREE_END;
+  }
+
+  /* Need the extra update here because the loop above does not check for valid links in the node
+   * group we're currently editing. */
+  ntree->update |= NTREE_UPDATE_GROUP | NTREE_UPDATE_LINKS;
+
+  /* Deactivate sockets. */
+  LISTBASE_FOREACH (bNodeSocket *, socket_iter, sockets) {
+    socket_iter->flag &= ~SELECT;
+  }
+  /* Make the new socket active. */
+  iosock->flag |= SELECT;
+
+  ntreeUpdateTree(main, ntree);
+
+  snode_notify(C, snode);
+  snode_dag_update(C, snode);
+
+  WM_event_add_notifier(C, NC_NODE | ND_DISPLAY, NULL);
+
+  return OPERATOR_FINISHED;
+}
+
+static const EnumPropertyItem *socket_change_type_itemf(bContext *C,
+                                                        PointerRNA *UNUSED(ptr),
+                                                        PropertyRNA *UNUSED(prop),
+                                                        bool *r_free)
+{
+  SpaceNode *snode = CTX_wm_space_node(C);
+  bNodeTree *ntree = snode->edittree;
+
+  EnumPropertyItem *items = NULL;
+  int totitem = 0;
+
+  /* Check if the function is implemented. Otherwise only add float type. */
+  if (!ntree->typeinfo->valid_socket_type) {
+    const EnumPropertyItem *st_float_item = &rna_enum_node_socket_type_items[1];
+    RNA_enum_item_add(&items, &totitem, st_float_item);
+  }
+  else {
+    for (int a = 0; rna_enum_node_socket_type_items[a].identifier; a++) {
+      const EnumPropertyItem *st_item = &rna_enum_node_socket_type_items[a];
+      if (!ntree->typeinfo->valid_socket_type((eNodeSocketDatatype)st_item->value,
+                                              ntree->typeinfo)) {
+        continue;
+      }
+      RNA_enum_item_add(&items, &totitem, st_item);
+    }
+  }
+
+  RNA_enum_item_end(&items, &totitem);
+  *r_free = true;
+
+  return items;
+}
+
+void NODE_OT_tree_socket_change_type(wmOperatorType *ot)
+{
+  PropertyRNA *prop;
+  /* identifiers */
+  ot->name = "Change Node Tree Interface Socket Type";
+  ot->description = "Change the type of a socket of the current node tree";
+  ot->idname = "NODE_OT_tree_socket_change_type";
+
+  /* api callbacks */
+  ot->invoke = WM_menu_invoke;
+  ot->exec = ntree_socket_change_type_exec;
+  ot->poll = ED_operator_node_editable;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+  RNA_def_enum(ot->srna, "in_out", rna_enum_node_socket_in_out_items, SOCK_IN, "Socket Type", "");
+  prop = RNA_def_enum(
+      ot->srna, "socket_type", rna_enum_node_socket_type_items, SOCK_FLOAT, "Socket Type", "");
+  RNA_def_enum_funcs(prop, socket_change_type_itemf);
+  ot->prop = prop;
+}
+
 /********************** Move interface socket operator *********************/
 
 static const EnumPropertyItem move_direction_items[] = {
