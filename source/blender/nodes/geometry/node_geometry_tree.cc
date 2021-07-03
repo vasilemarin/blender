@@ -95,10 +95,10 @@ static bool geometry_node_tree_validate_link(bNodeTree *UNUSED(ntree), bNodeLink
   return (link->tosock->type == link->fromsock->type);
 }
 
-static bool geometry_node_tree_socket_type_valid(eNodeSocketDatatype socket_type,
-                                                 bNodeTreeType *UNUSED(ntreetype))
+static bool geometry_node_tree_socket_type_valid(bNodeTreeType *UNUSED(ntreetype),
+                                                 bNodeSocketType *socket_type)
 {
-  return ELEM(socket_type,
+  return ELEM(socket_type->type,
               SOCK_FLOAT,
               SOCK_VECTOR,
               SOCK_RGBA,

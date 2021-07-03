@@ -2407,11 +2407,10 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
   SpaceNode *snode = CTX_wm_space_node(C);
   bNodeTree *ntree = snode->edittree;
   const eNodeSocketInOut in_out = (eNodeSocketInOut)RNA_enum_get(op->ptr, "in_out");
-  const eNodeSocketDatatype sock_type = (eNodeSocketDatatype)RNA_enum_get(op->ptr, "socket_type");
+  const bNodeSocketType *socket_type = rna_node_socket_type_from_enum(RNA_enum_get(op->ptr, "socket_type"));
   ListBase *sockets = (in_out == SOCK_IN) ? &ntree->inputs : &ntree->outputs;
 
   Main *main = CTX_data_main(C);
-  ID *id = &ntree->id;
 
   bNodeSocket *iosock = ntree_get_active_interface_socket(sockets);
   if (iosock == NULL) {
@@ -2419,12 +2418,12 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
   }
 
   /* The type remains the same, so we don't need to change anything. */
-  if (iosock->typeinfo->type == sock_type) {
+  if (iosock->typeinfo == socket_type) {
     return OPERATOR_FINISHED;
   }
 
   /* Don't handle subtypes for now. */
-  nodeModifySocketTypeStatic(ntree, NULL, iosock, sock_type, PROP_NONE);
+  nodeModifySocketType(ntree, NULL, iosock, socket_type->idname);
 
   /* Need the extra update here because the loop above does not check for valid links in the node
    * group we're currently editing. */
@@ -2447,6 +2446,22 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static bool socket_change_poll_type(void *userdata, bNodeSocketType *socket_type)
+{
+  /* Check if the node tree supports the socket type. */
+  bNodeTreeType *ntreetype = (bNodeTreeType *)userdata;
+  if (ntreetype->valid_socket_type && !ntreetype->valid_socket_type(ntreetype, socket_type)) {
+    return false;
+  }
+
+  /* Only use basic socket types for this enum. */
+  if (socket_type->subtype != PROP_NONE) {
+    return false;
+  }
+
+  return true;
+}
+
 static const EnumPropertyItem *socket_change_type_itemf(bContext *C,
                                                         PointerRNA *UNUSED(ptr),
                                                         PropertyRNA *UNUSED(prop),
@@ -2454,30 +2469,7 @@ static const EnumPropertyItem *socket_change_type_itemf(bContext *C,
 {
   SpaceNode *snode = CTX_wm_space_node(C);
   bNodeTree *ntree = snode->edittree;
-
-  EnumPropertyItem *items = NULL;
-  int totitem = 0;
-
-  /* Check if the function is implemented. Otherwise only add float type. */
-  if (!ntree->typeinfo->valid_socket_type) {
-    const EnumPropertyItem *st_float_item = &rna_enum_node_socket_type_items[1];
-    RNA_enum_item_add(&items, &totitem, st_float_item);
-  }
-  else {
-    for (int a = 0; rna_enum_node_socket_type_items[a].identifier; a++) {
-      const EnumPropertyItem *st_item = &rna_enum_node_socket_type_items[a];
-      if (!ntree->typeinfo->valid_socket_type((eNodeSocketDatatype)st_item->value,
-                                              ntree->typeinfo)) {
-        continue;
-      }
-      RNA_enum_item_add(&items, &totitem, st_item);
-    }
-  }
-
-  RNA_enum_item_end(&items, &totitem);
-  *r_free = true;
-
-  return items;
+  return rna_node_socket_type_itemf(ntree->typeinfo, socket_change_poll_type, r_free);
 }
 
 void NODE_OT_tree_socket_change_type(wmOperatorType *ot)
@@ -2496,8 +2488,7 @@ void NODE_OT_tree_socket_change_type(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
   RNA_def_enum(ot->srna, "in_out", rna_enum_node_socket_in_out_items, SOCK_IN, "Socket Type", "");
-  prop = RNA_def_enum(
-      ot->srna, "socket_type", rna_enum_node_socket_type_items, SOCK_FLOAT, "Socket Type", "");
+  prop = RNA_def_enum(ot->srna, "socket_type", DummyRNA_DEFAULT_items, 0, "Socket Type", "");
   RNA_def_enum_funcs(prop, socket_change_type_itemf);
   ot->prop = prop;
 }

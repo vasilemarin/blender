@@ -152,10 +152,10 @@ static void update(bNodeTree *ntree)
   }
 }
 
-static bool texture_node_tree_socket_type_valid(eNodeSocketDatatype socket_type,
-                                                bNodeTreeType *UNUSED(ntreetype))
+static bool texture_node_tree_socket_type_valid(bNodeTreeType *UNUSED(ntreetype),
+                                                bNodeSocketType *socket_type)
 {
-  return ELEM(socket_type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA);
+  return ELEM(socket_type->type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA);
 }
 
 bNodeTreeType *ntreeType_Texture;

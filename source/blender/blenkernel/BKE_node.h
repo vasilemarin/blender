@@ -412,7 +412,8 @@ typedef struct bNodeTreeType {
   void (*node_add_init)(struct bNodeTree *ntree, struct bNode *bnode);
 
   /* Check if the socket type is valid for this tree type. */
-  bool (*valid_socket_type)(enum eNodeSocketDatatype socket_type, struct bNodeTreeType *ntreetype);
+  bool (*valid_socket_type)(struct bNodeTreeType *ntreetype,
+                            struct bNodeSocketType *socket_type);
 
   /* RNA integration */
   ExtensionRNA rna_ext;
@@ -466,7 +467,6 @@ struct bNode *ntreeFindType(const struct bNodeTree *ntree, int type);
 bool ntreeHasType(const struct bNodeTree *ntree, int type);
 bool ntreeHasTree(const struct bNodeTree *ntree, const struct bNodeTree *lookup);
 void ntreeUpdateTree(struct Main *main, struct bNodeTree *ntree);
-void ntree_validate_links(bNodeTree *ntree);
 void ntreeUpdateAllNew(struct Main *main);
 void ntreeUpdateAllUsers(struct Main *main, struct ID *id);
 
@@ -606,8 +606,10 @@ struct bNodeSocket *nodeInsertStaticSocket(struct bNodeTree *ntree,
                                            const char *name);
 void nodeRemoveSocket(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock);
 void nodeRemoveAllSockets(struct bNodeTree *ntree, struct bNode *node);
-void nodeModifySocketType(
-    struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, const char *idname);
+void nodeModifySocketType(struct bNodeTree *ntree,
+                          struct bNode *node,
+                          struct bNodeSocket *sock,
+                          const char *idname);
 void nodeModifySocketTypeStatic(
     struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, int type, int subtype);
 
