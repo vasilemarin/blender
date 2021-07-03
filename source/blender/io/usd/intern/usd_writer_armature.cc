@@ -279,7 +279,7 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
     usd_skel.GetRestTransformsAttr().Set(bone_data.rest_xforms);
 
     if (usd_skel_anim) {
-      pxr::UsdSkelBindingAPI usd_skel_api(usd_skel.GetPrim());
+      pxr::UsdSkelBindingAPI usd_skel_api = pxr::UsdSkelBindingAPI::Apply(usd_skel.GetPrim());
       usd_skel_api.CreateAnimationSourceRel().SetTargets(pxr::SdfPathVector({ pxr::SdfPath(usdtokens::Anim) }));
 
       create_pose_joints(usd_skel_anim, context.object);

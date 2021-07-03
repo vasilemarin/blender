@@ -80,7 +80,12 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
     return;
   }
 
-  pxr::UsdSkelBindingAPI usd_skel_api(mesh_prim);
+  pxr::UsdSkelBindingAPI usd_skel_api = pxr::UsdSkelBindingAPI::Apply(mesh_prim);
+
+  if (!usd_skel_api) {
+    printf("WARNING: couldn't apply UsdSkelBindingAPI to skinned mesh prim %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
 
   Object *obj = get_armature_obj(context.object);
 
@@ -132,7 +137,7 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
   const pxr::UsdSkelBindingAPI &skel_api,
   const std::vector<std::string> &bone_names) const
 {
-  if (!(ob && mesh && mesh->dvert && mesh->totvert > 0)) {
+  if (!(skel_api && ob && mesh && mesh->dvert && mesh->totvert > 0)) {
     return;
   }
 
@@ -179,6 +184,7 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
   for (int i = 0; i < mesh->totvert; ++i) {
 
     MDeformVert &vert = mesh->dvert[i];
+
 
     for (int j = 0; j < ELEM_SIZE; ++j, ++offset) {
 
