@@ -141,7 +141,10 @@ typedef void *SocketGetCPPValueFunction;
  * Defines the appearance and behavior of a socket in the UI.
  */
 typedef struct bNodeSocketType {
-  char idname[64]; /* identifier name */
+  /* Identifier name */
+  char idname[64];
+  /* Type label */
+  char label[64];
 
   void (*draw)(struct bContext *C,
                struct uiLayout *layout,
@@ -557,6 +560,7 @@ bool nodeSocketIsRegistered(struct bNodeSocket *sock);
 struct GHashIterator *nodeSocketTypeGetIterator(void);
 const char *nodeStaticSocketType(int type, int subtype);
 const char *nodeStaticSocketInterfaceType(int type, int subtype);
+const char *nodeStaticSocketLabel(int type, int subtype);
 
 /* helper macros for iterating over node types */
 #define NODE_SOCKET_TYPES_BEGIN(stype) \

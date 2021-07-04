@@ -772,7 +772,7 @@ const EnumPropertyItem *rna_node_socket_type_itemf(void *data,
     tmp.value = i;
     tmp.identifier = stype->idname;
     tmp.icon = RNA_struct_ui_icon(srna);
-    tmp.name = RNA_struct_ui_name(srna);
+    tmp.name = stype->label[0] != '\0' ? stype->label : RNA_struct_ui_name(srna);
     tmp.description = RNA_struct_ui_description(srna);
 
     RNA_enum_item_add(&item, &totitem, &tmp);
@@ -10330,6 +10330,11 @@ static void rna_def_node_socket_interface(BlenderRNA *brna)
   RNA_def_property_string_sdna(prop, NULL, "typeinfo->idname");
   RNA_def_property_flag(prop, PROP_REGISTER);
   RNA_def_property_ui_text(prop, "ID Name", "");
+
+  prop = RNA_def_property(srna, "bl_label", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_sdna(prop, NULL, "typeinfo->label");
+  RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL);
+  RNA_def_property_ui_text(prop, "Type Label", "Label to display for the socket type in the UI");
 
   func = RNA_def_function(srna, "draw", NULL);
   RNA_def_function_ui_description(func, "Draw template settings");

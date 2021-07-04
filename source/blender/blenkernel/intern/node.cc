@@ -1816,6 +1816,39 @@ const char *nodeStaticSocketInterfaceType(int type, int subtype)
   return nullptr;
 }
 
+const char *nodeStaticSocketLabel(int type, int UNUSED(subtype))
+{
+  switch (type) {
+    case SOCK_FLOAT:
+      return "Float";
+    case SOCK_INT:
+      return "Int";
+    case SOCK_BOOLEAN:
+      return "Boolean";
+    case SOCK_VECTOR:
+      return "Vector";
+    case SOCK_RGBA:
+      return "RGBA";
+    case SOCK_STRING:
+      return "String";
+    case SOCK_SHADER:
+      return "Shader";
+    case SOCK_OBJECT:
+      return "Object";
+    case SOCK_IMAGE:
+      return "Image";
+    case SOCK_GEOMETRY:
+      return "Geometry";
+    case SOCK_COLLECTION:
+      return "Collection";
+    case SOCK_TEXTURE:
+      return "Texture";
+    case SOCK_MATERIAL:
+      return "Material";
+  }
+  return nullptr;
+}
+
 bNodeSocket *nodeAddStaticSocket(bNodeTree *ntree,
                                  bNode *node,
                                  eNodeSocketInOut in_out,
