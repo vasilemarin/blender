@@ -1425,6 +1425,12 @@ GHashIterator *nodeSocketTypeGetIterator(void)
   return BLI_ghashIterator_new(nodesockettypes_hash);
 }
 
+const char* nodeSocketTypeLabel(const bNodeSocketType* stype)
+{
+  /* Use socket type name as a fallback if label is undefined. */
+  return stype->label[0] != '\0' ? stype->label : RNA_struct_ui_name(stype->ext_socket.srna);
+}
+
 struct bNodeSocket *nodeFindSocket(const bNode *node,
                                    eNodeSocketInOut in_out,
                                    const char *identifier)

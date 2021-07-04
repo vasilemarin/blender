@@ -182,7 +182,7 @@ static void draw_socket_list(const bContext *C,
                           (bContext *)C,
                           "NODE_OT_tree_socket_change_type",
                           "socket_type",
-                          socket->typeinfo->idname,
+                          nodeSocketTypeLabel(socket->typeinfo),
                           ICON_NONE,
                           &props_ptr);
       RNA_enum_set(&props_ptr, "in_out", in_out);
