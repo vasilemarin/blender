@@ -20,6 +20,8 @@
 #include "usd_hierarchy_iterator.h"
 #include "usd_writer_armature.h"
 
+#include <pxr/base/gf/matrix4d.h>
+#include <pxr/base/gf/matrix4f.h>
 #include <pxr/usd/usdGeom/mesh.h>
 
 #include "BKE_mesh.h"
@@ -109,6 +111,14 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
   }
 
   usd_skel_api.CreateSkeletonRel().SetTargets(pxr::SdfPathVector({ pxr::SdfPath(skel_path) }));
+
+  if (pxr::UsdAttribute geom_bind_attr = usd_skel_api.CreateGeomBindTransformAttr()) {
+    pxr::GfMatrix4f mat_world(context.matrix_world);
+    geom_bind_attr.Set(pxr::GfMatrix4d(mat_world));
+  }
+  else {
+    printf("WARNING: couldn't create geom bind transform attribute for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+  }
 
   std::vector<std::string> bone_names;
   USDArmatureWriter::get_armature_bone_names(obj, bone_names);
