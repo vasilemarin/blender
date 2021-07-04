@@ -157,6 +157,23 @@ static void create_pose_joints(const pxr::UsdSkelAnimation &skel_anim, Object *o
   skel_anim.GetJointsAttr().Set(joints);
 }
 
+static bPoseChannel *get_parent_pose_chan(bPose * pose, bPoseChannel *in_pchan)
+{
+  if (!(pose && in_pchan && in_pchan->bone && in_pchan->bone->parent)) {
+    return nullptr;
+  }
+
+  Bone *parent = in_pchan->bone->parent;
+
+  LISTBASE_FOREACH(bPoseChannel *, pchan, &pose->chanbase) {
+    if (pchan->bone == parent) {
+      return pchan;
+    }
+  }
+
+  return nullptr;
+}
+
 static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj, pxr::UsdTimeCode time)
 {
   if (!(skel_anim && obj && obj->pose)) {
@@ -174,16 +191,16 @@ static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj,
       continue;
     }
 
-    pxr::GfMatrix4f chan_mat(pchan->chan_mat);
-    pxr::GfMatrix4f arm_mat(pchan->bone->arm_mat);
-    pxr::GfMatrix4f xf = chan_mat * arm_mat;
+    pxr::GfMatrix4f pose_mat(pchan->pose_mat);
 
-    if (pchan->bone->parent) {
-      pxr::GfMatrix4f parent_arm_mat(pchan->bone->parent->arm_mat);
-      xf *= parent_arm_mat.GetInverse();
+    if (bPoseChannel *parent_pchan = get_parent_pose_chan(pose, pchan)) {
+      pxr::GfMatrix4f parent_pose_mat(parent_pchan->pose_mat);
+      pxr::GfMatrix4f xf = pose_mat * parent_pose_mat.GetInverse();
+      xforms.push_back(pxr::GfMatrix4d(xf));
     }
-
-    xforms.push_back(pxr::GfMatrix4d(xf));
+    else {
+      xforms.push_back(pxr::GfMatrix4d(pose_mat));
+    }
   }
 
   skel_anim.SetTransforms(xforms, time);

@@ -179,7 +179,15 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
     return;
   }
 
-  const int ELEM_SIZE = 4;
+  int max_totweight = 1;
+  for (int i = 0; i < mesh->totvert; ++i) {
+    MDeformVert &vert = mesh->dvert[i];
+    if (vert.totweight > max_totweight) {
+      max_totweight = vert.totweight;
+    }
+  }
+
+  const int ELEM_SIZE = max_totweight;
 
   int num_points = mesh->totvert;
 
