@@ -147,8 +147,6 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
 
   std::vector<int> group_to_bone_idx;
 
-  std::vector<pxr::VtArray<float>> pv_data;
-
   for (bDeformGroup *def = (bDeformGroup *)ob->defbase.first; def; def = def->next) {
 
     int bone_idx = -1;
@@ -184,7 +182,6 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
   for (int i = 0; i < mesh->totvert; ++i) {
 
     MDeformVert &vert = mesh->dvert[i];
-
 
     for (int j = 0; j < ELEM_SIZE; ++j, ++offset) {
 
