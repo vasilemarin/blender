@@ -2467,9 +2467,16 @@ static const EnumPropertyItem *socket_change_type_itemf(bContext *C,
                                                         PropertyRNA *UNUSED(prop),
                                                         bool *r_free)
 {
+  if (!C) {
+    return DummyRNA_NULL_items;
+  }
+
   SpaceNode *snode = CTX_wm_space_node(C);
-  bNodeTree *ntree = snode->edittree;
-  return rna_node_socket_type_itemf(ntree->typeinfo, socket_change_poll_type, r_free);
+  if (!snode || !snode->edittree) {
+    return DummyRNA_NULL_items;
+  }
+
+  return rna_node_socket_type_itemf(snode->edittree->typeinfo, socket_change_poll_type, r_free);
 }
 
 void NODE_OT_tree_socket_change_type(wmOperatorType *ot)
