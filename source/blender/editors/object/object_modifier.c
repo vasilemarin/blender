@@ -1923,8 +1923,8 @@ static int multires_subdivide_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  const eMultiresSubdivideModeType subdivide_mode = (eMultiresSubdivideModeType)(RNA_enum_get(
-      op->ptr, "mode"));
+  const eMultiresSubdivideModeType subdivide_mode = (eMultiresSubdivideModeType)(
+      RNA_enum_get(op->ptr, "mode"));
   multiresModifier_subdivide(object, mmd, subdivide_mode);
 
   ED_object_iter_other(
@@ -2598,7 +2598,7 @@ static Object *modifier_skin_armature_create(Depsgraph *depsgraph, Main *bmain, 
 
   BLI_bitmap *edges_visited = BLI_BITMAP_NEW(me->totedge, "edge_visited");
 
-  /* note: we use EditBones here, easier to set them up and use
+  /* NOTE: we use EditBones here, easier to set them up and use
    * edit-armature functions to convert back to regular bones */
   for (int v = 0; v < me->totvert; v++) {
     if (mvert_skin[v].flag & MVERT_SKIN_ROOT) {
