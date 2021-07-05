@@ -240,7 +240,7 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
       sum_weights += w;
     }
 
-    if (sum_weights > 0.0f) {
+    if (sum_weights > .000001f) {
       /* Run over the elements again to normalize the weights. */
       float inv_sum_weights = 1.0f / sum_weights;
       offset -= ELEM_SIZE;
