@@ -187,7 +187,8 @@ static bool shader_validate_link(bNodeTree *UNUSED(ntree), bNodeLink *link)
 static bool shader_node_tree_socket_type_valid(bNodeTreeType *UNUSED(ntreetype),
                                                bNodeSocketType *socket_type)
 {
-  return ELEM(socket_type->type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA, SOCK_SHADER);
+  return nodeIsStaticSocketType(socket_type) &&
+         ELEM(socket_type->type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA, SOCK_SHADER);
 }
 
 bNodeTreeType *ntreeType_Shader;

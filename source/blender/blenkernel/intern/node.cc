@@ -1668,6 +1668,15 @@ bNodeSocket *nodeInsertSocket(bNodeTree *ntree,
   return sock;
 }
 
+bool nodeIsStaticSocketType(const struct bNodeSocketType *stype)
+{
+  /*
+   * Cannot rely on type==SOCK_CUSTOM here, because type is 0 by default
+   * and can be changed on custom sockets.
+   */
+  return RNA_struct_is_a(stype->ext_socket.srna, &RNA_NodeSocketStandard);
+}
+
 const char *nodeStaticSocketType(int type, int subtype)
 {
   switch (type) {
