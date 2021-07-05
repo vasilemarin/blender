@@ -201,6 +201,9 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
 
     MDeformVert &vert = mesh->dvert[i];
 
+    /* Sum of the weights, for normalizing. */
+    float sum_weights = 0.0f;
+
     for (int j = 0; j < ELEM_SIZE; ++j, ++offset) {
 
       if (offset >= joint_indices.size()) {
@@ -233,8 +236,18 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
       float w = vert.dw[j].weight;
 
       joint_weights[offset] = w;
+
+      sum_weights += w;
     }
 
+    if (sum_weights > 0.0f) {
+      /* Run over the elements again to normalize the weights. */
+      float inv_sum_weights = 1.0f / sum_weights;
+      offset -= ELEM_SIZE;
+      for (int k = 0; k < ELEM_SIZE; ++k, ++offset) {
+        joint_weights[offset] *= inv_sum_weights;
+      }
+    }
   }
 
   skel_api.CreateJointIndicesPrimvar(false, ELEM_SIZE).GetAttr().Set(joint_indices);
