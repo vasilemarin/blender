@@ -1012,32 +1012,6 @@ static bool rna_NodeTree_valid_socket_type(bNodeTreeType *ntreetype, bNodeSocket
   func = &rna_NodeTree_valid_socket_type_func;
 
   RNA_parameter_list_create(&list, &ptr, func);
-  RNA_parameter_set_lookup(&list, "type", &socket_type->type);
-  ntreetype->rna_ext.call(NULL, &ptr, func, &list);
-
-  RNA_parameter_get_lookup(&list, "valid", &ret);
-  valid = *(bool *)ret;
-
-  RNA_parameter_list_free(&list);
-
-  return valid;
-}
-
-static bool rna_NodeTree_valid_socket_type_full(bNodeTreeType *ntreetype,
-                                                bNodeSocketType *socket_type)
-{
-  extern FunctionRNA rna_NodeTree_valid_socket_type_full_func;
-
-  PointerRNA ptr;
-  ParameterList list;
-  FunctionRNA *func;
-  void *ret;
-  bool valid;
-
-  RNA_pointer_create(NULL, ntreetype->rna_ext.srna, NULL, &ptr); /* dummy */
-  func = &rna_NodeTree_valid_socket_type_full_func;
-
-  RNA_parameter_list_create(&list, &ptr, func);
   RNA_parameter_set_lookup(&list, "idname", &socket_type->idname);
   ntreetype->rna_ext.call(NULL, &ptr, func, &list);
 
@@ -1123,9 +1097,7 @@ static StructRNA *rna_NodeTree_register(Main *bmain,
   nt->poll = (have_function[0]) ? rna_NodeTree_poll : NULL;
   nt->update = (have_function[1]) ? rna_NodeTree_update_reg : NULL;
   nt->get_from_context = (have_function[2]) ? rna_NodeTree_get_from_context : NULL;
-  nt->valid_socket_type = (have_function[4]) ?
-                              rna_NodeTree_valid_socket_type_full :
-                              ((have_function[3]) ? rna_NodeTree_valid_socket_type : NULL);
+  nt->valid_socket_type = (have_function[3]) ? rna_NodeTree_valid_socket_type : NULL;
 
   ntreeTypeAdd(nt);
 
@@ -11857,22 +11829,8 @@ static void rna_def_nodetree(BlenderRNA *brna)
       func, "result_3", "ID", "From ID", "Original ID data-block selected from the context");
   RNA_def_function_output(func, parm);
 
-  /*
-   * Check for support of a socket type with a static type enum.
-   * Ignored if the valid_socket_type_full method is also defined.
-   */
+  /* Check for support of a socket type with a type identifier. */
   func = RNA_def_function(srna, "valid_socket_type", NULL);
-  RNA_def_function_ui_description(func, "Check if the socket type is valid for the node tree");
-  RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER_OPTIONAL);
-  parm = RNA_def_enum(func, "type", node_socket_type_items, 0, "", "");
-  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-  RNA_def_function_return(func, RNA_def_boolean(func, "valid", false, "", ""));
-
-  /*
-   * Check for support of a socket type with a type identifier.
-   * Takes precedence over the valid_socket_type method if both are defined.
-   */
-  func = RNA_def_function(srna, "valid_socket_type_full", NULL);
   RNA_def_function_ui_description(func, "Check if the socket type is valid for the node tree");
   RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER_OPTIONAL);
   parm = RNA_def_string(
