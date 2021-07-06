@@ -727,6 +727,25 @@ class NodeTreeInterfacePanel:
         props.direction = 'DOWN'
 
         if active_socket is not None:
+            # Mimicking property split.
+            layout.use_property_split = False
+            layout.use_property_decorate = False
+            layout_row = layout.row(align=True)
+            layout_split = layout_row.split(factor=0.4, align=True)
+
+            label_column = layout_split.column(align=True)
+            label_column.alignment = 'RIGHT'
+            # Menu to change the socket type.
+            label_column.label(text="Type")
+
+            property_row = layout_split.row(align=True)
+            props = property_row.operator_menu_enum(
+                "node.tree_socket_change_type",
+                "socket_type",
+                text=active_socket.bl_label if active_socket.bl_label else active_socket.bl_idname
+                )
+            props.in_out = in_out
+
             layout.use_property_split = True
             layout.use_property_decorate = False
 
