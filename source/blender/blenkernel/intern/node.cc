@@ -1610,7 +1610,6 @@ void nodeModifySocketType(bNodeTree *ntree,
   }
 
   BLI_strncpy(sock->idname, idname, sizeof(sock->idname));
-  sock->type = socktype->type;
   node_socket_set_typeinfo(ntree, sock, socktype);
 }
 
