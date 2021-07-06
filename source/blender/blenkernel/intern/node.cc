@@ -1837,13 +1837,13 @@ const char *nodeStaticSocketLabel(int type, int UNUSED(subtype))
     case SOCK_FLOAT:
       return "Float";
     case SOCK_INT:
-      return "Int";
+      return "Integer";
     case SOCK_BOOLEAN:
       return "Boolean";
     case SOCK_VECTOR:
       return "Vector";
     case SOCK_RGBA:
-      return "RGBA";
+      return "Color";
     case SOCK_STRING:
       return "String";
     case SOCK_SHADER:
