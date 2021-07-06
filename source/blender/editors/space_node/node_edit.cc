@@ -2421,7 +2421,8 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
   SpaceNode *snode = CTX_wm_space_node(C);
   bNodeTree *ntree = snode->edittree;
   const eNodeSocketInOut in_out = (eNodeSocketInOut)RNA_enum_get(op->ptr, "in_out");
-  const bNodeSocketType *socket_type = rna_node_socket_type_from_enum(RNA_enum_get(op->ptr, "socket_type"));
+  const bNodeSocketType *socket_type = rna_node_socket_type_from_enum(
+      RNA_enum_get(op->ptr, "socket_type"));
   ListBase *sockets = (in_out == SOCK_IN) ? &ntree->inputs : &ntree->outputs;
 
   Main *main = CTX_data_main(C);
@@ -2496,6 +2497,7 @@ static const EnumPropertyItem *socket_change_type_itemf(bContext *C,
 void NODE_OT_tree_socket_change_type(wmOperatorType *ot)
 {
   PropertyRNA *prop;
+
   /* identifiers */
   ot->name = "Change Node Tree Interface Socket Type";
   ot->description = "Change the type of a socket of the current node tree";
@@ -2508,6 +2510,7 @@ void NODE_OT_tree_socket_change_type(wmOperatorType *ot)
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
   RNA_def_enum(ot->srna, "in_out", rna_enum_node_socket_in_out_items, SOCK_IN, "Socket Type", "");
   prop = RNA_def_enum(ot->srna, "socket_type", DummyRNA_DEFAULT_items, 0, "Socket Type", "");
   RNA_def_enum_funcs(prop, socket_change_type_itemf);

@@ -415,8 +415,7 @@ typedef struct bNodeTreeType {
   void (*node_add_init)(struct bNodeTree *ntree, struct bNode *bnode);
 
   /* Check if the socket type is valid for this tree type. */
-  bool (*valid_socket_type)(struct bNodeTreeType *ntreetype,
-                            struct bNodeSocketType *socket_type);
+  bool (*valid_socket_type)(struct bNodeTreeType *ntreetype, struct bNodeSocketType *socket_type);
 
   /* RNA integration */
   ExtensionRNA rna_ext;
@@ -560,7 +559,7 @@ bool nodeSocketIsRegistered(struct bNodeSocket *sock);
 struct GHashIterator *nodeSocketTypeGetIterator(void);
 const char *nodeSocketTypeLabel(const bNodeSocketType *stype);
 
-bool nodeIsStaticSocketType(const struct bNodeSocketType* stype);
+bool nodeIsStaticSocketType(const struct bNodeSocketType *stype);
 const char *nodeStaticSocketType(int type, int subtype);
 const char *nodeStaticSocketInterfaceType(int type, int subtype);
 const char *nodeStaticSocketLabel(int type, int subtype);
