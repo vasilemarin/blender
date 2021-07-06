@@ -47,6 +47,11 @@ int BufferReader::getPosition() const
 	return m_position;
 }
 
+double BufferReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs BufferReader::getSpecs() const
 {
 	return m_specs;

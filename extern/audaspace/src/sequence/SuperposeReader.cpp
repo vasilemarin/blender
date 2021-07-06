@@ -58,6 +58,11 @@ int SuperposeReader::getPosition() const
 	return std::max(pos1, pos2);
 }
 
+double SuperposeReader::getStartOffset() const
+{
+	return m_reader1->getStartOffset();
+}
+
 Specs SuperposeReader::getSpecs() const
 {
 	return m_reader1->getSpecs();

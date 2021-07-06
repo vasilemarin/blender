@@ -63,6 +63,7 @@ public:
 	virtual void seek(int position);
 	virtual int getLength() const;
 	virtual int getPosition() const;
+	virtual double getStartOffset() const;
 	virtual Specs getSpecs() const;
 	virtual void read(int& length, bool& eos, sample_t* buffer);
 };

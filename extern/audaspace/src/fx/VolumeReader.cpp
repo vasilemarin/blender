@@ -45,6 +45,11 @@ int VolumeReader::getPosition() const
 	return m_reader->getPosition();
 }
 
+double VolumeReader::getStartOffset() const
+{
+	return m_reader->getStartOffset();
+}
+
 Specs VolumeReader::getSpecs() const
 {
 	return m_reader->getSpecs();

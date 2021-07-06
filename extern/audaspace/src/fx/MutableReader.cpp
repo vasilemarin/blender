@@ -51,6 +51,11 @@ int MutableReader::getPosition() const
 	return m_reader->getPosition();
 }
 
+double MutableReader::getStartOffset() const
+{
+	return m_reader->getStartOffset();
+}
+
 Specs MutableReader::getSpecs() const
 {
 	return m_reader->getSpecs();

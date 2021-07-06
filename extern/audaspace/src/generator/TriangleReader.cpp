@@ -54,6 +54,11 @@ int TriangleReader::getPosition() const
 	return m_position;
 }
 
+double TriangleReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs TriangleReader::getSpecs() const
 {
 	Specs specs;

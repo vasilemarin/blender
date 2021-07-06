@@ -142,6 +142,11 @@ int SndFileReader::getPosition() const
 	return m_position;
 }
 
+double SndFileReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs SndFileReader::getSpecs() const
 {
 	return m_specs;

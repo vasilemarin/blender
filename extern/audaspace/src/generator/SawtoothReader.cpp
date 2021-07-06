@@ -54,6 +54,11 @@ int SawtoothReader::getPosition() const
 	return m_position;
 }
 
+double SawtoothReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs SawtoothReader::getSpecs() const
 {
 	Specs specs;

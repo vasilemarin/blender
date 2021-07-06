@@ -63,6 +63,11 @@ int SequenceReader::getPosition() const
 	return m_position;
 }
 
+double SequenceReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs SequenceReader::getSpecs() const
 {
 	return m_sequence->m_specs;

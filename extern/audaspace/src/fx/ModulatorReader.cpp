@@ -58,6 +58,11 @@ int ModulatorReader::getPosition() const
 	return std::max(pos1, pos2);
 }
 
+double ModulatorReader::getStartOffset() const
+{
+	return m_reader1->getStartOffset();
+}
+
 Specs ModulatorReader::getSpecs() const
 {
 	return m_reader1->getSpecs();

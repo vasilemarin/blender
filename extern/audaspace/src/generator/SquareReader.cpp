@@ -54,6 +54,11 @@ int SquareReader::getPosition() const
 	return m_position;
 }
 
+double SquareReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs SquareReader::getSpecs() const
 {
 	Specs specs;

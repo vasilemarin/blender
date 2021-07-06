@@ -47,6 +47,11 @@ int EffectReader::getPosition() const
 	return m_reader->getPosition();
 }
 
+double EffectReader::getStartOffset() const
+{
+	return m_reader->getStartOffset();
+}
+
 Specs EffectReader::getSpecs() const
 {
 	return m_reader->getSpecs();

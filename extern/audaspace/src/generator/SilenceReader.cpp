@@ -46,6 +46,11 @@ int SilenceReader::getPosition() const
 	return m_position;
 }
 
+double SilenceReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs SilenceReader::getSpecs() const
 {
 	Specs specs;

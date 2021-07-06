@@ -52,6 +52,11 @@ int SineReader::getPosition() const
 	return m_position;
 }
 
+double SineReader::getStartOffset() const
+{
+	return 0.0f;
+}
+
 Specs SineReader::getSpecs() const
 {
 	Specs specs;

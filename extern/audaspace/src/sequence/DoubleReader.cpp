@@ -58,6 +58,11 @@ int DoubleReader::getLength() const
 	return len1 + len2;
 }
 
+double DoubleReader::getStartOffset() const
+{
+	return m_reader1->getStartOffset();
+}
+
 int DoubleReader::getPosition() const
 {
 	return m_reader1->getPosition() + m_reader2->getPosition();
