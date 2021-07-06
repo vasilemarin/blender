@@ -587,7 +587,7 @@ void UI_block_bounds_set_normal(uiBlock *block, int addval)
   block->bounds_type = UI_BLOCK_BOUNDS;
 }
 
-/* used for pulldowns */
+/* Used for pull-downs. */
 void UI_block_bounds_set_text(uiBlock *block, int addval)
 {
   block->bounds = addval;
@@ -1382,11 +1382,11 @@ static bool ui_but_event_property_operator_string(const bContext *C,
       else {
         /* special exceptions for common nested data in editors... */
         if (RNA_struct_is_a(ptr->type, &RNA_DopeSheet)) {
-          /* dopesheet filtering options... */
+          /* Dope-sheet filtering options. */
           data_path = BLI_sprintfN("space_data.dopesheet.%s", RNA_property_identifier(prop));
         }
         else if (RNA_struct_is_a(ptr->type, &RNA_FileSelectParams)) {
-          /* Filebrowser options... */
+          /* File-browser options. */
           data_path = BLI_sprintfN("space_data.params.%s", RNA_property_identifier(prop));
         }
       }
@@ -3140,7 +3140,7 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
     return true;
   }
   else if (str[0] == '#') {
-    /* shortcut to create new driver expression (versus immediate Py-execution) */
+    /* Shortcut to create new driver expression (versus immediate Python-execution). */
     return ui_but_anim_expression_create(but, str + 1);
   }
   else {
@@ -3542,7 +3542,7 @@ uiBlock *UI_block_begin(const bContext *C, ARegion *region, const char *name, eU
   return block;
 }
 
-char UI_block_emboss_get(uiBlock *block)
+eUIEmbossType UI_block_emboss_get(uiBlock *block)
 {
   return block->emboss;
 }
