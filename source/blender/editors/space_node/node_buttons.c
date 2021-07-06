@@ -168,15 +168,6 @@ static void draw_socket_list(const bContext *C,
 
       uiLayout *property_row = uiLayoutRow(layout_split, true);
 
-      if (socket->typeinfo->draw_color) {
-        PointerRNA node_ptr;
-        RNA_pointer_create(&ntree->id, &RNA_Node, NULL, &node_ptr);
-
-        float socket_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        socket->typeinfo->draw_color((bContext *)C, &socket_ptr, &node_ptr, socket_color);
-        uiTemplateNodeSocket(property_row, (bContext *)C, socket_color);
-      }
-
       PointerRNA props_ptr;
       uiItemMenuEnumFullO(property_row,
                           (bContext *)C,
