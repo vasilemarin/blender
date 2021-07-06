@@ -49,13 +49,13 @@ pxr::UsdGeomXformable USDTransformWriter::create_xformable() const
   if (usd_export_context_.export_params.export_as_overs) {
     // Override existing prim on stage
     xform = pxr::UsdGeomXform(
-      usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path));
+        usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path));
   }
   else {
     // If prim exists, cast to UsdGeomXform (Solves merge transform and shape issue for animated
     // exports)
     pxr::UsdPrim existing_prim = usd_export_context_.stage->GetPrimAtPath(
-      usd_export_context_.usd_path);
+        usd_export_context_.usd_path);
     if (existing_prim.IsValid()) {
       xform = pxr::UsdGeomXform(existing_prim);
     }

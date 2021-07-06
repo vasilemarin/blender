@@ -54,20 +54,20 @@ static std::string build_path(const Bone *bone)
 
 namespace {
 
-struct BoneVisitor  {
-public:
+struct BoneVisitor {
+ public:
   virtual void Visit(const Bone *bone) = 0;
 };
 
-struct BoneNameList : public BoneVisitor
-{
+struct BoneNameList : public BoneVisitor {
   std::vector<std::string> *names;
 
   BoneNameList(std::vector<std::string> *in_names) : names(in_names)
   {
   }
 
-  void Visit(const Bone *bone) override {
+  void Visit(const Bone *bone) override
+  {
     if (bone && names) {
       names->push_back(bone->name);
     }
@@ -84,12 +84,12 @@ struct BoneDataBuilder : public BoneVisitor {
 
   pxr::GfMatrix4f world_mat;
 
-  BoneDataBuilder(const pxr::GfMatrix4f &in_world_mat) :
-    world_mat(in_world_mat)
+  BoneDataBuilder(const pxr::GfMatrix4f &in_world_mat) : world_mat(in_world_mat)
   {
   }
 
-  void Visit(const Bone *bone) override {
+  void Visit(const Bone *bone) override
+  {
     if (!bone) {
       return;
     }
@@ -112,9 +112,7 @@ struct BoneDataBuilder : public BoneVisitor {
   }
 };
 
-
-} // End anonymous namespace
-
+}  // End anonymous namespace
 
 static void visit_bones(const Bone *bone, BoneVisitor *visitor)
 {
@@ -146,9 +144,9 @@ static void create_pose_joints(const pxr::UsdSkelAnimation &skel_anim, Object *o
 
   pxr::VtTokenArray joints;
 
-  bPose * pose = obj->pose;
+  bPose *pose = obj->pose;
 
-  LISTBASE_FOREACH(bPoseChannel *, pchan, &pose->chanbase) {
+  LISTBASE_FOREACH (bPoseChannel *, pchan, &pose->chanbase) {
     if (pchan->bone) {
       joints.push_back(pxr::TfToken(build_path(pchan->bone)));
     }
@@ -157,7 +155,7 @@ static void create_pose_joints(const pxr::UsdSkelAnimation &skel_anim, Object *o
   skel_anim.GetJointsAttr().Set(joints);
 }
 
-static bPoseChannel *get_parent_pose_chan(bPose * pose, bPoseChannel *in_pchan)
+static bPoseChannel *get_parent_pose_chan(bPose *pose, bPoseChannel *in_pchan)
 {
   if (!(pose && in_pchan && in_pchan->bone && in_pchan->bone->parent)) {
     return nullptr;
@@ -165,7 +163,7 @@ static bPoseChannel *get_parent_pose_chan(bPose * pose, bPoseChannel *in_pchan)
 
   Bone *parent = in_pchan->bone->parent;
 
-  LISTBASE_FOREACH(bPoseChannel *, pchan, &pose->chanbase) {
+  LISTBASE_FOREACH (bPoseChannel *, pchan, &pose->chanbase) {
     if (pchan->bone == parent) {
       return pchan;
     }
@@ -174,7 +172,9 @@ static bPoseChannel *get_parent_pose_chan(bPose * pose, bPoseChannel *in_pchan)
   return nullptr;
 }
 
-static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj, pxr::UsdTimeCode time)
+static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim,
+                            Object *obj,
+                            pxr::UsdTimeCode time)
 {
   if (!(skel_anim && obj && obj->pose)) {
     return;
@@ -182,9 +182,9 @@ static void add_anim_sample(const pxr::UsdSkelAnimation &skel_anim, Object *obj,
 
   pxr::VtArray<pxr::GfMatrix4d> xforms;
 
-  bPose * pose = obj->pose;
+  bPose *pose = obj->pose;
 
-  LISTBASE_FOREACH(bPoseChannel *, pchan, &pose->chanbase) {
+  LISTBASE_FOREACH (bPoseChannel *, pchan, &pose->chanbase) {
 
     if (!pchan->bone) {
       printf("WARNING: pchan %s is missing bone.\n", pchan->name);
@@ -243,11 +243,14 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
   pxr::UsdTimeCode timecode = get_export_time_code();
 
   pxr::UsdSkelSkeleton usd_skel = (usd_export_context_.export_params.export_as_overs) ?
-    pxr::UsdSkelSkeleton(stage->OverridePrim(usd_export_context_.usd_path)) :
-    pxr::UsdSkelSkeleton::Define(stage, usd_export_context_.usd_path);
+                                      pxr::UsdSkelSkeleton(
+                                          stage->OverridePrim(usd_export_context_.usd_path)) :
+                                      pxr::UsdSkelSkeleton::Define(stage,
+                                                                   usd_export_context_.usd_path);
 
   if (!usd_skel) {
-    printf("WARNING: Couldn't define Skeleton %s\n", usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: Couldn't define Skeleton %s\n",
+           usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
@@ -267,8 +270,8 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
     pxr::SdfPath anim_path = usd_export_context_.usd_path.AppendChild(usdtokens::Anim);
 
     usd_skel_anim = (usd_export_context_.export_params.export_as_overs) ?
-      pxr::UsdSkelAnimation(stage->OverridePrim(anim_path)) :
-      pxr::UsdSkelAnimation::Define(stage, anim_path);
+                        pxr::UsdSkelAnimation(stage->OverridePrim(anim_path)) :
+                        pxr::UsdSkelAnimation::Define(stage, anim_path);
 
     if (!usd_skel_anim) {
       printf("WARNING: Couldn't define SkelAnim %s\n", anim_path.GetString().c_str());
@@ -297,7 +300,8 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
 
     if (usd_skel_anim) {
       pxr::UsdSkelBindingAPI usd_skel_api = pxr::UsdSkelBindingAPI::Apply(usd_skel.GetPrim());
-      usd_skel_api.CreateAnimationSourceRel().SetTargets(pxr::SdfPathVector({ pxr::SdfPath(usdtokens::Anim) }));
+      usd_skel_api.CreateAnimationSourceRel().SetTargets(
+          pxr::SdfPathVector({pxr::SdfPath(usdtokens::Anim)}));
 
       create_pose_joints(usd_skel_anim, context.object);
     }
@@ -306,7 +310,6 @@ void USDArmatureWriter::do_write(HierarchyContext &context)
   if (usd_skel_anim) {
     add_anim_sample(usd_skel_anim, context.object, timecode);
   }
-
 }
 
 bool USDArmatureWriter::check_is_animated(const HierarchyContext &context) const

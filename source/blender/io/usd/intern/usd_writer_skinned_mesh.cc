@@ -59,7 +59,8 @@ static Object *get_armature_obj(Object *obj)
     return false;
   }
 
-  ArmatureModifierData *mod = reinterpret_cast<ArmatureModifierData*>(BKE_modifiers_findby_type(obj, eModifierType_Armature));
+  ArmatureModifierData *mod = reinterpret_cast<ArmatureModifierData *>(
+      BKE_modifiers_findby_type(obj, eModifierType_Armature));
 
   return mod ? mod->object : nullptr;
 }
@@ -78,60 +79,68 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
   pxr::UsdPrim mesh_prim = stage->GetPrimAtPath(usd_export_context_.usd_path);
 
   if (!mesh_prim.IsValid()) {
-    printf("WARNING: couldn't get valid mesh prim for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: couldn't get valid mesh prim for skinned mesh %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
   pxr::UsdSkelBindingAPI usd_skel_api = pxr::UsdSkelBindingAPI::Apply(mesh_prim);
 
   if (!usd_skel_api) {
-    printf("WARNING: couldn't apply UsdSkelBindingAPI to skinned mesh prim %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: couldn't apply UsdSkelBindingAPI to skinned mesh prim %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
   Object *obj = get_armature_obj(context.object);
 
   if (!obj) {
-    printf("WARNING: couldn't get armature object for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: couldn't get armature object for skinned mesh %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
   if (!obj->data) {
-    printf("WARNING: couldn't get armature object data for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: couldn't get armature object data for skinned mesh %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
-  ID *arm_id = reinterpret_cast<ID*>(obj->data);
+  ID *arm_id = reinterpret_cast<ID *>(obj->data);
 
   std::string skel_path = usd_export_context_.hierarchy_iterator->get_object_export_path(arm_id);
 
   if (skel_path.empty()) {
-    printf("WARNING: couldn't get USD skeleton path for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: couldn't get USD skeleton path for skinned mesh %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
-  usd_skel_api.CreateSkeletonRel().SetTargets(pxr::SdfPathVector({ pxr::SdfPath(skel_path) }));
+  usd_skel_api.CreateSkeletonRel().SetTargets(pxr::SdfPathVector({pxr::SdfPath(skel_path)}));
 
   if (pxr::UsdAttribute geom_bind_attr = usd_skel_api.CreateGeomBindTransformAttr()) {
     pxr::GfMatrix4f mat_world(context.matrix_world);
     geom_bind_attr.Set(pxr::GfMatrix4d(mat_world));
   }
   else {
-    printf("WARNING: couldn't create geom bind transform attribute for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: couldn't create geom bind transform attribute for skinned mesh %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
   }
 
   std::vector<std::string> bone_names;
   USDArmatureWriter::get_armature_bone_names(obj, bone_names);
 
   if (bone_names.empty()) {
-    printf("WARNING: no armature bones for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: no armature bones for skinned mesh %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
   bool needs_free = false;
   Mesh *mesh = get_export_mesh(context.object, needs_free);
   if (mesh == nullptr) {
-    printf("WARNING: couldn't get Blender mesh for skinned mesh %s\n", this->usd_export_context_.usd_path.GetString().c_str());
+    printf("WARNING: couldn't get Blender mesh for skinned mesh %s\n",
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
@@ -143,9 +152,9 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
 }
 
 void USDSkinnedMeshWriter::write_weights(const Object *ob,
-  const Mesh *mesh,
-  const pxr::UsdSkelBindingAPI &skel_api,
-  const std::vector<std::string> &bone_names) const
+                                         const Mesh *mesh,
+                                         const pxr::UsdSkelBindingAPI &skel_api,
+                                         const std::vector<std::string> &bone_names) const
 {
   if (!(skel_api && ob && mesh && mesh->dvert && mesh->totvert > 0)) {
     return;
@@ -169,7 +178,9 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
     }
 
     if (bone_idx == -1) {
-      printf("WARNING: deform group %s in skinned mesh %s doesn't match any bones\n", def->name, this->usd_export_context_.usd_path.GetString().c_str());
+      printf("WARNING: deform group %s in skinned mesh %s doesn't match any bones\n",
+             def->name,
+             this->usd_export_context_.usd_path.GetString().c_str());
     }
 
     group_to_bone_idx.push_back(bone_idx);

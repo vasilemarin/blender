@@ -36,14 +36,13 @@ class USDSkinnedMeshWriter : public USDMeshWriter {
   virtual void do_write(HierarchyContext &context) override;
 
  protected:
-
   virtual bool is_supported(const HierarchyContext *context) const override;
   virtual bool check_is_animated(const HierarchyContext &context) const override;
 
   void write_weights(const Object *ob,
-    const Mesh *mesh,
-    const pxr::UsdSkelBindingAPI &skel_api,
-    const std::vector<std::string> &bone_names) const;
+                     const Mesh *mesh,
+                     const pxr::UsdSkelBindingAPI &skel_api,
+                     const std::vector<std::string> &bone_names) const;
 };
 
 }  // namespace blender::io::usd

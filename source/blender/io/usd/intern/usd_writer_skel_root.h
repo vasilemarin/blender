@@ -27,11 +27,11 @@ namespace blender::io::usd {
 class USDSkelRootWriter : public USDTransformWriter {
 
  public:
-   USDSkelRootWriter(const USDExporterContext &ctx) : USDTransformWriter(ctx)
-   {}
+  USDSkelRootWriter(const USDExporterContext &ctx) : USDTransformWriter(ctx)
+  {
+  }
 
  protected:
-
   /* Override to create UsdSkelRoot prim. */
   pxr::UsdGeomXformable create_xformable() const override;
 };

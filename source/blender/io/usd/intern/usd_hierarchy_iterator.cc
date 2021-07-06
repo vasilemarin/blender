@@ -91,7 +91,9 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
   pxr::SdfPath prim_path = pxr::SdfPath(std::string(params_.root_prim_path) +
                                         context->export_path);
   // TODO: Somewhat of a workaround. There could be a better way to incoporate this...
-  bool can_merge_with_xform = !(this->params_.export_armatures && (is_skinned_mesh(context->object) || context->object->type == OB_ARMATURE));
+  bool can_merge_with_xform = !(
+      this->params_.export_armatures &&
+      (is_skinned_mesh(context->object) || context->object->type == OB_ARMATURE));
   if (can_merge_with_xform && mergeTransformAndShape)
     prim_path = prim_path.GetParentPath();
   return USDExporterContext{depsgraph_, stage_, prim_path, this, params_};
@@ -100,7 +102,8 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
 AbstractHierarchyWriter *USDHierarchyIterator::create_transform_writer(
     const HierarchyContext *context)
 {
-  if (this->params_.export_armatures && (is_skinned_mesh(context->object) || context->object->type == OB_ARMATURE)) {
+  if (this->params_.export_armatures &&
+      (is_skinned_mesh(context->object) || context->object->type == OB_ARMATURE)) {
     return new USDSkelRootWriter(create_usd_export_context(context));
   }
 
@@ -116,7 +119,8 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
   switch (context->object->type) {
     case OB_MESH:
       if (usd_export_context.export_params.export_meshes) {
-        if (usd_export_context.export_params.export_armatures && is_skinned_mesh(context->object)) {
+        if (usd_export_context.export_params.export_armatures &&
+            is_skinned_mesh(context->object)) {
           data_writer = new USDSkinnedMeshWriter(usd_export_context);
         }
         else {

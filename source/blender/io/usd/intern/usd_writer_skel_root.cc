@@ -24,9 +24,10 @@ namespace blender::io::usd {
 
 pxr::UsdGeomXformable USDSkelRootWriter::create_xformable() const
 {
-   pxr::UsdSkelRoot root = (usd_export_context_.export_params.export_as_overs) ?
-    pxr::UsdSkelRoot(usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path)) :
-    pxr::UsdSkelRoot::Define(usd_export_context_.stage, usd_export_context_.usd_path);
+  pxr::UsdSkelRoot root =
+      (usd_export_context_.export_params.export_as_overs) ?
+          pxr::UsdSkelRoot(usd_export_context_.stage->OverridePrim(usd_export_context_.usd_path)) :
+          pxr::UsdSkelRoot::Define(usd_export_context_.stage, usd_export_context_.usd_path);
 
   return root;
 }
