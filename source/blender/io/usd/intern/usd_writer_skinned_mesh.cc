@@ -24,10 +24,13 @@
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/usd/usdGeom/mesh.h>
 
+#include "BKE_armature.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 
+#include "DNA_armature_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_meta_types.h"
@@ -71,7 +74,42 @@ USDSkinnedMeshWriter::USDSkinnedMeshWriter(const USDExporterContext &ctx) : USDM
 
 void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
 {
-  USDMeshWriter::do_write(context);
+  Object *arm_obj = get_armature_obj(context.object);
+
+  if (!arm_obj) {
+    printf("WARNING: couldn't get armature object for skinned mesh %s\n",
+      this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
+
+  if (!arm_obj->data) {
+    printf("WARNING: couldn't get armature object data for skinned mesh %s\n",
+      this->usd_export_context_.usd_path.GetString().c_str());
+    return;
+  }
+
+  /* Before writing the mesh, we set the artmature to its rest position. */
+
+  bArmature *arm = static_cast<bArmature *>(arm_obj->data);
+
+  int flag = arm->flag;
+
+  Scene *scene = DEG_get_evaluated_scene(usd_export_context_.depsgraph);
+  // Assumed safe because the original depsgraph was nonconst in usd_capi...
+  Depsgraph *dg = const_cast<Depsgraph *>(usd_export_context_.depsgraph);
+
+  if (!(arm->flag & ARM_RESTPOS)) {
+    arm->flag |= ARM_RESTPOS;
+    BKE_pose_where_is(dg, scene, arm_obj);
+  }
+
+  USDGenericMeshWriter::do_write(context);
+
+  /* Restore armature from its rest position. */
+  if (!(flag & ARM_RESTPOS)) {
+    arm->flag = flag;
+    BKE_pose_where_is(dg, scene, arm_obj);
+  }
 
   pxr::UsdStageRefPtr stage = usd_export_context_.stage;
   pxr::UsdTimeCode timecode = get_export_time_code();
@@ -92,21 +130,9 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
     return;
   }
 
-  Object *obj = get_armature_obj(context.object);
 
-  if (!obj) {
-    printf("WARNING: couldn't get armature object for skinned mesh %s\n",
-           this->usd_export_context_.usd_path.GetString().c_str());
-    return;
-  }
 
-  if (!obj->data) {
-    printf("WARNING: couldn't get armature object data for skinned mesh %s\n",
-           this->usd_export_context_.usd_path.GetString().c_str());
-    return;
-  }
-
-  ID *arm_id = reinterpret_cast<ID *>(obj->data);
+  ID *arm_id = reinterpret_cast<ID *>(arm_obj->data);
 
   std::string skel_path = usd_export_context_.hierarchy_iterator->get_object_export_path(arm_id);
 
@@ -128,7 +154,7 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
   }
 
   std::vector<std::string> bone_names;
-  USDArmatureWriter::get_armature_bone_names(obj, bone_names);
+  USDArmatureWriter::get_armature_bone_names(arm_obj, bone_names);
 
   if (bone_names.empty()) {
     printf("WARNING: no armature bones for skinned mesh %s\n",
