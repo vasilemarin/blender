@@ -234,6 +234,9 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
   /* Current offset into the indices and weights arrays. */
   int offset = 0;
 
+  /* Record number of out of bounds vert group indices, for error reporting. */
+  int num_out_of_bounds = 0;
+
   for (int i = 0; i < mesh->totvert; ++i) {
 
     MDeformVert &vert = mesh->dvert[i];
@@ -258,7 +261,7 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
        * larger than the number of bDeformGroup structs in Object.defbase. It appears to be
        * a Blender bug that can cause this scenario. */
       if (def_nr >= group_to_bone_idx.size()) {
-        printf("Out of bounds deform group number.\n");
+        ++num_out_of_bounds;
         continue;
       }
 
@@ -285,6 +288,10 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
         joint_weights[offset] *= inv_sum_weights;
       }
     }
+  }
+
+  if (num_out_of_bounds > 0) {
+    printf("WARNING: There were %d deform verts with out of bounds deform group numbers.\n", num_out_of_bounds);
   }
 
   skel_api.CreateJointIndicesPrimvar(false, ELEM_SIZE).GetAttr().Set(joint_indices);
