@@ -80,13 +80,13 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
 
   if (!arm_obj) {
     printf("WARNING: couldn't get armature object for skinned mesh %s\n",
-      this->usd_export_context_.usd_path.GetString().c_str());
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
   if (!arm_obj->data) {
     printf("WARNING: couldn't get armature object data for skinned mesh %s\n",
-      this->usd_export_context_.usd_path.GetString().c_str());
+           this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
 
@@ -125,8 +125,6 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
            this->usd_export_context_.usd_path.GetString().c_str());
     return;
   }
-
-
 
   ID *arm_id = reinterpret_cast<ID *>(arm_obj->data);
 
@@ -287,7 +285,8 @@ void USDSkinnedMeshWriter::write_weights(const Object *ob,
   }
 
   if (num_out_of_bounds > 0) {
-    printf("WARNING: There were %d deform verts with out of bounds deform group numbers.\n", num_out_of_bounds);
+    printf("WARNING: There were %d deform verts with out of bounds deform group numbers.\n",
+           num_out_of_bounds);
   }
 
   skel_api.CreateJointIndicesPrimvar(false, ELEM_SIZE).GetAttr().Set(joint_indices);
