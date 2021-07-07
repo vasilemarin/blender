@@ -35,6 +35,8 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_meta_types.h"
 
+#include "ED_armature.h"
+
 #include <string>
 
 namespace blender::io::usd {
@@ -88,27 +90,21 @@ void USDSkinnedMeshWriter::do_write(HierarchyContext &context)
     return;
   }
 
-  /* Before writing the mesh, we set the artmature to its rest position. */
+  /* Before writing the mesh, we set the artmature to edit mode
+   * so the mesh is saved in its rest position. */
 
   bArmature *arm = static_cast<bArmature *>(arm_obj->data);
 
-  int flag = arm->flag;
+  bool is_edited = arm->edbo != nullptr;
 
-  Scene *scene = DEG_get_evaluated_scene(usd_export_context_.depsgraph);
-  // Assumed safe because the original depsgraph was nonconst in usd_capi...
-  Depsgraph *dg = const_cast<Depsgraph *>(usd_export_context_.depsgraph);
-
-  if (!(arm->flag & ARM_RESTPOS)) {
-    arm->flag |= ARM_RESTPOS;
-    BKE_pose_where_is(dg, scene, arm_obj);
+  if (!is_edited) {
+    ED_armature_to_edit(arm);
   }
 
   USDGenericMeshWriter::do_write(context);
 
-  /* Restore armature from its rest position. */
-  if (!(flag & ARM_RESTPOS)) {
-    arm->flag = flag;
-    BKE_pose_where_is(dg, scene, arm_obj);
+  if (!is_edited) {
+    ED_armature_edit_free(arm);
   }
 
   pxr::UsdStageRefPtr stage = usd_export_context_.stage;
