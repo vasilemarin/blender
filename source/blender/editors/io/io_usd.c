@@ -576,8 +576,11 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                   "Particles",
                   "When checked, all particle systems will be exported");
 
-  RNA_def_boolean(
-      ot->srna, "export_armatures", true, "Armatures", "Export armatures and skinned meshes");
+  RNA_def_boolean(ot->srna,
+                  "export_armatures",
+                  false,
+                  "Armatures (Experimental)",
+                  "Export armatures and skinned meshes");
 
   RNA_def_boolean(ot->srna,
                   "use_instancing",
