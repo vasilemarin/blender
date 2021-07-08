@@ -20,6 +20,7 @@
 
 #include "usd_hierarchy_iterator.h"
 #include "usd_writer_abstract.h"
+#include "usd_writer_armature.h"
 #include "usd_writer_camera.h"
 #include "usd_writer_curve.h"
 #include "usd_writer_hair.h"
@@ -27,6 +28,8 @@
 #include "usd_writer_mesh.h"
 #include "usd_writer_metaball.h"
 #include "usd_writer_particle.h"
+#include "usd_writer_skel_root.h"
+#include "usd_writer_skinned_mesh.h"
 #include "usd_writer_transform.h"
 
 #include <string>
@@ -88,7 +91,10 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
   pxr::SdfPath prim_path = pxr::SdfPath(std::string(params_.root_prim_path) +
                                         context->export_path);
   // TODO: Somewhat of a workaround. There could be a better way to incoporate this...
-  if (mergeTransformAndShape)
+  bool can_merge_with_xform = !(
+      this->params_.export_armatures &&
+      (is_skinned_mesh(context->object) || context->object->type == OB_ARMATURE));
+  if (can_merge_with_xform && mergeTransformAndShape)
     prim_path = prim_path.GetParentPath();
   return USDExporterContext{depsgraph_, stage_, prim_path, this, params_};
 }
@@ -96,6 +102,11 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
 AbstractHierarchyWriter *USDHierarchyIterator::create_transform_writer(
     const HierarchyContext *context)
 {
+  if (this->params_.export_armatures &&
+      (is_skinned_mesh(context->object) || context->object->type == OB_ARMATURE)) {
+    return new USDSkelRootWriter(create_usd_export_context(context));
+  }
+
   return new USDTransformWriter(create_usd_export_context(context));
 }
 
@@ -107,8 +118,15 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
 
   switch (context->object->type) {
     case OB_MESH:
-      if (usd_export_context.export_params.export_meshes)
-        data_writer = new USDMeshWriter(usd_export_context);
+      if (usd_export_context.export_params.export_meshes) {
+        if (usd_export_context.export_params.export_armatures &&
+            is_skinned_mesh(context->object)) {
+          data_writer = new USDSkinnedMeshWriter(usd_export_context);
+        }
+        else {
+          data_writer = new USDMeshWriter(usd_export_context);
+        }
+      }
       else
         return nullptr;
       break;
@@ -133,6 +151,12 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
       }
       else
         return nullptr;
+    case OB_ARMATURE:
+      if (usd_export_context.export_params.export_armatures) {
+        data_writer = new USDArmatureWriter(usd_export_context);
+      }
+      else
+        return nullptr;
       break;
 
     case OB_EMPTY:
@@ -141,7 +165,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
     case OB_SPEAKER:
     case OB_LIGHTPROBE:
     case OB_LATTICE:
-    case OB_ARMATURE:
     case OB_GPENCIL:
       return nullptr;
     case OB_TYPE_MAX:

@@ -42,7 +42,7 @@ USDTransformWriter::USDTransformWriter(const USDExporterContext &ctx) : USDAbstr
 {
 }
 
-void USDTransformWriter::do_write(HierarchyContext &context)
+pxr::UsdGeomXformable USDTransformWriter::create_xformable() const
 {
   pxr::UsdGeomXform xform;
 
@@ -63,6 +63,13 @@ void USDTransformWriter::do_write(HierarchyContext &context)
       xform = pxr::UsdGeomXform::Define(usd_export_context_.stage, usd_export_context_.usd_path);
     }
   }
+
+  return xform;
+}
+
+void USDTransformWriter::do_write(HierarchyContext &context)
+{
+  pxr::UsdGeomXformable xform = create_xformable();
 
   if (usd_export_context_.export_params.export_transforms) {
     float parent_relative_matrix[4][4];  // The object matrix relative to the parent.

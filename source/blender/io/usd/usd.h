@@ -112,6 +112,7 @@ struct USDExportParams {
   bool scale_light_radius;
   bool convert_world_material;
   bool generate_cycles_shaders;
+  bool export_armatures;
 };
 
 struct USDImportParams {

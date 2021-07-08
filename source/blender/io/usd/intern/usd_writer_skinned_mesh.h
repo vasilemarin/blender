@@ -13,30 +13,36 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2019 Blender Foundation.
+ * The Original Code is Copyright (C) 2021 Blender Foundation.
  * All rights reserved.
  */
 #pragma once
 
-#include "usd_writer_abstract.h"
+#include "usd_writer_mesh.h"
 
-#include <pxr/usd/usdGeom/xform.h>
+#include <pxr/usd/usdSkel/bindingAPI.h>
+
+#include <string>
+#include <vector>
 
 namespace blender::io::usd {
 
-class USDTransformWriter : public USDAbstractWriter {
- private:
-  pxr::UsdGeomXformOp xformOp_;
+bool is_skinned_mesh(Object *obj);
 
+class USDSkinnedMeshWriter : public USDMeshWriter {
  public:
-  USDTransformWriter(const USDExporterContext &ctx);
+  USDSkinnedMeshWriter(const USDExporterContext &ctx);
+
+  virtual void do_write(HierarchyContext &context) override;
 
  protected:
-  void do_write(HierarchyContext &context) override;
-  bool check_is_animated(const HierarchyContext &context) const override;
+  virtual bool is_supported(const HierarchyContext *context) const override;
+  virtual bool check_is_animated(const HierarchyContext &context) const override;
 
-  /* Subclasses may override this to create prims other than UsdGeomXform. */
-  virtual pxr::UsdGeomXformable create_xformable() const;
+  void write_weights(const Object *ob,
+                     const Mesh *mesh,
+                     const pxr::UsdSkelBindingAPI &skel_api,
+                     const std::vector<std::string> &bone_names) const;
 };
 
 }  // namespace blender::io::usd

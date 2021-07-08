@@ -265,6 +265,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const bool generate_cycles_shaders = RNA_boolean_get(op->ptr, "generate_cycles_shaders");
 
+  const bool export_armatures = RNA_boolean_get(op->ptr, "export_armatures");
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -315,7 +317,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    convert_light_to_nits,
                                    scale_light_radius,
                                    convert_world_material,
-                                   generate_cycles_shaders};
+                                   generate_cycles_shaders,
+                                   export_armatures};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -406,6 +409,7 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
   uiItemR(box, ptr, "export_curves", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "export_hair", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "export_particles", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "export_armatures", 0, NULL, ICON_NONE);
 
   box = uiLayoutBox(layout);
   uiItemL(box, IFACE_("Stage Options:"), ICON_SCENE_DATA);
@@ -528,12 +532,12 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                   "When checked, all vertex colors are included in the export");
   RNA_def_boolean(ot->srna,
                   "export_vertex_groups",
-                  true,
+                  false,
                   "Vertex Groups",
                   "When checked, all vertex groups are included in the export");
   RNA_def_boolean(ot->srna,
                   "export_face_maps",
-                  true,
+                  false,
                   "Face Maps",
                   "When checked, all face maps are included in the export");
   RNA_def_boolean(ot->srna,
@@ -571,6 +575,12 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
                   true,
                   "Particles",
                   "When checked, all particle systems will be exported");
+
+  RNA_def_boolean(ot->srna,
+                  "export_armatures",
+                  false,
+                  "Armatures (Experimental)",
+                  "Export armatures and skinned meshes");
 
   RNA_def_boolean(ot->srna,
                   "use_instancing",
