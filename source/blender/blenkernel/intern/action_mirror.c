@@ -322,6 +322,22 @@ static void action_flip_pchan(Object *ob_arm,
     /* Move back to bone-space space, using the flipped bone if it exists. */
     mul_m4_m4m4(chan_mat, arm_mat_inv, chan_mat);
 
+    /* The rest pose having an X-axis that is pointing upwards (so toward positive Z) creates
+     * issues when flipping the pose. */
+    const bool is_problematic = pchan_flip == NULL && fabsf(pchan->bone->arm_mat[0][0]) <= 1e-6 &&
+                                fabsf(pchan->bone->arm_mat[0][2]) >= 0.9;
+    if (is_problematic) {
+      /* Matrix needs to flip both the X and Z axes to come out right. */
+      float extra_mat[4][4] = {
+          {-1.0f, 0.0f, 0.0f, 0.0f},
+          {0.0f, 1.0f, 0.0f, 0.0f},
+          {0.0f, 0.0f, -1.0f, 0.0f},
+          {0.0f, 0.0f, 0.0f, 1.0f},
+      };
+      mul_m4_m4m4(chan_mat, extra_mat, chan_mat);
+      print_m4("   final:", chan_mat);
+    }
+
     BKE_pchan_apply_mat4(&pchan_temp, chan_mat, false);
 
     /* Write the values back to the F-curves. */
