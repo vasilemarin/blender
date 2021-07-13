@@ -57,11 +57,11 @@ bool is_skinned_mesh(Object *obj)
 static Object *get_armature_obj(Object *obj)
 {
   if (!(obj && obj->data)) {
-    return false;
+    return nullptr;
   }
 
   if (obj->type != OB_MESH) {
-    return false;
+    return nullptr;
   }
 
   ArmatureModifierData *mod = reinterpret_cast<ArmatureModifierData *>(
