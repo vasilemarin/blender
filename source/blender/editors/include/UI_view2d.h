@@ -143,7 +143,6 @@ void UI_view2d_view_orthoSpecial(struct ARegion *region, struct View2D *v2d, con
 void UI_view2d_view_restore(const struct bContext *C);
 
 /* grid drawing */
-void UI_view2d_constant_grid_draw(const struct View2D *v2d, float step);
 void UI_view2d_multi_grid_draw(
     const struct View2D *v2d, int colorid, float step, int level_size, int totlevels);
 

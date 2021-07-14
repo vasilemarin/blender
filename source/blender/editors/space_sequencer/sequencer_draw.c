@@ -2416,7 +2416,10 @@ void draw_timeline_seq(const bContext *C, ARegion *region)
   /* Get timeline bound-box, needed for the scroll-bars. */
   SEQ_timeline_boundbox(scene, SEQ_active_seqbase_get(ed), &v2d->tot);
   draw_seq_backdrop(v2d);
-  UI_view2d_constant_grid_draw(v2d, FPS);
+  if ((sseq->flag & SEQ_SHOW_STRIP_OVERLAY) && (sseq->flag & SEQ_SHOW_GRID)) {
+    UI_view2d_draw_lines_x__discrete_frames_or_seconds(
+        v2d, scene, (sseq->flag & SEQ_DRAWFRAMES) == 0);
+  }
 
   /* Only draw backdrop in timeline view. */
   if (sseq->view == SEQ_VIEW_SEQUENCE && sseq->draw_flag & SEQ_DRAW_BACKDROP) {
