@@ -119,17 +119,18 @@ pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material,
   std::string material_prim_path_str;
 
   /* For instance prototypes, create the material beneath the prototyp prim. */
-  if (usd_export_context_.export_params.use_instancing && !context.is_instance()) {
-    ID *obj_id = reinterpret_cast<ID *>(context.object);
-    if (usd_export_context_.hierarchy_iterator->is_prototype(obj_id)) {
-      if (context.object->data) {
-        material_prim_path_str = context.higher_up_export_path;
-      }
-      else {
-        material_prim_path_str = context.export_path;
-      }
-      material_prim_path_str += "/Looks";
+  if (usd_export_context_.export_params.use_instancing && !context.is_instance()
+    && usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
+
+    material_prim_path_str += std::string(usd_export_context_.export_params.root_prim_path);
+    if (context.object->data) {
+      material_prim_path_str += context.higher_up_export_path;
     }
+    else {
+      material_prim_path_str += context.export_path;
+    }
+    material_prim_path_str += "/Looks";
+
   }
 
   if (material_prim_path_str.empty()) {
