@@ -56,7 +56,7 @@ pxr::UsdGeomXformable USDTransformWriter::create_xformable() const
     // exports)
     pxr::UsdPrim existing_prim = usd_export_context_.stage->GetPrimAtPath(
         usd_export_context_.usd_path);
-    if (existing_prim.IsValid()) {
+    if (existing_prim.IsValid() && existing_prim.IsA<pxr::UsdGeomXform>()) {
       xform = pxr::UsdGeomXform(existing_prim);
     }
     else {
@@ -67,18 +67,45 @@ pxr::UsdGeomXformable USDTransformWriter::create_xformable() const
   return xform;
 }
 
+bool USDTransformWriter::should_apply_root_xform(const HierarchyContext &context) const
+{
+  if (!(usd_export_context_.export_params.convert_orientation ||
+        usd_export_context_.export_params.convert_to_cm)) {
+    return false;
+  }
+
+  if (strlen(usd_export_context_.export_params.root_prim_path) != 0) {
+    return false;
+  }
+
+  if (context.export_parent != nullptr) {
+    return false;
+  }
+
+  if (usd_export_context_.export_params.use_instancing &&
+    usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
+    /* This is an instancing prototype. */
+    return false;
+  }
+
+  return true;
+}
+
+
 void USDTransformWriter::do_write(HierarchyContext &context)
 {
   pxr::UsdGeomXformable xform = create_xformable();
+
+  if (!xform) {
+    printf("INTERNAL ERROR: USDTransformWriter: couldn't create xformable.\n");
+    return;
+  }
 
   if (usd_export_context_.export_params.export_transforms) {
     float parent_relative_matrix[4][4];  // The object matrix relative to the parent.
 
     // TODO(bjs): This is inefficient checking for every transform. should be moved elsewhere
-    if (strlen(usd_export_context_.export_params.root_prim_path) == 0 &&
-        context.export_parent == nullptr &&
-        (usd_export_context_.export_params.convert_orientation ||
-         usd_export_context_.export_params.convert_to_cm)) {
+    if (should_apply_root_xform(context)) {
       float matrix_world[4][4];
       copy_m4_m4(matrix_world, context.matrix_world);
 
@@ -121,6 +148,21 @@ void USDTransformWriter::do_write(HierarchyContext &context)
   if (usd_export_context_.export_params.export_custom_properties && context.object) {
     auto prim = xform.GetPrim();
     write_id_properties(prim, context.object->id, get_export_time_code());
+  }
+
+  if (usd_export_context_.export_params.use_instancing) {
+
+    if (context.is_instance()) {
+      mark_as_instance(context, xform.GetPrim());
+      /* Explicitly set visibility, since the prototype might be invisible. */
+      xform.GetVisibilityAttr().Set(pxr::UsdGeomTokens->inherited);
+    }
+    else {
+      if (usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
+        /* TODO(makowalski): perhaps making prototypes invisible should be optional. */
+        xform.GetVisibilityAttr().Set(pxr::UsdGeomTokens->invisible);
+      }
+    }
   }
 }
 

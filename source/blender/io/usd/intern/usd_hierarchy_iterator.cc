@@ -112,6 +112,10 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_transform_writer(
 
 AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const HierarchyContext *context)
 {
+  if (context->is_instance() && params_.use_instancing) {
+    return nullptr;
+  }
+
   USDExporterContext usd_export_context = create_usd_export_context(
       context, params_.merge_transform_and_shape);
   USDAbstractWriter *data_writer = nullptr;
@@ -182,6 +186,10 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
 
 AbstractHierarchyWriter *USDHierarchyIterator::create_hair_writer(const HierarchyContext *context)
 {
+  if (context->is_instance() && params_.use_instancing) {
+    return nullptr;
+  }
+
   if (!params_.export_hair) {
     return nullptr;
   }
@@ -191,6 +199,10 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_hair_writer(const Hierarch
 AbstractHierarchyWriter *USDHierarchyIterator::create_particle_writer(
     const HierarchyContext *context)
 {
+  if (context->is_instance() && params_.use_instancing) {
+    return nullptr;
+  }
+
   if (!params_.export_particles) {
     return nullptr;
   }

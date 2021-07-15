@@ -249,6 +249,17 @@ std::string AbstractHierarchyIterator::get_object_export_path(const ID *id) cons
   return std::string();
 }
 
+bool AbstractHierarchyIterator::is_prototype(const ID *id) const
+{
+  return prototypes_.find(id) != prototypes_.end();
+}
+
+bool AbstractHierarchyIterator::is_prototype(const Object *obj) const
+{
+  const ID *obj_id = reinterpret_cast<const ID *>(obj);
+  return is_prototype(obj_id);
+}
+
 void AbstractHierarchyIterator::debug_print_export_graph(const ExportGraph &graph) const
 {
   size_t total_graph_size = 0;
@@ -619,6 +630,7 @@ void AbstractHierarchyIterator::determine_duplication_references(
       }
       else {
         context->mark_as_instance_of(it->second);
+        prototypes_.insert(source_id);
       }
 
       if (context->object->data) {

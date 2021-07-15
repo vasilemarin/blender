@@ -181,7 +181,7 @@ void USDHairWriter::assign_material(const HierarchyContext &context,
   }
 
   pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(usd_curve.GetPrim());
-  pxr::UsdShadeMaterial usd_material = ensure_usd_material(material);
+  pxr::UsdShadeMaterial usd_material = ensure_usd_material(material, context);
   api.Bind(usd_material);
 
   /* USD seems to support neither per-material nor per-face-group double-sidedness, so we just

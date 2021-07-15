@@ -69,7 +69,7 @@ class USDAbstractWriter : public AbstractHierarchyWriter {
   virtual bool check_is_animated(const HierarchyContext &context) const;
   pxr::UsdTimeCode get_export_time_code() const;
 
-  pxr::UsdShadeMaterial ensure_usd_material(Material *material);
+  pxr::UsdShadeMaterial ensure_usd_material(Material *material, const HierarchyContext &context);
 
   void write_id_properties(pxr::UsdPrim &prim,
                            const ID &id,

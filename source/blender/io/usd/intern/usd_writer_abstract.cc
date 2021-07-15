@@ -114,9 +114,29 @@ const pxr::SdfPath &USDAbstractWriter::usd_path() const
   return usd_export_context_.usd_path;
 }
 
-pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material)
+pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material, const HierarchyContext &context)
 {
-  pxr::SdfPath material_library_path(this->usd_export_context_.export_params.material_prim_path);
+  std::string material_prim_path_str;
+
+  /* For instance prototypes, create the material beneath the prototyp prim. */
+  if (usd_export_context_.export_params.use_instancing && !context.is_instance()) {
+    ID *obj_id = reinterpret_cast<ID *>(context.object);
+    if (usd_export_context_.hierarchy_iterator->is_prototype(obj_id)) {
+      if (context.object->data) {
+        material_prim_path_str = context.higher_up_export_path;
+      }
+      else {
+        material_prim_path_str = context.export_path;
+      }
+      material_prim_path_str += "/Looks";
+    }
+  }
+
+  if (material_prim_path_str.empty()) {
+    material_prim_path_str = this->usd_export_context_.export_params.material_prim_path;
+  }
+
+  pxr::SdfPath material_library_path(material_prim_path_str);
   pxr::UsdStageRefPtr stage = usd_export_context_.stage;
 
   /* Construct the material. */
@@ -184,7 +204,14 @@ bool USDAbstractWriter::mark_as_instance(const HierarchyContext &context, const 
     return false;
   }
 
-  pxr::SdfPath ref_path(context.original_export_path);
+  std::string ref_path_str(usd_export_context_.export_params.root_prim_path);
+  ref_path_str += context.original_export_path;
+
+  pxr::SdfPath ref_path(ref_path_str);
+
+  /* To avoid USD errors, make sure the referenced path exists. */
+  usd_export_context_.stage->DefinePrim(ref_path);
+
   if (!prim.GetReferences().AddInternalReference(ref_path)) {
     /* See this URL for a description fo why referencing may fail"
      * https://graphics.pixar.com/usd/docs/api/class_usd_references.html#Usd_Failing_References
@@ -194,6 +221,8 @@ bool USDAbstractWriter::mark_as_instance(const HierarchyContext &context, const 
            context.original_export_path.c_str());
     return false;
   }
+
+  prim.SetInstanceable(true);
 
   return true;
 }

@@ -476,22 +476,6 @@ void USDGenericMeshWriter::write_mesh(HierarchyContext &context, Mesh *mesh)
   USDMeshData usd_mesh_data;
   get_geometry_data(mesh, usd_mesh_data);
 
-  if (usd_export_context_.export_params.use_instancing && context.is_instance()) {
-    if (!mark_as_instance(context, usd_mesh.GetPrim())) {
-      return;
-    }
-
-    /* The material path will be of the form </_materials/{material name}>, which is outside the
-     * sub-tree pointed to by ref_path. As a result, the referenced data is not allowed to point
-     * out of its own sub-tree. It does work when we override the material with exactly the same
-     * path, though. */
-    if (usd_export_context_.export_params.export_materials) {
-      assign_materials(context, usd_mesh, usd_mesh_data.face_groups);
-    }
-
-    return;
-  }
-
   if (usd_export_context_.export_params.export_vertices) {
     pxr::UsdAttribute attr_points = usd_mesh.CreatePointsAttr(pxr::VtValue(), true);
     pxr::UsdAttribute attr_face_vertex_counts = usd_mesh.CreateFaceVertexCountsAttr(pxr::VtValue(),
@@ -644,7 +628,7 @@ void USDGenericMeshWriter::assign_materials(const HierarchyContext &context,
     }
 
     pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(usd_mesh.GetPrim());
-    pxr::UsdShadeMaterial usd_material = ensure_usd_material(material);
+    pxr::UsdShadeMaterial usd_material = ensure_usd_material(material, context);
     api.Bind(usd_material);
 
     /* USD seems to support neither per-material nor per-face-group double-sidedness, so we just
@@ -678,7 +662,7 @@ void USDGenericMeshWriter::assign_materials(const HierarchyContext &context,
       continue;
     }
 
-    pxr::UsdShadeMaterial usd_material = ensure_usd_material(material);
+    pxr::UsdShadeMaterial usd_material = ensure_usd_material(material, context);
     pxr::TfToken material_name = usd_material.GetPath().GetNameToken();
 
     pxr::UsdShadeMaterialBindingAPI api = pxr::UsdShadeMaterialBindingAPI(usd_mesh.GetPrim());

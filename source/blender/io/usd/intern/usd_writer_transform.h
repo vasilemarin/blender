@@ -37,6 +37,8 @@ class USDTransformWriter : public USDAbstractWriter {
 
   /* Subclasses may override this to create prims other than UsdGeomXform. */
   virtual pxr::UsdGeomXformable create_xformable() const;
+
+  bool should_apply_root_xform(const HierarchyContext &context) const;
 };
 
 }  // namespace blender::io::usd
