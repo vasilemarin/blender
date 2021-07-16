@@ -92,6 +92,18 @@ bool USDTransformWriter::should_apply_root_xform(const HierarchyContext &context
 }
 
 
+bool USDTransformWriter::is_proto_root(const HierarchyContext &context) const
+{
+  if (!usd_export_context_.export_params.use_instancing) {
+    return false;
+  }
+  bool is_proto = usd_export_context_.hierarchy_iterator->is_prototype(context.object);
+  bool parent_is_proto = context.export_parent
+    && usd_export_context_.hierarchy_iterator->is_prototype(context.export_parent);
+
+  return is_proto && !parent_is_proto;
+}
+
 void USDTransformWriter::do_write(HierarchyContext &context)
 {
   pxr::UsdGeomXformable xform = create_xformable();
@@ -158,7 +170,7 @@ void USDTransformWriter::do_write(HierarchyContext &context)
       xform.GetVisibilityAttr().Set(pxr::UsdGeomTokens->inherited);
     }
     else {
-      if (usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
+      if (is_proto_root(context)) {
         /* TODO(makowalski): perhaps making prototypes invisible should be optional. */
         xform.GetVisibilityAttr().Set(pxr::UsdGeomTokens->invisible);
       }

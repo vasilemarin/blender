@@ -35,6 +35,9 @@ class USDTransformWriter : public USDAbstractWriter {
   void do_write(HierarchyContext &context) override;
   bool check_is_animated(const HierarchyContext &context) const override;
 
+  /* Return true if the given context is the root of a protoype. */
+  bool is_proto_root(const HierarchyContext &context) const;
+
   /* Subclasses may override this to create prims other than UsdGeomXform. */
   virtual pxr::UsdGeomXformable create_xformable() const;
 
