@@ -54,7 +54,7 @@ typedef enum {
 #define NODE_EDGE_PAN_OUTSIDE_PAD 0 /* Disable clamping for node panning, use whole screen. */
 #define NODE_EDGE_PAN_SPEED_RAMP 1
 #define NODE_EDGE_PAN_MAX_SPEED 26 /* In UI units per second, slower than default. */
-#define NODE_EDGE_PAN_DELAY 0.0f /* No delay in node editor scrolling. */
+#define NODE_EDGE_PAN_DELAY 0.3f /* No delay in node editor scrolling. */
 #define NODE_EDGE_PAN_ZOOM_INFLUENCE 0.5f
 
 /* space_node.c */
