@@ -114,13 +114,14 @@ const pxr::SdfPath &USDAbstractWriter::usd_path() const
   return usd_export_context_.usd_path;
 }
 
-pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material, const HierarchyContext &context)
+pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material,
+                                                             const HierarchyContext &context)
 {
   std::string material_prim_path_str;
 
   /* For instance prototypes, create the material beneath the prototyp prim. */
-  if (usd_export_context_.export_params.use_instancing && !context.is_instance()
-    && usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
+  if (usd_export_context_.export_params.use_instancing && !context.is_instance() &&
+      usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
 
     material_prim_path_str += std::string(usd_export_context_.export_params.root_prim_path);
     if (context.object->data) {
@@ -130,7 +131,6 @@ pxr::UsdShadeMaterial USDAbstractWriter::ensure_usd_material(Material *material,
       material_prim_path_str += context.export_path;
     }
     material_prim_path_str += "/Looks";
-
   }
 
   if (material_prim_path_str.empty()) {

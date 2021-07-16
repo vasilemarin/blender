@@ -83,7 +83,7 @@ bool USDTransformWriter::should_apply_root_xform(const HierarchyContext &context
   }
 
   if (usd_export_context_.export_params.use_instancing &&
-    usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
+      usd_export_context_.hierarchy_iterator->is_prototype(context.object)) {
     /* This is an instancing prototype. */
     return false;
   }
@@ -91,15 +91,15 @@ bool USDTransformWriter::should_apply_root_xform(const HierarchyContext &context
   return true;
 }
 
-
 bool USDTransformWriter::is_proto_root(const HierarchyContext &context) const
 {
   if (!usd_export_context_.export_params.use_instancing) {
     return false;
   }
   bool is_proto = usd_export_context_.hierarchy_iterator->is_prototype(context.object);
-  bool parent_is_proto = context.export_parent
-    && usd_export_context_.hierarchy_iterator->is_prototype(context.export_parent);
+  bool parent_is_proto = context.export_parent &&
+                         usd_export_context_.hierarchy_iterator->is_prototype(
+                             context.export_parent);
 
   return is_proto && !parent_is_proto;
 }
