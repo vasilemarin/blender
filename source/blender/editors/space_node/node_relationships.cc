@@ -36,6 +36,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_screen.h"
 
 #include "ED_node.h" /* own include */
 #include "ED_render.h"
@@ -1343,7 +1344,7 @@ static int cut_links_exec(bContext *C, wmOperator *op)
     ED_preview_kill_jobs(CTX_wm_manager(C), bmain);
 
     LISTBASE_FOREACH_MUTABLE (bNodeLink *, link, &snode->edittree->links) {
-      if (nodeLinkIsHidden(link)) {
+      if (node_link_is_hidden_or_dimmed(&region->v2d, link)) {
         continue;
       }
 
@@ -1440,7 +1441,7 @@ static int mute_links_exec(bContext *C, wmOperator *op)
     /* Count intersected links and clear test flag. */
     int tot = 0;
     LISTBASE_FOREACH (bNodeLink *, link, &snode->edittree->links) {
-      if (nodeLinkIsHidden(link)) {
+      if (node_link_is_hidden_or_dimmed(&region->v2d, link)) {
         continue;
       }
       link->flag &= ~NODE_LINK_TEST;
@@ -1454,7 +1455,7 @@ static int mute_links_exec(bContext *C, wmOperator *op)
 
     /* Mute links. */
     LISTBASE_FOREACH (bNodeLink *, link, &snode->edittree->links) {
-      if (nodeLinkIsHidden(link) || (link->flag & NODE_LINK_TEST)) {
+      if (node_link_is_hidden_or_dimmed(&region->v2d, link) || (link->flag & NODE_LINK_TEST)) {
         continue;
       }
 
@@ -1469,7 +1470,7 @@ static int mute_links_exec(bContext *C, wmOperator *op)
 
     /* Clear remaining test flags. */
     LISTBASE_FOREACH (bNodeLink *, link, &snode->edittree->links) {
-      if (nodeLinkIsHidden(link)) {
+      if (node_link_is_hidden_or_dimmed(&region->v2d, link)) {
         continue;
       }
       link->flag &= ~NODE_LINK_TEST;
@@ -1905,9 +1906,11 @@ static bool ed_node_link_conditions(ScrArea *area,
     return false;
   }
 
+  ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
+
   /* test node for links */
   LISTBASE_FOREACH (bNodeLink *, link, &snode->edittree->links) {
-    if (nodeLinkIsHidden(link)) {
+    if (node_link_is_hidden_or_dimmed(&region->v2d, link)) {
       continue;
     }
 
@@ -1938,13 +1941,15 @@ void ED_node_link_intersect_test(ScrArea *area, int test)
     return;
   }
 
+  ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
+
   /* find link to select/highlight */
   bNodeLink *selink = nullptr;
   float dist_best = FLT_MAX;
   LISTBASE_FOREACH (bNodeLink *, link, &snode->edittree->links) {
     float coord_array[NODE_LINK_RESOL + 1][2];
 
-    if (nodeLinkIsHidden(link)) {
+    if (node_link_is_hidden_or_dimmed(&region->v2d, link)) {
       continue;
     }
 
