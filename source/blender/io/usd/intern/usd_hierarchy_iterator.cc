@@ -209,4 +209,24 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_particle_writer(
   return new USDParticleWriter(create_usd_export_context(context));
 }
 
+/* Don't generate data writers for instances. */
+bool USDHierarchyIterator::include_data_writers(const HierarchyContext *context) const
+{
+  if (!context) {
+    return false;
+  }
+
+  return !(params_.use_instancing && context->is_instance());
+}
+
+/* Don't generate writers for children of instances. */
+bool USDHierarchyIterator::include_child_writers(const HierarchyContext *context) const
+{
+  if (!context) {
+    return false;
+  }
+
+  return !(params_.use_instancing && context->is_instance());
+}
+
 }  // namespace blender::io::usd

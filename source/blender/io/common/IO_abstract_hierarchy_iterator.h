@@ -362,6 +362,12 @@ class AbstractHierarchyIterator {
   /* Called by release_writers() to free what the create_XXX_writer() functions allocated. */
   virtual void release_writer(AbstractHierarchyWriter *writer) = 0;
 
+  /* Return true if data writers should be created for this context. */
+  virtual bool include_data_writers(const HierarchyContext *context) const { return true; }
+
+  /* Return true if children of the context should be converted to writers. */
+  virtual bool include_child_writers(const HierarchyContext *context) const { return true; }
+
   AbstractHierarchyWriter *get_writer(const std::string &export_path) const;
   ExportChildren &graph_children(const HierarchyContext *parent_context);
 };

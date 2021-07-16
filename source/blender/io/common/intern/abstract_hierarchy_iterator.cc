@@ -687,13 +687,15 @@ void AbstractHierarchyIterator::make_writers(const HierarchyContext *parent_cont
       transform_writer->write(*context);
     }
 
-    if (!context->weak_export) {
+    if (!context->weak_export && include_data_writers(context)) {
       make_writers_particle_systems(context);
       make_writer_object_data(context);
     }
 
-    /* Recurse into this object's children. */
-    make_writers(context);
+    if (include_child_writers(context)) {
+      /* Recurse into this object's children. */
+      make_writers(context);
+    }
   }
 
   /* TODO(Sybren): iterate over all unused writers and call unused_during_iteration() or something.
@@ -723,6 +725,7 @@ void AbstractHierarchyIterator::make_writer_object_data(const HierarchyContext *
     data_context.original_export_path = duplisource_export_path_[object_data];
 
     /* If the object is marked as an instance, so should the object data. */
+    /* TODO(makowalski): this fails when testing with collection instances. */
     BLI_assert(data_context.is_instance());
   }
 
