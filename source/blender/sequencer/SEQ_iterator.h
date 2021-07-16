@@ -87,6 +87,7 @@ SeqCollection *SEQ_query_by_reference(struct Sequence *seq_reference,
                                                           struct ListBase *seqbase,
                                                           SeqCollection *collection));
 SeqCollection *SEQ_query_selected_strips(struct ListBase *seqbase);
+SeqCollection *SEQ_query_unselected_strips(struct ListBase *seqbase);
 SeqCollection *SEQ_query_all_strips(ListBase *seqbase);
 SeqCollection *SEQ_query_all_strips_recursive(ListBase *seqbase);
 void SEQ_query_strip_effect_chain(struct Sequence *seq_reference,

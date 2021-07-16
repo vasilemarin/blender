@@ -106,20 +106,18 @@ static void seq_snap_source_points_build(const TransInfo *UNUSED(t),
 
 static SeqCollection *query_snap_targets(const TransInfo *t)
 {
-  const ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(t->scene, false));
+  ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(t->scene, false));
   const short snap_flag = SEQ_tool_settings_snap_flag_get(t->scene);
-  SeqCollection *collection = SEQ_collection_create(__func__);
-  LISTBASE_FOREACH (Sequence *, seq, seqbase) {
-    if ((seq->flag & SELECT)) {
-      continue; /* Selected are being transformed. */
-    }
+  SeqCollection *collection = SEQ_query_unselected_strips(seqbase);
+
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, collection) {
     if ((seq->flag & SEQ_MUTE) && (snap_flag & SEQ_SNAP_IGNORE_MUTED)) {
-      continue;
+      SEQ_collection_remove_strip(seq, collection);
     }
     if (seq->type == SEQ_TYPE_SOUND_RAM && (snap_flag & SEQ_SNAP_IGNORE_SOUND)) {
-      continue;
+      SEQ_collection_remove_strip(seq, collection);
     }
-    SEQ_collection_append_strip(seq, collection);
   }
   return collection;
 }
