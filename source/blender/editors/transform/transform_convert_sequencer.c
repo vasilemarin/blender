@@ -42,6 +42,7 @@
 #include "SEQ_time.h"
 #include "SEQ_transform.h"
 #include "SEQ_utils.h"
+#include "SEQ_effects.h"
 
 #include "UI_view2d.h"
 
@@ -496,7 +497,7 @@ static void seq_transform_handle_overwrite_trim(TransInfo *t,
   /* Trim all non effects, that have influence on effect length which is overlapping. */
   Sequence *seq;
   SEQ_ITERATOR_FOREACH (seq, targets) {
-    if ((seq->type & SEQ_TYPE_EFFECT) != 0) {
+    if (SEQ_effect_get_num_inputs(seq->type) > 0) {
       continue;
     }
     if (is_partial_overlap(transformed, seq, &overlap_side)) {
