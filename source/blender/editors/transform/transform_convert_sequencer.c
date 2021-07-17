@@ -513,7 +513,8 @@ static void seq_transform_handle_overwrite_trim(TransInfo *t,
   SEQ_collection_free(targets);
 
   /* Recalculate all effects influenced by target. */
-  SeqCollection *effects = SEQ_query_by_reference(target, seqbase_from_trans_info(t), SEQ_query_strip_effect_chain);
+  SeqCollection *effects = SEQ_query_by_reference(
+      target, seqbase_from_trans_info(t), SEQ_query_strip_effect_chain);
   SEQ_ITERATOR_FOREACH (seq, effects) {
     SEQ_time_update_sequence(t->scene, seq);
   }
@@ -558,30 +559,34 @@ static void seq_transform_handle_overwrite(TransInfo *t, SeqCollection *transfor
   }
 }
 
+static void seq_transform_handle_overlap_shuffle(TransInfo *t, SeqCollection *transformed_strips)
+{
+  ListBase *seqbase = seqbase_from_trans_info(t);
+  ListBase *markers = &t->scene->markers;
+  const bool use_sync_markers = (((SpaceSeq *)t->area->spacedata.first)->flag &
+                                 SEQ_MARKER_TRANS) != 0;
+  /* Shuffle non strips with no effects attached. */
+  SeqCollection *standalone_strips = extract_standalone_strips(transformed_strips);
+  SEQ_transform_seqbase_shuffle_time(
+      standalone_strips, seqbase, t->scene, markers, use_sync_markers);
+  SEQ_collection_free(standalone_strips);
+}
+
 static void seq_transform_handle_overlap(TransInfo *t, SeqCollection *transformed_strips)
 {
   ListBase *seqbasep = seqbase_from_trans_info(t);
+  const eSeqOverlapMode overlap_mode = SEQ_tool_settings_overlap_mode_get(t->scene);
 
-  /* Modes */
-  const bool overwrite = true;
-  const bool default_mode = false;
-  const bool expand = t->flag & T_ALT_TRANSFORM;
-
-  if (expand) {
-    seq_transform_handle_expand_to_fit(t, transformed_strips);
-  }
-  else if (overwrite) {
-    seq_transform_handle_overwrite(t, transformed_strips);
-  }
-  else if (default_mode) {
-    ListBase *markers = &t->scene->markers;
-    const bool use_sync_markers = (((SpaceSeq *)t->area->spacedata.first)->flag &
-                                   SEQ_MARKER_TRANS) != 0;
-    /* Shuffle non strips with no effects attached. */
-    SeqCollection *standalone_strips = extract_standalone_strips(transformed_strips);
-    SEQ_transform_seqbase_shuffle_time(
-        standalone_strips, seqbasep, t->scene, markers, use_sync_markers);
-    SEQ_collection_free(standalone_strips);
+  switch (overlap_mode) {
+    case SEQ_OVERLAP_EXPAND:
+      seq_transform_handle_expand_to_fit(t, transformed_strips);
+      break;
+    case SEQ_OVERLAP_OVERWRITE:
+      seq_transform_handle_overwrite(t, transformed_strips);
+      break;
+    case SEQ_OVERLAP_SHUFFLE:
+      seq_transform_handle_overlap_shuffle(t, transformed_strips);
+      break;
   }
 
   if (seq_transform_check_strip_effects(transformed_strips)) {
