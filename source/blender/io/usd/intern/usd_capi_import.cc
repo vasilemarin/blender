@@ -21,40 +21,18 @@
 #include "usd.h"
 #include "usd_common.h"
 #include "usd_hierarchy_iterator.h"
+
 #include "usd_light_convert.h"
+#include "usd_reader_geom.h"
 #include "usd_reader_instance.h"
-#include "usd_reader_mesh.h"
 #include "usd_reader_prim.h"
 #include "usd_reader_stage.h"
-
-#include <pxr/base/plug/registry.h>
-#include <pxr/pxr.h>
-#include <pxr/usd/usd/stage.h>
-#include <pxr/usd/usdGeom/metrics.h>
-#include <pxr/usd/usdGeom/scope.h>
-#include <pxr/usd/usdGeom/tokens.h>
-#include <pxr/usd/usdGeom/xformCommonAPI.h>
-#include <pxr/usd/usdLux/domeLight.h>
-#include <pxr/usd/usdShade/materialBindingAPI.h>
-
-#include "MEM_guardedalloc.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
-#include "DEG_depsgraph_query.h"
-
-#include "DNA_cachefile_types.h"
-#include "DNA_collection_types.h"
-#include "DNA_node_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_world_types.h"
 
 #include "BKE_appdir.h"
 #include "BKE_blender_version.h"
 #include "BKE_cachefile.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_context.h"
-#include "BKE_curve.h"
 #include "BKE_global.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
@@ -72,11 +50,26 @@
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_query.h"
+
+#include "DNA_cachefile_types.h"
+#include "DNA_collection_types.h"
+#include "DNA_node_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_world_types.h"
+
+#include "MEM_guardedalloc.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "usd_reader_geom.h"
-#include "usd_reader_prim.h"
+#include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdGeom/metrics.h>
+#include <pxr/usd/usdGeom/scope.h>
+#include <pxr/usd/usdGeom/tokens.h>
+#include <pxr/usd/usdGeom/xformCommonAPI.h>
 
 #include <iostream>
 
@@ -232,24 +225,27 @@ static void create_proto_collections(Main *bmain,
   }
 }
 
-// Update the given import settings with the global rotation matrix to orient
-// imported objects with Z-up, if necessary
-static void convert_to_z_up(pxr::UsdStageRefPtr stage, ImportSettings &r_settings)
+/* Update the given import settings with the global rotation matrix to orient
+ * imported objects with Z-up, if necessary */
+static void convert_to_z_up(pxr::UsdStageRefPtr stage, ImportSettings *r_settings)
 {
   if (!stage || pxr::UsdGeomGetStageUpAxis(stage) == pxr::UsdGeomTokens->z) {
-    // Nothing to do.
     return;
   }
 
-  r_settings.do_convert_mat = true;
+  if (!r_settings) {
+    return;
+  }
 
-  // Rotate 90 degrees about the X-axis.
+  r_settings->do_convert_mat = true;
+
+  /* Rotate 90 degrees about the X-axis. */
   float rmat[3][3];
   float axis[3] = {1.0f, 0.0f, 0.0f};
   axis_angle_normalized_to_mat3(rmat, axis, M_PI / 2.0f);
 
-  unit_m4(r_settings.conversion_mat);
-  copy_m4_m3(r_settings.conversion_mat, rmat);
+  unit_m4(r_settings->conversion_mat);
+  copy_m4_m3(r_settings->conversion_mat, rmat);
 }
 
 enum {
@@ -288,7 +284,6 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
   data->was_canceled = false;
   data->archive = nullptr;
 
-  // G.is_rendering = true;
   WM_set_locked_interface(data->wm, true);
   G.is_break = false;
 
@@ -303,7 +298,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     DEG_id_tag_update(&import_collection->id, ID_RECALC_COPY_ON_WRITE);
     DEG_relations_tag_update(data->bmain);
 
-    WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
+    WM_main_add_notifier(NC_SCENE | ND_LAYER, nullptr);
 
     data->view_layer->active_collection = BKE_layer_collection_first_from_scene_collection(
         data->view_layer, import_collection);
@@ -344,7 +339,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     return;
   }
 
-  convert_to_z_up(stage, data->settings);
+  convert_to_z_up(stage, &data->settings);
 
   if (data->params.apply_unit_conversion_scale) {
     const double meters_per_unit = pxr::UsdGeomGetStageMetersPerUnit(stage);
@@ -352,7 +347,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     cache_file->scale *= meters_per_unit;
   }
 
-  // Set up the stage for animated data.
+  /* Set up the stage for animated data. */
   if (data->params.set_frame_range) {
     data->scene->r.sfra = stage->GetStartTimeCode();
     data->scene->r.efra = stage->GetEndTimeCode();
@@ -419,8 +414,8 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
 
     USDPrimReader *parent = reader->parent();
 
-    if (parent == NULL) {
-      ob->parent = NULL;
+    if (parent == nullptr) {
+      ob->parent = nullptr;
     }
     else {
       ob->parent = parent->object();
@@ -574,7 +569,7 @@ bool USD_import(struct bContext *C,
   job->settings.sequence_len = params->sequence_len;
   job->error_code = USD_NO_ERROR;
   job->was_canceled = false;
-  job->archive = NULL;
+  job->archive = nullptr;
 
   job->params = *params;
 
@@ -592,7 +587,7 @@ bool USD_import(struct bContext *C,
     /* setup job */
     WM_jobs_customdata_set(wm_job, job, import_freejob);
     WM_jobs_timer(wm_job, 0.1, NC_SCENE, NC_SCENE);
-    WM_jobs_callbacks(wm_job, import_startjob, NULL, NULL, import_endjob);
+    WM_jobs_callbacks(wm_job, import_startjob, nullptr, nullptr, import_endjob);
 
     WM_jobs_start(CTX_wm_manager(C), wm_job);
   }
@@ -611,6 +606,10 @@ bool USD_import(struct bContext *C,
   return import_ok;
 }
 
+/* TODO(makowalski): Extend this function with basic validation that the
+ * USD reader is compatible with the type of the given (currently unused) 'ob'
+ * Object parameter, similar to the logic in get_abc_reader() in the
+ * Alembic importer code. */
 static USDPrimReader *get_usd_reader(CacheReader *reader, Object * /* ob */, const char **err_str)
 {
   USDPrimReader *usd_reader = reinterpret_cast<USDPrimReader *>(reader);
@@ -618,23 +617,23 @@ static USDPrimReader *get_usd_reader(CacheReader *reader, Object * /* ob */, con
 
   if (!iobject.IsValid()) {
     *err_str = "Invalid object: verify object path";
-    return NULL;
+    return nullptr;
   }
 
   return usd_reader;
 }
 
-Mesh *USD_read_mesh(CacheReader *reader,
-                    Object *ob,
-                    Mesh *existing_mesh,
-                    const float time,
-                    const char **err_str,
-                    int read_flag)
+struct Mesh *USD_read_mesh(struct CacheReader *reader,
+                           struct Object *ob,
+                           struct Mesh *existing_mesh,
+                           const float time,
+                           const char **err_str,
+                           const int read_flag)
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
-  if (usd_reader == NULL) {
-    return NULL;
+  if (usd_reader == nullptr) {
+    return nullptr;
   }
 
   return usd_reader->read_mesh(existing_mesh, time, read_flag, err_str);
@@ -645,7 +644,7 @@ bool USD_mesh_topology_changed(
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
-  if (usd_reader == NULL) {
+  if (usd_reader == nullptr) {
     return false;
   }
 
@@ -683,9 +682,9 @@ CacheReader *CacheReader_open_usd_object(CacheArchiveHandle *handle,
   pxr::UsdGeomXformCache xf_cache;
   USDPrimReader *usd_reader = archive->create_reader(prim, &xf_cache);
 
-  if (usd_reader == NULL) {
+  if (usd_reader == nullptr) {
     /* This object is not supported */
-    return NULL;
+    return nullptr;
   }
   usd_reader->object(object);
   usd_reader->incref();
@@ -716,7 +715,7 @@ CacheArchiveHandle *USD_create_handle(struct Main * /*bmain*/,
   USDImportParams params{};
 
   blender::io::usd::ImportSettings settings{};
-  convert_to_z_up(stage, settings);
+  convert_to_z_up(stage, &settings);
 
   USDStageReader *stage_reader = new USDStageReader(stage, params, settings);
 
@@ -752,7 +751,7 @@ void USD_get_transform(struct CacheReader *reader,
   Object *object = usd_reader->object();
   if (object->parent == nullptr) {
     /* No parent, so local space is the same as world space. */
-    usd_reader->read_matrix(r_mat_world, time, scale, is_constant);
+    usd_reader->read_matrix(r_mat_world, time, scale, &is_constant);
     return;
   }
 
@@ -760,7 +759,7 @@ void USD_get_transform(struct CacheReader *reader,
   BKE_object_get_parent_matrix(object, object->parent, mat_parent);
 
   float mat_local[4][4];
-  usd_reader->read_matrix(mat_local, time, scale, is_constant);
+  usd_reader->read_matrix(mat_local, time, scale, &is_constant);
   mul_m4_m4m4(r_mat_world, mat_parent, object->parentinv);
   mul_m4_m4m4(r_mat_world, r_mat_world, mat_local);
 }

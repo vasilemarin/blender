@@ -15,13 +15,6 @@
  */
 
 #include "usd_reader_xform.h"
-#include "usd_reader_prim.h"
-
-extern "C" {
-#include "DNA_cachefile_types.h"
-#include "DNA_constraint_types.h"
-#include "DNA_modifier_types.h"
-#include "DNA_space_types.h" /* for FILE_MAX */
 
 #include "BKE_constraint.h"
 #include "BKE_lib_id.h"
@@ -29,21 +22,19 @@ extern "C" {
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 
-#include "BLI_listbase.h"
 #include "BLI_math_geom.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
-}
+#include "DNA_cachefile_types.h"
+#include "DNA_constraint_types.h"
+#include "DNA_modifier_types.h"
+#include "DNA_object_types.h"
+#include "DNA_space_types.h" /* for FILE_MAX */
 
 #include <pxr/base/gf/math.h>
 #include <pxr/base/gf/matrix4f.h>
-#include <pxr/pxr.h>
-#include <pxr/usd/usd/prim.h>
-#include <pxr/usd/usd/primRange.h>
-#include <pxr/usd/usd/stage.h>
+
 #include <pxr/usd/usdGeom/xform.h>
 
 namespace blender::io::usd {
@@ -52,7 +43,7 @@ void USDXformReader::create_object(Main *bmain, const double /* motionSampleTime
 {
   object_ = BKE_object_add_only_object(bmain, OB_EMPTY, name_.c_str());
   object_->empty_drawsize = 0.1f;
-  object_->data = NULL;
+  object_->data = nullptr;
 }
 
 void USDXformReader::read_object_data(Main * /* bmain */, const double motionSampleTime)
@@ -60,11 +51,11 @@ void USDXformReader::read_object_data(Main * /* bmain */, const double motionSam
   bool is_constant;
   float transform_from_usd[4][4];
 
-  read_matrix(transform_from_usd, motionSampleTime, settings_->scale, is_constant);
+  read_matrix(transform_from_usd, motionSampleTime, settings_->scale, &is_constant);
 
   if (!is_constant) {
     bConstraint *con = BKE_constraint_add_for_object(
-        object_, NULL, CONSTRAINT_TYPE_TRANSFORM_CACHE);
+        object_, nullptr, CONSTRAINT_TYPE_TRANSFORM_CACHE);
     bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
 
     std::string prim_path = use_parent_xform_ ? prim_.GetParent().GetPath().GetAsString() :
@@ -82,9 +73,12 @@ void USDXformReader::read_object_data(Main * /* bmain */, const double motionSam
 void USDXformReader::read_matrix(float r_mat[4][4] /* local matrix */,
                                  const float time,
                                  const float scale,
-                                 bool &is_constant)
+                                 bool *r_is_constant)
 {
-  is_constant = true;
+  if (r_is_constant) {
+    *r_is_constant = true;
+  }
+
   unit_m4(r_mat);
 
   pxr::UsdGeomXformable xformable;
@@ -97,17 +91,19 @@ void USDXformReader::read_matrix(float r_mat[4][4] /* local matrix */,
   }
 
   if (!xformable) {
-    // This might happen if the prim is a Scope.
+    /* This might happen if the prim is a Scope. */
     return;
   }
 
-  is_constant = !xformable.TransformMightBeTimeVarying();
+  if (r_is_constant) {
+    *r_is_constant = !xformable.TransformMightBeTimeVarying();
+  }
 
   pxr::GfMatrix4d usd_local_xf;
   bool reset_xform_stack;
   xformable.GetLocalTransformation(&usd_local_xf, &reset_xform_stack, time);
 
-  // Convert the result to a float matrix.
+  /* Convert the result to a float matrix. */
   pxr::GfMatrix4f mat4f = pxr::GfMatrix4f(usd_local_xf);
   mat4f.Get(r_mat);
 
@@ -132,7 +128,7 @@ bool USDXformReader::prim_has_xform_ops() const
   pxr::UsdGeomXformable xformable(prim_);
 
   if (!xformable) {
-    // This might happen if the prim is a Scope.
+    /* This might happen if the prim is a Scope. */
     return false;
   }
 
@@ -148,9 +144,9 @@ bool USDXformReader::is_root_xform_prim() const
   }
 
   if (prim_.IsInMaster()) {
-    // We don't consider prototypes to be root prims,
-    // because we never want to apply global scaling
-    // or rotations to the prototypes themselves.
+    /* We don't consider prototypes to be root prims,
+     * because we never want to apply global scaling
+     * or rotations to the prototypes themselves. */
     return false;
   }
 

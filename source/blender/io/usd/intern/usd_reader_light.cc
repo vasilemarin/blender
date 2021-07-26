@@ -17,21 +17,11 @@
 #include "usd_reader_light.h"
 #include "usd_light_convert.h"
 
-extern "C" {
-#include "DNA_light_types.h"
-#include "DNA_object_types.h"
-
 #include "BKE_light.h"
 #include "BKE_object.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
-}
-
-#include <pxr/pxr.h>
-#include <pxr/usd/usd/prim.h>
-#include <pxr/usd/usd/primRange.h>
-#include <pxr/usd/usd/stage.h>
+#include "DNA_light_types.h"
+#include "DNA_object_types.h"
 
 #include <pxr/usd/usdLux/light.h>
 
@@ -85,12 +75,12 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
   pxr::UsdLuxShapingAPI shapingAPI(light_prim);
 
-  // Set light type
+  /* Set light type. */
 
   if (prim_.IsA<pxr::UsdLuxDiskLight>()) {
     blight->type = LA_AREA;
     blight->area_shape = LA_AREA_DISK;
-    // Ellipse lights are not currently supported
+    /* Ellipse lights are not currently supported */
   }
   else if (prim_.IsA<pxr::UsdLuxRectLight>()) {
     blight->type = LA_AREA;
@@ -107,15 +97,19 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
     blight->type = LA_SUN;
   }
 
-  // Set light values
+  /* Set light values. */
 
-  // TODO: Not currently supported
-  // pxr::VtValue exposure;
-  // light_prim.GetExposureAttr().Get(&exposure, motionSampleTime);
+  /* TODO(makowalsk): Not currently supported. */
+#if 0
+  pxr::VtValue exposure;
+  light_prim.GetExposureAttr().Get(&exposure, motionSampleTime);
+#endif
 
-  // TODO: Not currently supported
-  // pxr::VtValue diffuse;
-  // light_prim.GetDiffuseAttr().Get(&diffuse, motionSampleTime);
+  /* TODO(makowalsk): Not currently supported */
+#if 0
+  pxr::VtValue diffuse;
+  light_prim.GetDiffuseAttr().Get(&diffuse, motionSampleTime);
+#endif
 
   pxr::VtValue specular;
   light_prim.GetSpecularAttr().Get(&specular, motionSampleTime);
@@ -123,19 +117,23 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
   pxr::VtValue color;
   light_prim.GetColorAttr().Get(&color, motionSampleTime);
-  // Calling UncheckedGet() to silence compiler warning.
+  /* Calling UncheckedGet() to silence compiler warning. */
   pxr::GfVec3f color_vec = color.UncheckedGet<pxr::GfVec3f>();
   blight->r = color_vec[0];
   blight->g = color_vec[1];
   blight->b = color_vec[2];
 
-  // TODO: Not currently supported
-  // pxr::VtValue use_color_temp;
-  // light_prim.GetEnableColorTemperatureAttr().Get(&use_color_temp, motionSampleTime);
+  /* TODO(makowalski): Not currently supported. */
+#if 0
+  pxr::VtValue use_color_temp;
+  light_prim.GetEnableColorTemperatureAttr().Get(&use_color_temp, motionSampleTime);
+#endif
 
-  // TODO: Not currently supported
-  // pxr::VtValue color_temp;
-  // light_prim.GetColorTemperatureAttr().Get(&color_temp, motionSampleTime);
+  /* TODO(makowalski): Not currently supported. */
+#if 0
+  pxr::VtValue color_temp;
+  light_prim.GetColorTemperatureAttr().Get(&color_temp, motionSampleTime);
+#endif
 
   // XXX - apply scene scale to local and spot lights but not area lights (?)
   switch (blight->type) {

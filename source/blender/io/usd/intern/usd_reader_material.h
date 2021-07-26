@@ -13,7 +13,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
+ * The Original Code is Copyright (C) 2021 NVIDIA Corporation.
  * All rights reserved.
  */
 #pragma once
@@ -29,10 +29,10 @@ struct bNodeTree;
 
 namespace blender::io::usd {
 
-// Helper struct used when arranging nodes in columns, keeping track the
-// occupancy information for a given column.  I.e., for column n,
-// column_offsets[n] is the y-offset (from top to bottom) of the occupied
-// region in that column.
+/* Helper struct used when arranging nodes in columns, keeping track the
+ * occupancy information for a given column.  I.e., for column n,
+ * column_offsets[n] is the y-offset (from top to bottom) of the occupied
+ * region in that column. */
 struct NodePlacementContext {
   float origx;
   float origy;
@@ -100,14 +100,14 @@ class USDMaterialReader {
                       const char *dest_socket_name,
                       bNodeTree *ntree,
                       int column,
-                      NodePlacementContext &r_ctx) const;
+                      NodePlacementContext *r_ctx) const;
 
   void follow_connection(const pxr::UsdShadeInput &usd_input,
                          bNode *dest_node,
                          const char *dest_socket_name,
                          bNodeTree *ntree,
                          int column,
-                         NodePlacementContext &r_ctx) const;
+                         NodePlacementContext *r_ctx) const;
 
   void convert_usd_uv_texture(const pxr::UsdShadeShader &usd_shader,
                               const pxr::TfToken &usd_source_name,
@@ -115,7 +115,7 @@ class USDMaterialReader {
                               const char *dest_socket_name,
                               bNodeTree *ntree,
                               int column,
-                              NodePlacementContext &r_ctx) const;
+                              NodePlacementContext *r_ctx) const;
 
   void load_tex_image(const pxr::UsdShadeShader &usd_shader, bNode *tex_image) const;
 
@@ -125,7 +125,7 @@ class USDMaterialReader {
                                          const char *dest_socket_name,
                                          bNodeTree *ntree,
                                          int column,
-                                         NodePlacementContext &r_ctx) const;
+                                         NodePlacementContext *r_ctx) const;
 };
 
 }  // namespace blender::io::usd
