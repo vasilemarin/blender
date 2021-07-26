@@ -122,7 +122,7 @@ struct USDImportParams {
   int sequence_len;
   int offset;
   bool validate_meshes;
-  char global_read_flag;
+  char mesh_read_flag;
   bool import_cameras;
   bool import_curves;
   bool import_lights;
@@ -170,7 +170,7 @@ int USD_get_version(void);
 
 bool USD_umm_module_loaded(void);
 
-// ----- USD Import and Mesh Cache interface
+/* USD Import and Mesh Cache interface. */
 
 struct CacheArchiveHandle *USD_create_handle(struct Main *bmain,
                                              const char *filename,
@@ -183,7 +183,7 @@ void USD_get_transform(struct CacheReader *reader, float r_mat[4][4], float time
 /* Either modifies current_mesh in-place or constructs a new mesh. */
 struct Mesh *USD_read_mesh(struct CacheReader *reader,
                            struct Object *ob,
-                           struct Mesh *current_mesh,
+                           struct Mesh *existing_mesh,
                            const float time,
                            const char **err_str,
                            int flags);

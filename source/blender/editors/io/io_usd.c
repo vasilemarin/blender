@@ -74,14 +74,6 @@ const EnumPropertyItem rna_enum_usd_export_evaluation_mode_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
-const EnumPropertyItem rna_enum_usd_import_read_flags[] = {
-    {MOD_MESHSEQ_READ_VERT, "VERT", 0, "Vertex", ""},
-    {MOD_MESHSEQ_READ_POLY, "POLY", 0, "Faces", ""},
-    {MOD_MESHSEQ_READ_UV, "UV", 0, "UV", ""},
-    {MOD_MESHSEQ_READ_COLOR, "COLOR", 0, "Color", ""},
-    {0, NULL, 0, NULL, NULL},
-};
-
 const EnumPropertyItem rna_enum_usd_import_shaders_mode_items[] = {
     {USD_IMPORT_SHADERS_NONE, "NONE", 0, "None", "Don't import USD shaders"},
     {USD_IMPORT_USD_PREVIEW_SURFACE,
@@ -837,7 +829,18 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
   const bool apply_unit_conversion_scale = RNA_boolean_get(op->ptr, "apply_unit_conversion_scale");
 
   const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
-  const char global_read_flag = RNA_enum_get(op->ptr, "global_read_flag");
+
+  const bool read_mesh_uvs = RNA_boolean_get(op->ptr, "read_mesh_uvs");
+  const bool read_mesh_colors = RNA_boolean_get(op->ptr, "read_mesh_colors");
+
+  char mesh_read_flag = MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY;
+  if (read_mesh_uvs) {
+    mesh_read_flag |= MOD_MESHSEQ_READ_UV;
+  }
+  if (read_mesh_colors) {
+    mesh_read_flag |= MOD_MESHSEQ_READ_COLOR;
+  }
+
   const bool import_cameras = RNA_boolean_get(op->ptr, "import_cameras");
   const bool import_curves = RNA_boolean_get(op->ptr, "import_curves");
   const bool import_lights = RNA_boolean_get(op->ptr, "import_lights");
@@ -891,35 +894,35 @@ static int wm_usd_import_exec(bContext *C, wmOperator *op)
 
   const bool validate_meshes = false;
 
-  struct USDImportParams params = {scale,
-                                   is_sequence,
-                                   set_frame_range,
-                                   sequence_len,
-                                   offset,
-                                   validate_meshes,
-                                   global_read_flag,
-                                   import_cameras,
-                                   import_curves,
-                                   import_lights,
-                                   import_materials,
-                                   import_meshes,
-                                   import_volumes,
-                                   prim_path_mask,
-                                   import_subdiv,
-                                   import_instance_proxies,
-                                   create_collection,
-                                   import_guide,
-                                   import_proxy,
-                                   import_render,
-                                   import_visible_only,
-                                   use_instancing,
-                                   import_shaders_mode,
-                                   set_material_blend,
-                                   light_intensity_scale,
-                                   apply_unit_conversion_scale,
-                                   convert_light_from_nits,
-                                   scale_light_radius,
-                                   create_background_shader};
+  struct USDImportParams params = {.scale = scale,
+                                   .is_sequence = is_sequence,
+                                   .set_frame_range = set_frame_range,
+                                   .sequence_len = sequence_len,
+                                   .offset = offset,
+                                   .validate_meshes = validate_meshes,
+                                   .mesh_read_flag = mesh_read_flag,
+                                   .import_cameras = import_cameras,
+                                   .import_curves = import_curves,
+                                   .import_lights = import_lights,
+                                   .import_materials = import_materials,
+                                   .import_meshes = import_meshes,
+                                   .import_volumes = import_volumes,
+                                   .prim_path_mask = prim_path_mask,
+                                   .import_subdiv = import_subdiv,
+                                   .import_instance_proxies = import_instance_proxies,
+                                   .create_collection = create_collection,
+                                   .import_guide = import_guide,
+                                   .import_proxy = import_proxy,
+                                   .import_render = import_render,
+                                   .import_visible_only = import_visible_only,
+                                   .use_instancing = use_instancing,
+                                   .import_shaders_mode = import_shaders_mode,
+                                   .set_material_blend = set_material_blend,
+                                   .light_intensity_scale = light_intensity_scale,
+                                   .apply_unit_conversion_scale = apply_unit_conversion_scale,
+                                   .convert_light_from_nits = convert_light_from_nits,
+                                   .scale_light_radius = scale_light_radius,
+                                   .create_background_shader = create_background_shader};
 
   const bool ok = USD_import(C, filename, &params, as_background_job);
 
@@ -932,65 +935,58 @@ static void wm_usd_import_draw(bContext *UNUSED(C), wmOperator *op)
   struct PointerRNA *ptr = op->ptr;
 
   uiLayoutSetPropSep(layout, true);
+  uiLayoutSetPropDecorate(layout, false);
 
   uiLayout *box = uiLayoutBox(layout);
-  uiItemL(box, IFACE_("USD Import"), ICON_NONE);
-  uiItemL(box, IFACE_("Global Read Flag:"), ICON_NONE);
-  uiItemR(box, ptr, "global_read_flag", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
-  uiItemL(box, IFACE_("Manual Transform:"), ICON_NONE);
+  uiLayout *col = uiLayoutColumnWithHeading(box, true, IFACE_("Data Types"));
+  uiItemR(col, ptr, "import_cameras", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_curves", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_lights", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_materials", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_meshes", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_volumes", 0, NULL, ICON_NONE);
+  uiItemR(box, ptr, "prim_path_mask", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "scale", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "apply_unit_conversion_scale", 0, NULL, ICON_NONE);
 
   box = uiLayoutBox(layout);
-  uiItemL(box, IFACE_("Options:"), ICON_NONE);
-  uiItemR(box, ptr, "relative_path", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "set_frame_range", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_subdiv", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_instance_proxies", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_visible_only", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "create_collection", 0, NULL, ICON_NONE);
+  col = uiLayoutColumnWithHeading(box, true, IFACE_("Mesh Data"));
+  uiItemR(col, ptr, "read_mesh_uvs", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "read_mesh_colors", 0, NULL, ICON_NONE);
+  col = uiLayoutColumnWithHeading(box, true, IFACE_("Include"));
+  uiItemR(col, ptr, "import_subdiv", 0, IFACE_("Subdivision"), ICON_NONE);
+  uiItemR(col, ptr, "import_instance_proxies", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_visible_only", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_guide", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_proxy", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "import_render", 0, NULL, ICON_NONE);
+
+  col = uiLayoutColumnWithHeading(box, true, IFACE_("Options"));
+  uiItemR(col, ptr, "set_frame_range", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "relative_path", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "create_collection", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "light_intensity_scale", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "convert_light_from_nits", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "scale_light_radius", 0, NULL, ICON_NONE);
   uiItemR(box, ptr, "create_background_shader", 0, NULL, ICON_NONE);
 
-  uiLayout *prim_path_mask_box = uiLayoutBox(box);
-  uiItemL(prim_path_mask_box, IFACE_("Prim Path Mask:"), ICON_NONE);
-  uiItemR(prim_path_mask_box, ptr, "prim_path_mask", 0, NULL, ICON_NONE);
-
   box = uiLayoutBox(layout);
-  uiItemL(box, IFACE_("Primitive Types:"), ICON_OBJECT_DATA);
-  uiItemR(box, ptr, "import_cameras", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_curves", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_lights", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_materials", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_meshes", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_volumes", 0, NULL, ICON_NONE);
-
-  box = uiLayoutBox(layout);
-  uiItemL(box, IFACE_("Purpose"), ICON_NONE);
-  uiItemR(box, ptr, "import_guide", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_proxy", 0, NULL, ICON_NONE);
-  uiItemR(box, ptr, "import_render", 0, NULL, ICON_NONE);
-
-  box = uiLayoutBox(layout);
-  uiItemL(box, IFACE_("Experimental"), ICON_NONE);
-  uiItemR(box, ptr, "use_instancing", 0, NULL, ICON_NONE);
-
-  if (RNA_boolean_get(ptr, "import_materials")) {
-    const char *import_shaders_mode_prop_name = USD_umm_module_loaded() ?
-                                                    "import_shaders_mode" :
-                                                    "import_shaders_mode_no_umm";
-    uiItemR(box, ptr, import_shaders_mode_prop_name, 0, NULL, ICON_NONE);
-
-    uiItemR(box, ptr, "set_material_blend", 0, NULL, ICON_NONE);
-  }
+  col = uiLayoutColumnWithHeading(box, true, IFACE_("Experimental"));
+  uiItemR(col, ptr, "use_instancing", 0, NULL, ICON_NONE);
+  uiLayout *row = uiLayoutRow(col, true);
+  const char *import_shaders_mode_prop_name = USD_umm_module_loaded() ?
+                                                  "import_shaders_mode" :
+                                                  "import_shaders_mode_no_umm";
+  uiItemR(row, ptr, import_shaders_mode_prop_name, 0, NULL, ICON_NONE);
+  bool import_mtls = RNA_boolean_get(ptr, "import_materials");
+  uiLayoutSetEnabled(row, import_mtls);
+  row = uiLayoutRow(col, true);
+  uiItemR(row, ptr, "set_material_blend", 0, NULL, ICON_NONE);
+  uiLayoutSetEnabled(row, import_mtls);
 }
 
 void WM_OT_usd_import(struct wmOperatorType *ot)
 {
-  PropertyRNA *prop;
-
   ot->name = "Import USD";
   ot->description = "Import USD stage into current scene";
   ot->idname = "WM_OT_usd_import";
@@ -1033,20 +1029,20 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   "set_frame_range",
                   true,
                   "Set Frame Range",
-                  "Update scene's start and end frame to match those of the USD archive");
+                  "Update the scene's start and end frame to match those of the USD archive");
 
-  RNA_def_boolean(ot->srna, "import_cameras", true, "Import Cameras", "");
-  RNA_def_boolean(ot->srna, "import_curves", true, "Import Curves", "");
-  RNA_def_boolean(ot->srna, "import_lights", true, "Import Lights", "");
-  RNA_def_boolean(ot->srna, "import_materials", true, "Import Materials", "");
-  RNA_def_boolean(ot->srna, "import_meshes", true, "Import Meshes", "");
-  RNA_def_boolean(ot->srna, "import_volumes", true, "Import Volumes", "");
+  RNA_def_boolean(ot->srna, "import_cameras", true, "Cameras", "");
+  RNA_def_boolean(ot->srna, "import_curves", true, "Curves", "");
+  RNA_def_boolean(ot->srna, "import_lights", true, "Lights", "");
+  RNA_def_boolean(ot->srna, "import_materials", true, "Materials", "");
+  RNA_def_boolean(ot->srna, "import_meshes", true, "Meshes", "");
+  RNA_def_boolean(ot->srna, "import_volumes", true, "Volumes", "");
 
   RNA_def_boolean(ot->srna,
                   "import_subdiv",
                   false,
-                  "Import Subdiv Scheme",
-                  "Subdiv surface modifiers will be created based on USD "
+                  "Import Subdivision Scheme",
+                  "Create subdivision surface modifiers based on the USD "
                   "SubdivisionScheme attribute");
 
   RNA_def_boolean(ot->srna,
@@ -1060,8 +1056,8 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   true,
                   "Visible Primitives Only",
                   "Do not import invisible USD primitives. "
-                  "Only applies to primitives with a non-animating visibility attribute. "
-                  "Primitives with animating visibility will always be imported");
+                  "Only applies to primitives with a non-animated visibility attribute. "
+                  "Primitives with animated visibility will always be imported");
 
   RNA_def_boolean(ot->srna,
                   "create_collection",
@@ -1069,25 +1065,16 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                   "Create Collection",
                   "Add all imported objects to a new collection");
 
-  prop = RNA_def_enum(ot->srna,
-                      "global_read_flag",
-                      rna_enum_usd_import_read_flags,
-                      0,
-                      "Flags",
-                      "Set read flag for all USD import mesh sequence cache modifiers");
+  RNA_def_boolean(ot->srna, "read_mesh_uvs", true, "UV Coordinates", "Read mesh UV coordinates");
 
-  /* Specify that the flag contains multiple enums. */
-  RNA_def_property_flag(prop, PROP_ENUM_FLAG);
-  /* Set the flag bits enabled by default. */
-  RNA_def_property_enum_default(
-      prop, (MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV));
+  RNA_def_boolean(ot->srna, "read_mesh_colors", false, "Vertex Colors", "Read mesh vertex colors");
 
   RNA_def_string(ot->srna,
                  "prim_path_mask",
                  NULL,
                  1024,
-                 "",
-                 "If set, specifies the path of the USD primitive to load from the stage");
+                 "Path Mask",
+                 "Import only the subset of the USD scene rooted at the given primitive");
 
   RNA_def_boolean(ot->srna, "import_guide", false, "Guide", "Import guide geometry");
 
@@ -1132,7 +1119,7 @@ void WM_OT_usd_import(struct wmOperatorType *ot)
                 0.0001f,
                 10000.0f,
                 "Light Intensity Scale",
-                "Value by which to scale the intensity of imported lights",
+                "Scale for the intensity of imported lights",
                 0.0001f,
                 1000.0f);
 

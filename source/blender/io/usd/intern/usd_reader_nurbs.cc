@@ -15,51 +15,28 @@
  */
 
 #include "usd_reader_nurbs.h"
-#include "usd_reader_prim.h"
 
-#include "MEM_guardedalloc.h"
-extern "C" {
-#include "DNA_cachefile_types.h"
-#include "DNA_camera_types.h"
-#include "DNA_constraint_types.h"
-#include "DNA_curve_types.h"
-#include "DNA_modifier_types.h"
-#include "DNA_object_types.h"
-#include "DNA_space_types.h" /* for FILE_MAX */
-
-#include "BKE_camera.h"
-#include "BKE_constraint.h"
 #include "BKE_curve.h"
-#include "BKE_library.h"
 #include "BKE_mesh.h"
-#include "BKE_modifier.h"
 #include "BKE_object.h"
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
-#include "BLI_math_geom.h"
-#include "BLI_string.h"
-#include "BLI_utildefines.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
-}
+#include "DNA_curve_types.h"
+#include "DNA_object_types.h"
+
+#include "MEM_guardedalloc.h"
 
 #include <pxr/base/vt/array.h>
 #include <pxr/base/vt/types.h>
 #include <pxr/base/vt/value.h>
-#include <pxr/pxr.h>
-#include <pxr/usd/sdf/assetPath.h>
 #include <pxr/usd/sdf/types.h>
-#include <pxr/usd/usd/prim.h>
-#include <pxr/usd/usd/primRange.h>
-#include <pxr/usd/usd/stage.h>
-#include <pxr/usd/usdGeom/basisCurves.h>
+
 #include <pxr/usd/usdGeom/curves.h>
 
 static bool set_knots(const pxr::VtDoubleArray &knots, float *&nu_knots)
 {
-  if (knots.size() == 0) {
+  if (knots.empty()) {
     return false;
   }
 
@@ -109,9 +86,7 @@ void USDNurbsReader::read_curve_sample(Curve *cu, const double motionSampleTime)
   pxr::UsdAttribute pointsAttr = curve_prim_.GetPointsAttr();
 
   pxr::VtIntArray usdCounts;
-
   vertexAttr.Get(&usdCounts, motionSampleTime);
-  int num_subcurves = usdCounts.size();
 
   pxr::VtVec3fArray usdPoints;
   pointsAttr.Get(&usdPoints, motionSampleTime);
@@ -128,19 +103,19 @@ void USDNurbsReader::read_curve_sample(Curve *cu, const double motionSampleTime)
   pxr::VtVec3fArray usdNormals;
   curve_prim_.GetNormalsAttr().Get(&usdNormals, motionSampleTime);
 
-  // If normals, extrude, else bevel
-  // Perhaps to be replaced by Blender/USD Schema
-  if (usdNormals.size() > 0) {
-    // Set extrusion to 1.0f;
+  /* If normals, extrude, else bevel.
+   * Perhaps to be replaced by Blender USD Schema. */
+  if (!usdNormals.empty()) {
+    /* Set extrusion to 1. */
     curve_->ext1 = 1.0f;
   }
   else {
-    // Set bevel depth to 1.0f;
+    /* Set bevel depth to 1. */
     curve_->ext2 = 1.0f;
   }
 
   size_t idx = 0;
-  for (size_t i = 0; i < num_subcurves; i++) {
+  for (size_t i = 0; i < usdCounts.size(); i++) {
     const int num_verts = usdCounts[i];
 
     Nurb *nu = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), __func__));
@@ -161,14 +136,16 @@ void USDNurbsReader::read_curve_sample(Curve *cu, const double motionSampleTime)
       nu->orderv = 4;
     }
 
-    // TODO: Not needed at present, left for future dev
-    // if (knots.size() > 3) {
-    //   if ((knots[0] == knots[1]) && (knots[knots.size()] == knots[knots.size() - 1])) {
-    //     nu->flagu |= CU_NURB_ENDPOINT;
-    //   } else {
-    //     nu->flagu |= CU_NURB_CYCLIC;
-    //   }
-    // }
+    /* TODO(makowalski): investigate setting Cyclic U and Endpoint U options. */
+#if 0
+     if (knots.size() > 3) {
+       if ((knots[0] == knots[1]) && (knots[knots.size()] == knots[knots.size() - 1])) {
+         nu->flagu |= CU_NURB_ENDPOINT;
+       } else {
+         nu->flagu |= CU_NURB_CYCLIC;
+       }
+     }
+#endif
 
     float weight = 1.0f;
 
@@ -184,8 +161,9 @@ void USDNurbsReader::read_curve_sample(Curve *cu, const double motionSampleTime)
       bp->weight = weight;
 
       float radius = 0.1f;
-      if (idx < usdWidths.size())
+      if (idx < usdWidths.size()) {
         radius = usdWidths[idx];
+      }
 
       bp->radius = radius;
     }

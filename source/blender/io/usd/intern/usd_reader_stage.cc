@@ -322,7 +322,7 @@ void USDStageReader::collect_readers(Main *bmain)
   clear_proto_readers();
   dome_lights_.clear();
 
-  // Iterate through stage
+  /* Iterate through the stage. */
   pxr::UsdPrim root = stage_->GetPseudoRoot();
 
   std::string prim_path_mask(params_.prim_path_mask);

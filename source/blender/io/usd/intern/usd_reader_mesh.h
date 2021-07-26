@@ -15,9 +15,10 @@
  */
 #pragma once
 
-#include "pxr/usd/usdGeom/mesh.h"
 #include "usd.h"
 #include "usd_reader_geom.h"
+
+#include "pxr/usd/usdGeom/mesh.h"
 
 struct MPoly;
 
@@ -45,9 +46,9 @@ class USDMeshReader : public USDGeomReader {
   bool has_uvs_;
   bool is_time_varying_;
 
-  // This is to ensure we load all data once because we reuse the read_mesh function
-  // in the mesh seq modifier, and in initial load. Ideally a better fix would be
-  // implemented. Note this will break if face or positions vary...
+  /* This is to ensure we load all data once, because we reuse the read_mesh function
+   * in the mesh seq modifier, and in initial load. Ideally, a better fix would be
+   * implemented.  Note this will break if faces or positions vary. */
   bool is_initial_load_;
 
  public:
@@ -75,7 +76,7 @@ class USDMeshReader : public USDGeomReader {
   void assign_facesets_to_mpoly(double motionSampleTime,
                                 struct MPoly *mpoly,
                                 int totpoly,
-                                std::map<pxr::SdfPath, int> &r_mat_map);
+                                std::map<pxr::SdfPath, int> *r_mat_map);
 
   void read_mpolys(Mesh *mesh);
   void read_uvs(Mesh *mesh, double motionSampleTime, bool load_uvs = false);

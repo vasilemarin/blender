@@ -16,25 +16,7 @@
 
 #include "usd_reader_prim.h"
 
-extern "C" {
-#include "DNA_cachefile_types.h"
-#include "DNA_constraint_types.h"
-#include "DNA_modifier_types.h"
-#include "DNA_space_types.h" /* for FILE_MAX */
-
-#include "BKE_constraint.h"
-#include "BKE_library.h"
-#include "BKE_modifier.h"
-#include "BKE_object.h"
-
-#include "BLI_listbase.h"
-#include "BLI_math_geom.h"
-#include "BLI_string.h"
 #include "BLI_utildefines.h"
-
-#include "WM_api.h"
-#include "WM_types.h"
-}
 
 namespace blender::io::usd {
 
@@ -52,9 +34,7 @@ USDPrimReader::USDPrimReader(const pxr::UsdPrim &prim,
 {
 }
 
-USDPrimReader::~USDPrimReader()
-{
-}
+USDPrimReader::~USDPrimReader() = default;
 
 const pxr::UsdPrim &USDPrimReader::prim() const
 {
