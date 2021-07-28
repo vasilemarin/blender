@@ -67,13 +67,21 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 {
   Light *blight = (Light *)object_->data;
 
+  if (blight == nullptr) {
+    return;
+  }
+
+  if (!prim_) {
+    return;
+  }
+
   pxr::UsdLuxLight light_prim(prim_);
 
   if (!light_prim) {
     return;
   }
 
-  pxr::UsdLuxShapingAPI shapingAPI(light_prim);
+  pxr::UsdLuxShapingAPI shaping_api(light_prim);
 
   /* Set light type. */
 
@@ -89,7 +97,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   else if (prim_.IsA<pxr::UsdLuxSphereLight>()) {
     blight->type = LA_LOCAL;
 
-    if (shapingAPI.GetShapingConeAngleAttr().IsAuthored()) {
+    if (shaping_api && shaping_api.GetShapingConeAngleAttr().IsAuthored()) {
       blight->type = LA_SPOT;
     }
   }
@@ -111,17 +119,21 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   light_prim.GetDiffuseAttr().Get(&diffuse, motionSampleTime);
 #endif
 
-  pxr::VtValue specular;
-  light_prim.GetSpecularAttr().Get(&specular, motionSampleTime);
-  blight->spec_fac = specular.Get<float>();
+  if (pxr::UsdAttribute spec_attr = light_prim.GetSpecularAttr()) {
+    float spec = 0.0f;
+    if (spec_attr.Get(&spec, motionSampleTime)) {
+      blight->spec_fac = spec;
+    }
+  }
 
-  pxr::VtValue color;
-  light_prim.GetColorAttr().Get(&color, motionSampleTime);
-  /* Calling UncheckedGet() to silence compiler warning. */
-  pxr::GfVec3f color_vec = color.UncheckedGet<pxr::GfVec3f>();
-  blight->r = color_vec[0];
-  blight->g = color_vec[1];
-  blight->b = color_vec[2];
+  if (pxr::UsdAttribute color_attr = light_prim.GetColorAttr()) {
+    pxr::GfVec3f color;
+    if (color_attr.Get(&color, motionSampleTime)) {
+      blight->r = color[0];
+      blight->g = color[1];
+      blight->b = color[2];
+    }
+  }
 
   /* TODO(makowalski): Not currently supported. */
 #if 0
@@ -142,23 +154,38 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxRectLight rect_light(prim_);
 
-        pxr::VtValue width;
-        rect_light.GetWidthAttr().Get(&width, motionSampleTime);
+        if (!rect_light) {
+          break;
+        }
 
-        pxr::VtValue height;
-        rect_light.GetHeightAttr().Get(&height, motionSampleTime);
+        if (pxr::UsdAttribute width_attr = rect_light.GetWidthAttr()) {
+          float width = 0.0f;
+          if (width_attr.Get(&width, motionSampleTime)) {
+            blight->area_size = width;
+          }
+        }
 
-        blight->area_size = width.Get<float>();
-        blight->area_sizey = height.Get<float>();
+        if (pxr::UsdAttribute height_attr = rect_light.GetHeightAttr()) {
+          float height = 0.0f;
+          if (height_attr.Get(&height, motionSampleTime)) {
+            blight->area_sizey = height;
+          }
+        }
       }
       else if (blight->area_shape == LA_AREA_DISK && prim_.IsA<pxr::UsdLuxDiskLight>()) {
 
         pxr::UsdLuxDiskLight disk_light(prim_);
 
-        pxr::VtValue radius;
-        disk_light.GetRadiusAttr().Get(&radius, motionSampleTime);
+        if (!disk_light) {
+          break;
+        }
 
-        blight->area_size = radius.Get<float>() * 2.0f;
+        if (pxr::UsdAttribute radius_attr = disk_light.GetRadiusAttr()) {
+          float radius = 0.0f;
+          if (radius_attr.Get(&radius, motionSampleTime)) {
+            blight->area_size = radius * 2.0f;
+          }
+        }
       }
       break;
     case LA_LOCAL:
@@ -166,37 +193,59 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxSphereLight sphere_light(prim_);
 
-        pxr::VtValue radius;
-        sphere_light.GetRadiusAttr().Get(&radius, motionSampleTime);
+        if (!sphere_light) {
+          break;
+        }
 
-        blight->area_size = radius.Get<float>();
+        if (pxr::UsdAttribute radius_attr = sphere_light.GetRadiusAttr()) {
+          float radius = 0.0f;
+          if (radius_attr.Get(&radius, motionSampleTime)) {
+            blight->area_size = radius;
+          }
+        }
       }
       break;
     case LA_SPOT:
       if (prim_.IsA<pxr::UsdLuxSphereLight>()) {
-
         pxr::UsdLuxSphereLight sphere_light(prim_);
 
-        pxr::VtValue radius;
-        sphere_light.GetRadiusAttr().Get(&radius, motionSampleTime);
-
-        blight->area_size = radius.Get<float>();
-
-        pxr::VtValue coneAngle;
-        shapingAPI.GetShapingConeAngleAttr().Get(&coneAngle, motionSampleTime);
-        float spot_size = coneAngle.Get<float>() * ((float)M_PI / 180.0f) * 2.0f;
-
-        if (spot_size <= M_PI) {
-          blight->spotsize = spot_size;
-
-          pxr::VtValue spotBlend;
-          shapingAPI.GetShapingConeSoftnessAttr().Get(&spotBlend, motionSampleTime);
-          blight->spotblend = spotBlend.Get<float>();
+        if (!sphere_light) {
+          break;
         }
-        else {
-          /* The spot size is greter the 180 degrees, which Blender doesn't support so we
-           * make this a sphere light instead. */
-          blight->type = LA_LOCAL;
+
+        if (pxr::UsdAttribute radius_attr = sphere_light.GetRadiusAttr()) {
+          float radius = 0.0f;
+          if (radius_attr.Get(&radius, motionSampleTime)) {
+            blight->area_size = radius;
+          }
+        }
+
+        if (!shaping_api) {
+          break;
+        }
+
+        if (pxr::UsdAttribute cone_angle_attr = shaping_api.GetShapingConeAngleAttr()) {
+          float cone_angle = 0.0f;
+          if (cone_angle_attr.Get(&cone_angle, motionSampleTime)) {
+            float spot_size = cone_angle * ((float)M_PI / 180.0f) * 2.0f;
+
+            if (spot_size <= M_PI) {
+              blight->spotsize = spot_size;
+            }
+            else {
+              /* The spot size is greter the 180 degrees, which Blender doesn't support so we
+               * make this a sphere light instead. */
+              blight->type = LA_LOCAL;
+              break;
+            }
+          }
+        }
+
+        if (pxr::UsdAttribute cone_softness_attr = shaping_api.GetShapingConeSoftnessAttr()) {
+          float cone_softness = 0.0f;
+          if (cone_softness_attr.Get(&cone_softness, motionSampleTime)) {
+            blight->spotblend = cone_softness;
+          }
         }
       }
       break;
@@ -204,27 +253,35 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
       if (prim_.IsA<pxr::UsdLuxDistantLight>()) {
         pxr::UsdLuxDistantLight distant_light(prim_);
 
-        pxr::VtValue angle;
-        distant_light.GetAngleAttr().Get(&angle, motionSampleTime);
-        blight->sun_angle = angle.Get<float>();
+        if (!distant_light) {
+          break;
+        }
+
+        if (pxr::UsdAttribute angle_attr = distant_light.GetAngleAttr()) {
+          float angle = 0.0f;
+          if (angle_attr.Get(&angle, motionSampleTime)) {
+            blight->sun_angle = angle;
+          }
+        }
       }
       break;
   }
 
-  pxr::VtValue intensity;
-  light_prim.GetIntensityAttr().Get(&intensity, motionSampleTime);
-
-  float intensity_scale = import_params_.light_intensity_scale;
-
-  if (import_params_.convert_light_from_nits) {
-    /* It's important that we perform the light unit conversion before applying any scaling to the
-     * light size, so we can use the USD's meters per unit value. */
-    const float meters_per_unit = static_cast<float>(
-        pxr::UsdGeomGetStageMetersPerUnit(prim_.GetStage()));
-    intensity_scale *= nits_to_energy_scale_factor(blight, meters_per_unit * usd_world_scale_);
+  if (pxr::UsdAttribute intensity_attr = light_prim.GetIntensityAttr()) {
+    float intensity = 0.0f;
+    if (intensity_attr.Get(&intensity, motionSampleTime)) {
+      /* Get the intensity scale value. */
+      float intensity_scale = import_params_.light_intensity_scale;
+      if (import_params_.convert_light_from_nits) {
+        /* It's important that we perform the light unit conversion before applying any scaling to
+         * the light size, so we can use the USD's meters per unit value. */
+        const float meters_per_unit = static_cast<float>(
+            pxr::UsdGeomGetStageMetersPerUnit(prim_.GetStage()));
+        intensity_scale *= nits_to_energy_scale_factor(blight, meters_per_unit * usd_world_scale_);
+      }
+      blight->energy = intensity * intensity_scale;
+    }
   }
-
-  blight->energy = intensity.Get<float>() * intensity_scale;
 
   if ((blight->type == LA_SPOT || blight->type == LA_LOCAL) && import_params_.scale_light_radius) {
     blight->area_size *= settings_->scale;
