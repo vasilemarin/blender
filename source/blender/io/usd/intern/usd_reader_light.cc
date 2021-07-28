@@ -92,13 +92,21 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 {
   Light *blight = (Light *)object_->data;
 
+  if (blight == nullptr) {
+    return;
+  }
+
+  if (!prim_) {
+    return;
+  }
+
   pxr::UsdLuxLight light_prim(prim_);
 
   if (!light_prim) {
     return;
   }
 
-  pxr::UsdLuxShapingAPI shapingAPI(light_prim);
+  pxr::UsdLuxShapingAPI shaping_api(light_prim);
 
   /* Set light type. */
 
@@ -114,7 +122,7 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
   else if (prim_.IsA<pxr::UsdLuxSphereLight>()) {
     blight->type = LA_LOCAL;
 
-    if (shapingAPI.GetShapingConeAngleAttr().IsAuthored()) {
+    if (shaping_api && shaping_api.GetShapingConeAngleAttr().IsAuthored()) {
       blight->type = LA_SPOT;
     }
   }
@@ -174,6 +182,10 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxRectLight rect_light(prim_);
 
+        if (!rect_light) {
+          break;
+        }
+
         float width;
         if (get_authored_value(rect_light.GetWidthAttr(), motionSampleTime, &width) ||
             prim_.GetAttribute(usdtokens::width).Get(&width, motionSampleTime)) {
@@ -190,6 +202,10 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxDiskLight disk_light(prim_);
 
+        if (!disk_light) {
+          break;
+        }
+
         float radius;
         if (get_authored_value(disk_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
@@ -202,6 +218,10 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
 
         pxr::UsdLuxSphereLight sphere_light(prim_);
 
+        if (!sphere_light) {
+          break;
+        }
+
         float radius;
         if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
             prim_.GetAttribute(usdtokens::radius).Get(&radius, motionSampleTime)) {
@@ -211,8 +231,11 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
       break;
     case LA_SPOT:
       if (prim_.IsA<pxr::UsdLuxSphereLight>()) {
-
         pxr::UsdLuxSphereLight sphere_light(prim_);
+
+        if (!sphere_light) {
+          break;
+        }
 
         float radius;
         if (get_authored_value(sphere_light.GetRadiusAttr(), motionSampleTime, &radius) ||
@@ -220,21 +243,32 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
           blight->area_size = radius;
         }
 
-        pxr::VtValue coneAngle;
-        shapingAPI.GetShapingConeAngleAttr().Get(&coneAngle, motionSampleTime);
-        float spot_size = coneAngle.Get<float>() * ((float)M_PI / 180.0f) * 2.0f;
-
-        if (spot_size <= M_PI) {
-          blight->spotsize = spot_size;
-
-          pxr::VtValue spotBlend;
-          shapingAPI.GetShapingConeSoftnessAttr().Get(&spotBlend, motionSampleTime);
-          blight->spotblend = spotBlend.Get<float>();
+        if (!shaping_api) {
+          break;
         }
-        else {
-          /* The spot size is greter the 180 degrees, which Blender doesn't support so we
-           * make this a sphere light instead. */
-          blight->type = LA_LOCAL;
+
+        if (pxr::UsdAttribute cone_angle_attr = shaping_api.GetShapingConeAngleAttr()) {
+          float cone_angle = 0.0f;
+          if (cone_angle_attr.Get(&cone_angle, motionSampleTime)) {
+            float spot_size = cone_angle * ((float)M_PI / 180.0f) * 2.0f;
+
+            if (spot_size <= M_PI) {
+              blight->spotsize = spot_size;
+            }
+            else {
+              /* The spot size is greter the 180 degrees, which Blender doesn't support so we
+               * make this a sphere light instead. */
+              blight->type = LA_LOCAL;
+              break;
+            }
+          }
+        }
+
+        if (pxr::UsdAttribute cone_softness_attr = shaping_api.GetShapingConeSoftnessAttr()) {
+          float cone_softness = 0.0f;
+          if (cone_softness_attr.Get(&cone_softness, motionSampleTime)) {
+            blight->spotblend = cone_softness;
+          }
         }
       }
       break;
@@ -242,10 +276,15 @@ void USDLightReader::read_object_data(Main *bmain, const double motionSampleTime
       if (prim_.IsA<pxr::UsdLuxDistantLight>()) {
         pxr::UsdLuxDistantLight distant_light(prim_);
 
+        if (!distant_light) {
+          break;
+        }
+
         float angle;
         if (get_authored_value(distant_light.GetAngleAttr(), motionSampleTime, &angle) ||
             prim_.GetAttribute(usdtokens::angle).Get(&angle, motionSampleTime)) {
-          blight->sun_angle = angle;
+          blight->sun_angle = angle * (float)M_PI / 180.0f;
+          ;
         }
       }
       break;
