@@ -12,6 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * The Original Code is Copyright (C) 2021 Tangent Animation.
+ * All rights reserved.
  */
 
 #include "usd_reader_curve.h"
@@ -120,9 +123,7 @@ void USDCurvesReader::read_curve_sample(Curve *cu, const double motionSampleTime
     }
     else if (basis == pxr::UsdGeomTokens->bezier) {
       /* TODO(makowalski): Beziers are not properly imported as beziers. */
-      nu->type = CU_NURBS;
-      nu->flag |= CU_SMOOTH;
-      nu->flagu |= CU_NURB_ENDPOINT;
+      nu->type = CU_POLY;
     }
     else if (basis.IsEmpty()) {
       nu->type = CU_POLY;
