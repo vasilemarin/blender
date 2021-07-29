@@ -163,6 +163,16 @@ static void export_startjob(void *customdata,
      * the USD library doesn't know it has the functionality to write USDA and
      * USDC files, and creating a new UsdStage fails. */
     WM_reportf(RPT_ERROR, "USD Export: unable to create a stage for writing %s", data->filename);
+
+    pxr::SdfLayerRefPtr existing_layer = pxr::SdfLayer::FindOrOpen(data->filename);
+    if (existing_layer) {
+      WM_reportf(RPT_ERROR,
+                 "USD Export: layer %s is currently open in the scene, "
+                 "possibly because it's referenced by modifiers, "
+                 "and can't be overwritten",
+                 data->filename);
+    }
+
     data->export_ok = false;
     return;
   }
