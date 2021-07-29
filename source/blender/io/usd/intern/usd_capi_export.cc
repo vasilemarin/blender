@@ -159,11 +159,10 @@ static void export_startjob(void *customdata,
 
   pxr::UsdStageRefPtr usd_stage = pxr::UsdStage::CreateNew(data->filename);
   if (!usd_stage) {
-    /* This happens when the USD JSON files cannot be found. When that happens,
+    /* This may happen when the USD JSON files cannot be found. When that happens,
      * the USD library doesn't know it has the functionality to write USDA and
      * USDC files, and creating a new UsdStage fails. */
-    WM_reportf(
-        RPT_ERROR, "USD Export: unable to find suitable USD plugin to write %s", data->filename);
+    WM_reportf(RPT_ERROR, "USD Export: unable to create a stage for writing %s", data->filename);
     data->export_ok = false;
     return;
   }
