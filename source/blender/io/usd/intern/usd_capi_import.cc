@@ -274,6 +274,50 @@ struct ImportJobData {
   bool import_ok;
 };
 
+static CacheFile *create_cache_file(const ImportJobData *data)
+{
+  if (!data) {
+    return nullptr;
+  }
+
+  CacheFile *cache_file = static_cast<CacheFile *>(
+      BKE_cachefile_add(data->bmain, BLI_path_basename(data->filename)));
+
+  /* Decrement the ID ref-count because it is going to be incremented for each
+   * modifier and constraint that it will be attached to, so since currently
+   * it is not used by anyone, its use count will off by one. */
+  id_us_min(&cache_file->id);
+
+  cache_file->is_sequence = data->params.is_sequence;
+  cache_file->scale = data->params.scale;
+  STRNCPY(cache_file->filepath, data->filename);
+
+  cache_file->scale = data->settings.scale;
+
+  return cache_file;
+}
+
+/* Apply the given cache file to the given reader, if needed.  Will create a cache file
+ * and return it in the r_cache_file out prameter, if needed. */
+static void apply_cache_file(USDPrimReader *reader,
+                             const ImportJobData *data,
+                             CacheFile **r_cache_file)
+{
+  if (!(reader && reader->needs_cachefile())) {
+    return;
+  }
+
+  if (!(data && r_cache_file)) {
+    return;
+  }
+
+  if (*r_cache_file == nullptr) {
+    *r_cache_file = create_cache_file(data);
+  }
+
+  reader->apply_cache_file(*r_cache_file);
+}
+
 static void import_startjob(void *customdata, short *stop, short *do_update, float *progress)
 {
   ImportJobData *data = static_cast<ImportJobData *>(customdata);
@@ -306,20 +350,6 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
 
   BLI_path_abs(data->filename, BKE_main_blendfile_path_from_global());
 
-  CacheFile *cache_file = static_cast<CacheFile *>(
-      BKE_cachefile_add(data->bmain, BLI_path_basename(data->filename)));
-
-  /* Decrement the ID ref-count because it is going to be incremented for each
-   * modifier and constraint that it will be attached to, so since currently
-   * it is not used by anyone, its use count will off by one. */
-  id_us_min(&cache_file->id);
-
-  cache_file->is_sequence = data->params.is_sequence;
-  cache_file->scale = data->params.scale;
-  STRNCPY(cache_file->filepath, data->filename);
-
-  data->settings.cache_file = cache_file;
-
   *data->do_update = true;
   *data->progress = 0.05f;
 
@@ -344,7 +374,6 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
   if (data->params.apply_unit_conversion_scale) {
     const double meters_per_unit = pxr::UsdGeomGetStageMetersPerUnit(stage);
     data->settings.scale *= meters_per_unit;
-    cache_file->scale *= meters_per_unit;
   }
 
   /* Set up the stage for animated data. */
@@ -372,7 +401,14 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
   const float size = static_cast<float>(archive->readers().size());
   size_t i = 0;
 
-  /* Setup parenthood */
+  /* Read data, set prenting and create a cache file, if needed. */
+
+  /* We defer creating a cache file until we know that we need
+   * one. This is not only more efficient, but also avoids
+   * the problem where we can't overwrite the USD the
+   * cachefile is referencing because it has a pointer to the
+   * open stage for the lifetime of the scene. */
+  CacheFile *cache_file = nullptr;
 
   /* Handle instance prototypes.
   /* TODO(makowalski): Move this logic inside USDReaderStage? */
@@ -387,6 +423,8 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
       /* TODO(makowalski): Here and below, should we call
        * read_object_data() with the actual time? */
       reader->read_object_data(data->bmain, 0.0);
+
+      apply_cache_file(reader, data, &cache_file);
 
       Object *ob = reader->object();
 
@@ -411,6 +449,8 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     Object *ob = reader->object();
 
     reader->read_object_data(data->bmain, 0.0);
+
+    apply_cache_file(reader, data, &cache_file);
 
     USDPrimReader *parent = reader->parent();
 
