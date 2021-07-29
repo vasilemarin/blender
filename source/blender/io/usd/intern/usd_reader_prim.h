@@ -19,6 +19,7 @@
 
 #include <pxr/usd/usd/prim.h>
 
+struct CacheFile;
 struct Main;
 struct Object;
 
@@ -43,8 +44,6 @@ struct ImportSettings {
 
   bool validate_meshes;
 
-  CacheFile *cache_file;
-
   ImportSettings()
       : do_convert_mat(false),
         from_up(0),
@@ -55,8 +54,7 @@ struct ImportSettings {
         sequence_len(1),
         sequence_offset(0),
         read_flag(0),
-        validate_meshes(false),
-        cache_file(NULL)
+        validate_meshes(false)
   {
   }
 };
@@ -86,7 +84,17 @@ class USDPrimReader {
   virtual bool valid() const;
 
   virtual void create_object(Main *bmain, double motionSampleTime) = 0;
-  virtual void read_object_data(Main * /* bmain */, double /* motionSampleTime */){};
+  virtual void read_object_data(Main * /* bmain */, double /* motionSampleTime */)
+  {
+  }
+
+  virtual bool needs_cachefile()
+  {
+    return false;
+  }
+  virtual void apply_cache_file(CacheFile *cache_file)
+  {
+  }
 
   Object *object() const;
   void object(Object *ob);
