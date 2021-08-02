@@ -99,6 +99,13 @@ const EnumPropertyItem rna_enum_usd_import_shaders_mode_items_no_umm[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+const EnumPropertyItem rna_enum_usd_xform_op_mode_items[] = {
+    {USD_XFORM_OP_SRT, "SRT", 0, "Scale, Rotate, Translate", "Export scale, rotate, and translate Xform operators"},
+    {USD_XFORM_OP_SOT, "SOT", 0, "Scale, Orient, Translate", "Export scale, orient, and translate Xform operators"},
+    {USD_XFORM_OP_MAT, "MAT", 0, "Matrix", "Export matrix operator"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 const EnumPropertyItem prop_usd_export_global_forward[] = {
     {USD_GLOBAL_FORWARD_X, "X", 0, "X Forward", "Global Forward is positive X Axis"},
     {USD_GLOBAL_FORWARD_Y, "Y", 0, "Y Forward", "Global Forward is positive Y Axis"},
@@ -259,6 +266,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
 
   const bool export_armatures = RNA_boolean_get(op->ptr, "export_armatures");
 
+  const eUSDXformOpMode xform_op_mode = RNA_enum_get(op->ptr, "xform_op_mode");
+
   struct USDExportParams params = {RNA_int_get(op->ptr, "start"),
                                    RNA_int_get(op->ptr, "end"),
                                    export_animation,
@@ -310,7 +319,8 @@ static int wm_usd_export_exec(bContext *C, wmOperator *op)
                                    scale_light_radius,
                                    convert_world_material,
                                    generate_cycles_shaders,
-                                   export_armatures};
+                                   export_armatures,
+                                   xform_op_mode};
 
   /* Take some defaults from the scene, if not specified explicitly. */
   Scene *scene = CTX_data_scene(C);
@@ -435,8 +445,11 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     uiItemR(box, ptr, "convert_world_material", 0, NULL, ICON_NONE);
   }
 
-  if (RNA_boolean_get(ptr, "export_uvmaps"))
+  if (RNA_boolean_get(ptr, "export_uvmaps")) {
     uiItemR(box, ptr, "convert_uv_to_st", 0, NULL, ICON_NONE);
+  }
+
+  uiItemR(box, ptr, "xform_op_mode", 0, NULL, ICON_NONE);
 
   if (RNA_boolean_get(ptr, "export_materials")) {
     box = uiLayoutBox(layout);
@@ -798,6 +811,13 @@ void WM_OT_usd_export(struct wmOperatorType *ot)
       "Convert the world material to a USD dome light. "
       "Currently works for simple materials, consisting of an environment texture "
       "connected to a background shader, with an optional vector multiply of the texture color.");
+
+  RNA_def_enum(ot->srna,
+    "xform_op_mode",
+    rna_enum_usd_xform_op_mode_items,
+    USD_XFORM_OP_SRT,
+    "Xform Ops",
+    "The type of transform operators to write");
 }
 
 /* ====== USD Import ====== */

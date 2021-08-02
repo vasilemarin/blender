@@ -55,6 +55,12 @@ typedef enum eUSDImportShadersMode {
   USD_IMPORT_MDL = 2,
 } eUSDImportShadersMode;
 
+typedef enum eUSDXformOpMode {
+  USD_XFORM_OP_SRT = 0,
+  USD_XFORM_OP_SOT = 1,
+  USD_XFORM_OP_MAT = 2,
+} eUSDXformOpMode;
+
 static const USD_global_forward_axis USD_DEFAULT_FORWARD = USD_GLOBAL_FORWARD_MINUS_Z;
 static const USD_global_up_axis USD_DEFAULT_UP = USD_GLOBAL_UP_Y;
 
@@ -113,6 +119,7 @@ struct USDExportParams {
   bool convert_world_material;
   bool generate_cycles_shaders;
   bool export_armatures;
+  eUSDXformOpMode xform_op_mode;
 };
 
 struct USDImportParams {

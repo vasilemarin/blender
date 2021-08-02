@@ -20,6 +20,7 @@
 #include "usd_hierarchy_iterator.h"
 
 #include <pxr/base/gf/matrix4f.h>
+#include <pxr/base/gf/quaternion.h>
 #include <pxr/usd/usdGeom/xform.h>
 
 #include "BKE_object.h"
@@ -150,10 +151,7 @@ void USDTransformWriter::do_write(HierarchyContext &context)
     // preventing usd composition collisions up and down stream.
     if (usd_export_context_.export_params.export_identity_transforms ||
         !compare_m4m4(parent_relative_matrix, UNIT_M4, 0.000000001f)) {
-      if (!xformOp_) {
-        xformOp_ = xform.AddTransformOp();
-      }
-      xformOp_.Set(pxr::GfMatrix4d(parent_relative_matrix), get_export_time_code());
+      set_xform_ops(parent_relative_matrix, xform);
     }
   }
 
@@ -194,6 +192,71 @@ bool USDTransformWriter::check_is_animated(const HierarchyContext &context) cons
   // TODO: This fails for a specific set of drivers and rig setups...
   // Setting 'context.animation_check_include_parent' to true fixed it...
   return BKE_object_moves_in_time(context.object, context.animation_check_include_parent);
+}
+
+void  USDTransformWriter::set_xform_ops(float xf_matrix[4][4], pxr::UsdGeomXformable &xf)
+{
+  if (!xf) {
+    return;
+  }
+
+  eUSDXformOpMode xfOpMode = usd_export_context_.export_params.xform_op_mode;
+
+  if (xformOps_.empty()) {
+    switch (xfOpMode) {
+    case USD_XFORM_OP_SRT:
+      xformOps_.push_back(xf.AddTranslateOp());
+      xformOps_.push_back(xf.AddRotateXYZOp());
+      xformOps_.push_back(xf.AddScaleOp());
+
+      break;
+    case USD_XFORM_OP_SOT:
+      xformOps_.push_back(xf.AddTranslateOp());
+      xformOps_.push_back(xf.AddOrientOp());
+      xformOps_.push_back(xf.AddScaleOp());
+      break;
+    case USD_XFORM_OP_MAT:
+      xformOps_.push_back(xf.AddTransformOp());
+      break;
+    default:
+      printf("Warning: unknown XformOp type\n");
+      xformOps_.push_back(xf.AddTransformOp());
+      break;
+    }
+  }
+
+  if (xformOps_.empty()) {
+    /* Shouldn't happen. */
+    return;
+  }
+
+  if (xformOps_.size() == 1) {
+    xformOps_[0].Set(pxr::GfMatrix4d(xf_matrix), get_export_time_code());
+  }
+  else if (xformOps_.size() == 3) {
+
+    float loc[3];
+    float quat[4];
+    float scale[3];
+
+    mat4_decompose(loc, quat, scale, xf_matrix);
+
+    if (xfOpMode == USD_XFORM_OP_SRT) {
+      float rot[3];
+      quat_to_eul(rot, quat);
+      rot[0] *= 180.0 / M_PI;
+      rot[1] *= 180.0 / M_PI;
+      rot[2] *= 180.0 / M_PI;
+      xformOps_[0].Set(pxr::GfVec3d(loc), get_export_time_code());
+      xformOps_[1].Set(pxr::GfVec3f(rot), get_export_time_code());
+      xformOps_[2].Set(pxr::GfVec3f(scale), get_export_time_code());
+    }
+    else if (xfOpMode == USD_XFORM_OP_SOT) {
+      xformOps_[0].Set(pxr::GfVec3d(loc), get_export_time_code());
+      xformOps_[1].Set(pxr::GfQuatf(quat[0], quat[1], quat[2], quat[3]), get_export_time_code());
+      xformOps_[2].Set(pxr::GfVec3f(scale), get_export_time_code());
+    }
+  }
 }
 
 }  // namespace blender::io::usd
