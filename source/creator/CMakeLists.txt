@@ -1056,8 +1056,8 @@ elseif(APPLE)
       DESTINATION "${MAC_BLENDER_TARGET_DYLIBS_DIR}"
     )
   endif()
-  install(CODE "execute_process(COMMAND ls \"${MAC_BLENDER_TARGET_DYLIBS_DIR}\")")
-  install(CODE "execute_process(COMMAND otool -l \"$<TARGET_FILE:blender>\")")
+  # install(CODE "execute_process(COMMAND ls \"${MAC_BLENDER_TARGET_DYLIBS_DIR}\")")
+  # install(CODE "execute_process(COMMAND otool -l \"$<TARGET_FILE:blender>\")")
 
   # python
   if(WITH_PYTHON AND NOT WITH_PYTHON_MODULE AND NOT WITH_PYTHON_FRAMEWORK)
