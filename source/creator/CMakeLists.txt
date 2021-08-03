@@ -1044,12 +1044,16 @@ elseif(APPLE)
     Blender.app/Contents/
   )
 
+  message(WARNING "OPENMP_CUSTOM=${OPENMP_CUSTOM} WITH_OPENMP=${WITH_OPENMP}")
   if(WITH_OPENMP AND OPENMP_CUSTOM)
+    message(WARNING "OpenMP_LIBRARY=${OpenMP_LIBRARY}")
+    message(WARNING "MAC_BLENDER_TARGET_DYLIBS_DIR=${MAC_BLENDER_TARGET_DYLIBS_DIR}")
     install(
       FILES "${OpenMP_LIBRARY}"
       DESTINATION "${MAC_BLENDER_TARGET_DYLIBS_DIR}"
     )
   endif()
+  message(FATAL_ERROR "")
 
   if(WITH_COMPILER_ASAN)
     install(
