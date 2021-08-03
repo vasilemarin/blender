@@ -507,7 +507,7 @@ endif()
 # dylib in an adjacent folder.
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 if(WITH_OPENMP)
-  list(APPEND CMAKE_BUILD_RPATH   "${OpenMP_LIBRARY_DIR}")
+  list(APPEND CMAKE_BUILD_RPATH "${OpenMP_LIBRARY_DIR}")
 endif()
 
 set(CMAKE_SKIP_INSTALL_RPATH FALSE)

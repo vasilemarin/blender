@@ -1044,9 +1044,6 @@ elseif(APPLE)
     Blender.app/Contents/
   )
 
-  message(WARNING "OPENMP_CUSTOM=${OPENMP_CUSTOM} WITH_OPENMP=${WITH_OPENMP}")
-  message(WARNING "OpenMP_LIBRARY=${OpenMP_LIBRARY}")
-  message(WARNING "MAC_BLENDER_TARGET_DYLIBS_DIR=${MAC_BLENDER_TARGET_DYLIBS_DIR}")
   if(WITH_OPENMP AND OPENMP_CUSTOM)
     install(
       FILES "${OpenMP_LIBRARY}"
@@ -1060,6 +1057,8 @@ elseif(APPLE)
       DESTINATION "${MAC_BLENDER_TARGET_DYLIBS_DIR}"
     )
   endif()
+  install(CODE "execute_process(COMMAND ls \"${MAC_BLENDER_TARGET_DYLIBS_DIR}\")")
+  install(CODE "execute_process(COMMAND otool -l \"$<TARGET_FILE:blender>\")")
 
   # python
   if(WITH_PYTHON AND NOT WITH_PYTHON_MODULE AND NOT WITH_PYTHON_FRAMEWORK)
