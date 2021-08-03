@@ -31,20 +31,43 @@
 #ifdef WIN32
 #  ifndef NOGDI
 #    define NOGDI
+#    define NOGDI_CLEANUP
 #  endif
 #  ifndef NOMINMAX
 #    define NOMINMAX
+#    define NOMINMAX_CLEANUP
 #  endif
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN_CLEANUP
 #  endif
 #  ifndef NOCOMM
 #    define NOCOMM
+#    define NOCOMM_CLEANUP
 #  endif
 #endif /* _WIN32 */
 
 /* Header for ghc::filesystem. */
 #include "filesystem.hpp"
+
+#ifdef WIN32
+#  ifdef NOGDI_CLEANUP
+#    undef NOGDI
+#    undef NOGDI_CLEANUP
+#  endif
+#  ifdef NOMINMAX_CLEANUP
+#    undef NOMINMAX
+#    undef NOMINMAX_CLEANUP
+#  endif
+#  ifdef WIN32_LEAN_AND_MEAN_CLEANUP
+#    undef WIN32_LEAN_AND_MEAN
+#    undef WIN32_LEAN_AND_MEAN_CLEANUP
+#  endif
+#  ifdef NOCOMM_CLEANUP
+#    undef NOCOMM
+#    undef NOCOMM_CLEANUP
+#  endif
+#endif
 
 namespace blender::bli {
 namespace filesystem = ghc::filesystem;
