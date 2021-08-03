@@ -506,9 +506,7 @@ endif()
 # For the installed Python module, CMAKE_INSTALL_RPATH is modified to find the
 # dylib in an adjacent folder.
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
-if(WITH_OPENMP)
-  list(APPEND CMAKE_BUILD_RPATH "${OpenMP_LIBRARY_DIR}")
-endif()
+list(APPEND CMAKE_BUILD_RPATH "${OpenMP_LIBRARY_DIR}")
 
 set(CMAKE_SKIP_INSTALL_RPATH FALSE)
 list(APPEND CMAKE_INSTALL_RPATH "@executable_path")
