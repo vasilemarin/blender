@@ -424,7 +424,7 @@ static void seq_disk_cache_handle_versioning(SeqDiskCache *disk_cache)
   BLI_strncpy(path_version_file, path, sizeof(path_version_file));
   BLI_path_append(path_version_file, sizeof(path_version_file), "cache_version");
 
-  if (BLI_exists(path) && BLI_is_dir(path)) {
+  if (BLI_is_dir(path)) {
     FILE *file = BLI_fopen(path_version_file, "r");
 
     if (file) {

@@ -26,6 +26,7 @@ set(INC
   ../../../intern/eigen
   ../../../intern/guardedalloc
   ../../../intern/numaapi/include
+  ../../../extern/ghc_filesystem
   ../../../extern/wcwidth
 )
 
@@ -124,7 +125,7 @@ set(SRC
   intern/sort.c
   intern/sort_utils.c
   intern/stack.c
-  intern/storage.c
+  intern/storage.cc
   intern/string.c
   intern/string_cursor_utf8.c
   intern/string_search.cc

@@ -21,13 +21,28 @@
  * \ingroup bli
  *
  * Some really low-level file operations.
+ *
+ * C++ code should use `bli::filesystem` instead (which is an alias for a platform compatible
+ * `std::filesystem` replacement). Include `BLI_filesystem.h` for this.
+ * Where this API provides additional functionality, that should be put into C++ functions so this
+ * file becomes a mere C-API.
+ *
+ * Note that we should use the exception free overloads of the `bli::filesystem` API here.
  */
+
+/** Toggle use of `bli::filesystem`. New code should use `bli::filesystem`. Old code is just kept
+ * for testing during the transition. */
+#define USE_CPP_FILESYSTEM
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 
 #include <sys/stat.h>
+
+#ifdef USE_CPP_FILESYSTEM
+#  include "BLI_filesystem.hh"
+#endif
 
 #if defined(__NetBSD__) || defined(__DragonFly__) || defined(__HAIKU__)
 /* Other modern unix OS's should probably use this also. */
@@ -71,6 +86,8 @@
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
+
+using namespace blender::bli;
 
 /**
  * Copies the current working directory into *dir (max size maxncpy), and
@@ -283,7 +300,7 @@ eFileAttributes BLI_file_attributes(const char *path)
    * If Archived set FILE_ATTR_ARCHIVE
    */
 #  endif
-  return ret;
+  return static_cast<eFileAttributes>(ret);
 }
 #endif
 
@@ -343,11 +360,7 @@ bool BLI_file_alias_target(const char *filepath,
 }
 #endif
 
-/**
- * Returns the st_mode from stat-ing the specified path name, or 0 if stat fails
- * (most likely doesn't exist or no access).
- */
-int BLI_exists(const char *path)
+int BLI_file_mode(const char *path)
 {
 #if defined(WIN32)
   BLI_stat_t st;
@@ -377,16 +390,30 @@ int BLI_exists(const char *path)
 
   free(tmp_16);
   if (res == -1) {
-    return 0;
+    return false;
   }
 #else
   struct stat st;
   BLI_assert(!BLI_path_is_rel(path));
   if (stat(path, &st)) {
-    return 0;
+    return false;
   }
 #endif
-  return (st.st_mode);
+
+  return st.st_mode;
+}
+
+/**
+ * False is returned on errors/exceptions, no further error information is passed to the caller.
+ */
+bool BLI_exists(const char *path)
+{
+#ifdef USE_CPP_FILESYSTEM
+  std::error_code error;
+  return filesystem::exists(path, error);
+#else
+  return (BLI_file_mode(path) != 0);
+#endif
 }
 
 #ifdef WIN32
@@ -431,21 +458,37 @@ int BLI_stat(const char *path, struct stat *buffer)
 #endif
 
 /**
- * Does the specified path point to a directory?
+ * Does the specified path point to a directory? Follows symlinks.
+ * False is returned on errors/exceptions, no further error information is passed to the caller.
  * \note Would be better in fileops.c except that it needs stat.h so add here
  */
 bool BLI_is_dir(const char *file)
 {
-  return S_ISDIR(BLI_exists(file));
+#ifdef USE_CPP_FILESYSTEM
+  std::error_code error;
+  return filesystem::is_directory(file, error);
+#else
+  return S_ISDIR(BLI_file_mode(file))
+#endif
 }
 
 /**
- * Does the specified path point to a non-directory?
+ * Does the specified path point to a non-directory? Follows symlinks.
+ * False is returned on errors/exceptions, no further error information is passed to the caller.
  */
 bool BLI_is_file(const char *path)
 {
-  const int mode = BLI_exists(path);
+  /* TODO The "is non-directory" logic is odd, this will consider sockets, IPC pipes, devices etc.
+   * as "files" too. Can we change it to match std::filesystem::is_regular_file()? */
+
+#ifdef USE_CPP_FILESYSTEM
+  std::error_code error;
+  filesystem::file_status status = filesystem::status(path, error);
+  return filesystem::exists(status) && !filesystem::is_directory(status);
+#else
+  const int mode = BLI_file_mode(path);
   return (mode && !S_ISDIR(mode));
+#endif
 }
 
 /**
@@ -560,14 +603,14 @@ void *BLI_file_read_text_as_mem_with_newline_as_nil(const char *filepath,
                                                     size_t pad_bytes,
                                                     size_t *r_size)
 {
-  char *mem = BLI_file_read_text_as_mem(filepath, pad_bytes, r_size);
+  char *mem = reinterpret_cast<char *>(BLI_file_read_text_as_mem(filepath, pad_bytes, r_size));
   if (mem != NULL) {
     char *mem_end = mem + *r_size;
     if (pad_bytes != 0) {
       *mem_end = '\0';
     }
     for (char *p = mem, *p_next; p != mem_end; p = p_next) {
-      p_next = memchr(p, '\n', mem_end - p);
+      p_next = reinterpret_cast<char *>(memchr(p, '\n', mem_end - p));
       if (p_next != NULL) {
         if (trim_trailing_space) {
           for (char *p_trim = p_next - 1; p_trim > p && ELEM(*p_trim, ' ', '\t'); p_trim--) {
@@ -608,7 +651,7 @@ LinkNode *BLI_file_read_as_lines(const char *filepath)
     return NULL;
   }
 
-  buf = MEM_mallocN(size, "file_as_lines");
+  buf = static_cast<char *>(MEM_mallocN(size, "file_as_lines"));
   if (buf) {
     size_t i, last = 0;
 
