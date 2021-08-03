@@ -392,13 +392,13 @@ int BLI_file_mode(const char *path)
 
   free(tmp_16);
   if (res == -1) {
-    return false;
+    return 0;
   }
 #else
   struct stat st;
   BLI_assert(!BLI_path_is_rel(path));
   if (stat(path, &st)) {
-    return false;
+    return 0;
   }
 #endif
 
