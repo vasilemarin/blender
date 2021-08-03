@@ -87,7 +87,9 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#ifdef USE_CPP_FILESYSTEM
 using namespace blender::bli;
+#endif
 
 /**
  * Copies the current working directory into *dir (max size maxncpy), and
@@ -468,7 +470,7 @@ bool BLI_is_dir(const char *file)
   std::error_code error;
   return filesystem::is_directory(file, error);
 #else
-  return S_ISDIR(BLI_file_mode(file))
+  return S_ISDIR(BLI_file_mode(file));
 #endif
 }
 
