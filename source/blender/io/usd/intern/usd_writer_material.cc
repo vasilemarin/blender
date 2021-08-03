@@ -143,20 +143,22 @@ static void ensure_forward_slashes(char *buf, int size)
 
 static void export_in_memory_texture(Image *ima, const std::string &export_dir)
 {
-  char file_name[FILE_MAX];
-  BLI_split_file_part(ima->filepath, file_name, FILE_MAX);
-
-  std::string export_path = export_dir;
-
-  if (export_path.back() != '/' && export_path.back() != '\\') {
-    export_path += "/";
+  if (!ima) {
+    return;
   }
 
-  export_path += std::string(file_name);
+  char file_name[FILE_MAX] = { 0 };
 
-  /* We never overwrite files.
-   * TODO(makowalski): consider adding an option to overwrite. */
-  if (BLI_exists(export_path.c_str())) {
+  if (strlen(ima->filepath) > 0) {
+    BLI_split_file_part(ima->filepath, file_name, FILE_MAX);
+  }
+  else {
+    /* Try using the iamge name for the file name.  */
+    strcpy(file_name, ima->id.name + 2);
+  }
+
+  if (strlen(file_name) == 0) {
+    printf("WARNING:  Couldn't retrieve in memory texture file name.\n");
     return;
   }
 
@@ -171,6 +173,22 @@ static void export_in_memory_texture(Image *ima, const std::string &export_dir)
   /* This image in its current state only exists in Blender memory.
    * So we have to export it. The export will keep the image state intact,
    * so the exported file will not be associated with the image. */
+
+  BKE_image_path_ensure_ext_from_imformat(file_name, &imageFormat);
+
+  std::string export_path = export_dir;
+
+  if (export_path.back() != '/' && export_path.back() != '\\') {
+    export_path += "/";
+  }
+
+  export_path += std::string(file_name);
+
+  /* We never overwrite files.
+   * TODO(makowalski): consider adding an option to overwrite. */
+  if (BLI_exists(export_path.c_str())) {
+    return;
+  }
 
   std::cout << "Exporting in-memory texture to " << export_path << std::endl;
 
@@ -2296,7 +2314,7 @@ void export_texture(bNode *node, const pxr::UsdStageRefPtr stage)
 
   Image *ima = reinterpret_cast<Image *>(node->id);
 
-  if (!ima || strlen(ima->filepath) == 0) {
+  if (!ima) {
     return;
   }
 
@@ -2337,7 +2355,7 @@ void export_textures(const Material *material, const pxr::UsdStageRefPtr stage)
   }
 
   for (bNode *node = (bNode *)material->nodetree->nodes.first; node; node = node->next) {
-    if (node->type == SH_NODE_TEX_IMAGE) {
+    if (node->type == SH_NODE_TEX_IMAGE || SH_NODE_TEX_ENVIRONMENT) {
       export_texture(node, stage);
     }
   }
