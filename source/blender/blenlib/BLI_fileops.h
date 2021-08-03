@@ -96,7 +96,10 @@ typedef enum eFileAttributes {
   FILE_ATTR_JUNCTION_POINT = 1 << 13, /* Folder Symbolic-link. */
   FILE_ATTR_MOUNT_POINT = 1 << 14,    /* Volume mounted as a folder. */
   FILE_ATTR_HARDLINK = 1 << 15,       /* Duplicated directory entry. */
+
+  FILE_ATTR_MAX
 } eFileAttributes;
+ENUM_OPERATORS(eFileAttributes, FILE_ATTR_MAX);
 
 #define FILE_ATTR_ANY_LINK \
   (FILE_ATTR_ALIAS | FILE_ATTR_REPARSE_POINT | FILE_ATTR_SYMLINK | FILE_ATTR_JUNCTION_POINT | \

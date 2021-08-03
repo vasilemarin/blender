@@ -248,7 +248,7 @@ size_t BLI_file_size(const char *path)
 #ifndef __APPLE__
 eFileAttributes BLI_file_attributes(const char *path)
 {
-  int ret = 0;
+  eFileAttributes ret = static_cast<eFileAttributes>(0);
 
 #  ifdef WIN32
 
@@ -326,30 +326,30 @@ bool BLI_file_alias_target(const char *filepath,
 
   IShellLinkW *Shortcut = NULL;
   hr = CoCreateInstance(
-      &CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLinkW, (LPVOID *)&Shortcut);
+      CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID *)&Shortcut);
 
   bool success = false;
   if (SUCCEEDED(hr)) {
     IPersistFile *PersistFile;
-    hr = Shortcut->lpVtbl->QueryInterface(Shortcut, &IID_IPersistFile, (LPVOID *)&PersistFile);
+    hr = Shortcut->QueryInterface(&PersistFile);
     if (SUCCEEDED(hr)) {
       WCHAR path_utf16[FILE_MAXDIR] = {0};
       if (conv_utf_8_to_16(filepath, path_utf16, ARRAY_SIZE(path_utf16)) == 0) {
-        hr = PersistFile->lpVtbl->Load(PersistFile, path_utf16, STGM_READ);
+        hr = PersistFile->Load(path_utf16, STGM_READ);
         if (SUCCEEDED(hr)) {
-          hr = Shortcut->lpVtbl->Resolve(Shortcut, 0, SLR_NO_UI | SLR_UPDATE);
+          hr = Shortcut->Resolve(0, SLR_NO_UI | SLR_UPDATE);
           if (SUCCEEDED(hr)) {
             wchar_t target_utf16[FILE_MAXDIR] = {0};
-            hr = Shortcut->lpVtbl->GetPath(Shortcut, target_utf16, FILE_MAXDIR, NULL, 0);
+            hr = Shortcut->GetPath(target_utf16, FILE_MAXDIR, NULL, 0);
             if (SUCCEEDED(hr)) {
               success = (conv_utf_16_to_8(target_utf16, r_targetpath, FILE_MAXDIR) == 0);
             }
           }
-          PersistFile->lpVtbl->Release(PersistFile);
+          PersistFile->Release();
         }
       }
     }
-    Shortcut->lpVtbl->Release(Shortcut);
+    Shortcut->Release();
   }
 
   CoUninitialize();
