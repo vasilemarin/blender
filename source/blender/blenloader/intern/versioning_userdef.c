@@ -885,6 +885,7 @@ void blo_do_versions_userdef(UserDef *userdef)
 
   /* TODO(makowalski): investigate the approved way to enable addons by default. */
   BKE_addon_ensure(&userdef->addons, "omni");
+  BKE_addon_ensure(&userdef->addons, "OmniPanel");
 
   /**
    * Versioning code until next subversion bump goes here.

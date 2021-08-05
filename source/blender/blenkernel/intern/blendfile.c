@@ -623,6 +623,7 @@ UserDef *BKE_blendfile_userdef_from_defaults(void)
         "io_scene_x3d",
         "cycles",
         "omni",
+        "OmniPanel",
     };
     for (int i = 0; i < ARRAY_SIZE(addons); i++) {
       bAddon *addon = BKE_addon_new();
