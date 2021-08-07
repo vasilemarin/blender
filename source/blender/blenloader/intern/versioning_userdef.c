@@ -883,9 +883,6 @@ void blo_do_versions_userdef(UserDef *userdef)
     userdef->sequencer_proxy_setup = USER_SEQ_PROXY_SETUP_AUTOMATIC;
   }
 
-  /* TODO(makowalski): investigate the approved way to enable addons by default. */
-  BKE_addon_ensure(&userdef->addons, "omni");
-
   /**
    * Versioning code until next subversion bump goes here.
    *
