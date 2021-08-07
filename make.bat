@@ -74,7 +74,7 @@ if "%TEST%" == "1" (
 	goto EOF
 )
 
-call "%BLENDER_DIR%\build_files\windows\check_submodules_nv.cmd"
+call "%BLENDER_DIR%\build_files\windows\check_submodules.cmd"
 if errorlevel 1 goto EOF
 
 if "%BUILD_WITH_NINJA%" == "" (
