@@ -342,11 +342,11 @@ elseif(APPLE)
       # Keep the `BLENDER_VERSION` folder and bpy.so in the build folder.
       set(INSTALL_BPY_TO_SITE_PACKAGES OFF)
     else()
-      set(TARGETDIR_VER "${PYTHON_LIBPATH}/Resources/${BLENDER_VERSION}")
+      set(TARGETDIR_VER "${PYTHON_LIBPATH}/site-packages/Resources/${BLENDER_VERSION}")
       set(INSTALL_BPY_TO_SITE_PACKAGES ON)
     endif()
   else()
-    set(TARGETDIR_VER $<TARGET_FILE_DIR:blender>/../Resources/${BLENDER_VERSION})
+    set(TARGETDIR_VER Blender.app/Contents/Resources/${BLENDER_VERSION})
   endif()
   set(MAC_BLENDER_TARGET_DYLIBS_DIR "${TARGETDIR_VER}/lib")
   # Skip relinking on cpack / install
