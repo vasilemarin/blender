@@ -75,12 +75,6 @@ enum class ResizeMode {
   Stretch = NS_CR_STRETCH,
 };
 
-enum class PixelSampler {
-  Nearest = 0,
-  Bilinear = 1,
-  Bicubic = 2,
-};
-
 class NodeOperationInput {
  private:
   NodeOperation *m_operation;
@@ -293,6 +287,8 @@ class NodeOperation {
    */
   unsigned int m_resolutionInputSocketIndex;
 
+  std::function<void(unsigned int resolution[2])> modify_determined_resolution_fn_;
+
   /**
    * \brief mutex reference for very special node initializations
    * \note only use when you really know what you are doing.
@@ -424,6 +420,12 @@ class NodeOperation {
     exec_system_ = system;
   }
 
+  /**
+   * Initializes operation data needed after operations are linked and resolutions determined. For
+   * rendering heap memory data use initExecution().
+   */
+  virtual void init_data();
+
   virtual void initExecution();
 
   /**
@@ -516,6 +518,15 @@ class NodeOperation {
    * operation \param index: the index to set
    */
   void setResolutionInputSocketIndex(unsigned int index);
+
+  /**
+   * Set a custom function to modify determined resolution from main input just before setting it
+   * as preferred resolution for the other inputs.
+   */
+  void set_determined_resolution_modifier(std::function<void(unsigned int resolution[2])> fn)
+  {
+    modify_determined_resolution_fn_ = fn;
+  }
 
   /**
    * \brief get the render priority of this node.

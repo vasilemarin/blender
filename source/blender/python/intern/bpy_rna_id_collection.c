@@ -227,7 +227,7 @@ static PyObject *bpy_user_map(PyObject *UNUSED(self), PyObject *args, PyObject *
       }
 
       if (!data_cb.is_subset &&
-          /* We do not want to pre-add keys of flitered out types. */
+          /* We do not want to pre-add keys of filtered out types. */
           (key_types_bitmap == NULL || id_check_type(id, key_types_bitmap)) &&
           /* We do not want to pre-add keys when we have filter on value types,
            * but not on key types. */
@@ -377,9 +377,16 @@ static PyObject *bpy_orphans_purge(PyObject *UNUSED(self), PyObject *args, PyObj
   bool do_recursive_cleanup = false;
 
   static const char *_keywords[] = {"do_local_ids", "do_linked_ids", "do_recursive", NULL};
-  static _PyArg_Parser _parser = {"|$ppp:orphans_purge", _keywords, 0};
-  if (!_PyArg_ParseTupleAndKeywordsFast(
-          args, kwds, &_parser, &do_local_ids, &do_linked_ids, &do_recursive_cleanup)) {
+  static _PyArg_Parser _parser = {"|O&O&O&:orphans_purge", _keywords, 0};
+  if (!_PyArg_ParseTupleAndKeywordsFast(args,
+                                        kwds,
+                                        &_parser,
+                                        PyC_ParseBool,
+                                        &do_local_ids,
+                                        PyC_ParseBool,
+                                        &do_linked_ids,
+                                        PyC_ParseBool,
+                                        &do_recursive_cleanup)) {
     return NULL;
   }
 

@@ -123,6 +123,14 @@ uint SEQ_collection_len(const SeqCollection *collection)
 }
 
 /**
+ * Check if seq is in collection.
+ */
+bool SEQ_collection_has_strip(const Sequence *seq, const SeqCollection *collection)
+{
+  return BLI_gset_haskey(collection->set, seq);
+}
+
+/**
  * Query strips from seqbase. seq_reference is used by query function as filter condition.
  *
  * \param seq_reference: reference strip for query function
@@ -184,6 +192,22 @@ void SEQ_collection_merge(SeqCollection *collection_dst, SeqCollection *collecti
 }
 
 /**
+ * Remove strips from collection that are also in `exclude_elements`. Source collection will be
+ * freed.
+ *
+ * \param collection: collection from which strips are removed
+ * \param exclude_elements: collection of strips to be removed
+ */
+void SEQ_collection_exclude(SeqCollection *collection, SeqCollection *exclude_elements)
+{
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, exclude_elements) {
+    SEQ_collection_remove_strip(seq, collection);
+  }
+  SEQ_collection_free(exclude_elements);
+}
+
+/**
  * Expand collection by running SEQ_query() for each strip, which will be used as reference.
  * Results of these queries will be merged into provided collection.
  *
@@ -211,6 +235,22 @@ void SEQ_collection_expand(ListBase *seqbase,
     BLI_remlink(&expand_collections, expand_collection);
     SEQ_collection_merge(collection, expand_collection);
   }
+}
+
+/**
+ * Duplicate collection
+ *
+ * \param collection: collection to be duplicated
+ * \return duplicate of collection
+ */
+SeqCollection *SEQ_collection_duplicate(SeqCollection *collection)
+{
+  SeqCollection *duplicate = SEQ_collection_create(__func__);
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, collection) {
+    SEQ_collection_append_strip(seq, duplicate);
+  }
+  return duplicate;
 }
 
 /** \} */

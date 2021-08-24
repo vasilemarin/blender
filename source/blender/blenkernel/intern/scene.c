@@ -109,6 +109,8 @@
 
 #include "RE_engine.h"
 
+#include "RNA_access.h"
+
 #include "SEQ_edit.h"
 #include "SEQ_iterator.h"
 #include "SEQ_modifier.h"
@@ -231,7 +233,6 @@ static void scene_init_data(ID *id)
 
   /* Sequencer */
   scene->toolsettings->sequencer_tool_settings = SEQ_tool_settings_init();
-  scene->toolsettings->snap_flag |= SCE_SNAP_SEQ;
 
   for (size_t i = 0; i < ARRAY_SIZE(scene->orientation_slots); i++) {
     scene->orientation_slots[i].index_custom = -1;
@@ -446,7 +447,8 @@ static void scene_free_data(ID *id)
    * for objects directly in the master collection? then other
    * collections in the scene need to do it too? */
   if (scene->master_collection) {
-    BKE_collection_free(scene->master_collection);
+    BKE_collection_free_data(scene->master_collection);
+    BKE_libblock_free_data_py(&scene->master_collection->id);
     MEM_freeN(scene->master_collection);
     scene->master_collection = NULL;
   }
@@ -1172,11 +1174,6 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
 
       if (seq->type & SEQ_TYPE_EFFECT) {
         seq->flag |= SEQ_EFFECT_NOT_LOADED;
-      }
-
-      if (seq->type == SEQ_TYPE_SPEED) {
-        SpeedControlVars *s = seq->effectdata;
-        s->frameMap = NULL;
       }
 
       if (seq->type == SEQ_TYPE_TEXT) {
@@ -2105,7 +2102,7 @@ Object *BKE_scene_object_find_by_name(const Scene *scene, const char *name)
 
 /**
  * Sets the active scene, mainly used when running in background mode
- * (``--scene`` command line argument).
+ * (`--scene` command line argument).
  * This is also called to set the scene directly, bypassing windowing code.
  * Otherwise #WM_window_set_active_scene is used when changing scenes by the user.
  */
@@ -2179,7 +2176,7 @@ int BKE_scene_base_iter_next(
           /* exception: empty scene layer */
           while ((*scene)->set) {
             (*scene) = (*scene)->set;
-            ViewLayer *view_layer_set = BKE_view_layer_default_render((*scene));
+            ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
             if (view_layer_set->object_bases.first) {
               *base = view_layer_set->object_bases.first;
               *ob = (*base)->object;
@@ -2200,7 +2197,7 @@ int BKE_scene_base_iter_next(
               /* (*scene) is finished, now do the set */
               while ((*scene)->set) {
                 (*scene) = (*scene)->set;
-                ViewLayer *view_layer_set = BKE_view_layer_default_render((*scene));
+                ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
                 if (view_layer_set->object_bases.first) {
                   *base = view_layer_set->object_bases.first;
                   *ob = (*base)->object;
@@ -2306,7 +2303,7 @@ Object *BKE_scene_camera_switch_find(Scene *scene)
   Object *first_camera = NULL;
 
   LISTBASE_FOREACH (TimeMarker *, m, &scene->markers) {
-    if (m->camera && (m->camera->restrictflag & OB_RESTRICT_RENDER) == 0) {
+    if (m->camera && (m->camera->visibility_flag & OB_HIDE_RENDER) == 0) {
       if ((m->frame <= ctime) && (m->frame > frame)) {
         camera = m->camera;
         frame = m->frame;
@@ -2899,7 +2896,7 @@ Base *_setlooper_base_step(Scene **sce_iter, ViewLayer *view_layer, Base *base)
   next_set:
     /* Reached the end, get the next base in the set. */
     while ((*sce_iter = (*sce_iter)->set)) {
-      ViewLayer *view_layer_set = BKE_view_layer_default_render((*sce_iter));
+      ViewLayer *view_layer_set = BKE_view_layer_default_render(*sce_iter);
       base = (Base *)view_layer_set->object_bases.first;
 
       if (base) {
@@ -2936,6 +2933,22 @@ bool BKE_scene_uses_blender_workbench(const Scene *scene)
 bool BKE_scene_uses_cycles(const Scene *scene)
 {
   return STREQ(scene->r.engine, RE_engine_id_CYCLES);
+}
+
+/* This enumeration has to match the one defined in the Cycles addon. */
+typedef enum eCyclesFeatureSet {
+  CYCLES_FEATURES_SUPPORTED = 0,
+  CYCLES_FEATURES_EXPERIMENTAL = 1,
+} eCyclesFeatureSet;
+
+/* We cannot use const as RNA_id_pointer_create is not using a const ID. */
+bool BKE_scene_uses_cycles_experimental_features(Scene *scene)
+{
+  BLI_assert(BKE_scene_uses_cycles(scene));
+  PointerRNA scene_ptr;
+  RNA_id_pointer_create(&scene->id, &scene_ptr);
+  PointerRNA cycles_ptr = RNA_pointer_get(&scene_ptr, "cycles");
+  return RNA_enum_get(&cycles_ptr, "feature_set") == CYCLES_FEATURES_EXPERIMENTAL;
 }
 
 void BKE_scene_base_flag_to_objects(ViewLayer *view_layer)
@@ -3119,7 +3132,7 @@ bool BKE_scene_multiview_is_render_view_active(const RenderData *rd, const Scene
     return false;
   }
 
-  if ((srv->viewflag & SCE_VIEW_DISABLE)) {
+  if (srv->viewflag & SCE_VIEW_DISABLE) {
     return false;
   }
 
@@ -3242,9 +3255,9 @@ void BKE_scene_multiview_filepath_get(SceneRenderView *srv, const char *filepath
 }
 
 /**
- * When multiview is not used the filepath is as usual (e.g., ``Image.jpg``).
+ * When multiview is not used the filepath is as usual (e.g., `Image.jpg`).
  * When multiview is on, even if only one view is enabled the view is incorporated
- * into the file name (e.g., ``Image_L.jpg``). That allows for the user to re-render
+ * into the file name (e.g., `Image_L.jpg`). That allows for the user to re-render
  * individual views.
  */
 void BKE_scene_multiview_view_filepath_get(const RenderData *rd,

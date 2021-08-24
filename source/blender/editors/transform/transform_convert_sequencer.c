@@ -262,8 +262,16 @@ static void free_transform_custom_data(TransCustomData *custom_data)
 /* Canceled, need to update the strips display. */
 static void seq_transform_cancel(TransInfo *t, SeqCollection *transformed_strips)
 {
+  ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(t->scene, false));
+
   Sequence *seq;
   SEQ_ITERATOR_FOREACH (seq, transformed_strips) {
+    /* Handle pre-existing overlapping strips even when operator is canceled.
+     * This is necessary for SEQUENCER_OT_duplicate_move macro for example. */
+    if (SEQ_transform_test_overlap(seqbase, seq)) {
+      SEQ_transform_seqbase_shuffle(seqbase, seq, t->scene);
+    }
+
     SEQ_time_update_sequence_bounds(t->scene, seq);
   }
 }
@@ -392,15 +400,14 @@ static void seq_transform_handle_overlap(TransInfo *t, SeqCollection *transforme
   if (seq_transform_check_strip_effects(transformed_strips)) {
     /* Update effect strips based on strips just moved in time. */
     seq_transform_update_effects(t, transformed_strips);
+  }
 
-    /* If any effects still overlap, we need to move them up. */
-    Sequence *seq;
-    SEQ_ITERATOR_FOREACH (seq, transformed_strips) {
-      if ((seq->type & SEQ_TYPE_EFFECT) && seq->seq1) {
-        if (SEQ_transform_test_overlap(seqbasep, seq)) {
-          SEQ_transform_seqbase_shuffle(seqbasep, seq, t->scene);
-        }
-      }
+  /* If any effects still overlap, we need to move them up.
+   * In some cases other strips can be overlapping still, see T90646. */
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, transformed_strips) {
+    if (SEQ_transform_test_overlap(seqbasep, seq)) {
+      SEQ_transform_seqbase_shuffle(seqbasep, seq, t->scene);
     }
   }
 }

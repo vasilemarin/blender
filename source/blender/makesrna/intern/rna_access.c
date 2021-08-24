@@ -36,6 +36,7 @@
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
 #include "BLI_math.h"
+#include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
 #include "BLF_api.h"
@@ -882,8 +883,7 @@ bool RNA_struct_is_a(const StructRNA *type, const StructRNA *srna)
 
 PropertyRNA *RNA_struct_find_property(PointerRNA *ptr, const char *identifier)
 {
-  if (identifier[0] == '[' && identifier[1] == '"') { /* "  (dummy comment to avoid confusing some
-                                                       * function lists in text editors) */
+  if (identifier[0] == '[' && identifier[1] == '"') {
     /* id prop lookup, not so common */
     PropertyRNA *r_prop = NULL;
     PointerRNA r_ptr; /* only support single level props */
@@ -967,19 +967,33 @@ const struct ListBase *RNA_struct_type_properties(StructRNA *srna)
   return &srna->cont.properties;
 }
 
-PropertyRNA *RNA_struct_type_find_property(StructRNA *srna, const char *identifier)
+PropertyRNA *RNA_struct_type_find_property_no_base(StructRNA *srna, const char *identifier)
 {
   return BLI_findstring_ptr(&srna->cont.properties, identifier, offsetof(PropertyRNA, identifier));
+}
+
+/**
+ * \note #RNA_struct_find_property is a higher level alternative to this function
+ * which takes a #PointerRNA instead of a #StructRNA.
+ */
+PropertyRNA *RNA_struct_type_find_property(StructRNA *srna, const char *identifier)
+{
+  for (; srna; srna = srna->base) {
+    PropertyRNA *prop = RNA_struct_type_find_property_no_base(srna, identifier);
+    if (prop != NULL) {
+      return prop;
+    }
+  }
+  return NULL;
 }
 
 FunctionRNA *RNA_struct_find_function(StructRNA *srna, const char *identifier)
 {
 #if 1
   FunctionRNA *func;
-  StructRNA *type;
-  for (type = srna; type; type = type->base) {
+  for (; srna; srna = srna->base) {
     func = (FunctionRNA *)BLI_findstring_ptr(
-        &type->functions, identifier, offsetof(FunctionRNA, identifier));
+        &srna->functions, identifier, offsetof(FunctionRNA, identifier));
     if (func) {
       return func;
     }
@@ -3002,7 +3016,7 @@ void RNA_property_float_set(PointerRNA *ptr, PropertyRNA *prop, float value)
   BLI_assert(RNA_property_type(prop) == PROP_FLOAT);
   BLI_assert(RNA_property_array_check(prop) == false);
   /* useful to check on bad values but set function should clamp */
-  /* BLI_assert(RNA_property_float_clamp(ptr, prop, &value) == 0); */
+  // BLI_assert(RNA_property_float_clamp(ptr, prop, &value) == 0);
 
   if ((idprop = rna_idproperty_check(&prop, ptr))) {
     RNA_property_float_clamp(ptr, prop, &value);
@@ -3383,7 +3397,7 @@ char *RNA_property_string_get_alloc(
     buf = fixedbuf;
   }
   else {
-    buf = MEM_mallocN(sizeof(char) * (length + 1), "RNA_string_get_alloc");
+    buf = MEM_mallocN(sizeof(char) * (length + 1), __func__);
   }
 
 #ifndef NDEBUG
@@ -3523,10 +3537,8 @@ void RNA_property_string_get_default(PointerRNA *UNUSED(ptr), PropertyRNA *prop,
   strcpy(value, sprop->defaultvalue);
 }
 
-char *RNA_property_string_get_default_alloc(PointerRNA *ptr,
-                                            PropertyRNA *prop,
-                                            char *fixedbuf,
-                                            int fixedlen)
+char *RNA_property_string_get_default_alloc(
+    PointerRNA *ptr, PropertyRNA *prop, char *fixedbuf, int fixedlen, int *r_len)
 {
   char *buf;
   int length;
@@ -3539,10 +3551,14 @@ char *RNA_property_string_get_default_alloc(PointerRNA *ptr,
     buf = fixedbuf;
   }
   else {
-    buf = MEM_callocN(sizeof(char) * (length + 1), "RNA_string_get_alloc");
+    buf = MEM_callocN(sizeof(char) * (length + 1), __func__);
   }
 
   RNA_property_string_get_default(ptr, prop, buf);
+
+  if (r_len) {
+    *r_len = length;
+  }
 
   return buf;
 }
@@ -3676,6 +3692,8 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
   PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop;
   IDProperty *idprop;
 
+  static ThreadMutex lock = BLI_MUTEX_INITIALIZER;
+
   BLI_assert(RNA_property_type(prop) == PROP_POINTER);
 
   if ((idprop = rna_idproperty_check(&prop, ptr))) {
@@ -3695,9 +3713,14 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
     return pprop->get(ptr);
   }
   if (prop->flag & PROP_IDPROPERTY) {
-    /* XXX temporary hack to add it automatically, reading should
-     * never do any write ops, to ensure thread safety etc. */
+    /* NOTE: While creating/writing data in an accessor is really bad design-wise, this is
+     * currently very difficult to avoid in that case. So a global mutex is used to keep ensuring
+     * thread safety. */
+    BLI_mutex_lock(&lock);
+    /* NOTE: We do not need to check again for existence of the pointer after locking here, since
+     * this is also done in #RNA_property_pointer_add itself. */
     RNA_property_pointer_add(ptr, prop);
+    BLI_mutex_unlock(&lock);
     return RNA_property_pointer_get(ptr, prop);
   }
   return PointerRNA_NULL;
@@ -4972,10 +4995,7 @@ void rna_iterator_array_end(CollectionPropertyIterator *iter)
 {
   ArrayIterator *internal = &iter->internal.array;
 
-  if (internal->free_ptr) {
-    MEM_freeN(internal->free_ptr);
-    internal->free_ptr = NULL;
-  }
+  MEM_SAFE_FREE(internal->free_ptr);
 }
 
 PointerRNA rna_array_lookup_int(
@@ -5031,7 +5051,7 @@ static char *rna_path_token(const char **path, char *fixedbuf, int fixedlen, int
     }
   }
   else {
-    /* get data until . or [ */
+    /* Get data until `.` or `[`. */
     p = *path;
 
     while (*p && *p != '.' && *p != '[') {
@@ -5998,7 +6018,7 @@ static void rna_path_array_multi_string_from_flat_index(PointerRNA *ptr,
 
 /**
  * \param index_dim: The dimension to show, 0 disables. 1 for 1d array, 2 for 2d. etc.
- * \param index: The *flattened* index to use when \a ``index_dim > 0``,
+ * \param index: The *flattened* index to use when \a `index_dim > 0`,
  * this is expanded when used with multi-dimensional arrays.
  */
 char *RNA_path_from_ID_to_property_index(PointerRNA *ptr,
@@ -6569,15 +6589,18 @@ void RNA_string_get(PointerRNA *ptr, const char *name, char *value)
   }
 }
 
-char *RNA_string_get_alloc(PointerRNA *ptr, const char *name, char *fixedbuf, int fixedlen)
+char *RNA_string_get_alloc(
+    PointerRNA *ptr, const char *name, char *fixedbuf, int fixedlen, int *r_len)
 {
   PropertyRNA *prop = RNA_struct_find_property(ptr, name);
 
   if (prop) {
-    /* TODO: pass length. */
-    return RNA_property_string_get_alloc(ptr, prop, fixedbuf, fixedlen, NULL);
+    return RNA_property_string_get_alloc(ptr, prop, fixedbuf, fixedlen, r_len);
   }
   printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name);
+  if (r_len != NULL) {
+    *r_len = 0;
+  }
   return NULL;
 }
 
@@ -6723,7 +6746,7 @@ bool RNA_struct_property_is_set_ex(PointerRNA *ptr, const char *identifier, bool
     return RNA_property_is_set_ex(ptr, prop, use_ghost);
   }
   /* python raises an error */
-  /* printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name); */
+  // printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name);
   return 0;
 }
 
@@ -6735,7 +6758,7 @@ bool RNA_struct_property_is_set(PointerRNA *ptr, const char *identifier)
     return RNA_property_is_set(ptr, prop);
   }
   /* python raises an error */
-  /* printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name); */
+  // printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name);
   return 0;
 }
 
@@ -8148,7 +8171,7 @@ bool RNA_property_reset(PointerRNA *ptr, PropertyRNA *prop, int index)
     }
 
     case PROP_STRING: {
-      char *value = RNA_property_string_get_default_alloc(ptr, prop, NULL, 0);
+      char *value = RNA_property_string_get_default_alloc(ptr, prop, NULL, 0, NULL);
       RNA_property_string_set(ptr, prop, value);
       MEM_freeN(value);
       return true;

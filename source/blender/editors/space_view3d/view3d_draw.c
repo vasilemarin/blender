@@ -1602,7 +1602,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *region)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Offscreen Drawing
+/** \name Off-screen Drawing
  * \{ */
 
 static void view3d_stereo3d_setup_offscreen(Depsgraph *depsgraph,
@@ -1876,7 +1876,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(Depsgraph *depsgraph,
 
   if (own_ofs) {
     /* bind */
-    ofs = GPU_offscreen_create(sizex, sizey, true, false, err_out);
+    ofs = GPU_offscreen_create(sizex, sizey, true, GPU_RGBA8, err_out);
     if (ofs == NULL) {
       DRW_opengl_context_disable();
       return NULL;

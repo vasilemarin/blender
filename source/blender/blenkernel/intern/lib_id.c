@@ -73,6 +73,7 @@
 #include "BKE_rigidbody.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "RNA_access.h"
 
@@ -141,7 +142,8 @@ static int lib_id_clear_library_data_users_update_cb(LibraryIDLinkCallbackData *
 {
   ID *id = cb_data->user_data;
   if (*cb_data->id_pointer == id) {
-    DEG_id_tag_update_ex(cb_data->bmain, cb_data->id_owner, ID_RECALC_TAG_FOR_UNDO);
+    DEG_id_tag_update_ex(
+        cb_data->bmain, cb_data->id_owner, ID_RECALC_TAG_FOR_UNDO | ID_RECALC_COPY_ON_WRITE);
     return IDWALK_RET_STOP_ITER;
   }
   return IDWALK_RET_NOP;
@@ -193,6 +195,8 @@ static void lib_id_clear_library_data_ex(Main *bmain, ID *id)
   if (key != NULL) {
     lib_id_clear_library_data_ex(bmain, &key->id);
   }
+
+  DEG_relations_tag_update(bmain);
 }
 
 void BKE_lib_id_clear_library_data(Main *bmain, ID *id)
@@ -1317,14 +1321,6 @@ void *BKE_libblock_copy(Main *bmain, const ID *id)
   return idn;
 }
 
-/* XXX TODO: get rid of this useless wrapper at some point... */
-void *BKE_libblock_copy_for_localize(const ID *id)
-{
-  ID *idn;
-  BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_COPY_LOCALIZE | LIB_ID_COPY_NO_ANIMDATA);
-  return idn;
-}
-
 /* ***************** ID ************************ */
 ID *BKE_libblock_find_name(struct Main *bmain, const short type, const char *name)
 {
@@ -1485,7 +1481,7 @@ static bool id_name_final_build(char *name, char *base_name, size_t base_name_le
 
     /* Code above may have generated invalid utf-8 string, due to raw truncation.
      * Ensure we get a valid one now. */
-    base_name_len -= (size_t)BLI_utf8_invalid_strip(base_name, base_name_len);
+    base_name_len -= (size_t)BLI_str_utf8_invalid_strip(base_name, base_name_len);
 
     /* Also truncate orig name, and start the whole check again. */
     name[base_name_len] = '\0';
@@ -1735,7 +1731,7 @@ bool BKE_id_new_name_validate(ListBase *lb, ID *id, const char *tname, const boo
   else {
     /* disallow non utf8 chars,
      * the interface checks for this but new ID's based on file names don't */
-    BLI_utf8_invalid_strip(name, strlen(name));
+    BLI_str_utf8_invalid_strip(name, strlen(name));
   }
 
   ID *id_sorting_hint = NULL;

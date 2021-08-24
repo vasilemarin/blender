@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "DNA_asset_types.h"
 #include "DNA_color_types.h" /* for Histogram */
 #include "DNA_defs.h"
 #include "DNA_image_types.h" /* ImageUser */
@@ -653,6 +654,7 @@ typedef enum eSpaceSeq_Flag {
   SEQ_SHOW_STRIP_SOURCE = (1 << 15),
   SEQ_SHOW_STRIP_DURATION = (1 << 16),
   SEQ_USE_PROXIES = (1 << 17),
+  SEQ_SHOW_GRID = (1 << 18),
 } eSpaceSeq_Flag;
 
 /* SpaceSeq.view */
@@ -695,24 +697,6 @@ typedef enum eSpaceSeq_OverlayType {
 /* -------------------------------------------------------------------- */
 /** \name File Selector
  * \{ */
-
-/**
- * Information to identify a asset library. May be either one of the predefined types (current
- * 'Main', builtin library, project library), or a custom type as defined in the Preferences.
- *
- * If the type is set to #ASSET_LIBRARY_CUSTOM, idname must have the name to identify the
- * custom library. Otherwise idname is not used.
- */
-typedef struct FileSelectAssetLibraryUID {
-  short type; /* eFileAssetLibrary_Type */
-  char _pad[2];
-  /**
-   * If showing a custom asset library (#ASSET_LIBRARY_CUSTOM), this is the index of the
-   * #bUserAssetLibrary within #UserDef.asset_libraries.
-   * Should be ignored otherwise (but better set to -1 then, for sanity and debugging).
-   */
-  int custom_library_index;
-} FileSelectAssetLibraryUID;
 
 /* Config and Input for File Selector */
 typedef struct FileSelectParams {
@@ -770,13 +754,7 @@ typedef struct FileSelectParams {
   /** Max number of levels in dirtree to show at once, 0 to disable recursion. */
   short recursion_level;
 
-  /* XXX --- still unused -- */
-  /** Show font preview. */
-  short f_fp;
-  /** String to use for font preview. */
-  char fp_str[8];
-
-  /* XXX --- end unused -- */
+  char _pad4[2];
 } FileSelectParams;
 
 /**
@@ -785,7 +763,7 @@ typedef struct FileSelectParams {
 typedef struct FileAssetSelectParams {
   FileSelectParams base_params;
 
-  FileSelectAssetLibraryUID asset_library;
+  AssetLibraryReference asset_library_ref;
 
   short import_type; /* eFileAssetImportType */
   char _pad[6];
@@ -1041,7 +1019,6 @@ typedef struct FileDirEntry {
   /* Name needs freeing if FILE_ENTRY_NAME_FREE is set. Otherwise this is a direct pointer to a
    * name buffer. */
   char *name;
-  char *description;
 
   uint64_t size;
   int64_t time;

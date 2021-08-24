@@ -670,8 +670,8 @@ int node_get_colorid(bNode *node)
       return TH_NODE_INPUT;
     case NODE_CLASS_OUTPUT:
       return (node->flag & NODE_DO_OUTPUT) ? TH_NODE_OUTPUT : TH_NODE;
-    case NODE_CLASS_CONVERTOR:
-      return TH_NODE_CONVERTOR;
+    case NODE_CLASS_CONVERTER:
+      return TH_NODE_CONVERTER;
     case NODE_CLASS_OP_COLOR:
       return TH_NODE_COLOR;
     case NODE_CLASS_OP_VECTOR:
@@ -2125,7 +2125,7 @@ void node_draw_space(const bContext *C, ARegion *region)
   SpaceNode *snode = CTX_wm_space_node(C);
   View2D *v2d = &region->v2d;
 
-  /* Setup offscreen buffers. */
+  /* Setup off-screen buffers. */
   GPUViewport *viewport = WM_draw_region_get_viewport(region);
 
   GPUFrameBuffer *framebuffer_overlay = GPU_viewport_framebuffer_overlay_get(viewport);
