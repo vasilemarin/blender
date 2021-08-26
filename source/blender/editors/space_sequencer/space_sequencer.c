@@ -365,7 +365,7 @@ static void sequencer_listener(const wmSpaceTypeListenerParams *params)
 
 /* ************* dropboxes ************* */
 
-static bool SEQUENCER_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
+static bool image_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
 {
   ARegion *region = CTX_wm_region(C);
   Scene *scene = CTX_data_scene(C);
@@ -440,12 +440,8 @@ static void sequencer_dropboxes(void)
 {
   ListBase *lb = WM_dropboxmap_find("Sequencer", SPACE_SEQ, RGN_TYPE_WINDOW);
 
-  WM_dropbox_add(lb,
-                 "SEQUENCER_OT_SEQUENCER_strip_add",
-                 SEQUENCER_drop_poll,
-                 sequencer_drop_copy,
-                 NULL,
-                 NULL);
+  WM_dropbox_add(
+      lb, "SEQUENCER_OT_image_strip_add", image_drop_poll, sequencer_drop_copy, NULL, NULL);
   WM_dropbox_add(
       lb, "SEQUENCER_OT_movie_strip_add", movie_drop_poll, sequencer_drop_copy, NULL, NULL);
   WM_dropbox_add(

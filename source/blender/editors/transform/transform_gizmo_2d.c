@@ -237,6 +237,31 @@ static bool gizmo2d_calc_bounds(const bContext *C, float *r_center, float *r_min
   return changed;
 }
 
+static float gizmo2d_calc_rotation(const bContext *C)
+{
+  ScrArea *area = CTX_wm_area(C);
+  if (area->spacetype != SPACE_SEQ) {
+    return 0.0f;
+  }
+
+  Scene *scene = CTX_data_scene(C);
+  Editing *ed = SEQ_editing_get(scene, false);
+  ListBase *seqbase = SEQ_active_seqbase_get(ed);
+  SeqCollection *selected_strips = SEQ_query_selected_strips(seqbase);
+
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, selected_strips) {
+    if (seq == ed->act_seq) {
+      StripTransform *transform = seq->strip->transform;
+      SEQ_collection_free(selected_strips);
+      return transform->rotation;
+    }
+  }
+
+  SEQ_collection_free(selected_strips);
+  return 0.0f;
+}
+
 static bool gizmo2d_calc_center(const bContext *C, float r_center[2])
 {
   ScrArea *area = CTX_wm_area(C);
@@ -251,16 +276,23 @@ static bool gizmo2d_calc_center(const bContext *C, float r_center[2])
   else if (area->spacetype == SPACE_SEQ) {
     Scene *scene = CTX_data_scene(C);
     ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(scene, false));
-
     SeqCollection *selected_strips = SEQ_query_selected_strips(seqbase);
-    has_select = SEQ_collection_len(selected_strips) > 0;
 
+    if (SEQ_collection_len(selected_strips) <= 0) {
+      SEQ_collection_free(selected_strips);
+      return false;
+    }
+
+    has_select = true;
     Sequence *seq;
     SEQ_ITERATOR_FOREACH (seq, selected_strips) {
       StripTransform *transform = seq->strip->transform;
-      r_center[0] = transform->xofs;
-      r_center[1] = transform->yofs;
+      r_center[0] += transform->xofs;
+      r_center[1] += transform->yofs;
     }
+    r_center[0] /= SEQ_collection_len(selected_strips);
+    r_center[1] /= SEQ_collection_len(selected_strips);
+
     SEQ_collection_free(selected_strips);
   }
   return has_select;
@@ -567,6 +599,7 @@ void ED_widgetgroup_gizmo2d_xform_no_cage_callbacks_set(wmGizmoGroupType *gzgt)
 typedef struct GizmoGroup_Resize2D {
   wmGizmo *gizmo_xy[3];
   float origin[2];
+  float rotation;
 } GizmoGroup_Resize2D;
 
 static GizmoGroup_Resize2D *gizmogroup2d_resize_init(wmGizmoGroup *gzgroup)
@@ -599,6 +632,7 @@ static void gizmo2d_resize_refresh(const bContext *C, wmGizmoGroup *gzgroup)
       ggd->gizmo_xy[i]->flag &= ~WM_GIZMO_HIDDEN;
     }
     copy_v2_v2(ggd->origin, origin);
+    ggd->rotation = gizmo2d_calc_rotation(C);
   }
 }
 
@@ -623,6 +657,13 @@ static void gizmo2d_resize_draw_prepare(const bContext *C, wmGizmoGroup *gzgroup
   for (int i = 0; i < ARRAY_SIZE(ggd->gizmo_xy); i++) {
     wmGizmo *gz = ggd->gizmo_xy[i];
     WM_gizmo_set_matrix_location(gz, origin);
+
+    if (i < 2) {
+      float axis[3] = {0.0f}, rotated_axis[3];
+      axis[i] = 1.0f;
+      rotate_v3_v3v3fl(rotated_axis, axis, (float[3]){0, 0, 1}, ggd->rotation);
+      WM_gizmo_set_matrix_rotation_from_z_axis(gz, rotated_axis);
+    }
   }
 }
 
@@ -645,9 +686,10 @@ static void gizmo2d_resize_setup(const bContext *C, wmGizmoGroup *gzgroup)
 
       /* set up widget data */
       RNA_float_set(gz->ptr, "length", 1.0f);
-      float axis[3] = {0.0f};
-      axis[i] = 1.0f;
-      WM_gizmo_set_matrix_rotation_from_z_axis(gz, axis);
+
+      /*      float axis[3] = {0.0f};
+            axis[i] = 1.0f;
+            WM_gizmo_set_matrix_rotation_from_z_axis(gz, axis);*/
 
       RNA_enum_set(gz->ptr, "draw_style", ED_GIZMO_ARROW_STYLE_BOX);
 
