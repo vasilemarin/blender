@@ -51,6 +51,7 @@
 
 #include "SEQ_iterator.h"
 #include "SEQ_sequencer.h"
+#include "SEQ_time.h"
 
 #include "transform.h" /* own include */
 
@@ -247,18 +248,19 @@ static float gizmo2d_calc_rotation(const bContext *C)
   Scene *scene = CTX_data_scene(C);
   Editing *ed = SEQ_editing_get(scene, false);
   ListBase *seqbase = SEQ_active_seqbase_get(ed);
-  SeqCollection *selected_strips = SEQ_query_selected_strips(seqbase);
+  SeqCollection *strips = Seq_query_rendered_strips(seqbase, scene->r.cfra, 0);
+  SEQ_filter_selected_strips(strips);
 
   Sequence *seq;
-  SEQ_ITERATOR_FOREACH (seq, selected_strips) {
+  SEQ_ITERATOR_FOREACH (seq, strips) {
     if (seq == ed->act_seq) {
       StripTransform *transform = seq->strip->transform;
-      SEQ_collection_free(selected_strips);
+      SEQ_collection_free(strips);
       return transform->rotation;
     }
   }
 
-  SEQ_collection_free(selected_strips);
+  SEQ_collection_free(strips);
   return 0.0f;
 }
 
@@ -276,24 +278,25 @@ static bool gizmo2d_calc_center(const bContext *C, float r_center[2])
   else if (area->spacetype == SPACE_SEQ) {
     Scene *scene = CTX_data_scene(C);
     ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(scene, false));
-    SeqCollection *selected_strips = SEQ_query_selected_strips(seqbase);
+    SeqCollection *strips = Seq_query_rendered_strips(seqbase, scene->r.cfra, 0);
+    SEQ_filter_selected_strips(strips);
 
-    if (SEQ_collection_len(selected_strips) <= 0) {
-      SEQ_collection_free(selected_strips);
+    if (SEQ_collection_len(strips) <= 0) {
+      SEQ_collection_free(strips);
       return false;
     }
 
     has_select = true;
     Sequence *seq;
-    SEQ_ITERATOR_FOREACH (seq, selected_strips) {
+    SEQ_ITERATOR_FOREACH (seq, strips) {
       StripTransform *transform = seq->strip->transform;
       r_center[0] += transform->xofs;
       r_center[1] += transform->yofs;
     }
-    r_center[0] /= SEQ_collection_len(selected_strips);
-    r_center[1] /= SEQ_collection_len(selected_strips);
+    r_center[0] /= SEQ_collection_len(strips);
+    r_center[1] /= SEQ_collection_len(strips);
 
-    SEQ_collection_free(selected_strips);
+    SEQ_collection_free(strips);
   }
   return has_select;
 }

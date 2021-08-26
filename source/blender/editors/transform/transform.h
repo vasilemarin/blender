@@ -97,7 +97,6 @@ typedef enum {
   CTX_OBMODE_XFORM_SKIP_CHILDREN = (1 << 14),
   /** Enable edge scrolling in 2D views */
   CTX_VIEW2D_EDGE_PAN = (1 << 15),
-  /* test */
 } eTContext;
 
 /** #TransInfo.flag */
