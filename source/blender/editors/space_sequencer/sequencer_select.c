@@ -507,6 +507,7 @@ void SEQUENCER_OT_select_inverse(struct wmOperatorType *ot)
 static void sequencer_select_do_updates(bContext *C, Scene *scene, Sequence *seq)
 {
   Editing *ed = SEQ_editing_get(scene, false);
+
   if (seq) {
     SEQ_select_active_set(scene, seq);
 
@@ -527,7 +528,10 @@ static void sequencer_select_do_updates(bContext *C, Scene *scene, Sequence *seq
   WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER | NA_SELECTED, scene);
 }
 
-static void sequencer_select_side_of_frame(bContext *C, View2D *v2d, int mval[2], Scene *scene)
+static void sequencer_select_side_of_frame(const bContext *C,
+                                           const View2D *v2d,
+                                           const int mval[2],
+                                           Scene *scene)
 {
   Editing *ed = SEQ_editing_get(scene, false);
 
@@ -560,7 +564,7 @@ static void sequencer_select_side_of_frame(bContext *C, View2D *v2d, int mval[2]
 }
 
 static void sequencer_select_linked_handle(
-    bContext *C, View2D *v2d, Sequence *seq, int handle_clicked, Scene *scene)
+    const bContext *C, const View2D *v2d, Sequence *seq, const int handle_clicked, Scene *scene)
 {
   Editing *ed = SEQ_editing_get(scene, false);
   if (!ELEM(handle_clicked, SEQ_SIDE_LEFT, SEQ_SIDE_RIGHT)) {
@@ -630,6 +634,37 @@ static bool element_already_selected(const Sequence *seq, const int handle_click
   return element_already_selected;
 }
 
+static int sequencer_select(const Editing *ed,
+                            Sequence *seq,
+                            const int handle_clicked,
+                            const bool extend)
+{
+  /* Deselect strip. */
+  if (extend && (seq->flag & SELECT) && ed->act_seq == seq) {
+    switch (handle_clicked) {
+      case SEQ_SIDE_NONE:
+        seq->flag &= ~SEQ_ALLSEL;
+        break;
+      case SEQ_SIDE_LEFT:
+        seq->flag ^= SEQ_LEFTSEL;
+        break;
+      case SEQ_SIDE_RIGHT:
+        seq->flag ^= SEQ_RIGHTSEL;
+        break;
+    }
+    return OPERATOR_FINISHED;
+  }
+  /* Select strip. */
+  seq->flag |= SELECT;
+  if (handle_clicked == SEQ_SIDE_LEFT) {
+    seq->flag |= SEQ_LEFTSEL;
+  }
+  if (handle_clicked == SEQ_SIDE_RIGHT) {
+    seq->flag |= SEQ_RIGHTSEL;
+  }
+  return OPERATOR_FINISHED;
+}
+
 static int sequencer_select_exec(bContext *C, wmOperator *op)
 {
   View2D *v2d = UI_view2d_fromcontext(C);
@@ -654,6 +689,7 @@ static int sequencer_select_exec(bContext *C, wmOperator *op)
     if (!extend) {
       ED_sequencer_deselect_all(scene);
     }
+    sequencer_select(ed, seq, handle_clicked, extend);
     select_linked_time(ed->seqbasep, seq);
     sequencer_select_do_updates(C, scene, seq);
     return OPERATOR_FINISHED;
@@ -703,31 +739,8 @@ static int sequencer_select_exec(bContext *C, wmOperator *op)
     return ret_value;
   }
 
-  /* Deselect strip. */
-  if (extend && (seq->flag & SELECT) && ed->act_seq == seq) {
-    switch (handle_clicked) {
-      case SEQ_SIDE_NONE:
-        seq->flag &= ~SEQ_ALLSEL;
-        break;
-      case SEQ_SIDE_LEFT:
-        seq->flag ^= SEQ_LEFTSEL;
-        break;
-      case SEQ_SIDE_RIGHT:
-        seq->flag ^= SEQ_RIGHTSEL;
-        break;
-    }
-    ret_value = OPERATOR_FINISHED;
-  }
-  else { /* Select strip. */
-    seq->flag |= SELECT;
-    if (handle_clicked == SEQ_SIDE_LEFT) {
-      seq->flag |= SEQ_LEFTSEL;
-    }
-    if (handle_clicked == SEQ_SIDE_RIGHT) {
-      seq->flag |= SEQ_RIGHTSEL;
-    }
-    ret_value = OPERATOR_FINISHED;
-  }
+  /* Do actual selection. */
+  ret_value = sequencer_select(ed, seq, handle_clicked, extend);
 
   BLI_assert((ret_value & OPERATOR_CANCELLED) == 0);
   sequencer_select_do_updates(C, scene, seq);
