@@ -563,9 +563,12 @@ static void sequencer_select_side_of_frame(const bContext *C,
   }
 }
 
-static void sequencer_select_linked_handle(
-    const bContext *C, const View2D *v2d, Sequence *seq, const int handle_clicked, Scene *scene)
+static void sequencer_select_linked_handle(const bContext *C,
+                                           const View2D *v2d,
+                                           Sequence *seq,
+                                           const int handle_clicked)
 {
+  Scene *scene = CTX_data_scene(C);
   Editing *ed = SEQ_editing_get(scene, false);
   if (!ELEM(handle_clicked, SEQ_SIDE_LEFT, SEQ_SIDE_RIGHT)) {
     /* First click selects the strip and its adjacent handles (if valid).
@@ -710,19 +713,16 @@ static int sequencer_select_exec(bContext *C, wmOperator *op)
     if (!extend) {
       ED_sequencer_deselect_all(scene);
     }
-    sequencer_select_linked_handle(C, v2d, seq, handle_clicked, scene);
+    sequencer_select_linked_handle(C, v2d, seq, handle_clicked);
     sequencer_select_do_updates(C, scene, seq);
     return OPERATOR_FINISHED;
   }
 
-  bool wait_to_deselect_others = RNA_boolean_get(op->ptr, "wait_to_deselect_others");
-  if (extend) {
-    wait_to_deselect_others = false;
-  }
+  const bool wait_to_deselect_others = RNA_boolean_get(op->ptr, "wait_to_deselect_others");
 
   /* Clicking on already selected element falls on modal operation.
    * All strips are deselected on mouse button release unless extend mode is used. */
-  if (seq && wait_to_deselect_others && element_already_selected(seq, handle_clicked)) {
+  if (seq && element_already_selected(seq, handle_clicked) && wait_to_deselect_others && !extend) {
     return OPERATOR_RUNNING_MODAL;
   }
 
