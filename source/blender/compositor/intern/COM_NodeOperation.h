@@ -320,7 +320,7 @@ class NodeOperation {
   Vector<NodeOperationInput> m_inputs;
   Vector<NodeOperationOutput> m_outputs;
 
-  uint64_t params_hash_;
+  size_t params_hash_;
   bool is_hash_output_params_implemented_;
 
   /**
