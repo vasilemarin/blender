@@ -46,6 +46,7 @@
 struct AssetViewListData {
   AssetLibraryReference asset_library_ref;
   bScreen *screen;
+  bool show_names;
 };
 
 static void asset_view_item_but_drag_set(uiBut *but,
@@ -98,15 +99,16 @@ static void asset_view_draw_item(uiList *ui_list,
   /* TODO ED_fileselect_init_layout(). Share somehow? */
   const float size_x = (96.0f / 20.0f) * UI_UNIT_X;
   const float size_y = (96.0f / 20.0f) * UI_UNIT_Y;
+  const bool show_names = list_data->show_names;
   uiBut *but = uiDefIconTextBut(block,
                                 UI_BTYPE_PREVIEW_TILE,
                                 0,
                                 ED_asset_handle_get_preview_icon_id(asset_handle),
-                                ED_asset_handle_get_name(asset_handle),
+                                show_names ? ED_asset_handle_get_name(asset_handle) : "",
                                 0,
                                 0,
                                 size_x,
-                                size_y,
+                                show_names ? size_y : size_y - UI_UNIT_Y,
                                 nullptr,
                                 0,
                                 0,
@@ -202,6 +204,7 @@ void uiTemplateAssetView(uiLayout *layout,
                          PointerRNA *active_dataptr,
                          const char *active_propname,
                          const AssetFilterSettings *filter_settings,
+                         const int draw_settings,
                          const char *activate_opname,
                          PointerRNA *r_activate_op_properties,
                          const char *drag_opname,
@@ -220,9 +223,11 @@ void uiTemplateAssetView(uiLayout *layout,
       RNA_property_enum_get(asset_library_dataptr, asset_library_prop));
 
   uiLayout *row = uiLayoutRow(col, true);
-  uiItemFullR(row, asset_library_dataptr, asset_library_prop, RNA_NO_INDEX, 0, 0, "", 0);
-  if (asset_library_ref.type != ASSET_LIBRARY_LOCAL) {
-    uiItemO(row, "", ICON_FILE_REFRESH, "ASSET_OT_list_refresh");
+  if (draw_settings & UI_TEMPLATE_ASSET_DRAW_LIBRARY) {
+    uiItemFullR(row, asset_library_dataptr, asset_library_prop, RNA_NO_INDEX, 0, 0, "", 0);
+    if (asset_library_ref.type != ASSET_LIBRARY_LOCAL) {
+      uiItemO(row, "", ICON_FILE_REFRESH, "ASSET_OT_list_refresh");
+    }
   }
 
   ED_assetlist_storage_fetch(&asset_library_ref, C);
@@ -236,6 +241,15 @@ void uiTemplateAssetView(uiLayout *layout,
                                                                   "AssetViewListData");
   list_data->asset_library_ref = asset_library_ref;
   list_data->screen = CTX_wm_screen(C);
+  list_data->show_names = (draw_settings & UI_TEMPLATE_ASSET_DRAW_NAMES) != 0;
+
+  uiTemplateListFlags template_list_flags = UI_TEMPLATE_LIST_NO_GRIP;
+  if ((draw_settings & UI_TEMPLATE_ASSET_DRAW_NAMES) == 0) {
+    template_list_flags |= UI_TEMPLATE_LIST_NO_NAMES;
+  }
+  if ((draw_settings & UI_TEMPLATE_ASSET_DRAW_FILTER) == 0) {
+    template_list_flags |= UI_TEMPLATE_LIST_NO_FILTER_OPTIONS;
+  }
 
   /* TODO can we have some kind of model-view API to handle referencing, filtering and lazy loading
    * (of previews) of the items? */
@@ -252,7 +266,7 @@ void uiTemplateAssetView(uiLayout *layout,
                                    0,
                                    UILST_LAYOUT_BIG_PREVIEW_GRID,
                                    0,
-                                   UI_TEMPLATE_LIST_NO_GRIP,
+                                   template_list_flags,
                                    list_data);
   if (!list) {
     /* List creation failed. */

@@ -622,6 +622,9 @@ static void rna_uiTemplateAssetView(uiLayout *layout,
                                     PointerRNA *active_dataptr,
                                     const char *active_propname,
                                     int filter_id_types,
+                                    const bool show_names,
+                                    const bool show_filters,
+                                    const bool show_library_selector,
                                     const char *activate_opname,
                                     PointerRNA *r_activate_op_properties,
                                     const char *drag_opname,
@@ -630,6 +633,11 @@ static void rna_uiTemplateAssetView(uiLayout *layout,
   AssetFilterSettings filter_settings = {
       .id_types = filter_id_types ? filter_id_types : FILTER_ID_ALL,
   };
+
+  int draw_settings = (show_names ? UI_TEMPLATE_ASSET_DRAW_NAMES : 0) |
+                      (show_filters ? UI_TEMPLATE_ASSET_DRAW_FILTER : 0) |
+                      (show_library_selector ? UI_TEMPLATE_ASSET_DRAW_LIBRARY : 0);
+
   uiTemplateAssetView(layout,
                       C,
                       list_id,
@@ -640,6 +648,7 @@ static void rna_uiTemplateAssetView(uiLayout *layout,
                       active_dataptr,
                       active_propname,
                       &filter_settings,
+                      draw_settings,
                       activate_opname,
                       r_activate_op_properties,
                       drag_opname,
@@ -1839,6 +1848,14 @@ void RNA_api_ui_layout(StructRNA *srna)
   RNA_def_property_enum_items(parm, DummyRNA_NULL_items);
   RNA_def_property_enum_funcs(parm, NULL, NULL, "rna_uiTemplateAssetView_filter_id_types_itemf");
   RNA_def_property_flag(parm, PROP_ENUM_FLAG);
+
+  /* Drawing options. */
+  RNA_def_boolean(func, "show_names", true, "Show Names", "Show the name of the assets");
+  RNA_def_boolean(func, "show_filters", true, "Show Filters", "Show the filter options");
+  RNA_def_boolean(
+      func, "show_library_selector", true, "Show Library Selector", "Show the library selector");
+
+  /* Return options. */
   RNA_def_string(func,
                  "activate_operator",
                  NULL,
