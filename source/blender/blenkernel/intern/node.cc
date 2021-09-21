@@ -5208,6 +5208,7 @@ static void registerGeometryNodes()
   register_node_type_geo_input_material();
   register_node_type_geo_input_normal();
   register_node_type_geo_input_position();
+  register_node_type_geo_input_tangent();
   register_node_type_geo_is_viewport();
   register_node_type_geo_join_geometry();
   register_node_type_geo_material_assign();
@@ -5234,6 +5235,7 @@ static void registerGeometryNodes()
   register_node_type_geo_realize_instances();
   register_node_type_geo_sample_texture();
   register_node_type_geo_select_by_handle_type();
+  register_node_type_geo_string_join();
   register_node_type_geo_material_selection();
   register_node_type_geo_separate_components();
   register_node_type_geo_set_position();
@@ -5253,6 +5255,9 @@ static void registerFunctionNodes()
   register_node_type_fn_input_string();
   register_node_type_fn_input_vector();
   register_node_type_fn_random_float();
+  register_node_type_fn_string_length();
+  register_node_type_fn_string_substring();
+  register_node_type_fn_value_to_string();
 }
 
 void BKE_node_system_init(void)
