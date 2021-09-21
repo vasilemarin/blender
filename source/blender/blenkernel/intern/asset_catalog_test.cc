@@ -262,7 +262,7 @@ TEST_F(AssetCatalogTest, create_catalog_after_loading_file)
                                                AssetCatalogService::DEFAULT_CATALOG_FILENAME;
   const CatalogFilePath writable_catalog_path = temp_lib_root + "/" +
                                                 AssetCatalogService::DEFAULT_CATALOG_FILENAME;
-  BLI_copy(default_catalog_path.c_str(), temp_lib_root.c_str());
+  BLI_copy(default_catalog_path.c_str(), writable_catalog_path.c_str());
   EXPECT_TRUE(BLI_is_dir(temp_lib_root.c_str()));
   EXPECT_TRUE(BLI_is_file(writable_catalog_path.c_str()));
 
@@ -379,7 +379,7 @@ TEST_F(AssetCatalogTest, merge_catalog_files)
   const CatalogFilePath original_cdf_file = asset_library_root_ + "/blender_assets.cats.txt";
   const CatalogFilePath modified_cdf_file = asset_library_root_ + "/modified_assets.cats.txt";
   const CatalogFilePath temp_cdf_file = cdf_dir + "/blender_assets.cats.txt";
-  BLI_copy(original_cdf_file.c_str(), cdf_dir.c_str());
+  BLI_copy(original_cdf_file.c_str(), temp_cdf_file.c_str());
 
   // Load the unmodified, original CDF.
   TestableAssetCatalogService service(asset_library_root_);
