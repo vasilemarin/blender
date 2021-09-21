@@ -115,7 +115,7 @@ class AssetCatalogTest : public testing::Test {
   void TearDown() override
   {
     if (!temp_library_path_.empty()) {
-      // BLI_delete(temp_library_path_.c_str(), true, true);
+      BLI_delete(temp_library_path_.c_str(), true, true);
       temp_library_path_ = "";
     }
   }
