@@ -63,7 +63,11 @@ class AssetCatalogService {
   /** Load asset catalog definitions from the given file or directory. */
   void load_from_disk(const CatalogFilePath &file_or_directory_path);
 
-  void write_to_disk(const CatalogFilePath &base_path_for_new_files);
+  /**
+   * Write the catalog definitions to disk.
+   * The provided directory path is only used when there is no CDF loaded from disk yet but assets
+   * still have to be saved. */
+  void write_to_disk(const CatalogFilePath &directory_for_new_files);
 
   /**
    * Merge on-disk changes into the in-memory asset catalogs.
@@ -169,10 +173,19 @@ class AssetCatalogDefinitionFile {
 
   AssetCatalogDefinitionFile() = default;
 
-  /** Write the catalog definitions to the same file they were read from. */
-  void write_to_disk() const;
-  /** Write the catalog definitions to an arbitrary file path. */
-  void write_to_disk(const CatalogFilePath &) const;
+  /**
+   * Write the catalog definitions to the same file they were read from.
+   * Return true when the file was written correctly, false when there was a problem.
+   */
+  bool write_to_disk() const;
+  /**
+   * Write the catalog definitions to an arbitrary file path.
+   *
+   * Any existing file is backed up to "filename~". Any previously existing backup is overwritten.
+   *
+   * Return true when the file was written correctly, false when there was a problem.
+   */
+  bool write_to_disk(const CatalogFilePath &) const;
 
   bool contains(CatalogID catalog_id) const;
   /* Add a new catalog. Undefined behaviour if a catalog with the same ID was already added. */
@@ -188,6 +201,12 @@ class AssetCatalogDefinitionFile {
   Map<CatalogID, AssetCatalog *> catalogs_;
 
   std::unique_ptr<AssetCatalog> parse_catalog_line(StringRef line);
+
+  /**
+   * Write the catalog definitions to the given file path.
+   * Return true when the file was written correctly, false when there was a problem.
+   */
+  bool write_to_disk_unsafe(const CatalogFilePath &file_path) const;
   bool ensure_directory_exists(const CatalogFilePath directory_path) const;
 };
 

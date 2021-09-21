@@ -215,14 +215,14 @@ void AssetCatalogService::merge_from_disk_before_writing()
                                                catalog_parsed_callback);
 }
 
-void AssetCatalogService::write_to_disk(const CatalogFilePath &base_path_for_new_files)
+void AssetCatalogService::write_to_disk(const CatalogFilePath &directory_for_new_files)
 {
   /* TODO(Sybren): expand to support multiple CDFs. */
 
   if (!catalog_definition_file_) {
     /* A CDF has to be created to contain all current in-memory catalogs. */
     const CatalogFilePath cdf_path = asset_definition_default_file_path_from_dir(
-        base_path_for_new_files);
+        directory_for_new_files);
     catalog_definition_file_ = construct_cdf_in_memory(cdf_path);
   }
 
@@ -424,22 +424,44 @@ std::unique_ptr<AssetCatalog> AssetCatalogDefinitionFile::parse_catalog_line(con
   return std::make_unique<AssetCatalog>(catalog_id, catalog_path, simple_name);
 }
 
-void AssetCatalogDefinitionFile::write_to_disk() const
+bool AssetCatalogDefinitionFile::write_to_disk() const
 {
   BLI_assert_msg(!this->file_path.empty(), "Writing to CDF requires its file path to be known");
-  this->write_to_disk(this->file_path);
+  return this->write_to_disk(this->file_path);
 }
 
-void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path) const
+bool AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path) const
+{
+  const CatalogFilePath writable_path = file_path + "~write~";
+  const CatalogFilePath backup_path = file_path + "~";
+
+  if (!this->write_to_disk_unsafe(writable_path)) {
+    /* TODO: communicate what went wrong. */
+    return false;
+  }
+  if (BLI_exists(file_path.c_str())) {
+    if (BLI_rename(file_path.c_str(), backup_path.c_str())) {
+      /* TODO: communicate what went wrong. */
+      return false;
+    }
+  }
+  if (BLI_rename(writable_path.c_str(), file_path.c_str())) {
+    /* TODO: communicate what went wrong. */
+    return false;
+  }
+
+  return true;
+}
+
+bool AssetCatalogDefinitionFile::write_to_disk_unsafe(const CatalogFilePath &file_path) const
 {
   char directory[PATH_MAX];
   BLI_split_dir_part(file_path.c_str(), directory, sizeof(directory));
   if (!ensure_directory_exists(directory)) {
     /* TODO(Sybren): pass errors to the UI somehow. */
-    return;
+    return false;
   }
 
-  // TODO(@sybren): create a backup of the original file, if it exists.
   std::ofstream output(file_path);
 
   // TODO(@sybren): remember the line ending style that was originally read, then use that to write
@@ -462,6 +484,8 @@ void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path)
     output << catalog->catalog_id << ":" << catalog->path << ":" << catalog->simple_name
            << std::endl;
   }
+  output.close();
+  return !output.bad();
 }
 
 bool AssetCatalogDefinitionFile::ensure_directory_exists(
