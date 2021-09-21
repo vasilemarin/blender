@@ -206,6 +206,17 @@ TEST_F(AssetCatalogTest, write_single_file)
   // TODO(@sybren): test ordering of catalogs in the file.
 }
 
+TEST_F(AssetCatalogTest, no_writing_empty_files)
+{
+  const CatalogFilePath temp_lib_root = create_temp_path();
+  AssetCatalogService service(temp_lib_root);
+  service.write_to_disk(temp_lib_root);
+
+  const CatalogFilePath default_cdf_path = temp_lib_root + "/" +
+                                           AssetCatalogService::DEFAULT_CATALOG_FILENAME;
+  EXPECT_FALSE(BLI_exists(default_cdf_path.c_str()));
+}
+
 TEST_F(AssetCatalogTest, create_first_catalog_from_scratch)
 {
   /* Even from scratch a root directory should be known. */

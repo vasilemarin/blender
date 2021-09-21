@@ -220,6 +220,11 @@ void AssetCatalogService::write_to_disk(const CatalogFilePath &directory_for_new
   /* TODO(Sybren): expand to support multiple CDFs. */
 
   if (!catalog_definition_file_) {
+    if (catalogs_.is_empty() && deleted_catalogs_.is_empty()) {
+      /* Avoid saving anything, when there is nothing to save. */
+      return;
+    }
+
     /* A CDF has to be created to contain all current in-memory catalogs. */
     const CatalogFilePath cdf_path = asset_definition_default_file_path_from_dir(
         directory_for_new_files);
