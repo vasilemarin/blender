@@ -24,6 +24,11 @@
 #include "BLI_path_util.h"
 #include "BLI_string_ref.hh"
 
+/* For S_ISREG() and S_ISDIR() on Windows. */
+#ifdef WIN32
+#  include "BLI_winstuff.h"
+#endif
+
 #include <fstream>
 
 namespace blender::bke {
