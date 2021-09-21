@@ -141,7 +141,7 @@ std::ostream &operator<<(std::ostream &stream, bUUID uuid)
 
 namespace blender::bke {
 
-UUID::UUID(const std::string &string_formatted_uuid)
+bUUID::bUUID(const std::string &string_formatted_uuid)
 {
   const bool parsed_ok = BLI_uuid_parse_string(this, string_formatted_uuid.c_str());
   if (!parsed_ok) {
@@ -151,19 +151,19 @@ UUID::UUID(const std::string &string_formatted_uuid)
   }
 }
 
-UUID::UUID(const ::UUID &struct_uuid)
+bUUID::bUUID(const ::bUUID &struct_uuid)
 {
-  *(static_cast<::UUID *>(this)) = struct_uuid;
+  *(static_cast<::bUUID *>(this)) = struct_uuid;
 }
 
-uint64_t UUID::hash() const
+uint64_t bUUID::hash() const
 {
   /* Convert the struct into two 64-bit numbers, and XOR them to get the hash. */
   const uint64_t *uuid_as_int64 = reinterpret_cast<const uint64_t *>(this);
   return uuid_as_int64[0] ^ uuid_as_int64[1];
 }
 
-bool operator==(UUID uuid1, UUID uuid2)
+bool operator==(bUUID uuid1, bUUID uuid2)
 {
   return BLI_uuid_equal(uuid1, uuid2);
 }

@@ -75,16 +75,16 @@ std::ostream &operator<<(std::ostream &stream, bUUID uuid);
 
 namespace blender::bke {
 
-class UUID : public ::UUID {
+class bUUID : public ::bUUID {
  public:
-  UUID() = default;
-  UUID(const ::UUID &struct_uuid);
-  explicit UUID(const std::string &string_formatted_uuid);
+  bUUID() = default;
+  bUUID(const ::bUUID &struct_uuid);
+  explicit bUUID(const std::string &string_formatted_uuid);
 
   uint64_t hash() const;
 };
 
-bool operator==(UUID uuid1, UUID uuid2);
+bool operator==(bUUID uuid1, bUUID uuid2);
 
 }  // namespace blender::bke
 

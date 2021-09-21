@@ -28,17 +28,17 @@
 namespace blender::bke::tests {
 
 /* UUIDs from lib/tests/asset_library/blender_assets.cats.txt */
-const UUID UUID_ID_WITHOUT_PATH("e34dd2c5-5d2e-4668-9794-1db5de2a4f71");
-const UUID UUID_POSES_ELLIE("df60e1f6-2259-475b-93d9-69a1b4a8db78");
-const UUID UUID_POSES_ELLIE_WHITESPACE("b06132f6-5687-4751-a6dd-392740eb3c46");
-const UUID UUID_POSES_ELLIE_TRAILING_SLASH("3376b94b-a28d-4d05-86c1-bf30b937130d");
-const UUID UUID_POSES_RUZENA("79a4f887-ab60-4bd4-94da-d572e27d6aed");
-const UUID UUID_POSES_RUZENA_HAND("81811c31-1a88-4bd7-bb34-c6fc2607a12e");
-const UUID UUID_POSES_RUZENA_FACE("82162c1f-06cc-4d91-a9bf-4f72c104e348");
-const UUID UUID_WITHOUT_SIMPLENAME("d7916a31-6ca9-4909-955f-182ca2b81fa3");
+const bUUID UUID_ID_WITHOUT_PATH("e34dd2c5-5d2e-4668-9794-1db5de2a4f71");
+const bUUID UUID_POSES_ELLIE("df60e1f6-2259-475b-93d9-69a1b4a8db78");
+const bUUID UUID_POSES_ELLIE_WHITESPACE("b06132f6-5687-4751-a6dd-392740eb3c46");
+const bUUID UUID_POSES_ELLIE_TRAILING_SLASH("3376b94b-a28d-4d05-86c1-bf30b937130d");
+const bUUID UUID_POSES_RUZENA("79a4f887-ab60-4bd4-94da-d572e27d6aed");
+const bUUID UUID_POSES_RUZENA_HAND("81811c31-1a88-4bd7-bb34-c6fc2607a12e");
+const bUUID UUID_POSES_RUZENA_FACE("82162c1f-06cc-4d91-a9bf-4f72c104e348");
+const bUUID UUID_WITHOUT_SIMPLENAME("d7916a31-6ca9-4909-955f-182ca2b81fa3");
 
 /* UUIDs from lib/tests/asset_library/modified_assets.cats.txt */
-const UUID UUID_AGENT_47("c5744ba5-43f5-4f73-8e52-010ad4a61b34");
+const bUUID UUID_AGENT_47("c5744ba5-43f5-4f73-8e52-010ad4a61b34");
 
 /* Subclass that adds accessors such that protected fields can be used in tests. */
 class TestableAssetCatalogService : public AssetCatalogService {
@@ -273,7 +273,7 @@ TEST_F(AssetCatalogTest, create_catalog_after_loading_file)
 
   /* This should create a new catalog but not write to disk. */
   const AssetCatalog *new_catalog = service.create_catalog("new/catalog");
-  const UUID new_catalog_id = new_catalog->catalog_id;
+  const bUUID new_catalog_id = new_catalog->catalog_id;
 
   /* Reload the on-disk catalog file. */
   TestableAssetCatalogService loaded_service(temp_lib_root);
