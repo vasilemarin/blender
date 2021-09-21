@@ -397,4 +397,33 @@ TEST_F(AssetCatalogTest, merge_catalog_files)
   EXPECT_EQ("character/Ružena/poselib/face", ruzena_face->path);
 }
 
+TEST_F(AssetCatalogTest, backups)
+{
+  const CatalogFilePath cdf_dir = create_temp_path();
+  const CatalogFilePath original_cdf_file = asset_library_root_ + "/blender_assets.cats.txt";
+  const CatalogFilePath writable_cdf_file = cdf_dir + "/blender_assets.cats.txt";
+  BLI_copy(original_cdf_file.c_str(), writable_cdf_file.c_str());
+
+  /* Read a CDF, modify, and write it. */
+  AssetCatalogService service(cdf_dir);
+  service.load_from_disk();
+  service.delete_catalog(UUID_POSES_ELLIE);
+  service.write_to_disk(cdf_dir);
+
+  const CatalogFilePath backup_path = writable_cdf_file + "~";
+  ASSERT_TRUE(BLI_is_file(backup_path.c_str()));
+
+  AssetCatalogService loaded_service;
+  loaded_service.load_from_disk(backup_path);
+
+  // Test that the expected catalogs are there, including the deleted one.
+  // This is the backup, after all.
+  EXPECT_NE(nullptr, loaded_service.find_catalog(UUID_POSES_ELLIE));
+  EXPECT_NE(nullptr, loaded_service.find_catalog(UUID_POSES_ELLIE_WHITESPACE));
+  EXPECT_NE(nullptr, loaded_service.find_catalog(UUID_POSES_ELLIE_TRAILING_SLASH));
+  EXPECT_NE(nullptr, loaded_service.find_catalog(UUID_POSES_RUZENA));
+  EXPECT_NE(nullptr, loaded_service.find_catalog(UUID_POSES_RUZENA_HAND));
+  EXPECT_NE(nullptr, loaded_service.find_catalog(UUID_POSES_RUZENA_FACE));
+}
+
 }  // namespace blender::bke::tests

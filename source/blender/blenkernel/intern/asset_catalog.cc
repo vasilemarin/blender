@@ -432,7 +432,7 @@ bool AssetCatalogDefinitionFile::write_to_disk() const
 
 bool AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path) const
 {
-  const CatalogFilePath writable_path = file_path + "~write~";
+  const CatalogFilePath writable_path = file_path + ".writing";
   const CatalogFilePath backup_path = file_path + "~";
 
   if (!this->write_to_disk_unsafe(writable_path)) {
