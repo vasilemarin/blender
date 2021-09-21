@@ -256,85 +256,6 @@ void AssetCatalogService::merge_from_disk_before_writing()
                                                catalog_parsed_callback);
 }
 
-void AssetCatalogDefinitionFile::parse_catalog_file(
-    const CatalogFilePath &catalog_definition_file_path,
-    AssetCatalogParsedFn catalog_loaded_callback)
-{
-  std::fstream infile(catalog_definition_file_path);
-  std::string line;
-  while (std::getline(infile, line)) {
-    const StringRef trimmed_line = StringRef(line).trim();
-    if (trimmed_line.is_empty() || trimmed_line[0] == '#') {
-      continue;
-    }
-
-    std::unique_ptr<AssetCatalog> catalog = this->parse_catalog_line(trimmed_line);
-    if (!catalog) {
-      continue;
-    }
-
-    AssetCatalog *non_owning_ptr = catalog.get();
-    const bool keep_catalog = catalog_loaded_callback(std::move(catalog));
-    if (!keep_catalog) {
-      continue;
-    }
-
-    if (this->contains(non_owning_ptr->catalog_id)) {
-      std::cerr << catalog_definition_file_path << ": multiple definitions of catalog "
-                << non_owning_ptr->catalog_id << " in the same file, using first occurrence."
-                << std::endl;
-      /* Don't store 'catalog'; unique_ptr will free its memory. */
-      continue;
-    }
-
-    /* The AssetDefinitionFile should include this catalog when writing it back to disk. */
-    this->add_new(non_owning_ptr);
-  }
-}
-
-std::unique_ptr<AssetCatalog> AssetCatalogDefinitionFile::parse_catalog_line(const StringRef line)
-{
-  const char delim = ':';
-  const int64_t first_delim = line.find_first_of(delim);
-  if (first_delim == StringRef::not_found) {
-    std::cerr << "Invalid line in " << this->file_path << ": " << line << std::endl;
-    return std::unique_ptr<AssetCatalog>(nullptr);
-  }
-
-  /* Parse the catalog ID. */
-  const std::string id_as_string = line.substr(0, first_delim).trim();
-  UUID catalog_id;
-  const bool uuid_parsed_ok = BLI_uuid_parse_string(&catalog_id, id_as_string.c_str());
-  if (!uuid_parsed_ok) {
-    std::cerr << "Invalid UUID in " << this->file_path << ": " << line << std::endl;
-    return std::unique_ptr<AssetCatalog>(nullptr);
-  }
-
-  /* Parse the path and simple name. */
-  const StringRef path_and_simple_name = line.substr(first_delim + 1);
-  const int64_t second_delim = path_and_simple_name.find_first_of(delim);
-
-  CatalogPath catalog_path;
-  std::string simple_name;
-  if (second_delim == 0) {
-    /* Delimiter as first character means there is no path. These lines are to be ignored. */
-    return std::unique_ptr<AssetCatalog>(nullptr);
-  }
-
-  if (second_delim == StringRef::not_found) {
-    /* No delimiter means no simple name, just treat it as all "path". */
-    catalog_path = path_and_simple_name;
-    simple_name = "";
-  }
-  else {
-    catalog_path = path_and_simple_name.substr(0, second_delim);
-    simple_name = path_and_simple_name.substr(second_delim + 1).trim();
-  }
-
-  catalog_path = AssetCatalog::cleanup_path(catalog_path);
-  return std::make_unique<AssetCatalog>(catalog_id, catalog_path, simple_name);
-}
-
 std::unique_ptr<AssetCatalogTree> AssetCatalogService::read_into_tree()
 {
   auto tree = std::make_unique<AssetCatalogTree>();
@@ -434,6 +355,85 @@ bool AssetCatalogDefinitionFile::contains(const CatalogID catalog_id) const
 void AssetCatalogDefinitionFile::add_new(AssetCatalog *catalog)
 {
   catalogs_.add_new(catalog->catalog_id, catalog);
+}
+
+void AssetCatalogDefinitionFile::parse_catalog_file(
+    const CatalogFilePath &catalog_definition_file_path,
+    AssetCatalogParsedFn catalog_loaded_callback)
+{
+  std::fstream infile(catalog_definition_file_path);
+  std::string line;
+  while (std::getline(infile, line)) {
+    const StringRef trimmed_line = StringRef(line).trim();
+    if (trimmed_line.is_empty() || trimmed_line[0] == '#') {
+      continue;
+    }
+
+    std::unique_ptr<AssetCatalog> catalog = this->parse_catalog_line(trimmed_line);
+    if (!catalog) {
+      continue;
+    }
+
+    AssetCatalog *non_owning_ptr = catalog.get();
+    const bool keep_catalog = catalog_loaded_callback(std::move(catalog));
+    if (!keep_catalog) {
+      continue;
+    }
+
+    if (this->contains(non_owning_ptr->catalog_id)) {
+      std::cerr << catalog_definition_file_path << ": multiple definitions of catalog "
+                << non_owning_ptr->catalog_id << " in the same file, using first occurrence."
+                << std::endl;
+      /* Don't store 'catalog'; unique_ptr will free its memory. */
+      continue;
+    }
+
+    /* The AssetDefinitionFile should include this catalog when writing it back to disk. */
+    this->add_new(non_owning_ptr);
+  }
+}
+
+std::unique_ptr<AssetCatalog> AssetCatalogDefinitionFile::parse_catalog_line(const StringRef line)
+{
+  const char delim = ':';
+  const int64_t first_delim = line.find_first_of(delim);
+  if (first_delim == StringRef::not_found) {
+    std::cerr << "Invalid line in " << this->file_path << ": " << line << std::endl;
+    return std::unique_ptr<AssetCatalog>(nullptr);
+  }
+
+  /* Parse the catalog ID. */
+  const std::string id_as_string = line.substr(0, first_delim).trim();
+  UUID catalog_id;
+  const bool uuid_parsed_ok = BLI_uuid_parse_string(&catalog_id, id_as_string.c_str());
+  if (!uuid_parsed_ok) {
+    std::cerr << "Invalid UUID in " << this->file_path << ": " << line << std::endl;
+    return std::unique_ptr<AssetCatalog>(nullptr);
+  }
+
+  /* Parse the path and simple name. */
+  const StringRef path_and_simple_name = line.substr(first_delim + 1);
+  const int64_t second_delim = path_and_simple_name.find_first_of(delim);
+
+  CatalogPath catalog_path;
+  std::string simple_name;
+  if (second_delim == 0) {
+    /* Delimiter as first character means there is no path. These lines are to be ignored. */
+    return std::unique_ptr<AssetCatalog>(nullptr);
+  }
+
+  if (second_delim == StringRef::not_found) {
+    /* No delimiter means no simple name, just treat it as all "path". */
+    catalog_path = path_and_simple_name;
+    simple_name = "";
+  }
+  else {
+    catalog_path = path_and_simple_name.substr(0, second_delim);
+    simple_name = path_and_simple_name.substr(second_delim + 1).trim();
+  }
+
+  catalog_path = AssetCatalog::cleanup_path(catalog_path);
+  return std::make_unique<AssetCatalog>(catalog_id, catalog_path, simple_name);
 }
 
 void AssetCatalogDefinitionFile::write_to_disk() const
