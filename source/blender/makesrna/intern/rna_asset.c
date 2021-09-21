@@ -144,7 +144,7 @@ static int rna_AssetMetaData_catalog_id_length(PointerRNA *UNUSED(ptr))
 static void rna_AssetMetaData_catalog_id_set(PointerRNA *ptr, const char *value)
 {
   AssetMetaData *asset_data = ptr->data;
-  UUID new_uuid;
+  bUUID new_uuid;
 
   if (value[0] == '\0') {
     BKE_asset_metadata_catalog_id_clear(asset_data);
