@@ -79,6 +79,13 @@ class AssetCatalogTest : public testing::Test {
     return temp_library_path_;
   }
 
+  CatalogFilePath create_temp_path()
+  {
+    CatalogFilePath path = use_temp_path();
+    BLI_dir_create_recursive(path.c_str());
+    return path;
+  }
+
   struct CatalogPathInfo {
     StringRef name;
     int parent_count;
@@ -108,7 +115,7 @@ class AssetCatalogTest : public testing::Test {
   void TearDown() override
   {
     if (!temp_library_path_.empty()) {
-      BLI_delete(temp_library_path_.c_str(), true, true);
+      // BLI_delete(temp_library_path_.c_str(), true, true);
       temp_library_path_ = "";
     }
   }
@@ -203,7 +210,7 @@ TEST_F(AssetCatalogTest, create_first_catalog_from_scratch)
 {
   /* Even from scratch a root directory should be known. */
   const CatalogFilePath temp_lib_root = use_temp_path();
-  AssetCatalogService service(temp_lib_root);
+  AssetCatalogService service;
 
   /* Just creating the service should NOT create the path. */
   EXPECT_FALSE(BLI_exists(temp_lib_root.c_str()));
@@ -213,7 +220,11 @@ TEST_F(AssetCatalogTest, create_first_catalog_from_scratch)
   EXPECT_EQ(cat->path, "some/catalog/path");
   EXPECT_EQ(cat->simple_name, "some-catalog-path");
 
-  /* Creating a new catalog should create the directory + the default file. */
+  /* Creating a new catalog should not save anything to disk yet. */
+  EXPECT_FALSE(BLI_exists(temp_lib_root.c_str()));
+
+  /* Writing to disk should create the directory + the default file. */
+  service.write_to_disk(temp_lib_root);
   EXPECT_TRUE(BLI_is_dir(temp_lib_root.c_str()));
 
   const CatalogFilePath definition_file_path = temp_lib_root + "/" +
@@ -232,26 +243,44 @@ TEST_F(AssetCatalogTest, create_first_catalog_from_scratch)
 
 TEST_F(AssetCatalogTest, create_catalog_after_loading_file)
 {
-  const CatalogFilePath temp_lib_root = use_temp_path();
+  const CatalogFilePath temp_lib_root = create_temp_path();
 
   /* Copy the asset catalog definition files to a separate location, so that we can test without
    * overwriting the test file in SVN. */
-  BLI_copy(asset_library_root_.c_str(), temp_lib_root.c_str());
+  const CatalogFilePath default_catalog_path = asset_library_root_ + "/" +
+                                               AssetCatalogService::DEFAULT_CATALOG_FILENAME;
+  const CatalogFilePath writable_catalog_path = temp_lib_root + "/" +
+                                                AssetCatalogService::DEFAULT_CATALOG_FILENAME;
+  BLI_copy(default_catalog_path.c_str(), temp_lib_root.c_str());
+  EXPECT_TRUE(BLI_is_dir(temp_lib_root.c_str()));
+  EXPECT_TRUE(BLI_is_file(writable_catalog_path.c_str()));
 
-  AssetCatalogService service(temp_lib_root);
+  TestableAssetCatalogService service(temp_lib_root);
   service.load_from_disk();
+  EXPECT_EQ(writable_catalog_path, service.get_catalog_definition_file()->file_path);
   EXPECT_NE(nullptr, service.find_catalog(UUID_POSES_ELLIE)) << "expected catalogs to be loaded";
 
-  /* This should create a new catalog and write to disk. */
+  /* This should create a new catalog but not write to disk. */
   const AssetCatalog *new_catalog = service.create_catalog("new/catalog");
+  const UUID new_catalog_id = new_catalog->catalog_id;
 
-  /* Reload the written catalog files. */
-  AssetCatalogService loaded_service(temp_lib_root);
+  /* Reload the on-disk catalog file. */
+  TestableAssetCatalogService loaded_service(temp_lib_root);
   loaded_service.load_from_disk();
+  EXPECT_EQ(writable_catalog_path, loaded_service.get_catalog_definition_file()->file_path);
 
-  EXPECT_NE(nullptr, service.find_catalog(UUID_POSES_ELLIE))
+  EXPECT_NE(nullptr, loaded_service.find_catalog(UUID_POSES_ELLIE))
       << "expected pre-existing catalogs to be kept in the file";
-  EXPECT_NE(nullptr, service.find_catalog(new_catalog->catalog_id))
+  EXPECT_EQ(nullptr, loaded_service.find_catalog(new_catalog_id))
+      << "expecting newly added catalog to not yet be saved to " << temp_lib_root;
+
+  /* Write and reload the catalog file. */
+  service.write_to_disk(temp_lib_root.c_str());
+  AssetCatalogService reloaded_service(temp_lib_root);
+  reloaded_service.load_from_disk();
+  EXPECT_NE(nullptr, reloaded_service.find_catalog(UUID_POSES_ELLIE))
+      << "expected pre-existing catalogs to be kept in the file";
+  EXPECT_NE(nullptr, reloaded_service.find_catalog(new_catalog_id))
       << "expecting newly added catalog to exist in the file";
 }
 
@@ -312,13 +341,14 @@ TEST_F(AssetCatalogTest, delete_catalog_leaf)
 TEST_F(AssetCatalogTest, delete_catalog_write_to_disk)
 {
   TestableAssetCatalogService service(asset_library_root_);
-  service.load_from_disk(asset_library_root_ + "/" + "blender_assets.cats.txt");
+  service.load_from_disk(asset_library_root_ + "/" +
+                         AssetCatalogService::DEFAULT_CATALOG_FILENAME);
 
   service.delete_catalog(UUID_POSES_ELLIE);
 
   const CatalogFilePath save_to_path = use_temp_path();
   AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();
-  cdf->write_to_disk(save_to_path);
+  cdf->write_to_disk(save_to_path + "/" + AssetCatalogService::DEFAULT_CATALOG_FILENAME);
 
   AssetCatalogService loaded_service(save_to_path);
   loaded_service.load_from_disk();
@@ -334,24 +364,23 @@ TEST_F(AssetCatalogTest, delete_catalog_write_to_disk)
 
 TEST_F(AssetCatalogTest, merge_catalog_files)
 {
-  const CatalogFilePath cdf_path = use_temp_path();
-  const CatalogFilePath original_cdf_path = asset_library_root_ + "/blender_assets.cats.txt";
-  const CatalogFilePath modified_cdf_path = asset_library_root_ + "/modified_assets.cats.txt";
-  BLI_copy(original_cdf_path.c_str(), cdf_path.c_str());
+  const CatalogFilePath cdf_dir = create_temp_path();
+  const CatalogFilePath original_cdf_file = asset_library_root_ + "/blender_assets.cats.txt";
+  const CatalogFilePath modified_cdf_file = asset_library_root_ + "/modified_assets.cats.txt";
+  const CatalogFilePath temp_cdf_file = cdf_dir + "/blender_assets.cats.txt";
+  BLI_copy(original_cdf_file.c_str(), cdf_dir.c_str());
 
   // Load the unmodified, original CDF.
   TestableAssetCatalogService service(asset_library_root_);
-  service.load_from_disk(cdf_path);
+  service.load_from_disk(cdf_dir);
 
   // Copy a modified file, to mimick a situation where someone changed the CDF after we loaded it.
-  BLI_copy(modified_cdf_path.c_str(), cdf_path.c_str());
+  BLI_copy(modified_cdf_file.c_str(), temp_cdf_file.c_str());
 
   // Overwrite the modified file. This should merge the on-disk file with our catalogs.
-  AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();
-  service.merge_from_disk_before_writing();
-  cdf->write_to_disk(cdf_path);
+  service.write_to_disk(cdf_dir);
 
-  AssetCatalogService loaded_service(cdf_path);
+  AssetCatalogService loaded_service(cdf_dir);
   loaded_service.load_from_disk();
 
   // Test that the expected catalogs are there.

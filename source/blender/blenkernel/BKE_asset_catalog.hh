@@ -55,12 +55,15 @@ class AssetCatalogService {
   static const CatalogFilePath DEFAULT_CATALOG_FILENAME;
 
  public:
+  AssetCatalogService() = default;
   explicit AssetCatalogService(const CatalogFilePath &asset_library_root);
 
   /** Load asset catalog definitions from the files found in the asset library. */
   void load_from_disk();
   /** Load asset catalog definitions from the given file or directory. */
   void load_from_disk(const CatalogFilePath &file_or_directory_path);
+
+  void write_to_disk(const CatalogFilePath &base_path_for_new_files);
 
   /**
    * Merge on-disk changes into the in-memory asset catalogs.
@@ -104,15 +107,10 @@ class AssetCatalogService {
       const CatalogFilePath &catalog_definition_file_path);
 
   /**
-   * Ensure that an #AssetCatalogDefinitionFile exists in memory.
-   * This is used when no such file has been loaded, and a new catalog is to be created. */
-  void ensure_catalog_definition_file();
-
-  /**
-   * Ensure the asset library root directory exists, so that it can be written to.
-   * TODO(@sybren): this might move to the #AssetLibrary class instead, and just assumed to exist
-   * in this class. */
-  bool ensure_asset_library_root();
+   * Construct an in-memory catalog definition file (CDF) from the currently known catalogs.
+   * This object can then be processed further before saving to disk. */
+  std::unique_ptr<AssetCatalogDefinitionFile> construct_cdf_in_memory(
+      const CatalogFilePath &file_path);
 
   std::unique_ptr<AssetCatalogTree> read_into_tree();
   void rebuild_tree();
@@ -190,6 +188,7 @@ class AssetCatalogDefinitionFile {
   Map<CatalogID, AssetCatalog *> catalogs_;
 
   std::unique_ptr<AssetCatalog> parse_catalog_line(StringRef line);
+  bool ensure_directory_exists(const CatalogFilePath directory_path) const;
 };
 
 /** Asset Catalog definition, containing a symbolic ID and a path that points to a node in the

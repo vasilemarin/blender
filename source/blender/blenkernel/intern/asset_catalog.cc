@@ -84,11 +84,11 @@ AssetCatalog *AssetCatalogService::create_catalog(const CatalogPath &catalog_pat
   BLI_assert_msg(!catalogs_.contains(catalog->catalog_id), "duplicate catalog ID not supported");
   catalogs_.add_new(catalog->catalog_id, std::move(catalog));
 
-  /* Ensure the new catalog gets written to disk. */
-  this->ensure_asset_library_root();
-  this->ensure_catalog_definition_file();
-  catalog_definition_file_->add_new(catalog_ptr);
-  catalog_definition_file_->write_to_disk();
+  if (catalog_definition_file_) {
+    /* Ensure the new catalog gets written to disk at some point. If there is no CDF in memory yet,
+     * it's enough to have the catalog known to the service as it'll be saved to a new file. */
+    catalog_definition_file_->add_new(catalog_ptr);
+  }
 
   return catalog_ptr;
 }
@@ -101,52 +101,6 @@ static std::string asset_definition_default_file_path_from_dir(StringRef asset_l
                    asset_library_root.data(),
                    AssetCatalogService::DEFAULT_CATALOG_FILENAME.data());
   return file_path;
-}
-
-void AssetCatalogService::ensure_catalog_definition_file()
-{
-  if (catalog_definition_file_) {
-    return;
-  }
-
-  auto cdf = std::make_unique<AssetCatalogDefinitionFile>();
-  cdf->file_path = asset_definition_default_file_path_from_dir(asset_library_root_);
-  catalog_definition_file_ = std::move(cdf);
-}
-
-bool AssetCatalogService::ensure_asset_library_root()
-{
-  /* TODO(@sybren): design a way to get such errors presented to users (or ensure that they never
-   * occur). */
-  if (asset_library_root_.empty()) {
-    std::cerr
-        << "AssetCatalogService: no asset library root configured, unable to ensure it exists."
-        << std::endl;
-    return false;
-  }
-
-  if (BLI_exists(asset_library_root_.data())) {
-    if (!BLI_is_dir(asset_library_root_.data())) {
-      std::cerr << "AssetCatalogService: " << asset_library_root_
-                << " exists but is not a directory, this is not a supported situation."
-                << std::endl;
-      return false;
-    }
-
-    /* Root directory exists, work is done. */
-    return true;
-  }
-
-  /* Ensure the root directory exists. */
-  std::error_code err_code;
-  if (!BLI_dir_create_recursive(asset_library_root_.data())) {
-    std::cerr << "AssetCatalogService: error creating directory " << asset_library_root_ << ": "
-              << err_code << std::endl;
-    return false;
-  }
-
-  /* Root directory has been created, work is done. */
-  return true;
 }
 
 void AssetCatalogService::load_from_disk()
@@ -233,6 +187,11 @@ void AssetCatalogService::merge_from_disk_before_writing()
 {
   /* TODO(Sybren): expand to support multiple CDFs. */
 
+  if (!catalog_definition_file_ || catalog_definition_file_->file_path.empty() ||
+      !BLI_is_file(catalog_definition_file_->file_path.c_str())) {
+    return;
+  }
+
   auto catalog_parsed_callback = [this](std::unique_ptr<AssetCatalog> catalog) {
     const UUID catalog_id = catalog->catalog_id;
 
@@ -254,6 +213,35 @@ void AssetCatalogService::merge_from_disk_before_writing()
 
   catalog_definition_file_->parse_catalog_file(catalog_definition_file_->file_path,
                                                catalog_parsed_callback);
+}
+
+void AssetCatalogService::write_to_disk(const CatalogFilePath &base_path_for_new_files)
+{
+  /* TODO(Sybren): expand to support multiple CDFs. */
+
+  if (!catalog_definition_file_) {
+    /* A CDF has to be created to contain all current in-memory catalogs. */
+    const CatalogFilePath cdf_path = asset_definition_default_file_path_from_dir(
+        base_path_for_new_files);
+    catalog_definition_file_ = construct_cdf_in_memory(cdf_path);
+  }
+
+  merge_from_disk_before_writing();
+  catalog_definition_file_->write_to_disk();
+  return;
+}
+
+std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::construct_cdf_in_memory(
+    const CatalogFilePath &file_path)
+{
+  auto cdf = std::make_unique<AssetCatalogDefinitionFile>();
+  cdf->file_path = file_path;
+
+  for (auto &catalog : catalogs_.values()) {
+    cdf->add_new(catalog.get());
+  }
+
+  return cdf;
 }
 
 std::unique_ptr<AssetCatalogTree> AssetCatalogService::read_into_tree()
@@ -438,11 +426,19 @@ std::unique_ptr<AssetCatalog> AssetCatalogDefinitionFile::parse_catalog_line(con
 
 void AssetCatalogDefinitionFile::write_to_disk() const
 {
+  BLI_assert_msg(!this->file_path.empty(), "Writing to CDF requires its file path to be known");
   this->write_to_disk(this->file_path);
 }
 
 void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path) const
 {
+  char directory[PATH_MAX];
+  BLI_split_dir_part(file_path.c_str(), directory, sizeof(directory));
+  if (!ensure_directory_exists(directory)) {
+    /* TODO(Sybren): pass errors to the UI somehow. */
+    return;
+  }
+
   // TODO(@sybren): create a backup of the original file, if it exists.
   std::ofstream output(file_path);
 
@@ -466,6 +462,42 @@ void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path)
     output << catalog->catalog_id << ":" << catalog->path << ":" << catalog->simple_name
            << std::endl;
   }
+}
+
+bool AssetCatalogDefinitionFile::ensure_directory_exists(
+    const CatalogFilePath directory_path) const
+{
+  /* TODO(@sybren): design a way to get such errors presented to users (or ensure that they never
+   * occur). */
+  if (directory_path.empty()) {
+    std::cerr
+        << "AssetCatalogService: no asset library root configured, unable to ensure it exists."
+        << std::endl;
+    return false;
+  }
+
+  if (BLI_exists(directory_path.data())) {
+    if (!BLI_is_dir(directory_path.data())) {
+      std::cerr << "AssetCatalogService: " << directory_path
+                << " exists but is not a directory, this is not a supported situation."
+                << std::endl;
+      return false;
+    }
+
+    /* Root directory exists, work is done. */
+    return true;
+  }
+
+  /* Ensure the root directory exists. */
+  std::error_code err_code;
+  if (!BLI_dir_create_recursive(directory_path.data())) {
+    std::cerr << "AssetCatalogService: error creating directory " << directory_path << ": "
+              << err_code << std::endl;
+    return false;
+  }
+
+  /* Root directory has been created, work is done. */
+  return true;
 }
 
 AssetCatalog::AssetCatalog(const CatalogID catalog_id,
