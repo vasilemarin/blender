@@ -36,7 +36,7 @@
 
 namespace blender::bke {
 
-using CatalogID = UUID;
+using CatalogID = bUUID;
 using CatalogPath = std::string;
 using CatalogPathComponent = std::string;
 /* Would be nice to be able to use `std::filesystem::path` for this, but it's currently not

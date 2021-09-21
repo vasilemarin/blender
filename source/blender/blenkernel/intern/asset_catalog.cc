@@ -193,7 +193,7 @@ void AssetCatalogService::merge_from_disk_before_writing()
   }
 
   auto catalog_parsed_callback = [this](std::unique_ptr<AssetCatalog> catalog) {
-    const UUID catalog_id = catalog->catalog_id;
+    const bUUID catalog_id = catalog->catalog_id;
 
     /* The following two conditions could be or'ed together. Keeping them separated helps when
      * adding debug prints, breakpoints, etc. */
@@ -397,7 +397,7 @@ std::unique_ptr<AssetCatalog> AssetCatalogDefinitionFile::parse_catalog_line(con
 
   /* Parse the catalog ID. */
   const std::string id_as_string = line.substr(0, first_delim).trim();
-  UUID catalog_id;
+  bUUID catalog_id;
   const bool uuid_parsed_ok = BLI_uuid_parse_string(&catalog_id, id_as_string.c_str());
   if (!uuid_parsed_ok) {
     std::cerr << "Invalid UUID in " << this->file_path << ": " << line << std::endl;
