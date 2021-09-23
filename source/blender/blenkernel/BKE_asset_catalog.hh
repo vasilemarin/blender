@@ -66,8 +66,11 @@ class AssetCatalogService {
   /**
    * Write the catalog definitions to disk.
    * The provided directory path is only used when there is no CDF loaded from disk yet but assets
-   * still have to be saved. */
-  void write_to_disk(const CatalogFilePath &directory_for_new_files);
+   * still have to be saved.
+   *
+   * Return true on success, which either means there were no in-memory categories to save, or the
+   * save was succesfful. */
+  bool write_to_disk(const CatalogFilePath &directory_for_new_files);
 
   /**
    * Merge on-disk changes into the in-memory asset catalogs.

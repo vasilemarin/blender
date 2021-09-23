@@ -220,14 +220,14 @@ void AssetCatalogService::merge_from_disk_before_writing()
                                                catalog_parsed_callback);
 }
 
-void AssetCatalogService::write_to_disk(const CatalogFilePath &directory_for_new_files)
+bool AssetCatalogService::write_to_disk(const CatalogFilePath &directory_for_new_files)
 {
   /* TODO(Sybren): expand to support multiple CDFs. */
 
   if (!catalog_definition_file_) {
     if (catalogs_.is_empty() && deleted_catalogs_.is_empty()) {
       /* Avoid saving anything, when there is nothing to save. */
-      return;
+      return true; /* Writing nothing when there is nothing to write is still a success. */
     }
 
     /* A CDF has to be created to contain all current in-memory catalogs. */
@@ -237,8 +237,7 @@ void AssetCatalogService::write_to_disk(const CatalogFilePath &directory_for_new
   }
 
   merge_from_disk_before_writing();
-  catalog_definition_file_->write_to_disk();
-  return;
+  return catalog_definition_file_->write_to_disk();
 }
 
 std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::construct_cdf_in_memory(
