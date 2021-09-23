@@ -440,22 +440,22 @@ bool AssetCatalogDefinitionFile::write_to_disk() const
   return this->write_to_disk(this->file_path);
 }
 
-bool AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path) const
+bool AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &dest_file_path) const
 {
-  const CatalogFilePath writable_path = file_path + ".writing";
-  const CatalogFilePath backup_path = file_path + "~";
+  const CatalogFilePath writable_path = dest_file_path + ".writing";
+  const CatalogFilePath backup_path = dest_file_path + "~";
 
   if (!this->write_to_disk_unsafe(writable_path)) {
     /* TODO: communicate what went wrong. */
     return false;
   }
-  if (BLI_exists(file_path.c_str())) {
-    if (BLI_rename(file_path.c_str(), backup_path.c_str())) {
+  if (BLI_exists(dest_file_path.c_str())) {
+    if (BLI_rename(dest_file_path.c_str(), backup_path.c_str())) {
       /* TODO: communicate what went wrong. */
       return false;
     }
   }
-  if (BLI_rename(writable_path.c_str(), file_path.c_str())) {
+  if (BLI_rename(writable_path.c_str(), dest_file_path.c_str())) {
     /* TODO: communicate what went wrong. */
     return false;
   }
@@ -463,16 +463,16 @@ bool AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path)
   return true;
 }
 
-bool AssetCatalogDefinitionFile::write_to_disk_unsafe(const CatalogFilePath &file_path) const
+bool AssetCatalogDefinitionFile::write_to_disk_unsafe(const CatalogFilePath &dest_file_path) const
 {
   char directory[PATH_MAX];
-  BLI_split_dir_part(file_path.c_str(), directory, sizeof(directory));
+  BLI_split_dir_part(dest_file_path.c_str(), directory, sizeof(directory));
   if (!ensure_directory_exists(directory)) {
     /* TODO(Sybren): pass errors to the UI somehow. */
     return false;
   }
 
-  std::ofstream output(file_path);
+  std::ofstream output(dest_file_path);
 
   // TODO(@sybren): remember the line ending style that was originally read, then use that to write
   // the file again.
