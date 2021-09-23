@@ -185,7 +185,7 @@ class AssetCatalogDefinitionFile {
    *
    * Return true when the file was written correctly, false when there was a problem.
    */
-  bool write_to_disk(const CatalogFilePath &) const;
+  bool write_to_disk(const CatalogFilePath &dest_file_path) const;
 
   bool contains(CatalogID catalog_id) const;
   /* Add a new catalog. Undefined behaviour if a catalog with the same ID was already added. */
@@ -206,7 +206,7 @@ class AssetCatalogDefinitionFile {
    * Write the catalog definitions to the given file path.
    * Return true when the file was written correctly, false when there was a problem.
    */
-  bool write_to_disk_unsafe(const CatalogFilePath &file_path) const;
+  bool write_to_disk_unsafe(const CatalogFilePath &dest_file_path) const;
   bool ensure_directory_exists(const CatalogFilePath directory_path) const;
 };
 
