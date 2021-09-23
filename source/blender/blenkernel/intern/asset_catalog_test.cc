@@ -183,11 +183,12 @@ TEST_F(AssetCatalogTest, load_single_file_into_tree)
 TEST_F(AssetCatalogTest, write_single_file)
 {
   TestableAssetCatalogService service(asset_library_root_);
-  service.load_from_disk(asset_library_root_ + "/" + "blender_assets.cats.txt");
+  service.load_from_disk(asset_library_root_ + "/" +
+                         AssetCatalogService::DEFAULT_CATALOG_FILENAME);
 
   const CatalogFilePath save_to_path = use_temp_path();
   AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();
-  cdf->write_to_disk(save_to_path);
+  cdf->write_to_disk(save_to_path + "/" + AssetCatalogService::DEFAULT_CATALOG_FILENAME);
 
   AssetCatalogService loaded_service(save_to_path);
   loaded_service.load_from_disk();
