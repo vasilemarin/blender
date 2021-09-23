@@ -152,6 +152,9 @@ static int wm_link_append_flag(wmOperator *op)
     if (RNA_boolean_get(op->ptr, "set_fake")) {
       flag |= BLO_LIBLINK_APPEND_SET_FAKEUSER;
     }
+    if (RNA_boolean_get(op->ptr, "do_reuse_local_id")) {
+      flag |= BLO_LIBLINK_APPEND_LOCAL_ID_REUSE;
+    }
   }
   if (RNA_boolean_get(op->ptr, "instance_collections")) {
     flag |= BLO_LIBLINK_COLLECTION_INSTANCE;
@@ -573,6 +576,8 @@ static void wm_append_loose_data_instantiate(WMLinkAppendData *lapp_data,
         ob, object_set_selected, object_set_active, view_layer, v3d);
 
     copy_v3_v3(ob->loc, scene->cursor.location);
+
+    id->tag &= ~LIB_TAG_DOIT;
   }
 }
 
@@ -628,6 +633,7 @@ static void wm_append_do(WMLinkAppendData *lapp_data,
 
   const bool do_recursive = (lapp_data->flag & BLO_LIBLINK_APPEND_RECURSIVE) != 0;
   const bool set_fakeuser = (lapp_data->flag & BLO_LIBLINK_APPEND_SET_FAKEUSER) != 0;
+  const bool do_reuse_local_id = (lapp_data->flag & BLO_LIBLINK_APPEND_LOCAL_ID_REUSE) != 0;
 
   LinkNode *itemlink;
 
@@ -642,7 +648,6 @@ static void wm_append_do(WMLinkAppendData *lapp_data,
     BLI_ghash_insert(lapp_data->new_id_to_item, id, item);
   }
 
-  const bool do_reuse_existing_id = false;
   lapp_data->library_weak_reference_mapping = BKE_main_library_weak_reference_create(bmain);
 
   /* NOTE: Since we append items for IDs not already listed (i.e. implicitly linked indirect
@@ -656,8 +661,8 @@ static void wm_append_do(WMLinkAppendData *lapp_data,
     }
     BLI_assert(item->customdata == NULL);
 
-    /* Clear tag previously used to mark IDs needing post-processing (instantiation of loose
-     * objects etc.). */
+    /* In Append case linked IDs should never be marked as needing post-processing (instantiation
+     * of loose objects etc.). */
     BLI_assert((id->tag & LIB_TAG_DOIT) == 0);
 
     ID *existing_local_id = BKE_idtype_idcode_append_is_reusable(GS(id->name)) ?
@@ -674,7 +679,7 @@ static void wm_append_do(WMLinkAppendData *lapp_data,
       CLOG_INFO(&LOG, 3, "Appended ID '%s' is proxified, keeping it linked...", id->name);
       item->append_action = WM_APPEND_ACT_KEEP_LINKED;
     }
-    else if (do_reuse_existing_id && existing_local_id != NULL) {
+    else if (do_reuse_local_id && existing_local_id != NULL) {
       CLOG_INFO(&LOG, 3, "Appended ID '%s' as a matching local one, re-using it...", id->name);
       item->append_action = WM_APPEND_ACT_REUSE_LOCAL;
       item->customdata = existing_local_id;
@@ -802,6 +807,27 @@ static void wm_append_do(WMLinkAppendData *lapp_data,
 
     BKE_libblock_relink_to_newid_new(bmain, id);
   }
+
+  /* Remove linked IDs when a local existing data has been reused instead. */
+  for (itemlink = lapp_data->items.list; itemlink; itemlink = itemlink->next) {
+    WMLinkAppendDataItem *item = itemlink->link;
+
+    if (item->append_action != WM_APPEND_ACT_REUSE_LOCAL) {
+      continue;
+    }
+
+    ID *id = item->new_id;
+    if (id == NULL) {
+      continue;
+    }
+    BLI_assert(ID_IS_LINKED(id));
+    BLI_assert(id->newid != NULL);
+    BLI_assert((id->tag & LIB_TAG_DOIT) == 0);
+
+    id->tag |= LIB_TAG_DOIT;
+    item->new_id = id->newid;
+  }
+  BKE_id_multi_tagged_delete(bmain);
 
   /* Instantiate newly created (duplicated) IDs as needed. */
   wm_append_loose_data_instantiate(lapp_data, bmain, scene, view_layer, v3d);
@@ -1196,14 +1222,25 @@ static void wm_link_append_properties_common(wmOperatorType *ot, bool is_link)
   prop = RNA_def_boolean(
       ot->srna, "link", is_link, "Link", "Link the objects or data-blocks rather than appending");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
+
+  prop = RNA_def_boolean(
+      ot->srna,
+      "do_reuse_local_id",
+      false,
+      "Re-Use Local Data",
+      "Try to re-use previously matching appended data-blocks instead of appending a new copy");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
+
   prop = RNA_def_boolean(ot->srna, "autoselect", true, "Select", "Select new objects");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
   prop = RNA_def_boolean(ot->srna,
                          "active_collection",
                          true,
                          "Active Collection",
                          "Put new objects on the active collection");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
   prop = RNA_def_boolean(
       ot->srna,
       "instance_collections",
@@ -1294,14 +1331,14 @@ static ID *wm_file_link_append_datablock_ex(Main *bmain,
                                             const char *filepath,
                                             const short id_code,
                                             const char *id_name,
-                                            const bool do_append)
+                                            const int flag)
 {
+  const bool do_append = (flag & FILE_LINK) == 0;
   /* Tag everything so we can make local only the new datablock. */
   BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
   /* Define working data, with just the one item we want to link. */
-  WMLinkAppendData *lapp_data = wm_link_append_data_new(do_append ? BLO_LIBLINK_APPEND_RECURSIVE :
-                                                                    0);
+  WMLinkAppendData *lapp_data = wm_link_append_data_new(flag);
 
   wm_link_append_data_library_add(lapp_data, filepath);
   WMLinkAppendDataItem *item = wm_link_append_data_item_add(lapp_data, id_name, id_code, NULL);
@@ -1334,10 +1371,12 @@ ID *WM_file_link_datablock(Main *bmain,
                            View3D *v3d,
                            const char *filepath,
                            const short id_code,
-                           const char *id_name)
+                           const char *id_name,
+                           int flag)
 {
+  flag |= FILE_LINK;
   return wm_file_link_append_datablock_ex(
-      bmain, scene, view_layer, v3d, filepath, id_code, id_name, false);
+      bmain, scene, view_layer, v3d, filepath, id_code, id_name, flag);
 }
 
 /*
@@ -1350,10 +1389,12 @@ ID *WM_file_append_datablock(Main *bmain,
                              View3D *v3d,
                              const char *filepath,
                              const short id_code,
-                             const char *id_name)
+                             const char *id_name,
+                             int flag)
 {
+  BLI_assert((flag & FILE_LINK) == 0);
   ID *id = wm_file_link_append_datablock_ex(
-      bmain, scene, view_layer, v3d, filepath, id_code, id_name, true);
+      bmain, scene, view_layer, v3d, filepath, id_code, id_name, flag);
 
   return id;
 }
