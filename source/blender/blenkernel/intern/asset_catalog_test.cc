@@ -70,12 +70,13 @@ class AssetCatalogTest : public testing::Test {
     temp_library_path_ = "";
   }
 
-  /* Register a temporary path, which will be removed at the end of the test. */
+  /* Register a temporary path, which will be removed at the end of the test.
+   * The returned path ends in a slash. */
   CatalogFilePath use_temp_path()
   {
     BKE_tempdir_init("");
     const CatalogFilePath tempdir = BKE_tempdir_session();
-    temp_library_path_ = tempdir + "test-temporary-path";
+    temp_library_path_ = tempdir + "test-temporary-path/";
     return temp_library_path_;
   }
 
@@ -186,9 +187,10 @@ TEST_F(AssetCatalogTest, write_single_file)
   service.load_from_disk(asset_library_root_ + "/" +
                          AssetCatalogService::DEFAULT_CATALOG_FILENAME);
 
-  const CatalogFilePath save_to_path = use_temp_path();
+  const CatalogFilePath save_to_path = use_temp_path() +
+                                       AssetCatalogService::DEFAULT_CATALOG_FILENAME;
   AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();
-  cdf->write_to_disk(save_to_path + "/" + AssetCatalogService::DEFAULT_CATALOG_FILENAME);
+  cdf->write_to_disk(save_to_path);
 
   AssetCatalogService loaded_service(save_to_path);
   loaded_service.load_from_disk();
@@ -213,7 +215,7 @@ TEST_F(AssetCatalogTest, no_writing_empty_files)
   AssetCatalogService service(temp_lib_root);
   service.write_to_disk(temp_lib_root);
 
-  const CatalogFilePath default_cdf_path = temp_lib_root + "/" +
+  const CatalogFilePath default_cdf_path = temp_lib_root +
                                            AssetCatalogService::DEFAULT_CATALOG_FILENAME;
   EXPECT_FALSE(BLI_exists(default_cdf_path.c_str()));
 }
@@ -261,7 +263,7 @@ TEST_F(AssetCatalogTest, create_catalog_after_loading_file)
    * overwriting the test file in SVN. */
   const CatalogFilePath default_catalog_path = asset_library_root_ + "/" +
                                                AssetCatalogService::DEFAULT_CATALOG_FILENAME;
-  const CatalogFilePath writable_catalog_path = temp_lib_root + "/" +
+  const CatalogFilePath writable_catalog_path = temp_lib_root +
                                                 AssetCatalogService::DEFAULT_CATALOG_FILENAME;
   BLI_copy(default_catalog_path.c_str(), writable_catalog_path.c_str());
   EXPECT_TRUE(BLI_is_dir(temp_lib_root.c_str()));
@@ -379,7 +381,7 @@ TEST_F(AssetCatalogTest, merge_catalog_files)
   const CatalogFilePath cdf_dir = create_temp_path();
   const CatalogFilePath original_cdf_file = asset_library_root_ + "/blender_assets.cats.txt";
   const CatalogFilePath modified_cdf_file = asset_library_root_ + "/modified_assets.cats.txt";
-  const CatalogFilePath temp_cdf_file = cdf_dir + "/blender_assets.cats.txt";
+  const CatalogFilePath temp_cdf_file = cdf_dir + "blender_assets.cats.txt";
   BLI_copy(original_cdf_file.c_str(), temp_cdf_file.c_str());
 
   // Load the unmodified, original CDF.
