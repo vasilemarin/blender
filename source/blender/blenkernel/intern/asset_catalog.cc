@@ -482,7 +482,8 @@ bool AssetCatalogDefinitionFile::write_to_disk_unsafe(const CatalogFilePath &des
   output << "# This is an Asset Catalog Definition file for Blender." << std::endl;
   output << "#" << std::endl;
   output << "# Empty lines and lines starting with `#` will be ignored." << std::endl;
-  output << "# Other lines are of the format \"CATALOG_ID /catalog/path/for/assets\"" << std::endl;
+  output << "# Other lines are of the format \"UUID:catalog/path/for/assets:simple catalog name\""
+         << std::endl;
   output << "" << std::endl;
 
   // Write the catalogs.
