@@ -3416,8 +3416,8 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
             case SPACE_FILE: {
               SpaceFile *sfile = (SpaceFile *)sl;
               if (sfile->params) {
-                sfile->params->flag &= ~(FILE_APPEND_SET_FAKEUSER | FILE_APPEND_RECURSIVE |
-                                         FILE_OBDATA_INSTANCE);
+                sfile->params->flag &= ~(FILE_PARAMS_FLAG_UNUSED_1 | FILE_PARAMS_FLAG_UNUSED_2 |
+                                         FILE_PARAMS_FLAG_UNUSED_3);
               }
               break;
             }
@@ -3718,7 +3718,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
             STRNCPY(node->idname, "ShaderNodeOutputLight");
           }
           if (node->type == SH_NODE_BSDF_PRINCIPLED && node->custom2 == 0) {
-            node->custom2 = SHD_SUBSURFACE_BURLEY;
+            node->custom2 = SHD_SUBSURFACE_DIFFUSION;
           }
         }
       }

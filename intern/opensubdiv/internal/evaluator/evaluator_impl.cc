@@ -720,7 +720,7 @@ static void buildPatchArraysBufferFromVector(const PatchArrayVector &patch_array
 
 }  // namespace
 
-// Note: Define as a class instead of typedcef to make it possible
+// Note: Define as a class instead of typedef to make it possible
 // to have anonymous class in opensubdiv_evaluator_internal.h
 class CpuEvalOutput : public VolatileEvalOutput<CpuVertexBuffer,
                                                 CpuVertexBuffer,
