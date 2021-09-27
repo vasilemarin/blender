@@ -452,8 +452,7 @@ TEST_F(AssetCatalogTest, create_catalog_after_loading_file)
 
 TEST_F(AssetCatalogTest, create_catalog_path_cleanup)
 {
-  const CatalogFilePath temp_lib_root = use_temp_path();
-  AssetCatalogService service(temp_lib_root);
+  AssetCatalogService service;
   AssetCatalog *cat = service.create_catalog(" /some/path  /  ");
 
   EXPECT_FALSE(BLI_uuid_is_nil(cat->catalog_id));
@@ -463,8 +462,7 @@ TEST_F(AssetCatalogTest, create_catalog_path_cleanup)
 
 TEST_F(AssetCatalogTest, create_catalog_simple_name)
 {
-  const CatalogFilePath temp_lib_root = use_temp_path();
-  AssetCatalogService service(temp_lib_root);
+  AssetCatalogService service;
   AssetCatalog *cat = service.create_catalog(
       "production/Spite Fright/Characters/Victora/Pose Library/Approved/Body Parts/Hands");
 
