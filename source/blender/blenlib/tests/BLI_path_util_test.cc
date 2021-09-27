@@ -659,7 +659,6 @@ TEST(path_util, PathRelPath)
 /* BLI_path_contains */
 TEST(path_util, PathContains)
 {
-  EXPECT_TRUE(BLI_path_contains("/", "/some/path")) << "Root directory should contain everything";
   EXPECT_TRUE(BLI_path_contains("/some/path", "/some/path")) << "A path contains itself";
   EXPECT_TRUE(BLI_path_contains("/some/path", "/some/path/inside"))
       << "A path contains its subdirectory";
