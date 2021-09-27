@@ -1945,11 +1945,11 @@ bool BLI_path_contains(const char *container_path, const char *containee_path)
   BLI_strncpy(container_native, container_path, PATH_MAX - 1);
   BLI_strncpy(containee_native, containee_path, PATH_MAX);
 
-  BLI_path_normalize(NULL, container_native);
-  BLI_path_normalize(NULL, containee_native);
-
   BLI_path_slash_native(container_native);
   BLI_path_slash_native(containee_native);
+
+  BLI_path_normalize(NULL, container_native);
+  BLI_path_normalize(NULL, containee_native);
 
   if (STREQ(container_native, containee_native)) {
     /* The paths are equal, they contain each other. */
