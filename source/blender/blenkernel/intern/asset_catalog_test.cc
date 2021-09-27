@@ -331,8 +331,9 @@ TEST_F(AssetCatalogTest, on_blendfile_save__from_memory_into_existing_asset_lib)
   const CatalogFilePath target_dir = create_temp_path();  // Has trailing slash.
   const CatalogFilePath original_cdf_file = asset_library_root_ + "/blender_assets.cats.txt";
   const CatalogFilePath registered_asset_lib = target_dir + "my_asset_library/";
-  const CatalogFilePath writable_cdf_file = registered_asset_lib +
-                                            AssetCatalogService::DEFAULT_CATALOG_FILENAME;
+  CatalogFilePath writable_cdf_file = registered_asset_lib +
+                                      AssetCatalogService::DEFAULT_CATALOG_FILENAME;
+  BLI_path_slash_native(writable_cdf_file.data());
 
   /* Set up a temporary asset library for testing. */
   bUserAssetLibrary *asset_lib_pref = BKE_preferences_asset_library_add(
@@ -359,6 +360,7 @@ TEST_F(AssetCatalogTest, on_blendfile_save__from_memory_into_existing_asset_lib)
 
   /* Test that the in-memory CDF has the expected file path. */
   AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();
+  BLI_path_slash_native(cdf->file_path.data());
   EXPECT_EQ(writable_cdf_file, cdf->file_path);
 
   /* Test that the in-memory catalogs have been merged with the on-disk one. */
