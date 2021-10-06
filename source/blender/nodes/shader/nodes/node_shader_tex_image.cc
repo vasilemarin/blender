@@ -19,31 +19,26 @@
 
 #include "../node_shader_util.h"
 
-/* **************** OUTPUT ******************** */
+#include "BKE_image.h"
+#include "BLI_noise.hh"
+#include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
-static bNodeSocketTemplate sh_node_tex_image_in[] = {
-    {SOCK_VECTOR, N_("Vector"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
-    {-1, ""},
+namespace blender::nodes {
+
+static void sh_node_tex_image_declare(NodeDeclarationBuilder &b)
+{
+  b.is_function_node();
+  b.add_input<decl::Vector>("Vector").implicit_field();
+  b.add_output<decl::Color>("Color").no_muted_links();
+  b.add_output<decl::Float>("Alpha").no_muted_links();
 };
 
-static bNodeSocketTemplate sh_node_tex_image_out[] = {
-    {SOCK_RGBA, N_("Color"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_NONE, SOCK_NO_INTERNAL_LINK},
-    {SOCK_FLOAT,
-     N_("Alpha"),
-     0.0f,
-     0.0f,
-     0.0f,
-     0.0f,
-     0.0f,
-     1.0f,
-     PROP_NONE,
-     SOCK_NO_INTERNAL_LINK},
-    {-1, ""},
-};
+};  // namespace blender::nodes
 
 static void node_shader_init_tex_image(bNodeTree *UNUSED(ntree), bNode *node)
 {
-  NodeTexImage *tex = MEM_callocN(sizeof(NodeTexImage), "NodeTexImage");
+  NodeTexImage *tex = (NodeTexImage *)MEM_callocN(sizeof(NodeTexImage), "NodeTexImage");
   BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
   BKE_texture_colormapping_default(&tex->base.color_mapping);
   BKE_imageuser_default(&tex->iuser);
@@ -58,12 +53,12 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
                                      GPUNodeStack *out)
 {
   Image *ima = (Image *)node->id;
-  NodeTexImage *tex = node->storage;
+  NodeTexImage *tex = (NodeTexImage *)node->storage;
 
   /* We get the image user from the original node, since GPU image keeps
    * a pointer to it and the dependency refreshes the original. */
   bNode *node_original = node->original ? node->original : node;
-  NodeTexImage *tex_original = node_original->storage;
+  NodeTexImage *tex_original = (NodeTexImage *)node_original->storage;
   ImageUser *iuser = &tex_original->iuser;
 
   if (!ima) {
@@ -78,7 +73,7 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
 
   node_shader_gpu_tex_mapping(mat, node, in, out);
 
-  eGPUSamplerState sampler_state = 0;
+  eGPUSamplerState sampler_state = GPU_SAMPLER_DEFAULT;
 
   switch (tex->extension) {
     case SHD_IMAGE_EXTENSION_REPEAT:
@@ -94,7 +89,7 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
   if (tex->interpolation != SHD_INTERP_CLOSEST) {
     sampler_state |= GPU_SAMPLER_ANISO | GPU_SAMPLER_FILTER;
     /* TODO(fclem): For now assume mipmap is always enabled. */
-    sampler_state |= true ? GPU_SAMPLER_MIPMAP : 0;
+    sampler_state |= GPU_SAMPLER_MIPMAP;
   }
   const bool use_cubic = ELEM(tex->interpolation, SHD_INTERP_CUBIC, SHD_INTERP_SMART);
 
@@ -183,19 +178,234 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
   return true;
 }
 
+namespace blender::nodes {
+
+class ImageFunction : public fn::MultiFunction {
+ private:
+  int interpolation_;
+  int projection_;
+  float projection_blend_;
+  int extension_;
+  ImBuf *ibuf_;
+
+ public:
+  ImageFunction(
+      int interpolation, int projection, float projection_blend, int extension, ImBuf *ibuf)
+      : interpolation_(interpolation),
+        projection_(projection),
+        projection_blend_(projection_blend),
+        extension_(extension),
+        ibuf_(ibuf)
+  {
+    static fn::MFSignature signature = create_signature();
+    this->set_signature(&signature);
+  }
+
+  static fn::MFSignature create_signature()
+  {
+    fn::MFSignatureBuilder signature{"ImageFunction"};
+    signature.single_input<float3>("Vector");
+    signature.single_output<ColorGeometry4f>("Color");
+    signature.single_output<float>("Alpha");
+    return signature.build();
+  }
+
+  /* Remap coordinate from 0..1 box to -1..-1 */
+  static float3 texco_remap_square(float3 co)
+  {
+    return (co - float3(0.5f, 0.5f, 0.5f)) * 2.0f;
+  }
+
+  /* projections */
+  static float2 map_to_tube(const float3 co)
+  {
+    float len, u, v;
+    len = sqrtf(co.x * co.x + co.y * co.y);
+    if (len > 0.0f) {
+      u = (1.0f - (atan2f(co.x / len, co.y / len) / M_PI)) * 0.5f;
+      v = (co.z + 1.0f) * 0.5f;
+    }
+    else {
+      u = v = 0.0f;
+    }
+    return float2(u, v);
+  }
+
+  static float2 map_to_sphere(const float3 co)
+  {
+    float l = len_v3(co);
+    float u, v;
+    if (l > 0.0f) {
+      if (UNLIKELY(co.x == 0.0f && co.y == 0.0f)) {
+        u = 0.0f; /* Otherwise domain error. */
+      }
+      else {
+        u = (1.0f - atan2f(co.x, co.y) / M_PI) / 2.0f;
+      }
+      v = 1.0f - safe_acosf(co.z / l) / M_PI;
+    }
+    else {
+      u = v = 0.0f;
+    }
+    return float2(u, v);
+  }
+
+  static float2 map_to_box(const float3 co)
+  {
+    float x1, y1, z1, nor[3];
+    int ret;
+    float u, v;
+
+    copy_v3_v3(nor, co);
+
+    x1 = fabsf(nor[0]);
+    y1 = fabsf(nor[1]);
+    z1 = fabsf(nor[2]);
+
+    if (z1 >= x1 && z1 >= y1) {
+      u = (co.x + 1.0f) / 2.0f;
+      v = (co.y + 1.0f) / 2.0f;
+      ret = 0;
+    }
+    else if (y1 >= x1 && y1 >= z1) {
+      u = (co.x + 1.0f) / 2.0f;
+      v = (co.z + 1.0f) / 2.0f;
+    }
+    else {
+      u = (co.y + 1.0f) / 2.0f;
+      v = (co.z + 1.0f) / 2.0f;
+    }
+    return float2(u, v);
+  }
+
+  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
+  {
+    const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+    MutableSpan<ColorGeometry4f> r_color =
+        params.uninitialized_single_output_if_required<ColorGeometry4f>(1, "Color");
+    MutableSpan<float> r_alpha = params.uninitialized_single_output_if_required<float>(2, "Alpha");
+
+    const bool compute_color = !r_color.is_empty();
+    const bool compute_alpha = !r_alpha.is_empty();
+
+    if (ibuf_) {
+
+      /* Hacked together from old Tex nodes and texture.c and cycles!
+       * texture_procedural.c
+       * BKE_texture_get_value
+       * multitex_nodes_intern
+       */
+
+      float xsize = ibuf_->x / 2;
+      float ysize = ibuf_->y / 2;
+
+      if ((!xsize) || (!ysize)) {
+        return;
+      }
+
+      if (!ibuf_->rect_float) {
+        BLI_thread_lock(LOCK_IMAGE);
+        if (!ibuf_->rect_float) {
+          IMB_float_from_rect(ibuf_);
+        }
+        BLI_thread_unlock(LOCK_IMAGE);
+      }
+
+      float xoff, yoff;
+      int px, py;
+
+      for (int64_t i : mask) {
+        const float *result;
+        float2 co;
+
+        /* Remap */
+        float3 p = texco_remap_square(vector[i]);
+
+        /* Projection - are these needed for GN - most use cases would be things like height maps.
+         */
+        if (projection_ == SHD_PROJ_TUBE) {
+          co = map_to_tube(p);
+        }
+        else if (projection_ == SHD_PROJ_SPHERE) {
+          co = map_to_sphere(p);
+        }
+        else if (projection_ == SHD_PROJ_BOX) {
+          co = map_to_box(p);  // no blending or normal data
+        }
+        else {  // SHD_PROJ_FLAT
+          co = float2(p.x, p.y);
+        }
+
+        xoff = yoff = -1;
+
+        px = (int)((co.x - xoff) * xsize);
+        py = (int)((co.y - yoff) * ysize);
+
+        while (px < 0) {
+          px += ibuf_->x;
+        }
+        while (py < 0) {
+          py += ibuf_->y;
+        }
+        while (px >= ibuf_->x) {
+          px -= ibuf_->x;
+        }
+        while (py >= ibuf_->y) {
+          py -= ibuf_->y;
+        }
+
+        result = ibuf_->rect_float + py * ibuf_->x * 4 + px * 4;
+
+        if (compute_color) {
+          copy_v4_v4(r_color[i], result);
+        }
+        if (compute_alpha) {
+          // check for premultiply etc
+          r_alpha[i] = result[3];
+        }
+      }
+    }
+  }
+};
+
+static void sh_node_image_tex_build_multi_function(
+    blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  bNode &node = builder.node();
+  NodeTexImage *tex = (NodeTexImage *)node.storage;
+  Image *ima = (Image *)node.id;
+  if (ima) {
+    /* We get the image user from the original node, since GPU image keeps
+     * a pointer to it and the dependency refreshes the original. */
+    bNode *node_original = node.original ? node.original : &node;
+    NodeTexImage *tex_original = (NodeTexImage *)node_original->storage;
+    ImageUser *iuser = &tex_original->iuser;
+
+    ImBuf *ibuf = BKE_image_acquire_ibuf(ima, iuser, NULL);
+    if (ibuf) {
+      builder.construct_and_set_matching_fn<ImageFunction>(
+          tex->interpolation, tex->projection, tex->projection_blend, tex->extension, ibuf);
+      BKE_image_release_ibuf(ima, ibuf, NULL);
+    }
+  }
+}
+
+}  // namespace blender::nodes
+
 /* node type definition */
 void register_node_type_sh_tex_image(void)
 {
   static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_TEX_IMAGE, "Image Texture", NODE_CLASS_TEXTURE, 0);
-  node_type_socket_templates(&ntype, sh_node_tex_image_in, sh_node_tex_image_out);
+  sh_fn_node_type_base(&ntype, SH_NODE_TEX_IMAGE, "Image Texture", NODE_CLASS_TEXTURE, 0);
+  ntype.declare = blender::nodes::sh_node_tex_image_declare;
   node_type_init(&ntype, node_shader_init_tex_image);
   node_type_storage(
       &ntype, "NodeTexImage", node_free_standard_storage, node_copy_standard_storage);
   node_type_gpu(&ntype, node_shader_gpu_tex_image);
   node_type_label(&ntype, node_image_label);
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
+  ntype.build_multi_function = blender::nodes::sh_node_image_tex_build_multi_function;
 
   nodeRegisterType(&ntype);
 }

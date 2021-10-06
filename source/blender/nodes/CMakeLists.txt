@@ -324,7 +324,7 @@ set(SRC
   shader/nodes/node_shader_tex_coord.c
   shader/nodes/node_shader_tex_environment.c
   shader/nodes/node_shader_tex_gradient.cc
-  shader/nodes/node_shader_tex_image.c
+  shader/nodes/node_shader_tex_image.cc
   shader/nodes/node_shader_tex_magic.c
   shader/nodes/node_shader_tex_musgrave.cc
   shader/nodes/node_shader_tex_noise.cc
