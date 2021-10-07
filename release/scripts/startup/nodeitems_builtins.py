@@ -635,7 +635,6 @@ geometry_node_categories = [
     ]),
     GeometryNodeCategory("GEO_TEXTURE", "Texture", items=[
         NodeItem("ShaderNodeTexNoise"),
-        NodeItem("ShaderNodeTexImage"),
     ]),
     GeometryNodeCategory("GEO_VECTOR", "Vector", items=[
         NodeItem("ShaderNodeVectorCurve"),
