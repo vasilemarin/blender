@@ -63,6 +63,11 @@ struct float4 {
     return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w};
   }
 
+  friend float4 operator-(const float4 &a, const float &b)
+  {
+    return {a.x - b, a.y - b, a.z - b, a.w - b};
+  }
+
   float4 &operator*=(float factor)
   {
     x *= factor;
@@ -70,6 +75,11 @@ struct float4 {
     z *= factor;
     w *= factor;
     return *this;
+  }
+
+  friend float4 operator*(const float4 &a, const float4 &b)
+  {
+    return {a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w};
   }
 
   friend float4 operator*(const float4 &a, float b)
@@ -80,6 +90,14 @@ struct float4 {
   friend float4 operator*(float a, const float4 &b)
   {
     return b * a;
+  }
+
+  static float4 clamp(const float4 &a, const float mn, const float mx)
+  {
+    return float4(std::min(std::max(a.x, mn), mx),
+                  std::min(std::max(a.y, mn), mx),
+                  std::min(std::max(a.z, mn), mx),
+                  std::min(std::max(a.w, mn), mx));
   }
 };
 

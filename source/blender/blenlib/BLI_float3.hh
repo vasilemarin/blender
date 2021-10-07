@@ -62,6 +62,11 @@ struct float3 {
     return {a.x + b.x, a.y + b.y, a.z + b.z};
   }
 
+  friend float3 operator+(const float3 &a, const float &b)
+  {
+    return {a.x + b, a.y + b, a.z + b};
+  }
+
   float3 &operator+=(const float3 &b)
   {
     this->x += b.x;
@@ -73,6 +78,11 @@ struct float3 {
   friend float3 operator-(const float3 &a, const float3 &b)
   {
     return {a.x - b.x, a.y - b.y, a.z - b.z};
+  }
+
+  friend float3 operator-(const float3 &a, const float &b)
+  {
+    return {a.x - b, a.y - b, a.z - b};
   }
 
   friend float3 operator-(const float3 &a)

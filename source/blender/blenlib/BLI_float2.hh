@@ -84,10 +84,24 @@ struct float2 {
     return *this;
   }
 
+  float2 &operator*=(const float2 &other)
+  {
+    x *= other.x;
+    y *= other.y;
+    return *this;
+  }
+
   float2 &operator*=(float factor)
   {
     x *= factor;
     y *= factor;
+    return *this;
+  }
+
+  float2 &operator-=(float factor)
+  {
+    x -= factor;
+    y -= factor;
     return *this;
   }
 
@@ -110,14 +124,40 @@ struct float2 {
     return {a.x + b.x, a.y + b.y};
   }
 
+  friend float2 operator+(const float2 &a, const float &b)
+  {
+    return {a.x + b, a.y + b};
+  }
+
   friend float2 operator-(const float2 &a, const float2 &b)
   {
     return {a.x - b.x, a.y - b.y};
   }
 
+  friend float2 operator-(const float2 &a, const float &b)
+  {
+    return {a.x - b, a.y - b};
+  }
+
+  friend float2 operator-(const float2 &a)
+  {
+    return {-a.x, -a.y};
+  }
+
+  friend float2 operator*(const float2 &a, const float2 &b)
+  {
+    return {a.x * b.x, a.y * b.y};
+  }
+
   friend float2 operator*(const float2 &a, float b)
   {
     return {a.x * b, a.y * b};
+  }
+
+  friend float2 operator/(const float2 &a, const float2 &b)
+  {
+    BLI_assert(b.x != 0.0f && b.y != 0.0f);
+    return {a.x / b.x, a.y / b.y};
   }
 
   friend float2 operator/(const float2 &a, float b)
@@ -152,6 +192,11 @@ struct float2 {
     return float2(fabsf(a.x), fabsf(a.y));
   }
 
+  static float2 floor(const float2 &a)
+  {
+    return float2(floorf(a.x), floorf(a.y));
+  }
+
   static float distance(const float2 &a, const float2 &b)
   {
     return (a - b).length();
@@ -161,6 +206,14 @@ struct float2 {
   {
     float2 diff = a - b;
     return float2::dot(diff, diff);
+  }
+
+  static float2 safe_divide(const float2 &a, const float2 &b)
+  {
+    float2 result;
+    result.x = (b.x == 0.0f) ? 0.0f : a.x / b.x;
+    result.y = (b.y == 0.0f) ? 0.0f : a.y / b.y;
+    return result;
   }
 
   struct isect_result {
