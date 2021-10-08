@@ -55,7 +55,7 @@ class TestableAssetCatalogService : public AssetCatalogService {
 
   AssetCatalogDefinitionFile *get_catalog_definition_file()
   {
-    return catalog_definition_file_.get();
+    return AssetCatalogService::get_catalog_definition_file();
   }
 
   void create_missing_catalogs()
@@ -66,7 +66,7 @@ class TestableAssetCatalogService : public AssetCatalogService {
   int64_t count_catalogs_with_path(const CatalogFilePath &path)
   {
     int64_t count = 0;
-    for (auto &catalog_uptr : catalogs_.values()) {
+    for (auto &catalog_uptr : get_catalogs().values()) {
       if (catalog_uptr->path == path) {
         count++;
       }

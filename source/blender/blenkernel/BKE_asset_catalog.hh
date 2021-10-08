@@ -47,6 +47,7 @@ using CatalogPathComponent = std::string;
 using CatalogFilePath = std::string;
 
 class AssetCatalog;
+class AssetCatalogCollection;
 class AssetCatalogDefinitionFile;
 class AssetCatalogFilter;
 class AssetCatalogTree;
@@ -58,7 +59,7 @@ class AssetCatalogService {
   static const CatalogFilePath DEFAULT_CATALOG_FILENAME;
 
  public:
-  AssetCatalogService() = default;
+  AssetCatalogService();
   explicit AssetCatalogService(const CatalogFilePath &asset_library_root);
 
   /** Load asset catalog definitions from the files found in the asset library. */
@@ -130,10 +131,7 @@ class AssetCatalogService {
   bool is_empty() const;
 
  protected:
-  /* These pointers are owned by this AssetCatalogService. */
-  Map<CatalogID, std::unique_ptr<AssetCatalog>> catalogs_;
-  Map<CatalogID, std::unique_ptr<AssetCatalog>> deleted_catalogs_;
-  std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file_;
+  std::unique_ptr<AssetCatalogCollection> catalog_collection_;
   std::unique_ptr<AssetCatalogTree> catalog_tree_ = std::make_unique<AssetCatalogTree>();
   CatalogFilePath asset_library_root_;
 
@@ -165,6 +163,36 @@ class AssetCatalogService {
    * For every catalog, ensure that its parent path also has a known catalog.
    */
   void create_missing_catalogs();
+
+  /* For access by subclasses, as those will not be marked as friend by #AssetCatalogCollection. */
+  AssetCatalogDefinitionFile *get_catalog_definition_file();
+  Map<CatalogID, std::unique_ptr<AssetCatalog>> &get_catalogs();
+};
+
+/**
+ * All catalogs that are owned by a single asset library, and managed by a single instance of
+ * #AssetCatalogService. The undo system for asset catalog edits contains historical copies of this
+ * struct.
+ */
+class AssetCatalogCollection {
+  friend AssetCatalogService;
+
+ public:
+  AssetCatalogCollection() = default;
+  AssetCatalogCollection(const AssetCatalogCollection &other) = delete;
+
+ protected:
+  /** All catalogs known, except the known-but-deleted ones. */
+  Map<CatalogID, std::unique_ptr<AssetCatalog>> catalogs_;
+
+  /** Catalogs that have been deleted. They are kept around so that the load-merge-save of catalog
+   * definition files can actually delete them if they already existed on disk (instead of the
+   * merge operation resurrecting them). */
+  Map<CatalogID, std::unique_ptr<AssetCatalog>> deleted_catalogs_;
+
+  /* For now only a single catalog definition file is supported.
+   * The aim is to support an arbitrary number of such files per asset library in the future. */
+  std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file_;
 };
 
 /**
