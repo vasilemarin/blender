@@ -71,7 +71,7 @@ bool AssetCatalogService::is_empty() const
   return catalog_collection_->catalogs_.is_empty();
 }
 
-Map<CatalogID, std::unique_ptr<AssetCatalog>> &AssetCatalogService::get_catalogs()
+OwningAssetCatalogMap &AssetCatalogService::get_catalogs()
 {
   return catalog_collection_->catalogs_;
 }
@@ -444,6 +444,35 @@ void AssetCatalogService::create_missing_catalogs()
 
 /* ---------------------------------------------------------------------- */
 
+std::unique_ptr<AssetCatalogCollection> AssetCatalogCollection::deep_copy() const
+{
+  auto copy = std::make_unique<AssetCatalogCollection>();
+
+  copy->catalogs_ = std::move(copy_catalog_map(this->catalogs_));
+  copy->deleted_catalogs_ = std::move(copy_catalog_map(this->deleted_catalogs_));
+
+  if (catalog_definition_file_) {
+    copy->catalog_definition_file_ = std::move(
+        catalog_definition_file_->copy_and_remap(copy->catalogs_, copy->deleted_catalogs_));
+  }
+
+  return copy;
+}
+
+OwningAssetCatalogMap AssetCatalogCollection::copy_catalog_map(const OwningAssetCatalogMap &orig)
+{
+  OwningAssetCatalogMap copy;
+
+  for (const auto &orig_catalog_uptr : orig.values()) {
+    auto copy_catalog_uptr = std::make_unique<AssetCatalog>(*orig_catalog_uptr.get());
+    copy.add_new(copy_catalog_uptr->catalog_id, std::move(copy_catalog_uptr));
+  }
+
+  return copy;
+}
+
+/* ---------------------------------------------------------------------- */
+
 AssetCatalogTreeItem::AssetCatalogTreeItem(StringRef name,
                                            CatalogID catalog_id,
                                            StringRef simple_name,
@@ -553,6 +582,8 @@ void AssetCatalogTree::foreach_root_item(const ItemIterFn callback)
     callback(item);
   }
 }
+
+/* ---------------------------------------------------------------------- */
 
 bool AssetCatalogDefinitionFile::contains(const CatalogID catalog_id) const
 {
@@ -770,6 +801,34 @@ bool AssetCatalogDefinitionFile::ensure_directory_exists(
 
   /* Root directory has been created, work is done. */
   return true;
+}
+
+std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogDefinitionFile::copy_and_remap(
+    const OwningAssetCatalogMap &catalogs, const OwningAssetCatalogMap &deleted_catalogs) const
+{
+  auto copy = std::make_unique<AssetCatalogDefinitionFile>(*this);
+  copy->catalogs_.clear();
+
+  /* Remap pointers of the copy from the original AssetCatalogCollection to the given one. */
+  for (CatalogID catalog_id : catalogs_.keys()) {
+    /* The catalog can be in the regular or the deleted map. */
+    const std::unique_ptr<AssetCatalog> *remapped_catalog_uptr_ptr = catalogs.lookup_ptr(
+        catalog_id);
+    if (remapped_catalog_uptr_ptr) {
+      copy->catalogs_.add_new(catalog_id, remapped_catalog_uptr_ptr->get());
+      continue;
+    }
+
+    remapped_catalog_uptr_ptr = deleted_catalogs.lookup_ptr(catalog_id);
+    if (remapped_catalog_uptr_ptr) {
+      copy->catalogs_.add_new(catalog_id, remapped_catalog_uptr_ptr->get());
+      continue;
+    }
+
+    BLI_assert(!"A CDF should only reference known catalogs.");
+  }
+
+  return copy;
 }
 
 AssetCatalog::AssetCatalog(const CatalogID catalog_id,

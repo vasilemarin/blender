@@ -40,17 +40,18 @@
 
 namespace blender::bke {
 
-using CatalogID = bUUID;
-using CatalogPathComponent = std::string;
-/* Would be nice to be able to use `std::filesystem::path` for this, but it's currently not
- * available on the minimum macOS target version. */
-using CatalogFilePath = std::string;
-
 class AssetCatalog;
 class AssetCatalogCollection;
 class AssetCatalogDefinitionFile;
 class AssetCatalogFilter;
 class AssetCatalogTree;
+
+using CatalogID = bUUID;
+using CatalogPathComponent = std::string;
+/* Would be nice to be able to use `std::filesystem::path` for this, but it's currently not
+ * available on the minimum macOS target version. */
+using CatalogFilePath = std::string;
+using OwningAssetCatalogMap = Map<CatalogID, std::unique_ptr<AssetCatalog>>;
 
 /* Manages the asset catalogs of a single asset library (i.e. of catalogs defined in a single
  * directory hierarchy). */
@@ -166,7 +167,7 @@ class AssetCatalogService {
 
   /* For access by subclasses, as those will not be marked as friend by #AssetCatalogCollection. */
   AssetCatalogDefinitionFile *get_catalog_definition_file();
-  Map<CatalogID, std::unique_ptr<AssetCatalog>> &get_catalogs();
+  OwningAssetCatalogMap &get_catalogs();
 };
 
 /**
@@ -180,19 +181,24 @@ class AssetCatalogCollection {
  public:
   AssetCatalogCollection() = default;
   AssetCatalogCollection(const AssetCatalogCollection &other) = delete;
+  AssetCatalogCollection(AssetCatalogCollection &&other) noexcept = default;
+
+  std::unique_ptr<AssetCatalogCollection> deep_copy() const;
 
  protected:
   /** All catalogs known, except the known-but-deleted ones. */
-  Map<CatalogID, std::unique_ptr<AssetCatalog>> catalogs_;
+  OwningAssetCatalogMap catalogs_;
 
   /** Catalogs that have been deleted. They are kept around so that the load-merge-save of catalog
    * definition files can actually delete them if they already existed on disk (instead of the
    * merge operation resurrecting them). */
-  Map<CatalogID, std::unique_ptr<AssetCatalog>> deleted_catalogs_;
+  OwningAssetCatalogMap deleted_catalogs_;
 
   /* For now only a single catalog definition file is supported.
    * The aim is to support an arbitrary number of such files per asset library in the future. */
   std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file_;
+
+  static OwningAssetCatalogMap copy_catalog_map(const OwningAssetCatalogMap &orig);
 };
 
 /**
@@ -305,6 +311,9 @@ class AssetCatalogDefinitionFile {
   using AssetCatalogParsedFn = FunctionRef<bool(std::unique_ptr<AssetCatalog>)>;
   void parse_catalog_file(const CatalogFilePath &catalog_definition_file_path,
                           AssetCatalogParsedFn callback);
+
+  std::unique_ptr<AssetCatalogDefinitionFile> copy_and_remap(
+      const OwningAssetCatalogMap &catalogs, const OwningAssetCatalogMap &deleted_catalogs) const;
 
  protected:
   /* Catalogs stored in this file. They are mapped by ID to make it possible to query whether a

@@ -1002,4 +1002,116 @@ TEST_F(AssetCatalogTest, create_catalog_filter_for_unassigned_assets)
   EXPECT_FALSE(filter.contains(UUID_POSES_ELLIE));
 }
 
+TEST_F(AssetCatalogTest, cat_collection_deep_copy__empty)
+{
+  const AssetCatalogCollection empty;
+  auto copy = empty.deep_copy();
+  EXPECT_NE(&empty, copy.get());
+}
+
+class TestableAssetCatalogCollection : public AssetCatalogCollection {
+ public:
+  OwningAssetCatalogMap &get_catalogs()
+  {
+    return catalogs_;
+  }
+  OwningAssetCatalogMap &get_deleted_catalogs()
+  {
+    return deleted_catalogs_;
+  }
+  AssetCatalogDefinitionFile *get_catalog_definition_file()
+  {
+    return catalog_definition_file_.get();
+  }
+  AssetCatalogDefinitionFile *allocate_catalog_definition_file()
+  {
+    catalog_definition_file_ = std::make_unique<AssetCatalogDefinitionFile>();
+    return get_catalog_definition_file();
+  }
+};
+
+TEST_F(AssetCatalogTest, cat_collection_deep_copy__nonempty_nocdf)
+{
+  TestableAssetCatalogCollection catcoll;
+  auto cat1 = std::make_unique<AssetCatalog>(UUID_POSES_RUZENA, "poses/Henrik", "");
+  auto cat2 = std::make_unique<AssetCatalog>(UUID_POSES_RUZENA_FACE, "poses/Henrik/face", "");
+  auto cat3 = std::make_unique<AssetCatalog>(UUID_POSES_RUZENA_HAND, "poses/Henrik/hands", "");
+  cat3->flags.is_deleted = true;
+
+  AssetCatalog *cat1_ptr = cat1.get();
+  AssetCatalog *cat3_ptr = cat3.get();
+
+  catcoll.get_catalogs().add_new(cat1->catalog_id, std::move(cat1));
+  catcoll.get_catalogs().add_new(cat2->catalog_id, std::move(cat2));
+  catcoll.get_deleted_catalogs().add_new(cat3->catalog_id, std::move(cat3));
+
+  auto copy = catcoll.deep_copy();
+  EXPECT_NE(&catcoll, copy.get());
+
+  TestableAssetCatalogCollection *testcopy = reinterpret_cast<TestableAssetCatalogCollection *>(
+      copy.get());
+
+  /* Test catalogs & deleted catalogs. */
+  EXPECT_EQ(2, testcopy->get_catalogs().size());
+  EXPECT_EQ(1, testcopy->get_deleted_catalogs().size());
+
+  ASSERT_TRUE(testcopy->get_catalogs().contains(UUID_POSES_RUZENA));
+  ASSERT_TRUE(testcopy->get_catalogs().contains(UUID_POSES_RUZENA_FACE));
+  ASSERT_TRUE(testcopy->get_deleted_catalogs().contains(UUID_POSES_RUZENA_HAND));
+
+  EXPECT_NE(nullptr, testcopy->get_catalogs().lookup(UUID_POSES_RUZENA));
+  EXPECT_NE(cat1_ptr, testcopy->get_catalogs().lookup(UUID_POSES_RUZENA).get())
+      << "AssetCatalogs should be actual copies.";
+
+  EXPECT_NE(nullptr, testcopy->get_deleted_catalogs().lookup(UUID_POSES_RUZENA_HAND));
+  EXPECT_NE(cat3_ptr, testcopy->get_deleted_catalogs().lookup(UUID_POSES_RUZENA_HAND).get())
+      << "AssetCatalogs should be actual copies.";
+}
+
+class TestableAssetCatalogDefinitionFile : public AssetCatalogDefinitionFile {
+ public:
+  Map<CatalogID, AssetCatalog *> get_catalogs()
+  {
+    return catalogs_;
+  }
+};
+
+TEST_F(AssetCatalogTest, cat_collection_deep_copy__nonempty_cdf)
+{
+  TestableAssetCatalogCollection catcoll;
+  auto cat1 = std::make_unique<AssetCatalog>(UUID_POSES_RUZENA, "poses/Henrik", "");
+  auto cat2 = std::make_unique<AssetCatalog>(UUID_POSES_RUZENA_FACE, "poses/Henrik/face", "");
+  auto cat3 = std::make_unique<AssetCatalog>(UUID_POSES_RUZENA_HAND, "poses/Henrik/hands", "");
+  cat3->flags.is_deleted = true;
+
+  AssetCatalog *cat1_ptr = cat1.get();
+  AssetCatalog *cat2_ptr = cat2.get();
+  AssetCatalog *cat3_ptr = cat3.get();
+
+  catcoll.get_catalogs().add_new(cat1->catalog_id, std::move(cat1));
+  catcoll.get_catalogs().add_new(cat2->catalog_id, std::move(cat2));
+  catcoll.get_deleted_catalogs().add_new(cat3->catalog_id, std::move(cat3));
+
+  AssetCatalogDefinitionFile *cdf = catcoll.allocate_catalog_definition_file();
+  cdf->file_path = "path/to/somewhere.cats.txt";
+  cdf->add_new(cat1_ptr);
+  cdf->add_new(cat2_ptr);
+  cdf->add_new(cat3_ptr);
+
+  /* Test CDF remapping. */
+  auto copy = catcoll.deep_copy();
+  TestableAssetCatalogCollection *testable_copy = static_cast<TestableAssetCatalogCollection *>(
+      copy.get());
+
+  TestableAssetCatalogDefinitionFile *cdf_copy = static_cast<TestableAssetCatalogDefinitionFile *>(
+      testable_copy->get_catalog_definition_file());
+  EXPECT_EQ(testable_copy->get_catalogs().lookup(UUID_POSES_RUZENA).get(),
+            cdf_copy->get_catalogs().lookup(UUID_POSES_RUZENA))
+      << "AssetCatalog pointers should have been remapped to the copy.";
+
+  EXPECT_EQ(testable_copy->get_deleted_catalogs().lookup(UUID_POSES_RUZENA_HAND).get(),
+            cdf_copy->get_catalogs().lookup(UUID_POSES_RUZENA_HAND))
+      << "Deleted AssetCatalog pointers should have been remapped to the copy.";
+}
+
 }  // namespace blender::bke::tests
