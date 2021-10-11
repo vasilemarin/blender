@@ -131,10 +131,19 @@ class AssetCatalogService {
   /** Return true only if there are no catalogs known. */
   bool is_empty() const;
 
+  bool is_undo_possbile() const;
+  bool is_redo_possbile() const;
+  void undo();
+  void redo();
+  void store_undo_snapshot();
+
  protected:
   std::unique_ptr<AssetCatalogCollection> catalog_collection_;
   std::unique_ptr<AssetCatalogTree> catalog_tree_ = std::make_unique<AssetCatalogTree>();
   CatalogFilePath asset_library_root_;
+
+  Vector<std::unique_ptr<AssetCatalogCollection>> undo_snapshots_;
+  Vector<std::unique_ptr<AssetCatalogCollection>> redo_snapshots_;
 
   void load_directory_recursive(const CatalogFilePath &directory_path);
   void load_single_file(const CatalogFilePath &catalog_definition_file_path);

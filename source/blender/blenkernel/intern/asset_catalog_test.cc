@@ -1114,4 +1114,75 @@ TEST_F(AssetCatalogTest, cat_collection_deep_copy__nonempty_cdf)
       << "Deleted AssetCatalog pointers should have been remapped to the copy.";
 }
 
+TEST_F(AssetCatalogTest, undo_redo_one_step)
+{
+  TestableAssetCatalogService service(asset_library_root_);
+  service.load_from_disk();
+
+  EXPECT_FALSE(service.is_undo_possbile());
+  EXPECT_FALSE(service.is_redo_possbile());
+
+  service.create_catalog("some/catalog/path");
+  EXPECT_FALSE(service.is_undo_possbile())
+      << "Undo steps should be created explicitly, and not after creating any catalog.";
+
+  service.store_undo_snapshot();
+  const bUUID other_catalog_id = service.create_catalog("other/catalog/path")->catalog_id;
+  EXPECT_TRUE(service.is_undo_possbile())
+      << "Undo should be possible after creating an undo snapshot.";
+
+  // Undo the creation of the catalog.
+  service.undo();
+  EXPECT_FALSE(service.is_undo_possbile())
+      << "Undoing the only stored step should make it impossible to undo further.";
+  EXPECT_TRUE(service.is_redo_possbile()) << "Undoing a step should make redo possible.";
+  EXPECT_EQ(nullptr, service.find_catalog_by_path("other/catalog/path"))
+      << "Undone catalog should not exist after undo.";
+  EXPECT_NE(nullptr, service.find_catalog_by_path("some/catalog/path"))
+      << "First catalog should still exist after undo.";
+  EXPECT_FALSE(service.get_catalog_definition_file()->contains(other_catalog_id))
+      << "The CDF should also not contain the undone catalog.";
+
+  // Redo the creation of the catalog.
+  service.redo();
+  EXPECT_TRUE(service.is_undo_possbile())
+      << "Undoing and then redoing a step should make it possible to undo again.";
+  EXPECT_FALSE(service.is_redo_possbile())
+      << "Undoing and then redoing a step should make redo impossible.";
+  EXPECT_NE(nullptr, service.find_catalog_by_path("other/catalog/path"))
+      << "Redone catalog should exist after redo.";
+  EXPECT_NE(nullptr, service.find_catalog_by_path("some/catalog/path"))
+      << "First catalog should still exist after redo.";
+  EXPECT_TRUE(service.get_catalog_definition_file()->contains(other_catalog_id))
+      << "The CDF should contain the redone catalog.";
+}
+
+TEST_F(AssetCatalogTest, undo_redo_more_complex)
+{
+  TestableAssetCatalogService service(asset_library_root_);
+  service.load_from_disk();
+
+  service.store_undo_snapshot();
+  service.find_catalog(UUID_POSES_ELLIE_WHITESPACE)->simple_name = "Edited simple name";
+
+  service.store_undo_snapshot();
+  service.find_catalog(UUID_POSES_ELLIE)->path = "poselib/EllieWithEditedPath";
+
+  service.undo();
+  service.undo();
+
+  service.store_undo_snapshot();
+  service.find_catalog(UUID_POSES_ELLIE)->simple_name = "Ellie Simple";
+
+  EXPECT_FALSE(service.is_redo_possbile())
+      << "After storing an undo snapshot, the redo buffer should be empty.";
+  EXPECT_TRUE(service.is_undo_possbile())
+      << "After storing an undo snapshot, undoing should be possible";
+
+  EXPECT_EQ(service.find_catalog(UUID_POSES_ELLIE)->simple_name, "Ellie Simple"); /* Not undone. */
+  EXPECT_EQ(service.find_catalog(UUID_POSES_ELLIE_WHITESPACE)->simple_name,
+            "POSES_ELLIE WHITESPACE");                                                /* Undone. */
+  EXPECT_EQ(service.find_catalog(UUID_POSES_ELLIE)->path, "character/Ellie/poselib"); /* Undone. */
+}
+
 }  // namespace blender::bke::tests
