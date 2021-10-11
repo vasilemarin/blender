@@ -1538,6 +1538,18 @@ typedef struct NodeGeometryStringToCurves {
   char _pad[1];
 } NodeGeometryStringToCurves;
 
+typedef struct NodeGeometryDeleteGeometry {
+  /* AttributeDomain. */
+  int8_t domain;
+  /* GeometryNodeDeleteGeometryMode. */
+  int8_t mode;
+} NodeGeometryDeleteGeometry;
+
+typedef struct NodeGeometrySeparateGeometry {
+  /* AttributeDomain. */
+  int8_t domain;
+} NodeGeometrySeparateGeometry;
+
 /* script node mode */
 #define NODE_SCRIPT_INTERNAL 0
 #define NODE_SCRIPT_EXTERNAL 1
@@ -2075,6 +2087,19 @@ typedef enum GeometryNodeAlignRotationToVectorPivotAxis {
   GEO_NODE_ALIGN_ROTATION_TO_VECTOR_PIVOT_AXIS_Z = 3,
 } GeometryNodeAlignRotationToVectorPivotAxis;
 
+typedef enum NodeAlignEulerToVectorAxis {
+  FN_NODE_ALIGN_EULER_TO_VECTOR_AXIS_X = 0,
+  FN_NODE_ALIGN_EULER_TO_VECTOR_AXIS_Y = 1,
+  FN_NODE_ALIGN_EULER_TO_VECTOR_AXIS_Z = 2,
+} NodeAlignEulerToVectorAxis;
+
+typedef enum NodeAlignEulerToVectorPivotAxis {
+  FN_NODE_ALIGN_EULER_TO_VECTOR_PIVOT_AXIS_AUTO = 0,
+  FN_NODE_ALIGN_EULER_TO_VECTOR_PIVOT_AXIS_X = 1,
+  FN_NODE_ALIGN_EULER_TO_VECTOR_PIVOT_AXIS_Y = 2,
+  FN_NODE_ALIGN_EULER_TO_VECTOR_PIVOT_AXIS_Z = 3,
+} NodeAlignEulerToVectorPivotAxis;
+
 typedef enum GeometryNodeTransformSpace {
   GEO_NODE_TRANSFORM_SPACE_ORIGINAL = 0,
   GEO_NODE_TRANSFORM_SPACE_RELATIVE = 1,
@@ -2178,6 +2203,12 @@ typedef enum GeometryNodeStringToCurvesAlignYMode {
   GEO_NODE_STRING_TO_CURVES_ALIGN_Y_BOTTOM_BASELINE = 3,
   GEO_NODE_STRING_TO_CURVES_ALIGN_Y_BOTTOM = 4,
 } GeometryNodeStringToCurvesAlignYMode;
+
+typedef enum GeometryNodeDeleteGeometryMode {
+  GEO_NODE_DELETE_GEOMETRY_MODE_ALL = 0,
+  GEO_NODE_DELETE_GEOMETRY_MODE_EDGE_FACE = 1,
+  GEO_NODE_DELETE_GEOMETRY_MODE_ONLY_FACE = 2,
+} GeometryNodeDeleteGeometryMode;
 
 #ifdef __cplusplus
 }
