@@ -131,11 +131,21 @@ class AssetCatalogService {
   /** Return true only if there are no catalogs known. */
   bool is_empty() const;
 
-  bool is_undo_possbile() const;
-  bool is_redo_possbile() const;
-  void undo();
-  void redo();
+  /**
+   * Store the current catalogs in the undo stack.
+   * This snapshots everything in the #AssetCatalogCollection. */
   void store_undo_snapshot();
+  /**
+   * Restore the last-saved undo snapshot, pushing the current state onto the redo stack.
+   * The caller is responsible for first checking that undoing is possible.
+   */
+  void undo();
+  bool is_undo_possbile() const;
+  /**
+   * Restore the last-saved redo snapshot, pushing the current state onto the undo stack.
+   * The caller is responsible for first checking that undoing is possible. */
+  void redo();
+  bool is_redo_possbile() const;
 
  protected:
   std::unique_ptr<AssetCatalogCollection> catalog_collection_;
