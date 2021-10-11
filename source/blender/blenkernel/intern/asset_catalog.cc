@@ -456,26 +456,16 @@ void AssetCatalogService::undo()
 {
   BLI_assert_msg(is_undo_possbile(), "Undo stack is empty");
 
-  /* Store the current state in the redo buffer, before it's overwritten by the undo. */
-  std::unique_ptr<AssetCatalogCollection> current_state = catalog_collection_->deep_copy();
-  redo_snapshots_.append(std::move(current_state));
-
-  /* Overwrite the current state with the state from the undo buffer. */
-  std::unique_ptr<AssetCatalogCollection> snapshot = std::move(undo_snapshots_.pop_last());
-  catalog_collection_ = std::move(snapshot->deep_copy());
+  redo_snapshots_.append(std::move(catalog_collection_));
+  catalog_collection_ = std::move(undo_snapshots_.pop_last());
 }
 
 void AssetCatalogService::redo()
 {
   BLI_assert_msg(is_redo_possbile(), "Redo stack is empty");
 
-  /* Store the current state in the undo buffer, before it's overwritten by the redo. */
-  std::unique_ptr<AssetCatalogCollection> current_state = catalog_collection_->deep_copy();
-  redo_snapshots_.append(std::move(current_state));
-
-  std::unique_ptr<AssetCatalogCollection> snapshot = std::move(redo_snapshots_.pop_last());
-  catalog_collection_ = std::move(snapshot->deep_copy());
-  undo_snapshots_.append(std::move(snapshot));
+  undo_snapshots_.append(std::move(catalog_collection_));
+  catalog_collection_ = std::move(redo_snapshots_.pop_last());
 }
 
 void AssetCatalogService::store_undo_snapshot()
