@@ -19,8 +19,9 @@
 #include "util/util_logging.h"
 
 #ifdef WITH_HIP
-#  include "device/device.h"
 #  include "device/hip/device_impl.h"
+#  include "device/device.h"
+
 
 #  include "util/util_string.h"
 #  include "util/util_windows.h"

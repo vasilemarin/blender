@@ -16,10 +16,10 @@
 
 #ifdef WITH_HIP
 
-#  include "device/device.h"
 #  include "device/hip/kernel.h"
 #  include "device/hip/queue.h"
 #  include "device/hip/util.h"
+#  include "device/device.h"
 
 #  include "util/util_map.h"
 

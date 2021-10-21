@@ -487,9 +487,6 @@ endif()
 # HIP module
 
 if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
-  # 64 bit only
-  set(HIP_BITS 64)
-
   # build for each arch
   set(hip_sources device/hip/kernel.cpp
     ${SRC_HEADERS}
@@ -504,20 +501,11 @@ if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
   set(hip_fatbins)
 
   macro(CYCLES_HIP_KERNEL_ADD arch prev_arch name flags sources experimental)
-    if(${arch} MATCHES "compute_.*")
-      set(format "ptx")
-    else()
-      set(format "fatbin")
-    endif()
+    set(format "fatbin")
     set(hip_file ${name}_${arch}.${format})
-
     set(kernel_sources ${sources})
     if(NOT ${prev_arch} STREQUAL "none")
-      if(${prev_arch} MATCHES "compute_.*")
-        set(kernel_sources ${kernel_sources} ${name}_${prev_arch}.ptx)
-      else()
-        set(kernel_sources ${kernel_sources} ${name}_${prev_arch}.fatbin)
-      endif()
+      set(kernel_sources ${kernel_sources} ${name}_${prev_arch}.fatbin)
     endif()
 
     set(hip_kernel_src "/device/hip/${name}.cpp")
@@ -526,10 +514,12 @@ if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
       -D CCL_NAMESPACE_BEGIN=
       -D CCL_NAMESPACE_END=
       -D HIPCC
-      -m ${HIP_BITS}
       -I ${CMAKE_CURRENT_SOURCE_DIR}/..
       -I ${CMAKE_CURRENT_SOURCE_DIR}/device/hip
-      --use_fast_math
+      -Wno-parentheses-equality 
+      -Wno-unused-value 
+      --hipcc-func-supp
+      -ffast-math
       -o ${CMAKE_CURRENT_BINARY_DIR}/${hip_file})
 
     if(${experimental})
@@ -540,19 +530,13 @@ if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
     if(WITH_CYCLES_DEBUG)
       set(hip_flags ${hip_flags} -D __KERNEL_DEBUG__)
     endif()
-
-    if(WITH_NANOVDB)
-      set(hip_flags ${hip_flags}
-        -D WITH_NANOVDB
-        -I "${NANOVDB_INCLUDE_DIR}")
-    endif()
-
-    add_custom_command(
-      OUTPUT ${hip_file}
+    
+    add_custom_target(
+      ${hip_file}
       COMMAND ${HIP_HIPCC_EXECUTABLE}
-          -arch=${arch}
+          --amdgpu-target=${arch}
           ${HIP_HIPCC_FLAGS}
-          --${format}
+          --genco
           ${CMAKE_CURRENT_SOURCE_DIR}${hip_kernel_src}
           ${hip_flags}
       DEPENDS ${kernel_sources})
