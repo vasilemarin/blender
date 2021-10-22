@@ -306,7 +306,7 @@ set(LIB
 
 # CUDA module
 
-if(WITH_CYCLES_CUDA_BINARIES)
+if((WITH_CYCLES_DEVICE_OPTIX OR WITH_CYCLES_DEVICE_CUDA) AND WITH_CYCLES_CUDA_BINARIES)
   # 64 bit only
   set(CUDA_BITS 64)
 
@@ -510,7 +510,24 @@ if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
 
     set(hip_kernel_src "/device/hip/${name}.cpp")
 
-    set(hip_flags ${flags}
+    if(WIN32)
+      set(hip_command ${CMAKE_COMMAND})
+      set(hip_flags
+        -E env "HIP_PATH=${HIP_ROOT_DIR}"
+        -E env "PATH=C:/ProgramData/AMD/HIP/strawberry/perl/bin;$ENV{PATH}"
+        ${HIP_HIPCC_EXECUTABLE}.bat)
+    else()
+      set(hip_command ${HIP_HIPCC_EXECUTABLE})
+      set(hip_flags)
+    endif()
+
+    set(hip_flags
+      ${hip_flags}
+      --amdgpu-target=${arch}
+      ${HIP_HIPCC_FLAGS}
+      --genco
+      ${CMAKE_CURRENT_SOURCE_DIR}${hip_kernel_src}
+      ${flags}
       -D CCL_NAMESPACE_BEGIN=
       -D CCL_NAMESPACE_END=
       -D HIPCC
@@ -533,12 +550,7 @@ if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
     
     add_custom_target(
       ${hip_file}
-      COMMAND ${HIP_HIPCC_EXECUTABLE}
-          --amdgpu-target=${arch}
-          ${HIP_HIPCC_FLAGS}
-          --genco
-          ${CMAKE_CURRENT_SOURCE_DIR}${hip_kernel_src}
-          ${hip_flags}
+      COMMAND ${hip_command} ${hip_flags}
       DEPENDS ${kernel_sources})
     delayed_install("${CMAKE_CURRENT_BINARY_DIR}" "${hip_file}" ${CYCLES_INSTALL_PATH}/lib)
     list(APPEND hip_fatbins ${hip_file})
@@ -726,7 +738,7 @@ source_group("device\\cuda" FILES ${SRC_DEVICE_CUDA} ${SRC_DEVICE_CUDA_HEADERS})
 source_group("device\\optix" FILES ${SRC_DEVICE_OPTIX} ${SRC_DEVICE_OPTIX_HEADERS})
 source_group("svm" FILES ${SRC_SVM_HEADERS})
 
-if(WITH_CYCLES_CUDA)
+if((WITH_CYCLES_DEVICE_OPTIX OR WITH_CYCLES_DEVICE_CUDA) AND WITH_CYCLES_CUDA_BINARIES)
   add_dependencies(cycles_kernel cycles_kernel_cuda)
 endif()
 if(WITH_CYCLES_DEVICE_OPTIX AND WITH_CYCLES_CUDA_BINARIES)
