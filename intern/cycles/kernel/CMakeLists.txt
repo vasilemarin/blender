@@ -514,7 +514,7 @@ if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
       set(hip_command ${CMAKE_COMMAND})
       set(hip_flags
         -E env "HIP_PATH=${HIP_ROOT_DIR}"
-        -E env "PATH=C:/ProgramData/AMD/HIP/strawberry/perl/bin;$ENV{PATH}"
+        -E env "PATH=C:/ProgramData/AMD/HIP/strawberry/perl/bin"
         ${HIP_HIPCC_EXECUTABLE}.bat)
     else()
       set(hip_command ${HIP_HIPCC_EXECUTABLE})
