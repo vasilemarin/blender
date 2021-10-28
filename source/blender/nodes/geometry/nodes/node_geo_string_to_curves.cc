@@ -44,7 +44,7 @@ static void geo_node_string_to_curves_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>("Line Spacing").default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
   b.add_input<decl::Float>("Text Box Width").default_value(0.0f).min(0.0f).subtype(PROP_DISTANCE);
   b.add_input<decl::Float>("Text Box Height").default_value(0.0f).min(0.0f).subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>("Curve");
+  b.add_output<decl::Geometry>("Curves");
   b.add_output<decl::String>("Remainder");
   b.add_output<decl::Int>("Line").field_source();
   b.add_output<decl::Vector>("Pivot Point").field_source();
