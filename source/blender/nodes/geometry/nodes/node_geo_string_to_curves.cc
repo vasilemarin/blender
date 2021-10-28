@@ -44,7 +44,7 @@ static void geo_node_string_to_curves_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>("Line Spacing").default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
   b.add_input<decl::Float>("Text Box Width").default_value(0.0f).min(0.0f).subtype(PROP_DISTANCE);
   b.add_input<decl::Float>("Text Box Height").default_value(0.0f).min(0.0f).subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>("Curves");
+  b.add_output<decl::Geometry>("Curve Instances");
   b.add_output<decl::String>("Remainder");
   b.add_output<decl::Int>("Line").field_source();
   b.add_output<decl::Vector>("Pivot Point").field_source();
@@ -391,7 +391,7 @@ static void geo_node_string_to_curves_exec(GeoNodeExecParams params)
   }
 
   if (layout.positions.size() == 0) {
-    params.set_output("Curves", GeometrySet());
+    params.set_output("Curve Instances", GeometrySet());
     return;
   }
 
@@ -402,7 +402,7 @@ static void geo_node_string_to_curves_exec(GeoNodeExecParams params)
   add_instances_from_handles(instances, char_handles, layout);
   create_attributes(params, layout, instances);
 
-  params.set_output("Curves", std::move(geometry_set_out));
+  params.set_output("Curve Instances", std::move(geometry_set_out));
 }
 
 }  // namespace blender::nodes
