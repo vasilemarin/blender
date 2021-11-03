@@ -24,6 +24,9 @@
 
 #include "DRW_render.h"
 
+#include <memory>
+#include <optional>
+
 #include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
@@ -43,12 +46,303 @@
 
 namespace blender::draw::image_engine {
 
+/* Forward declarations. */
+class AbstractSpaceAccessor;
+static void image_cache_image(
+    AbstractSpaceAccessor &space, IMAGE_Data *vedata, Image *image, ImageUser *iuser, ImBuf *ibuf);
+
 #define IMAGE_DRAW_FLAG_SHOW_ALPHA (1 << 0)
 #define IMAGE_DRAW_FLAG_APPLY_ALPHA (1 << 1)
 #define IMAGE_DRAW_FLAG_SHUFFLING (1 << 2)
 #define IMAGE_DRAW_FLAG_DEPTH (1 << 3)
 #define IMAGE_DRAW_FLAG_DO_REPEAT (1 << 4)
 #define IMAGE_DRAW_FLAG_USE_WORLD_POS (1 << 5)
+
+struct ShaderParameters {
+  constexpr static float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+  int flags = 0;
+  float shuffle[4];
+  float far_near[2];
+  bool use_premul_alpha = false;
+
+  ShaderParameters()
+  {
+    copy_v4_fl(shuffle, 1.0f);
+    copy_v2_fl2(far_near, 100.0f, 0.0f);
+  }
+
+  void set_far_near(Camera *camera)
+  {
+    far_near[1] = camera->clip_start;
+    far_near[0] = camera->clip_end;
+  }
+};
+
+class AbstractSpaceAccessor {
+ public:
+  virtual void release_buffer(Image *image, ImBuf *ibuf, void *lock) = 0;
+  virtual Image *get_image(Main *bmain) = 0;
+  virtual ImageUser *get_image_user() = 0;
+  virtual ImBuf *acquire_image_buffer(Image *image, void **lock) = 0;
+  virtual void get_shader_parameters(ShaderParameters &r_shader_parameters,
+                                     ImBuf *ibuf,
+                                     bool is_tiled) = 0;
+
+  virtual std::optional<DRWView *> create_view(const ARegion *UNUSED(region))
+  {
+    return std::nullopt;
+  }
+};
+
+class SpaceImageAccessor : public AbstractSpaceAccessor {
+  SpaceImage *sima;
+
+ public:
+  SpaceImageAccessor(SpaceImage *sima) : sima(sima)
+  {
+  }
+
+  Image *get_image(Main *UNUSED(bmain)) override
+  {
+    return ED_space_image(sima);
+  }
+
+  ImageUser *get_image_user() override
+  {
+    return &sima->iuser;
+  }
+
+  ImBuf *acquire_image_buffer(Image *UNUSED(image), void **lock) override
+  {
+    return ED_space_image_acquire_buffer(sima, lock, 0);
+  }
+
+  void release_buffer(Image *UNUSED(image), ImBuf *ibuf, void *lock) override
+  {
+    ED_space_image_release_buffer(sima, ibuf, lock);
+  }
+
+  void get_shader_parameters(ShaderParameters &r_shader_parameters,
+                             ImBuf *ibuf,
+                             bool is_tiled) override
+  {
+    const int sima_flag = sima->flag & ED_space_image_get_display_channel_mask(ibuf);
+    const bool do_repeat = (!is_tiled) && ((sima->flag & SI_DRAW_TILE) != 0);
+    SET_FLAG_FROM_TEST(r_shader_parameters.flags, do_repeat, IMAGE_DRAW_FLAG_DO_REPEAT);
+    SET_FLAG_FROM_TEST(r_shader_parameters.flags, is_tiled, IMAGE_DRAW_FLAG_USE_WORLD_POS);
+    if ((sima_flag & SI_USE_ALPHA) != 0) {
+      /* Show RGBA */
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHOW_ALPHA | IMAGE_DRAW_FLAG_APPLY_ALPHA;
+    }
+    else if ((sima_flag & SI_SHOW_ALPHA) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 0.0f, 0.0f, 1.0f);
+    }
+    else if ((sima_flag & SI_SHOW_ZBUF) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_DEPTH | IMAGE_DRAW_FLAG_SHUFFLING;
+      copy_v4_fl4(r_shader_parameters.shuffle, 1.0f, 0.0f, 0.0f, 0.0f);
+    }
+    else if ((sima_flag & SI_SHOW_R) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+      copy_v4_fl4(r_shader_parameters.shuffle, 1.0f, 0.0f, 0.0f, 0.0f);
+    }
+    else if ((sima_flag & SI_SHOW_G) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+      copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 1.0f, 0.0f, 0.0f);
+    }
+    else if ((sima_flag & SI_SHOW_B) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+      copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 0.0f, 1.0f, 0.0f);
+    }
+    else /* RGB */ {
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+    }
+  }
+};
+
+class SpaceNodeAccessor : public AbstractSpaceAccessor {
+  SpaceNode *snode;
+
+ public:
+  SpaceNodeAccessor(SpaceNode *snode) : snode(snode)
+  {
+  }
+
+  Image *get_image(Main *bmain) override
+  {
+    return BKE_image_ensure_viewer(bmain, IMA_TYPE_COMPOSITE, "Viewer Node");
+  }
+
+  ImageUser *get_image_user() override
+  {
+    return nullptr;
+  }
+
+  ImBuf *acquire_image_buffer(Image *image, void **lock) override
+  {
+    return BKE_image_acquire_ibuf(image, nullptr, lock);
+  }
+
+  void release_buffer(Image *image, ImBuf *ibuf, void *lock) override
+  {
+    BKE_image_release_ibuf(image, ibuf, lock);
+  }
+
+  std::optional<DRWView *> create_view(const ARegion *region) override
+  {
+    /* Setup a screen pixel view. The backdrop of the node editor doesn't follow the region. */
+    float winmat[4][4], viewmat[4][4];
+    orthographic_m4(viewmat, 0.0, region->winx, 0.0, region->winy, 0.0, 1.0);
+    unit_m4(winmat);
+    return std::make_optional(DRW_view_create(viewmat, winmat, nullptr, nullptr, nullptr));
+  }
+
+  void get_shader_parameters(ShaderParameters &r_shader_parameters,
+                             ImBuf *ibuf,
+                             bool UNUSED(is_tiled)) override
+  {
+    if ((snode->flag & SNODE_USE_ALPHA) != 0) {
+      /* Show RGBA */
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHOW_ALPHA | IMAGE_DRAW_FLAG_APPLY_ALPHA;
+    }
+    else if ((snode->flag & SNODE_SHOW_ALPHA) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 0.0f, 0.0f, 1.0f);
+    }
+    else if ((snode->flag & SNODE_SHOW_R) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+      copy_v4_fl4(r_shader_parameters.shuffle, 1.0f, 0.0f, 0.0f, 0.0f);
+    }
+    else if ((snode->flag & SNODE_SHOW_G) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+      copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 1.0f, 0.0f, 0.0f);
+    }
+    else if ((snode->flag & SNODE_SHOW_B) != 0) {
+      r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+      copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 0.0f, 1.0f, 0.0f);
+    }
+    else /* RGB */ {
+      if (IMB_alpha_affects_rgb(ibuf)) {
+        r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
+      }
+    }
+  }
+};
+
+static std::unique_ptr<AbstractSpaceAccessor> space_accessor_from_context(
+    const DRWContextState *draw_ctx)
+{
+  const char space_type = draw_ctx->space_data->spacetype;
+  if (space_type == SPACE_IMAGE) {
+    return std::make_unique<SpaceImageAccessor>((SpaceImage *)draw_ctx->space_data);
+  }
+  if (space_type == SPACE_NODE) {
+    return std::make_unique<SpaceNodeAccessor>((SpaceNode *)draw_ctx->space_data);
+  }
+  BLI_assert_unreachable();
+  return nullptr;
+}
+
+class ImageEngine {
+ private:
+  const DRWContextState *draw_ctx;
+  IMAGE_Data *vedata;
+  std::unique_ptr<AbstractSpaceAccessor> space;
+
+ public:
+  ImageEngine(const DRWContextState *draw_ctx, IMAGE_Data *vedata)
+      : draw_ctx(draw_ctx), vedata(vedata), space(space_accessor_from_context(draw_ctx))
+  {
+  }
+
+  virtual ~ImageEngine() = default;
+
+  static DRWPass *create_image_pass()
+  {
+    /* Write depth is needed for background overlay rendering. Near depth is used for
+     * transparency checker and Far depth is used for indicating the image size. */
+    DRWState state = static_cast<DRWState>(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH |
+                                           DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND_ALPHA_PREMUL);
+    return DRW_pass_create("Image", state);
+  }
+
+  void cache_init()
+  {
+    IMAGE_StorageList *stl = vedata->stl;
+    IMAGE_PrivateData *pd = stl->pd;
+    IMAGE_PassList *psl = vedata->psl;
+
+    psl->image_pass = create_image_pass();
+
+    Main *bmain = CTX_data_main(draw_ctx->evil_C);
+    const ARegion *region = draw_ctx->region;
+    pd->image = space->get_image(bmain);
+    pd->ibuf = space->acquire_image_buffer(pd->image, &pd->lock);
+    ImageUser *iuser = space->get_image_user();
+    image_cache_image(*space, vedata, pd->image, iuser, pd->ibuf);
+
+    pd->view = nullptr;
+    std::optional<DRWView *> view_override = space->create_view(region);
+    if (view_override.has_value()) {
+      pd->view = view_override.value();
+    }
+  }
+
+  void draw_finish()
+  {
+    IMAGE_StorageList *stl = vedata->stl;
+    IMAGE_PrivateData *pd = stl->pd;
+
+    space->release_buffer(pd->image, pd->ibuf, pd->lock);
+
+    pd->image = nullptr;
+    pd->ibuf = nullptr;
+
+    if (pd->texture && pd->owns_texture) {
+      GPU_texture_free(pd->texture);
+      pd->owns_texture = false;
+    }
+    pd->texture = nullptr;
+  }
+
+  void draw_scene()
+  {
+    IMAGE_PassList *psl = vedata->psl;
+    IMAGE_PrivateData *pd = vedata->stl->pd;
+
+    DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+    GPU_framebuffer_bind(dfbl->default_fb);
+    static float clear_col[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    GPU_framebuffer_clear_color_depth(dfbl->default_fb, clear_col, 1.0);
+
+    DRW_view_set_active(pd->view);
+    DRW_draw_pass(psl->image_pass);
+    DRW_view_set_active(nullptr);
+
+    draw_finish();
+  }
+};
 
 static void image_cache_image_add(DRWShadingGroup *grp, Image *image, ImBuf *ibuf)
 {
@@ -196,132 +490,47 @@ static void image_gpu_texture_get(Image *image,
   }
 }
 
-static void image_cache_image(IMAGE_Data *vedata, Image *image, ImageUser *iuser, ImBuf *ibuf)
+static void image_cache_image(
+    AbstractSpaceAccessor &space, IMAGE_Data *vedata, Image *image, ImageUser *iuser, ImBuf *ibuf)
 {
   IMAGE_PassList *psl = vedata->psl;
   IMAGE_StorageList *stl = vedata->stl;
   IMAGE_PrivateData *pd = stl->pd;
 
-  const DRWContextState *draw_ctx = DRW_context_state_get();
-  const char space_type = draw_ctx->space_data->spacetype;
-  const Scene *scene = draw_ctx->scene;
-
   GPUTexture *tex_tile_data = nullptr;
   image_gpu_texture_get(image, iuser, ibuf, &pd->texture, &pd->owns_texture, &tex_tile_data);
-
-  if (pd->texture) {
-    static float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    static float shuffle[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    static float far_near[2] = {100.0f, 0.0f};
-
-    if (scene->camera && scene->camera->type == OB_CAMERA) {
-      far_near[1] = ((Camera *)scene->camera->data)->clip_start;
-      far_near[0] = ((Camera *)scene->camera->data)->clip_end;
-    }
-
-    const bool use_premul_alpha = BKE_image_has_gpu_texture_premultiplied_alpha(image, ibuf);
-    const bool is_tiled_texture = tex_tile_data != nullptr;
-
-    int draw_flags = 0;
-    if (space_type == SPACE_IMAGE) {
-      SpaceImage *sima = (SpaceImage *)draw_ctx->space_data;
-      const int sima_flag = sima->flag & ED_space_image_get_display_channel_mask(ibuf);
-      const bool do_repeat = (!is_tiled_texture) && ((sima->flag & SI_DRAW_TILE) != 0);
-      SET_FLAG_FROM_TEST(draw_flags, do_repeat, IMAGE_DRAW_FLAG_DO_REPEAT);
-      SET_FLAG_FROM_TEST(draw_flags, is_tiled_texture, IMAGE_DRAW_FLAG_USE_WORLD_POS);
-      if ((sima_flag & SI_USE_ALPHA) != 0) {
-        /* Show RGBA */
-        draw_flags |= IMAGE_DRAW_FLAG_SHOW_ALPHA | IMAGE_DRAW_FLAG_APPLY_ALPHA;
-      }
-      else if ((sima_flag & SI_SHOW_ALPHA) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        copy_v4_fl4(shuffle, 0.0f, 0.0f, 0.0f, 1.0f);
-      }
-      else if ((sima_flag & SI_SHOW_ZBUF) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_DEPTH | IMAGE_DRAW_FLAG_SHUFFLING;
-        copy_v4_fl4(shuffle, 1.0f, 0.0f, 0.0f, 0.0f);
-      }
-      else if ((sima_flag & SI_SHOW_R) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-        copy_v4_fl4(shuffle, 1.0f, 0.0f, 0.0f, 0.0f);
-      }
-      else if ((sima_flag & SI_SHOW_G) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-        copy_v4_fl4(shuffle, 0.0f, 1.0f, 0.0f, 0.0f);
-      }
-      else if ((sima_flag & SI_SHOW_B) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-        copy_v4_fl4(shuffle, 0.0f, 0.0f, 1.0f, 0.0f);
-      }
-      else /* RGB */ {
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-      }
-    }
-    if (space_type == SPACE_NODE) {
-      SpaceNode *snode = (SpaceNode *)draw_ctx->space_data;
-      if ((snode->flag & SNODE_USE_ALPHA) != 0) {
-        /* Show RGBA */
-        draw_flags |= IMAGE_DRAW_FLAG_SHOW_ALPHA | IMAGE_DRAW_FLAG_APPLY_ALPHA;
-      }
-      else if ((snode->flag & SNODE_SHOW_ALPHA) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        copy_v4_fl4(shuffle, 0.0f, 0.0f, 0.0f, 1.0f);
-      }
-      else if ((snode->flag & SNODE_SHOW_R) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-        copy_v4_fl4(shuffle, 1.0f, 0.0f, 0.0f, 0.0f);
-      }
-      else if ((snode->flag & SNODE_SHOW_G) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-        copy_v4_fl4(shuffle, 0.0f, 1.0f, 0.0f, 0.0f);
-      }
-      else if ((snode->flag & SNODE_SHOW_B) != 0) {
-        draw_flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-        copy_v4_fl4(shuffle, 0.0f, 0.0f, 1.0f, 0.0f);
-      }
-      else /* RGB */ {
-        if (IMB_alpha_affects_rgb(ibuf)) {
-          draw_flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
-        }
-      }
-    }
-
-    GPUShader *shader = IMAGE_shader_image_get(is_tiled_texture);
-    DRWShadingGroup *shgrp = DRW_shgroup_create(shader, psl->image_pass);
-    if (is_tiled_texture) {
-      DRW_shgroup_uniform_texture_ex(shgrp, "imageTileArray", pd->texture, GPU_SAMPLER_DEFAULT);
-      DRW_shgroup_uniform_texture(shgrp, "imageTileData", tex_tile_data);
-    }
-    else {
-      DRW_shgroup_uniform_texture_ex(shgrp, "imageTexture", pd->texture, GPU_SAMPLER_DEFAULT);
-    }
-    DRW_shgroup_uniform_vec2_copy(shgrp, "farNearDistances", far_near);
-    DRW_shgroup_uniform_vec4_copy(shgrp, "color", color);
-    DRW_shgroup_uniform_vec4_copy(shgrp, "shuffle", shuffle);
-    DRW_shgroup_uniform_int_copy(shgrp, "drawFlags", draw_flags);
-    DRW_shgroup_uniform_bool_copy(shgrp, "imgPremultiplied", use_premul_alpha);
-    image_cache_image_add(shgrp, image, ibuf);
+  if (pd->texture == nullptr) {
+    return;
   }
+  const bool is_tiled_texture = tex_tile_data != nullptr;
+
+  ShaderParameters sh_params;
+
+  sh_params.use_premul_alpha = BKE_image_has_gpu_texture_premultiplied_alpha(image, ibuf);
+
+  const DRWContextState *draw_ctx = DRW_context_state_get();
+  const Scene *scene = draw_ctx->scene;
+  if (scene->camera && scene->camera->type == OB_CAMERA) {
+    Camera *camera = static_cast<Camera *>(scene->camera->data);
+    sh_params.set_far_near(camera);
+  }
+  space.get_shader_parameters(sh_params, ibuf, is_tiled_texture);
+
+  GPUShader *shader = IMAGE_shader_image_get(is_tiled_texture);
+  DRWShadingGroup *shgrp = DRW_shgroup_create(shader, psl->image_pass);
+  if (is_tiled_texture) {
+    DRW_shgroup_uniform_texture_ex(shgrp, "imageTileArray", pd->texture, GPU_SAMPLER_DEFAULT);
+    DRW_shgroup_uniform_texture(shgrp, "imageTileData", tex_tile_data);
+  }
+  else {
+    DRW_shgroup_uniform_texture_ex(shgrp, "imageTexture", pd->texture, GPU_SAMPLER_DEFAULT);
+  }
+  DRW_shgroup_uniform_vec2_copy(shgrp, "farNearDistances", sh_params.far_near);
+  DRW_shgroup_uniform_vec4_copy(shgrp, "color", ShaderParameters::color);
+  DRW_shgroup_uniform_vec4_copy(shgrp, "shuffle", sh_params.shuffle);
+  DRW_shgroup_uniform_int_copy(shgrp, "drawFlags", sh_params.flags);
+  DRW_shgroup_uniform_bool_copy(shgrp, "imgPremultiplied", sh_params.use_premul_alpha);
+  image_cache_image_add(shgrp, image, ibuf);
 }
 
 /* -------------------------------------------------------------------- */
@@ -343,49 +552,11 @@ static void IMAGE_engine_init(void *ved)
   pd->texture = nullptr;
 }
 
-static void IMAGE_cache_init(void *ved)
+static void IMAGE_cache_init(void *vedata)
 {
-  IMAGE_Data *vedata = (IMAGE_Data *)ved;
-  IMAGE_StorageList *stl = vedata->stl;
-  IMAGE_PrivateData *pd = stl->pd;
-  IMAGE_PassList *psl = vedata->psl;
   const DRWContextState *draw_ctx = DRW_context_state_get();
-
-  {
-    /* Write depth is needed for background overlay rendering. Near depth is used for
-     * transparency checker and Far depth is used for indicating the image size. */
-    DRWState state = static_cast<DRWState>(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH |
-                                           DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND_ALPHA_PREMUL);
-    psl->image_pass = DRW_pass_create("Image", state);
-  }
-
-  const SpaceLink *space_link = draw_ctx->space_data;
-  const char space_type = space_link->spacetype;
-  pd->view = nullptr;
-  if (space_type == SPACE_IMAGE) {
-    SpaceImage *sima = (SpaceImage *)draw_ctx->space_data;
-    Image *image = ED_space_image(sima);
-    ImBuf *ibuf = ED_space_image_acquire_buffer(sima, &pd->lock, 0);
-    image_cache_image(vedata, image, &sima->iuser, ibuf);
-    pd->image = image;
-    pd->ibuf = ibuf;
-  }
-  else if (space_type == SPACE_NODE) {
-    ARegion *region = draw_ctx->region;
-    Main *bmain = CTX_data_main(draw_ctx->evil_C);
-    Image *image = BKE_image_ensure_viewer(bmain, IMA_TYPE_COMPOSITE, "Viewer Node");
-    ImBuf *ibuf = BKE_image_acquire_ibuf(image, nullptr, &pd->lock);
-    {
-      /* Setup a screen pixel view. The backdrop of the node editor doesn't follow the region. */
-      float winmat[4][4], viewmat[4][4];
-      orthographic_m4(viewmat, 0.0, region->winx, 0.0, region->winy, 0.0, 1.0);
-      unit_m4(winmat);
-      pd->view = DRW_view_create(viewmat, winmat, nullptr, nullptr, nullptr);
-    }
-    image_cache_image(vedata, image, nullptr, ibuf);
-    pd->image = image;
-    pd->ibuf = ibuf;
-  }
+  ImageEngine image_engine(draw_ctx, static_cast<IMAGE_Data *>(vedata));
+  image_engine.cache_init();
 }
 
 static void IMAGE_cache_populate(void *UNUSED(vedata), Object *UNUSED(ob))
@@ -393,45 +564,11 @@ static void IMAGE_cache_populate(void *UNUSED(vedata), Object *UNUSED(ob))
   /* Function intentional left empty. `cache_populate` is required to be implemented. */
 }
 
-static void image_draw_finish(IMAGE_Data *ved)
+static void IMAGE_draw_scene(void *vedata)
 {
-  IMAGE_Data *vedata = (IMAGE_Data *)ved;
-  IMAGE_StorageList *stl = vedata->stl;
-  IMAGE_PrivateData *pd = stl->pd;
   const DRWContextState *draw_ctx = DRW_context_state_get();
-  const char space_type = draw_ctx->space_data->spacetype;
-  if (space_type == SPACE_IMAGE) {
-    SpaceImage *sima = (SpaceImage *)draw_ctx->space_data;
-    ED_space_image_release_buffer(sima, pd->ibuf, pd->lock);
-  }
-  else if (space_type == SPACE_NODE) {
-    BKE_image_release_ibuf(pd->image, pd->ibuf, pd->lock);
-  }
-  pd->image = nullptr;
-  pd->ibuf = nullptr;
-
-  if (pd->texture && pd->owns_texture) {
-    GPU_texture_free(pd->texture);
-    pd->owns_texture = false;
-  }
-  pd->texture = nullptr;
-}
-
-static void IMAGE_draw_scene(void *ved)
-{
-  IMAGE_Data *vedata = (IMAGE_Data *)ved;
-  IMAGE_PassList *psl = vedata->psl;
-  IMAGE_PrivateData *pd = vedata->stl->pd;
-
-  DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
-  GPU_framebuffer_bind(dfbl->default_fb);
-  static float clear_col[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-  GPU_framebuffer_clear_color_depth(dfbl->default_fb, clear_col, 1.0);
-
-  DRW_view_set_active(pd->view);
-  DRW_draw_pass(psl->image_pass);
-  DRW_view_set_active(nullptr);
-  image_draw_finish(vedata);
+  ImageEngine image_engine(draw_ctx, static_cast<IMAGE_Data *>(vedata));
+  image_engine.draw_scene();
 }
 
 static void IMAGE_engine_free()
@@ -466,4 +603,3 @@ DrawEngineType draw_engine_image_type = {
     nullptr,               /* store_metadata */
 };
 }
-
