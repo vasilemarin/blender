@@ -40,13 +40,13 @@ class DefaultDrawingMode : public AbstractDrawingMode {
   void add_to_shgroup(AbstractSpaceAccessor *space,
                       DRWShadingGroup *grp,
                       const Image *image,
-                      const ImBuf *ibuf) const
+                      const ImBuf *image_buffer) const
   {
     float image_mat[4][4];
 
     const DRWContextState *draw_ctx = DRW_context_state_get();
     const ARegion *region = draw_ctx->region;
-    space->get_image_mat(ibuf, region, image_mat);
+    space->get_image_mat(image_buffer, region, image_mat);
 
     GPUBatch *geom = DRW_cache_quad_get();
 

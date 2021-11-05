@@ -49,16 +49,16 @@ class SpaceImageAccessor : public AbstractSpaceAccessor {
     return ED_space_image_acquire_buffer(sima, lock, 0);
   }
 
-  void release_buffer(Image *UNUSED(image), ImBuf *ibuf, void *lock) override
+  void release_buffer(Image *UNUSED(image), ImBuf *image_buffer, void *lock) override
   {
-    ED_space_image_release_buffer(sima, ibuf, lock);
+    ED_space_image_release_buffer(sima, image_buffer, lock);
   }
 
   void get_shader_parameters(ShaderParameters &r_shader_parameters,
-                             ImBuf *ibuf,
+                             ImBuf *image_buffer,
                              bool is_tiled) override
   {
-    const int sima_flag = sima->flag & ED_space_image_get_display_channel_mask(ibuf);
+    const int sima_flag = sima->flag & ED_space_image_get_display_channel_mask(image_buffer);
     const bool do_repeat = (!is_tiled) && ((sima->flag & SI_DRAW_TILE) != 0);
     SET_FLAG_FROM_TEST(r_shader_parameters.flags, do_repeat, IMAGE_DRAW_FLAG_DO_REPEAT);
     SET_FLAG_FROM_TEST(r_shader_parameters.flags, is_tiled, IMAGE_DRAW_FLAG_USE_WORLD_POS);
@@ -76,27 +76,27 @@ class SpaceImageAccessor : public AbstractSpaceAccessor {
     }
     else if ((sima_flag & SI_SHOW_R) != 0) {
       r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-      if (IMB_alpha_affects_rgb(ibuf)) {
+      if (IMB_alpha_affects_rgb(image_buffer)) {
         r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
       }
       copy_v4_fl4(r_shader_parameters.shuffle, 1.0f, 0.0f, 0.0f, 0.0f);
     }
     else if ((sima_flag & SI_SHOW_G) != 0) {
       r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-      if (IMB_alpha_affects_rgb(ibuf)) {
+      if (IMB_alpha_affects_rgb(image_buffer)) {
         r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
       }
       copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 1.0f, 0.0f, 0.0f);
     }
     else if ((sima_flag & SI_SHOW_B) != 0) {
       r_shader_parameters.flags |= IMAGE_DRAW_FLAG_SHUFFLING;
-      if (IMB_alpha_affects_rgb(ibuf)) {
+      if (IMB_alpha_affects_rgb(image_buffer)) {
         r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
       }
       copy_v4_fl4(r_shader_parameters.shuffle, 0.0f, 0.0f, 1.0f, 0.0f);
     }
     else /* RGB */ {
-      if (IMB_alpha_affects_rgb(ibuf)) {
+      if (IMB_alpha_affects_rgb(image_buffer)) {
         r_shader_parameters.flags |= IMAGE_DRAW_FLAG_APPLY_ALPHA;
       }
     }
@@ -113,7 +113,7 @@ class SpaceImageAccessor : public AbstractSpaceAccessor {
 
   void get_gpu_textures(Image *image,
                         ImageUser *iuser,
-                        ImBuf *ibuf,
+                        ImBuf *image_buffer,
                         GPUTexture **r_gpu_texture,
                         bool *r_owns_texture,
                         GPUTexture **r_tex_tile_data) override
@@ -126,11 +126,11 @@ class SpaceImageAccessor : public AbstractSpaceAccessor {
       BKE_image_multiview_index(image, iuser);
     }
 
-    if (ibuf == nullptr) {
+    if (image_buffer == nullptr) {
       return;
     }
 
-    if (ibuf->rect == nullptr && ibuf->rect_float == nullptr) {
+    if (image_buffer->rect == nullptr && image_buffer->rect_float == nullptr) {
       /* This code-path is only supposed to happen when drawing a lazily-allocatable render result.
        * In all the other cases the `ED_space_image_acquire_buffer()` is expected to return nullptr
        * as an image buffer when it has no pixels. */
@@ -143,29 +143,30 @@ class SpaceImageAccessor : public AbstractSpaceAccessor {
       return;
     }
 
-    const int sima_flag = sima->flag & ED_space_image_get_display_channel_mask(ibuf);
-    if (sima_flag & SI_SHOW_ZBUF && (ibuf->zbuf || ibuf->zbuf_float || (ibuf->channels == 1))) {
-      if (ibuf->zbuf) {
+    const int sima_flag = sima->flag & ED_space_image_get_display_channel_mask(image_buffer);
+    if (sima_flag & SI_SHOW_ZBUF &&
+        (image_buffer->zbuf || image_buffer->zbuf_float || (image_buffer->channels == 1))) {
+      if (image_buffer->zbuf) {
         BLI_assert_msg(0, "Integer based depth buffers not supported");
       }
-      else if (ibuf->zbuf_float) {
+      else if (image_buffer->zbuf_float) {
         *r_gpu_texture = GPU_texture_create_2d(
-            __func__, ibuf->x, ibuf->y, 0, GPU_R16F, ibuf->zbuf_float);
+            __func__, image_buffer->x, image_buffer->y, 0, GPU_R16F, image_buffer->zbuf_float);
         *r_owns_texture = true;
       }
-      else if (ibuf->rect_float && ibuf->channels == 1) {
+      else if (image_buffer->rect_float && image_buffer->channels == 1) {
         *r_gpu_texture = GPU_texture_create_2d(
-            __func__, ibuf->x, ibuf->y, 0, GPU_R16F, ibuf->rect_float);
+            __func__, image_buffer->x, image_buffer->y, 0, GPU_R16F, image_buffer->rect_float);
         *r_owns_texture = true;
       }
     }
     else if (image->source == IMA_SRC_TILED) {
-      *r_gpu_texture = BKE_image_get_gpu_tiles(image, iuser, ibuf);
+      *r_gpu_texture = BKE_image_get_gpu_tiles(image, iuser, image_buffer);
       *r_tex_tile_data = BKE_image_get_gpu_tilemap(image, iuser, nullptr);
       *r_owns_texture = false;
     }
     else {
-      *r_gpu_texture = BKE_image_get_gpu_texture(image, iuser, ibuf);
+      *r_gpu_texture = BKE_image_get_gpu_texture(image, iuser, image_buffer);
       *r_owns_texture = false;
     }
   }

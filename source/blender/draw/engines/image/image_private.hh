@@ -94,16 +94,16 @@ struct ShaderParameters {
  */
 class AbstractSpaceAccessor {
  public:
-  virtual void release_buffer(Image *image, ImBuf *ibuf, void *lock) = 0;
+  virtual void release_buffer(Image *image, ImBuf *image_buffer, void *lock) = 0;
   virtual Image *get_image(Main *bmain) = 0;
   virtual ImageUser *get_image_user() = 0;
   virtual ImBuf *acquire_image_buffer(Image *image, void **lock) = 0;
   virtual void get_shader_parameters(ShaderParameters &r_shader_parameters,
-                                     ImBuf *ibuf,
+                                     ImBuf *image_buffer,
                                      bool is_tiled) = 0;
   virtual void get_gpu_textures(Image *image,
                                 ImageUser *iuser,
-                                ImBuf *ibuf,
+                                ImBuf *image_buffer,
                                 GPUTexture **r_gpu_texture,
                                 bool *r_owns_texture,
                                 GPUTexture **r_tex_tile_data) = 0;
