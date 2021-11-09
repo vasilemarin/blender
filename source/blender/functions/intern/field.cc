@@ -261,20 +261,6 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
 }
 
 /**
- * Utility class that destructs elements from a partially initialized array.
- */
-struct PartiallyInitializedArray : NonCopyable, NonMovable {
-  void *buffer;
-  IndexMask mask;
-  const CPPType *type;
-
-  ~PartiallyInitializedArray()
-  {
-    this->type->destruct_indices(this->buffer, this->mask);
-  }
-};
-
-/**
  * Evaluate fields in the given context. If possible, multiple fields should be evaluated together,
  * because that can be more efficient when they share common sub-fields.
  *
@@ -387,11 +373,11 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
         /* Allocate a new buffer for the computed result. */
         buffer = scope.linear_allocator().allocate(type.size() * array_size, type.alignment());
 
-        /* Make sure that elements in the buffer will be destructed. */
-        PartiallyInitializedArray &destruct_helper = scope.construct<PartiallyInitializedArray>();
-        destruct_helper.buffer = buffer;
-        destruct_helper.mask = mask;
-        destruct_helper.type = &type;
+        if (!type.is_trivially_destructible()) {
+          /* Destruct values in the end. */
+          scope.add_destruct_call(
+              [buffer, mask, &type]() { type.destruct_indices(buffer, mask); });
+        }
 
         r_varrays[out_index] = &scope.construct<GVArray_For_GSpan>(
             GSpan{type, buffer, array_size});
@@ -435,11 +421,11 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
       /* Allocate memory where the computed value will be stored in. */
       void *buffer = scope.linear_allocator().allocate(type.size(), type.alignment());
 
-      /* Use this to make sure that the value is destructed in the end. */
-      PartiallyInitializedArray &destruct_helper = scope.construct<PartiallyInitializedArray>();
-      destruct_helper.buffer = buffer;
-      destruct_helper.mask = IndexRange(mask_size);
-      destruct_helper.type = &type;
+      if (!type.is_trivially_destructible() && mask_size > 0) {
+        BLI_assert(mask_size == 1);
+        /* Destruct value in the end. */
+        scope.add_destruct_call([buffer, &type]() { type.destruct(buffer); });
+      }
 
       /* Pass output buffer to the procedure executor. */
       mf_params.add_uninitialized_single_output({type, buffer, mask_size});
@@ -450,7 +436,7 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
           type, array_size, buffer);
     }
 
-    procedure_executor.call(IndexRange(1), mf_params, mf_context);
+    procedure_executor.call(IndexRange(mask_size), mf_params, mf_context);
   }
 
   /* Copy data to supplied destination arrays if necessary. In some cases the evaluation above has
@@ -491,6 +477,12 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
 
 void evaluate_constant_field(const GField &field, void *r_value)
 {
+  if (field.node().depends_on_input()) {
+    const CPPType &type = field.cpp_type();
+    type.copy_construct(type.default_value(), r_value);
+    return;
+  }
+
   ResourceScope scope;
   FieldContext context;
   Vector<const GVArray *> varrays = evaluate_fields(scope, {field}, IndexRange(1), context);
@@ -531,6 +523,15 @@ const GVArray *FieldContext::get_varray_for_input(const FieldInput &field_input,
 
 IndexFieldInput::IndexFieldInput() : FieldInput(CPPType::get<int>(), "Index")
 {
+  category_ = Category::Generated;
+}
+
+GVArray *IndexFieldInput::get_index_varray(IndexMask mask, ResourceScope &scope)
+{
+  auto index_func = [](int i) { return i; };
+  return &scope.construct<
+      fn::GVArray_For_EmbeddedVArray<int, VArray_For_Func<int, decltype(index_func)>>>(
+      mask.min_array_size(), mask.min_array_size(), index_func);
 }
 
 const GVArray *IndexFieldInput::get_varray_for_context(const fn::FieldContext &UNUSED(context),
@@ -538,17 +539,25 @@ const GVArray *IndexFieldInput::get_varray_for_context(const fn::FieldContext &U
                                                        ResourceScope &scope) const
 {
   /* TODO: Investigate a similar method to IndexRange::as_span() */
-  auto index_func = [](int i) { return i; };
-  return &scope.construct<
-      fn::GVArray_For_EmbeddedVArray<int, VArray_For_Func<int, decltype(index_func)>>>(
-      mask.min_array_size(), mask.min_array_size(), index_func);
+  return get_index_varray(mask, scope);
+}
+
+uint64_t IndexFieldInput::hash() const
+{
+  /* Some random constant hash. */
+  return 128736487678;
+}
+
+bool IndexFieldInput::is_equal_to(const fn::FieldNode &other) const
+{
+  return dynamic_cast<const IndexFieldInput *>(&other) != nullptr;
 }
 
 /* --------------------------------------------------------------------
  * FieldOperation.
  */
 
-FieldOperation::FieldOperation(std::unique_ptr<const MultiFunction> function,
+FieldOperation::FieldOperation(std::shared_ptr<const MultiFunction> function,
                                Vector<GField> inputs)
     : FieldOperation(*function, std::move(inputs))
 {

@@ -207,11 +207,10 @@ static RenderResult *render_result_from_bake(RenderEngine *engine, int x, int y,
 
   /* Add render passes. */
   RenderPass *result_pass = render_layer_add_pass(
-      rr, rl, engine->bake.depth, RE_PASSNAME_COMBINED, "", "RGBA");
-  RenderPass *primitive_pass = render_layer_add_pass(rr, rl, 4, "BakePrimitive", "", "RGBA");
-  RenderPass *differential_pass = render_layer_add_pass(rr, rl, 4, "BakeDifferential", "", "RGBA");
-
-  render_result_passes_allocated_ensure(rr);
+      rr, rl, engine->bake.depth, RE_PASSNAME_COMBINED, "", "RGBA", true);
+  RenderPass *primitive_pass = render_layer_add_pass(rr, rl, 4, "BakePrimitive", "", "RGBA", true);
+  RenderPass *differential_pass = render_layer_add_pass(
+      rr, rl, 4, "BakeDifferential", "", "RGBA", true);
 
   /* Fill render passes from bake pixel array, to be read by the render engine. */
   for (int ty = 0; ty < h; ty++) {
@@ -282,11 +281,10 @@ static void render_result_to_bake(RenderEngine *engine, RenderResult *rr)
 
 /* Render Results */
 
-static HighlightedTile highlighted_tile_from_result_get(Render *re, RenderResult *result)
+static HighlightedTile highlighted_tile_from_result_get(Render *UNUSED(re), RenderResult *result)
 {
   HighlightedTile tile;
   tile.rect = result->tilerect;
-  BLI_rcti_translate(&tile.rect, re->disprect.xmin, re->disprect.ymin);
 
   return tile;
 }
@@ -414,7 +412,7 @@ void RE_engine_add_pass(RenderEngine *engine,
     return;
   }
 
-  RE_create_render_pass(re->result, name, channels, chan_id, layername, NULL);
+  RE_create_render_pass(re->result, name, channels, chan_id, layername, NULL, false);
 }
 
 void RE_engine_end_result(

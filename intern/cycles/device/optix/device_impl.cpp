@@ -20,21 +20,22 @@
 #  include "device/optix/device_impl.h"
 
 #  include "bvh/bvh.h"
-#  include "bvh/bvh_optix.h"
-#  include "integrator/pass_accessor_gpu.h"
-#  include "render/buffers.h"
-#  include "render/hair.h"
-#  include "render/mesh.h"
-#  include "render/object.h"
-#  include "render/pass.h"
-#  include "render/scene.h"
+#  include "bvh/optix.h"
 
-#  include "util/util_debug.h"
-#  include "util/util_logging.h"
-#  include "util/util_md5.h"
-#  include "util/util_path.h"
-#  include "util/util_progress.h"
-#  include "util/util_time.h"
+#  include "integrator/pass_accessor_gpu.h"
+
+#  include "scene/hair.h"
+#  include "scene/mesh.h"
+#  include "scene/object.h"
+#  include "scene/pass.h"
+#  include "scene/scene.h"
+
+#  include "util/debug.h"
+#  include "util/log.h"
+#  include "util/md5.h"
+#  include "util/path.h"
+#  include "util/progress.h"
+#  include "util/time.h"
 
 #  undef __KERNEL_CPU__
 #  define __KERNEL_OPTIX__
@@ -90,6 +91,7 @@ OptiXDevice::OptiXDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
   };
 #  endif
   if (DebugFlags().optix.use_debug) {
+    VLOG(1) << "Using OptiX debug mode.";
     options.validationMode = OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_ALL;
   }
   optix_assert(optixDeviceContextCreate(cuContext, &options, &context));
@@ -315,6 +317,11 @@ bool OptiXDevice::load_kernels(const uint kernel_features)
   group_descs[PG_HITS].kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
   group_descs[PG_HITS].hitgroup.moduleAH = optix_module;
   group_descs[PG_HITS].hitgroup.entryFunctionNameAH = "__anyhit__kernel_optix_shadow_all_hit";
+  group_descs[PG_HITV].kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
+  group_descs[PG_HITV].hitgroup.moduleCH = optix_module;
+  group_descs[PG_HITV].hitgroup.entryFunctionNameCH = "__closesthit__kernel_optix_hit";
+  group_descs[PG_HITV].hitgroup.moduleAH = optix_module;
+  group_descs[PG_HITV].hitgroup.entryFunctionNameAH = "__anyhit__kernel_optix_volume_test";
 
   if (kernel_features & KERNEL_FEATURE_HAIR) {
     if (kernel_features & KERNEL_FEATURE_HAIR_THICK) {
@@ -372,9 +379,6 @@ bool OptiXDevice::load_kernels(const uint kernel_features)
     group_descs[PG_CALL_SVM_BEVEL].callables.moduleDC = optix_module;
     group_descs[PG_CALL_SVM_BEVEL].callables.entryFunctionNameDC =
         "__direct_callable__svm_node_bevel";
-    group_descs[PG_CALL_AO_PASS].kind = OPTIX_PROGRAM_GROUP_KIND_CALLABLES;
-    group_descs[PG_CALL_AO_PASS].callables.moduleDC = optix_module;
-    group_descs[PG_CALL_AO_PASS].callables.entryFunctionNameDC = "__direct_callable__ao_pass";
   }
 
   optix_assert(optixProgramGroupCreate(
@@ -397,6 +401,7 @@ bool OptiXDevice::load_kernels(const uint kernel_features)
   trace_css = std::max(trace_css, stack_size[PG_HITD].cssIS + stack_size[PG_HITD].cssAH);
   trace_css = std::max(trace_css, stack_size[PG_HITS].cssIS + stack_size[PG_HITS].cssAH);
   trace_css = std::max(trace_css, stack_size[PG_HITL].cssIS + stack_size[PG_HITL].cssAH);
+  trace_css = std::max(trace_css, stack_size[PG_HITV].cssIS + stack_size[PG_HITV].cssAH);
   trace_css = std::max(trace_css,
                        stack_size[PG_HITD_MOTION].cssIS + stack_size[PG_HITD_MOTION].cssAH);
   trace_css = std::max(trace_css,
@@ -421,6 +426,7 @@ bool OptiXDevice::load_kernels(const uint kernel_features)
     pipeline_groups.push_back(groups[PG_HITD]);
     pipeline_groups.push_back(groups[PG_HITS]);
     pipeline_groups.push_back(groups[PG_HITL]);
+    pipeline_groups.push_back(groups[PG_HITV]);
     if (motion_blur) {
       pipeline_groups.push_back(groups[PG_HITD_MOTION]);
       pipeline_groups.push_back(groups[PG_HITS_MOTION]);
@@ -459,6 +465,7 @@ bool OptiXDevice::load_kernels(const uint kernel_features)
     pipeline_groups.push_back(groups[PG_HITD]);
     pipeline_groups.push_back(groups[PG_HITS]);
     pipeline_groups.push_back(groups[PG_HITL]);
+    pipeline_groups.push_back(groups[PG_HITV]);
     if (motion_blur) {
       pipeline_groups.push_back(groups[PG_HITD_MOTION]);
       pipeline_groups.push_back(groups[PG_HITS_MOTION]);
@@ -760,7 +767,13 @@ void OptiXDevice::denoise_color_read(DenoiseContext &context, const DenoisePass 
   destination.num_components = 3;
   destination.pixel_stride = context.buffer_params.pass_stride;
 
-  pass_accessor.get_render_tile_pixels(context.render_buffers, context.buffer_params, destination);
+  BufferParams buffer_params = context.buffer_params;
+  buffer_params.window_x = 0;
+  buffer_params.window_y = 0;
+  buffer_params.window_width = buffer_params.width;
+  buffer_params.window_height = buffer_params.height;
+
+  pass_accessor.get_render_tile_pixels(context.render_buffers, buffer_params, destination);
 }
 
 bool OptiXDevice::denoise_filter_color_preprocess(DenoiseContext &context, const DenoisePass &pass)
@@ -1238,7 +1251,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
         build_input.curveArray.indexBuffer = (CUdeviceptr)index_data.device_pointer;
         build_input.curveArray.indexStrideInBytes = sizeof(int);
         build_input.curveArray.flag = build_flags;
-        build_input.curveArray.primitiveIndexOffset = hair->optix_prim_offset;
+        build_input.curveArray.primitiveIndexOffset = hair->curve_segment_offset;
       }
       else {
         /* Disable visibility test any-hit program, since it is already checked during
@@ -1251,7 +1264,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
         build_input.customPrimitiveArray.strideInBytes = sizeof(OptixAabb);
         build_input.customPrimitiveArray.flags = &build_flags;
         build_input.customPrimitiveArray.numSbtRecords = 1;
-        build_input.customPrimitiveArray.primitiveIndexOffset = hair->optix_prim_offset;
+        build_input.customPrimitiveArray.primitiveIndexOffset = hair->curve_segment_offset;
       }
 
       if (!build_optix_bvh(bvh_optix, operation, build_input, num_motion_steps)) {
@@ -1320,7 +1333,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
        * buffers for that purpose. OptiX does not allow this to be zero though, so just pass in
        * one and rely on that having the same meaning in this case. */
       build_input.triangleArray.numSbtRecords = 1;
-      build_input.triangleArray.primitiveIndexOffset = mesh->optix_prim_offset;
+      build_input.triangleArray.primitiveIndexOffset = mesh->prim_offset;
 
       if (!build_optix_bvh(bvh_optix, operation, build_input, num_motion_steps)) {
         progress.set_error("Failed to build OptiX acceleration structure");
@@ -1387,27 +1400,35 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
       instance.transform[5] = 1.0f;
       instance.transform[10] = 1.0f;
 
-      /* Set user instance ID to object index (but leave low bit blank). */
-      instance.instanceId = ob->get_device_index() << 1;
+      /* Set user instance ID to object index. */
+      instance.instanceId = ob->get_device_index();
+
+      /* Add some of the object visibility bits to the mask.
+       * __prim_visibility contains the combined visibility bits of all instances, so is not
+       * reliable if they differ between instances. But the OptiX visibility mask can only contain
+       * 8 bits, so have to trade-off here and select just a few important ones.
+       */
+      instance.visibilityMask = ob->visibility_for_tracing() & 0xFF;
 
       /* Have to have at least one bit in the mask, or else instance would always be culled. */
-      instance.visibilityMask = 1;
-
-      if (ob->get_geometry()->has_volume) {
-        /* Volumes have a special bit set in the visibility mask so a trace can mask only volumes.
-         */
-        instance.visibilityMask |= 2;
+      if (0 == instance.visibilityMask) {
+        instance.visibilityMask = 0xFF;
       }
 
-      if (ob->get_geometry()->geometry_type == Geometry::HAIR) {
-        /* Same applies to curves (so they can be skipped in local trace calls). */
-        instance.visibilityMask |= 4;
-
-        if (motion_blur && ob->get_geometry()->has_motion_blur() &&
-            static_cast<const Hair *>(ob->get_geometry())->curve_shape == CURVE_THICK) {
+      if (ob->get_geometry()->geometry_type == Geometry::HAIR &&
+          static_cast<const Hair *>(ob->get_geometry())->curve_shape == CURVE_THICK) {
+        if (motion_blur && ob->get_geometry()->has_motion_blur()) {
           /* Select between motion blur and non-motion blur built-in intersection module. */
           instance.sbtOffset = PG_HITD_MOTION - PG_HITD;
         }
+      }
+      else {
+        /* Can disable __anyhit__kernel_optix_visibility_test by default (except for thick curves,
+         * since it needs to filter out end-caps there).
+         * It is enabled where necessary (visibility mask exceeds 8 bits or the other any-hit
+         * programs like __anyhit__kernel_optix_shadow_all_hit) via OPTIX_RAY_FLAG_ENFORCE_ANYHIT.
+         */
+        instance.flags = OPTIX_INSTANCE_FLAG_DISABLE_ANYHIT;
       }
 
       /* Insert motion traversable if object has motion. */
@@ -1474,7 +1495,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
         delete[] reinterpret_cast<uint8_t *>(&motion_transform);
 
         /* Disable instance transform if object uses motion transform already. */
-        instance.flags = OPTIX_INSTANCE_FLAG_DISABLE_TRANSFORM;
+        instance.flags |= OPTIX_INSTANCE_FLAG_DISABLE_TRANSFORM;
 
         /* Get traversable handle to motion transform. */
         optixConvertPointerToTraversableHandle(context,
@@ -1491,10 +1512,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
         }
         else {
           /* Disable instance transform if geometry already has it applied to vertex data. */
-          instance.flags = OPTIX_INSTANCE_FLAG_DISABLE_TRANSFORM;
-          /* Non-instanced objects read ID from 'prim_object', so distinguish
-           * them from instanced objects with the low bit set. */
-          instance.instanceId |= 1;
+          instance.flags |= OPTIX_INSTANCE_FLAG_DISABLE_TRANSFORM;
         }
       }
     }
@@ -1557,7 +1575,7 @@ void OptiXDevice::const_copy_to(const char *name, void *host, size_t size)
       return; \
     }
   KERNEL_TEX(IntegratorStateGPU, __integrator_state)
-#  include "kernel/kernel_textures.h"
+#  include "kernel/textures.h"
 #  undef KERNEL_TEX
 }
 

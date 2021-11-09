@@ -253,6 +253,13 @@ struct GeometrySet {
   blender::Map<GeometryComponentType, GeometryComponentPtr> components_;
 
  public:
+  GeometrySet();
+  GeometrySet(const GeometrySet &other);
+  GeometrySet(GeometrySet &&other);
+  ~GeometrySet();
+  GeometrySet &operator=(const GeometrySet &other);
+  GeometrySet &operator=(GeometrySet &&other);
+
   GeometryComponent &get_component_for_write(GeometryComponentType component_type);
   template<typename Component> Component &get_component_for_write()
   {
@@ -280,6 +287,8 @@ struct GeometrySet {
     BLI_STATIC_ASSERT(is_geometry_component_v<Component>, "");
     return this->remove(Component::static_type);
   }
+
+  void keep_only(const blender::Span<GeometryComponentType> component_types);
 
   void add(const GeometryComponent &component);
 
@@ -309,6 +318,13 @@ struct GeometrySet {
       bool include_instances,
       blender::Map<blender::bke::AttributeIDRef, AttributeKind> &r_attributes) const;
 
+  blender::Vector<GeometryComponentType> gather_component_types(bool include_instances,
+                                                                bool ignore_empty) const;
+
+  using ForeachSubGeometryCallback = blender::FunctionRef<void(GeometrySet &geometry_set)>;
+
+  void modify_geometry_sets(ForeachSubGeometryCallback callback);
+
   /* Utility methods for creation. */
   static GeometrySet create_with_mesh(
       Mesh *mesh, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
@@ -323,6 +339,8 @@ struct GeometrySet {
   bool has_instances() const;
   bool has_volume() const;
   bool has_curve() const;
+  bool has_realized_data() const;
+  bool is_empty() const;
 
   const Mesh *get_mesh_for_read() const;
   const PointCloud *get_pointcloud_for_read() const;
@@ -342,6 +360,15 @@ struct GeometrySet {
                       GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
   void replace_curve(CurveEval *curve,
                      GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
+
+ private:
+  /* Utility to retrieve a mutable component without creating it. */
+  GeometryComponent *get_component_ptr(GeometryComponentType type);
+  template<typename Component> Component *get_component_ptr()
+  {
+    BLI_STATIC_ASSERT(is_geometry_component_v<Component>, "");
+    return static_cast<Component *>(get_component_ptr(Component::static_type));
+  }
 };
 
 /** A geometry component that can store a mesh. */
@@ -497,11 +524,38 @@ class InstanceReference {
   {
   }
 
-  InstanceReference(const InstanceReference &src) : type_(src.type_), data_(src.data_)
+  InstanceReference(const InstanceReference &other) : type_(other.type_), data_(other.data_)
   {
-    if (src.type_ == Type::GeometrySet) {
-      geometry_set_ = std::make_unique<GeometrySet>(*src.geometry_set_);
+    if (other.geometry_set_) {
+      geometry_set_ = std::make_unique<GeometrySet>(*other.geometry_set_);
     }
+  }
+
+  InstanceReference(InstanceReference &&other)
+      : type_(other.type_), data_(other.data_), geometry_set_(std::move(other.geometry_set_))
+  {
+    other.type_ = Type::None;
+    other.data_ = nullptr;
+  }
+
+  InstanceReference &operator=(const InstanceReference &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~InstanceReference();
+    new (this) InstanceReference(other);
+    return *this;
+  }
+
+  InstanceReference &operator=(InstanceReference &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~InstanceReference();
+    new (this) InstanceReference(std::move(other));
+    return *this;
   }
 
   Type type() const
@@ -570,7 +624,9 @@ class InstancesComponent : public GeometryComponent {
   blender::Vector<blender::float4x4> instance_transforms_;
   /**
    * IDs of the instances. They are used for consistency over multiple frames for things like
-   * motion blur.
+   * motion blur. Proper stable ID data that actually helps when rendering can only be generated
+   * in some situations, so this vector is allowed to be empty, in which case the index of each
+   * instance will be used for the final ID.
    */
   blender::Vector<int> instance_ids_;
 
@@ -592,9 +648,10 @@ class InstancesComponent : public GeometryComponent {
   void resize(int capacity);
 
   int add_reference(const InstanceReference &reference);
-  void add_instance(int instance_handle, const blender::float4x4 &transform, const int id = -1);
+  void add_instance(int instance_handle, const blender::float4x4 &transform);
 
   blender::Span<InstanceReference> references() const;
+  void remove_unused_references();
 
   void ensure_geometry_instances();
   GeometrySet &geometry_set_from_reference(const int reference_index);
@@ -605,6 +662,9 @@ class InstancesComponent : public GeometryComponent {
   blender::Span<blender::float4x4> instance_transforms() const;
   blender::MutableSpan<int> instance_ids();
   blender::Span<int> instance_ids() const;
+
+  blender::MutableSpan<int> instance_ids_ensure();
+  void instance_ids_clear();
 
   int instances_amount() const;
   int references_amount() const;
@@ -684,11 +744,36 @@ class AttributeFieldInput : public fn::FieldInput {
   AttributeFieldInput(std::string name, const CPPType &type)
       : fn::FieldInput(type, name), name_(std::move(name))
   {
+    category_ = Category::NamedAttribute;
+  }
+
+  template<typename T> static fn::Field<T> Create(std::string name)
+  {
+    const CPPType &type = CPPType::get<T>();
+    auto field_input = std::make_shared<AttributeFieldInput>(std::move(name), type);
+    return fn::Field<T>{field_input};
   }
 
   StringRefNull attribute_name() const
   {
     return name_;
+  }
+
+  const GVArray *get_varray_for_context(const fn::FieldContext &context,
+                                        IndexMask mask,
+                                        ResourceScope &scope) const override;
+
+  std::string socket_inspection_name() const override;
+
+  uint64_t hash() const override;
+  bool is_equal_to(const fn::FieldNode &other) const override;
+};
+
+class IDAttributeFieldInput : public fn::FieldInput {
+ public:
+  IDAttributeFieldInput() : fn::FieldInput(CPPType::get<int>())
+  {
+    category_ = Category::Generated;
   }
 
   const GVArray *get_varray_for_context(const fn::FieldContext &context,
@@ -708,18 +793,25 @@ class AnonymousAttributeFieldInput : public fn::FieldInput {
    * automatically.
    */
   StrongAnonymousAttributeID anonymous_id_;
+  std::string producer_name_;
 
  public:
-  AnonymousAttributeFieldInput(StrongAnonymousAttributeID anonymous_id, const CPPType &type)
-      : fn::FieldInput(type, anonymous_id.debug_name()), anonymous_id_(std::move(anonymous_id))
+  AnonymousAttributeFieldInput(StrongAnonymousAttributeID anonymous_id,
+                               const CPPType &type,
+                               std::string producer_name)
+      : fn::FieldInput(type, anonymous_id.debug_name()),
+        anonymous_id_(std::move(anonymous_id)),
+        producer_name_(producer_name)
   {
+    category_ = Category::AnonymousAttribute;
   }
 
-  template<typename T> static fn::Field<T> Create(StrongAnonymousAttributeID anonymous_id)
+  template<typename T>
+  static fn::Field<T> Create(StrongAnonymousAttributeID anonymous_id, std::string producer_name)
   {
     const CPPType &type = CPPType::get<T>();
-    auto field_input = std::make_shared<AnonymousAttributeFieldInput>(std::move(anonymous_id),
-                                                                      type);
+    auto field_input = std::make_shared<AnonymousAttributeFieldInput>(
+        std::move(anonymous_id), type, std::move(producer_name));
     return fn::Field<T>{field_input};
   }
 

@@ -18,9 +18,9 @@
 
 #ifdef WITH_CUDA
 
-#  include "device/device_kernel.h"
-#  include "device/device_memory.h"
-#  include "device/device_queue.h"
+#  include "device/kernel.h"
+#  include "device/memory.h"
+#  include "device/queue.h"
 
 #  include "device/cuda/util.h"
 
@@ -60,6 +60,8 @@ class CUDADeviceQueue : public DeviceQueue {
  protected:
   CUDADevice *cuda_device_;
   CUstream cuda_stream_;
+
+  void assert_success(CUresult result, const char *operation);
 };
 
 CCL_NAMESPACE_END

@@ -34,7 +34,7 @@
 
 #include "DNA_ID.h"
 #include "DNA_color_types.h"      /* color management */
-#include "DNA_customdata_types.h" /* Scene's runtime cddata masks. */
+#include "DNA_customdata_types.h" /* Scene's runtime custom-data masks. */
 #include "DNA_layer_types.h"
 #include "DNA_listBase.h"
 #include "DNA_vec_types.h"
@@ -1463,14 +1463,15 @@ typedef struct ToolSettings {
 
   char edge_mode_live_unwrap;
 
-  char _pad1[1];
-
   /* Transform */
   char transform_pivot_point;
   char transform_flag;
-  char snap_mode, snap_node_mode;
+  char snap_mode;
+  char snap_node_mode;
   char snap_uv_mode;
   char snap_flag;
+  /** UV equivalent of `snap_flag`, limited to: #SCE_SNAP_ABS_GRID. */
+  char snap_uv_flag;
   char snap_target;
   char snap_transform_mode_flag;
 

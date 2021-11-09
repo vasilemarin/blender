@@ -86,8 +86,8 @@ enum_use_layer_samples = (
 )
 
 enum_sampling_pattern = (
-    ('SOBOL', "Sobol", "Use Sobol random sampling pattern"),
-    ('PROGRESSIVE_MUTI_JITTER', "Progressive Multi-Jitter", "Use Progressive Multi-Jitter random sampling pattern"),
+    ('SOBOL', "Sobol", "Use Sobol random sampling pattern", 0),
+    ('PROGRESSIVE_MULTI_JITTER', "Progressive Multi-Jitter", "Use Progressive Multi-Jitter random sampling pattern", 1),
 )
 
 enum_volume_sampling = (
@@ -111,6 +111,7 @@ enum_device_type = (
     ('CPU', "CPU", "CPU", 0),
     ('CUDA', "CUDA", "CUDA", 1),
     ('OPTIX', "OptiX", "OptiX", 3),
+    ("HIP", "HIP", "HIP", 4)
 )
 
 enum_texture_limit = (
@@ -123,7 +124,12 @@ enum_texture_limit = (
     ('4096', "4096", "Limit texture size to 4096 pixels", 6),
     ('8192', "8192", "Limit texture size to 8192 pixels", 7),
 )
- 
+
+enum_fast_gi_method = (
+    ('REPLACE', "Replace", "Replace global illumination with ambient occlusion after a specified number of bounces"),
+    ('ADD', "Add", "Add ambient occlusion to diffuse surfaces"),
+)
+
 # NOTE: Identifiers are expected to be an upper case version of identifiers from  `Pass::get_type_enum()`
 enum_view3d_shading_render_pass = (
     ('', "General", ""),
@@ -331,9 +337,27 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
 
     sampling_pattern: EnumProperty(
         name="Sampling Pattern",
-        description="Random sampling pattern used by the integrator",
+        description="Random sampling pattern used by the integrator. When adaptive sampling is enabled, Progressive Multi-Jitter is always used instead of Sobol",
         items=enum_sampling_pattern,
-        default='PROGRESSIVE_MUTI_JITTER',
+        default='PROGRESSIVE_MULTI_JITTER',
+    )
+
+    scrambling_distance: FloatProperty(
+        name="Scrambling Distance",
+        default=1.0,
+        min=0.0, max=1.0,
+        description="Lower values give faster rendering with GPU rendering and less noise with all devices at the cost of possible artifacts if set too low. Only works when not using adaptive sampling",
+    )
+    preview_scrambling_distance: BoolProperty(
+        name="Scrambling Distance viewport",
+        default=False,
+        description="Uses the Scrambling Distance value for the viewport. Faster but may flicker",
+    )
+
+    adaptive_scrambling_distance: BoolProperty(
+        name="Adaptive Scrambling Distance",
+        default=False,
+        description="Uses a formula to adapt the scrambling distance strength based on the sample count",
     )
 
     use_layer_samples: EnumProperty(
@@ -723,6 +747,14 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Approximate diffuse indirect light with background tinted ambient occlusion. This provides fast alternative to full global illumination, for interactive viewport rendering or final renders with reduced quality",
         default=False,
     )
+
+    fast_gi_method: EnumProperty(
+        name="Fast GI Method",
+        default='REPLACE',
+        description="Fast GI approximation method",
+        items=enum_fast_gi_method
+    )
+
     ao_bounces: IntProperty(
         name="AO Bounces",
         default=1,
@@ -1196,12 +1228,6 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
 
 class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
 
-    pass_debug_render_time: BoolProperty(
-        name="Debug Render Time",
-        description="Render time in milliseconds per sample and pixel",
-        default=False,
-        update=update_render_passes,
-    )
     pass_debug_sample_count: BoolProperty(
         name="Debug Sample Count",
         description="Number of samples/camera rays per pixel",
@@ -1266,12 +1292,16 @@ class CyclesPreferences(bpy.types.AddonPreferences):
 
     def get_device_types(self, context):
         import _cycles
-        has_cuda, has_optix = _cycles.get_device_types()
+        has_cuda, has_optix, has_hip = _cycles.get_device_types()
+
         list = [('NONE', "None", "Don't use compute device", 0)]
         if has_cuda:
             list.append(('CUDA', "CUDA", "Use CUDA for GPU acceleration", 1))
         if has_optix:
             list.append(('OPTIX', "OptiX", "Use OptiX for GPU acceleration", 3))
+        if has_hip:
+            list.append(('HIP', "HIP", "Use HIP for GPU acceleration", 4))
+
         return list
 
     compute_device_type: EnumProperty(
@@ -1296,7 +1326,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
 
     def update_device_entries(self, device_list):
         for device in device_list:
-            if not device[1] in {'CUDA', 'OPTIX', 'CPU'}:
+            if not device[1] in {'CUDA', 'OPTIX', 'CPU', 'HIP'}:
                 continue
             # Try to find existing Device entry
             entry = self.find_existing_device_entry(device)
@@ -1330,7 +1360,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
             elif entry.type == 'CPU':
                 cpu_devices.append(entry)
         # Extend all GPU devices with CPU.
-        if compute_device_type != 'CPU':
+        if len(devices) and compute_device_type != 'CPU':
             devices.extend(cpu_devices)
         return devices
 
@@ -1340,7 +1370,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         import _cycles
         # Ensure `self.devices` is not re-allocated when the second call to
         # get_devices_for_type is made, freeing items from the first list.
-        for device_type in ('CUDA', 'OPTIX', 'OPENCL'):
+        for device_type in ('CUDA', 'OPTIX', 'HIP'):
             self.update_device_entries(_cycles.available_devices(device_type))
 
     # Deprecated: use refresh_devices instead.
@@ -1348,12 +1378,18 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         self.refresh_devices()
         return None
 
+    def get_compute_device_type(self):
+        if self.compute_device_type == '':
+            return 'NONE'
+        return self.compute_device_type
+
     def get_num_gpu_devices(self):
         import _cycles
-        device_list = _cycles.available_devices(self.compute_device_type)
+        compute_device_type = self.get_compute_device_type()
+        device_list = _cycles.available_devices(compute_device_type)
         num = 0
         for device in device_list:
-            if device[1] != self.compute_device_type:
+            if device[1] != compute_device_type:
                 continue
             for dev in self.devices:
                 if dev.use and dev.id == device[2]:
@@ -1374,8 +1410,19 @@ class CyclesPreferences(bpy.types.AddonPreferences):
 
         if not found_device:
             col = box.column(align=True)
-            col.label(text="No compatible GPUs found for path tracing", icon='INFO')
-            col.label(text="Cycles will render on the CPU", icon='BLANK1')
+            col.label(text="No compatible GPUs found for Cycles", icon='INFO')
+
+            if device_type == 'CUDA':
+                col.label(text="Requires NVIDIA GPU with compute capability 3.0", icon='BLANK1')
+            elif device_type == 'OPTIX':
+                col.label(text="Requires NVIDIA GPU with compute capability 5.0", icon='BLANK1')
+                col.label(text="and NVIDIA driver version 470 or newer", icon='BLANK1')
+            elif device_type == 'HIP':
+                import sys
+                col.label(text="Requires discrete AMD GPU with RDNA2 architecture", icon='BLANK1')
+                # TODO: provide driver version info.
+                #if sys.platform[:3] == "win":
+                #    col.label(text="and AMD driver version ??? or newer", icon='BLANK1')
             return
 
         for device in devices:
@@ -1385,15 +1432,16 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         row = layout.row()
         row.prop(self, "compute_device_type", expand=True)
 
-        if self.compute_device_type == 'NONE':
+        compute_device_type = self.get_compute_device_type()
+        if compute_device_type == 'NONE':
             return
         row = layout.row()
-        devices = self.get_devices_for_type(self.compute_device_type)
-        self._draw_devices(row, self.compute_device_type, devices)
+        devices = self.get_devices_for_type(compute_device_type)
+        self._draw_devices(row, compute_device_type, devices)
 
         import _cycles
         has_peer_memory = 0
-        for device in _cycles.available_devices(self.compute_device_type):
+        for device in _cycles.available_devices(compute_device_type):
             if device[3] and self.find_existing_device_entry(device).use:
                 has_peer_memory += 1
         if has_peer_memory > 1:

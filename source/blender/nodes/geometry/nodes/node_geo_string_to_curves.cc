@@ -14,15 +14,12 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include <codecvt>
-#include <locale>
-
 #include "DNA_curve_types.h"
 #include "DNA_vfont_types.h"
 
 #include "BKE_curve.h"
-#include "BKE_font.h"
 #include "BKE_spline.hh"
+#include "BKE_vfont.h"
 
 #include "BLI_hash.h"
 #include "BLI_string_utf8.h"
@@ -37,18 +34,30 @@ namespace blender::nodes {
 
 static void geo_node_string_to_curves_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::String>("String");
-  b.add_input<decl::Float>("Size").default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
-  b.add_input<decl::Float>("Character Spacing")
+  b.add_input<decl::String>(N_("String"));
+  b.add_input<decl::Float>(N_("Size")).default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
+  b.add_input<decl::Float>(N_("Character Spacing"))
       .default_value(1.0f)
       .min(0.0f)
       .subtype(PROP_DISTANCE);
-  b.add_input<decl::Float>("Word Spacing").default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
-  b.add_input<decl::Float>("Line Spacing").default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
-  b.add_input<decl::Float>("Text Box Width").default_value(0.0f).min(0.0f).subtype(PROP_DISTANCE);
-  b.add_input<decl::Float>("Text Box Height").default_value(0.0f).min(0.0f).subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>("Curves");
-  b.add_output<decl::String>("Remainder");
+  b.add_input<decl::Float>(N_("Word Spacing"))
+      .default_value(1.0f)
+      .min(0.0f)
+      .subtype(PROP_DISTANCE);
+  b.add_input<decl::Float>(N_("Line Spacing"))
+      .default_value(1.0f)
+      .min(0.0f)
+      .subtype(PROP_DISTANCE);
+  b.add_input<decl::Float>(N_("Text Box Width"))
+      .default_value(0.0f)
+      .min(0.0f)
+      .subtype(PROP_DISTANCE);
+  b.add_input<decl::Float>(N_("Text Box Height"))
+      .default_value(0.0f)
+      .min(0.0f)
+      .subtype(PROP_DISTANCE);
+  b.add_output<decl::Geometry>(N_("Curves"));
+  b.add_output<decl::String>(N_("Remainder"));
 }
 
 static void geo_node_string_to_curves_layout(uiLayout *layout, struct bContext *C, PointerRNA *ptr)
@@ -139,7 +148,7 @@ static TextLayout get_text_layout(GeoNodeExecParams &params)
                               params.extract_input<float>("Text Box Height");
   VFont *vfont = (VFont *)params.node().id;
 
-  Curve cu = {nullptr};
+  Curve cu = {{nullptr}};
   cu.type = OB_FONT;
   /* Set defaults */
   cu.resolu = 12;
@@ -207,17 +216,17 @@ static TextLayout get_text_layout(GeoNodeExecParams &params)
 /* Returns a mapping of UTF-32 character code to instance handle. */
 static Map<int, int> create_curve_instances(GeoNodeExecParams &params,
                                             const float fontsize,
-                                            const std::u32string &charcodes,
+                                            const Span<char32_t> charcodes,
                                             InstancesComponent &instance_component)
 {
   VFont *vfont = (VFont *)params.node().id;
   Map<int, int> handles;
 
-  for (int i : IndexRange(charcodes.length())) {
+  for (int i : charcodes.index_range()) {
     if (handles.contains(charcodes[i])) {
       continue;
     }
-    Curve cu = {nullptr};
+    Curve cu = {{nullptr}};
     cu.type = OB_FONT;
     cu.resolu = 12;
     cu.vfont = vfont;
@@ -239,19 +248,17 @@ static Map<int, int> create_curve_instances(GeoNodeExecParams &params,
 
 static void add_instances_from_handles(InstancesComponent &instances,
                                        const Map<int, int> &char_handles,
-                                       const std::u32string &charcodes,
+                                       const Span<char32_t> charcodes,
                                        const Span<float2> positions)
 {
   instances.resize(positions.size());
   MutableSpan<int> handles = instances.instance_reference_handles();
   MutableSpan<float4x4> transforms = instances.instance_transforms();
-  MutableSpan<int> instance_ids = instances.instance_ids();
 
   threading::parallel_for(IndexRange(positions.size()), 256, [&](IndexRange range) {
     for (const int i : range) {
       handles[i] = char_handles.lookup(charcodes[i]);
       transforms[i] = float4x4::from_location({positions[i].x, positions[i].y, 0});
-      instance_ids[i] = i;
     }
   });
 }
@@ -272,15 +279,18 @@ static void geo_node_string_to_curves_exec(GeoNodeExecParams params)
   }
 
   /* Convert UTF-8 encoded string to UTF-32. */
-  std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
-  std::u32string utf32_text = converter.from_bytes(layout.text);
+  size_t len_bytes;
+  size_t len_chars = BLI_strlen_utf8_ex(layout.text.c_str(), &len_bytes);
+  Array<char32_t> char_codes_with_null(len_chars + 1);
+  BLI_str_utf8_as_utf32(char_codes_with_null.data(), layout.text.c_str(), len_chars + 1);
+  const Span<char32_t> char_codes = char_codes_with_null.as_span().drop_back(1);
 
   /* Create and add instances. */
   GeometrySet geometry_set_out;
   InstancesComponent &instances = geometry_set_out.get_component_for_write<InstancesComponent>();
   Map<int, int> char_handles = create_curve_instances(
-      params, layout.final_font_size, utf32_text, instances);
-  add_instances_from_handles(instances, char_handles, utf32_text, layout.positions);
+      params, layout.final_font_size, char_codes, instances);
+  add_instances_from_handles(instances, char_handles, char_codes, layout.positions);
 
   params.set_output("Curves", std::move(geometry_set_out));
 }

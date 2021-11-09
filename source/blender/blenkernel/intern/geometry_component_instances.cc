@@ -14,11 +14,14 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include <mutex>
+
 #include "BLI_float4x4.hh"
 #include "BLI_map.hh"
 #include "BLI_rand.hh"
 #include "BLI_set.hh"
 #include "BLI_span.hh"
+#include "BLI_task.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_collection_types.h"
@@ -57,7 +60,9 @@ void InstancesComponent::reserve(int min_capacity)
 {
   instance_reference_handles_.reserve(min_capacity);
   instance_transforms_.reserve(min_capacity);
-  instance_ids_.reserve(min_capacity);
+  if (!instance_ids_.is_empty()) {
+    this->instance_ids_ensure();
+  }
 }
 
 /**
@@ -70,7 +75,9 @@ void InstancesComponent::resize(int capacity)
 {
   instance_reference_handles_.resize(capacity);
   instance_transforms_.resize(capacity);
-  instance_ids_.resize(capacity);
+  if (!instance_ids_.is_empty()) {
+    this->instance_ids_ensure();
+  }
 }
 
 void InstancesComponent::clear()
@@ -82,15 +89,15 @@ void InstancesComponent::clear()
   references_.clear();
 }
 
-void InstancesComponent::add_instance(const int instance_handle,
-                                      const float4x4 &transform,
-                                      const int id)
+void InstancesComponent::add_instance(const int instance_handle, const float4x4 &transform)
 {
   BLI_assert(instance_handle >= 0);
   BLI_assert(instance_handle < references_.size());
   instance_reference_handles_.append(instance_handle);
   instance_transforms_.append(transform);
-  instance_ids_.append(id);
+  if (!instance_ids_.is_empty()) {
+    this->instance_ids_ensure();
+  }
 }
 
 blender::Span<int> InstancesComponent::instance_reference_handles() const
@@ -122,34 +129,19 @@ blender::Span<int> InstancesComponent::instance_ids() const
 }
 
 /**
- * If references have a collection or object type, convert them into geometry instances. This
- * will join geometry components from nested instances if necessary. After that, the geometry
- * sets can be edited.
+ * Make sure the ID storage size matches the number of instances. By directly resizing the
+ * component's vectors internally, it is possible to be in a situation where the IDs are not
+ * empty but they do not have the correct size; this function resolves that.
  */
-void InstancesComponent::ensure_geometry_instances()
+blender::MutableSpan<int> InstancesComponent::instance_ids_ensure()
 {
-  VectorSet<InstanceReference> new_references;
-  new_references.reserve(references_.size());
-  for (const InstanceReference &reference : references_) {
-    if (reference.type() == InstanceReference::Type::Object) {
-      GeometrySet geometry_set;
-      InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
-      const int handle = instances.add_reference(reference.object());
-      instances.add_instance(handle, float4x4::identity());
-      new_references.add_new(geometry_set);
-    }
-    else if (reference.type() == InstanceReference::Type::Collection) {
-      GeometrySet geometry_set;
-      InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
-      const int handle = instances.add_reference(reference.collection());
-      instances.add_instance(handle, float4x4::identity());
-      new_references.add_new(geometry_set);
-    }
-    else {
-      new_references.add_new(reference);
-    }
-  }
-  references_ = std::move(new_references);
+  instance_ids_.append_n_times(0, this->instances_amount() - instance_ids_.size());
+  return instance_ids_;
+}
+
+void InstancesComponent::instance_ids_clear()
+{
+  instance_ids_.clear_and_make_inline();
 }
 
 /**
@@ -159,7 +151,8 @@ void InstancesComponent::ensure_geometry_instances()
  */
 GeometrySet &InstancesComponent::geometry_set_from_reference(const int reference_index)
 {
-  /* If this assert fails, it means #ensure_geometry_instances must be called first. */
+  /* If this assert fails, it means #ensure_geometry_instances must be called first or that the
+   * reference can't be converted to a geometry set. */
   BLI_assert(references_[reference_index].type() == InstanceReference::Type::GeometrySet);
 
   /* The const cast is okay because the instance's hash in the set
@@ -180,6 +173,86 @@ int InstancesComponent::add_reference(const InstanceReference &reference)
 blender::Span<InstanceReference> InstancesComponent::references() const
 {
   return references_;
+}
+
+void InstancesComponent::remove_unused_references()
+{
+  using namespace blender;
+  using namespace blender::bke;
+
+  const int tot_instances = this->instances_amount();
+  const int tot_references_before = references_.size();
+
+  if (tot_instances == 0) {
+    /* If there are no instances, no reference is needed. */
+    references_.clear();
+    return;
+  }
+  if (tot_references_before == 1) {
+    /* There is only one reference and at least one instance. So the only existing reference is
+     * used. Nothing to do here. */
+    return;
+  }
+
+  Array<bool> usage_by_handle(tot_references_before, false);
+  std::mutex mutex;
+
+  /* Loop over all instances to see which references are used. */
+  threading::parallel_for(IndexRange(tot_instances), 1000, [&](IndexRange range) {
+    /* Use local counter to avoid lock contention. */
+    Array<bool> local_usage_by_handle(tot_references_before, false);
+
+    for (const int i : range) {
+      const int handle = instance_reference_handles_[i];
+      BLI_assert(handle >= 0 && handle < tot_references_before);
+      local_usage_by_handle[handle] = true;
+    }
+
+    std::lock_guard lock{mutex};
+    for (const int i : IndexRange(tot_references_before)) {
+      usage_by_handle[i] |= local_usage_by_handle[i];
+    }
+  });
+
+  if (!usage_by_handle.as_span().contains(false)) {
+    /* All references are used. */
+    return;
+  }
+
+  /* Create new references and a mapping for the handles. */
+  Vector<int> handle_mapping;
+  VectorSet<InstanceReference> new_references;
+  int next_new_handle = 0;
+  bool handles_have_to_be_updated = false;
+  for (const int old_handle : IndexRange(tot_references_before)) {
+    if (!usage_by_handle[old_handle]) {
+      /* Add some dummy value. It won't be read again. */
+      handle_mapping.append(-1);
+    }
+    else {
+      const InstanceReference &reference = references_[old_handle];
+      handle_mapping.append(next_new_handle);
+      new_references.add_new(reference);
+      if (old_handle != next_new_handle) {
+        handles_have_to_be_updated = true;
+      }
+      next_new_handle++;
+    }
+  }
+  references_ = new_references;
+
+  if (!handles_have_to_be_updated) {
+    /* All remaining handles are the same as before, so they don't have to be updated. This happens
+     * when unused handles are only at the end. */
+    return;
+  }
+
+  /* Update handles of instances. */
+  threading::parallel_for(IndexRange(tot_instances), 1000, [&](IndexRange range) {
+    for (const int i : range) {
+      instance_reference_handles_[i] = handle_mapping[instance_reference_handles_[i]];
+    }
+  });
 }
 
 int InstancesComponent::instances_amount() const
@@ -274,8 +347,16 @@ static blender::Array<int> generate_unique_instance_ids(Span<int> original_ids)
 blender::Span<int> InstancesComponent::almost_unique_ids() const
 {
   std::lock_guard lock(almost_unique_ids_mutex_);
-  if (almost_unique_ids_.size() != instance_ids_.size()) {
-    almost_unique_ids_ = generate_unique_instance_ids(instance_ids_);
+  if (instance_ids().is_empty()) {
+    almost_unique_ids_.reinitialize(this->instances_amount());
+    for (const int i : almost_unique_ids_.index_range()) {
+      almost_unique_ids_[i] = i;
+    }
+  }
+  else {
+    if (almost_unique_ids_.size() != instance_ids_.size()) {
+      almost_unique_ids_ = generate_unique_instance_ids(instance_ids_);
+    }
   }
   return almost_unique_ids_;
 }
@@ -317,15 +398,16 @@ class InstancePositionAttributeProvider final : public BuiltinAttributeProvider 
         transforms);
   }
 
-  GVMutableArrayPtr try_get_for_write(GeometryComponent &component) const final
+  WriteAttributeLookup try_get_for_write(GeometryComponent &component) const final
   {
     InstancesComponent &instances_component = static_cast<InstancesComponent &>(component);
     MutableSpan<float4x4> transforms = instances_component.instance_transforms();
-    return std::make_unique<fn::GVMutableArray_For_DerivedSpan<float4x4,
-                                                               float3,
-                                                               get_transform_position,
-                                                               set_transform_position>>(
-        transforms);
+    return {
+        std::make_unique<fn::GVMutableArray_For_DerivedSpan<float4x4,
+                                                            float3,
+                                                            get_transform_position,
+                                                            set_transform_position>>(transforms),
+        domain_};
   }
 
   bool try_delete(GeometryComponent &UNUSED(component)) const final
@@ -345,11 +427,83 @@ class InstancePositionAttributeProvider final : public BuiltinAttributeProvider 
   }
 };
 
+class InstanceIDAttributeProvider final : public BuiltinAttributeProvider {
+ public:
+  InstanceIDAttributeProvider()
+      : BuiltinAttributeProvider(
+            "id", ATTR_DOMAIN_POINT, CD_PROP_INT32, Creatable, Writable, Deletable)
+  {
+  }
+
+  GVArrayPtr try_get_for_read(const GeometryComponent &component) const final
+  {
+    const InstancesComponent &instances = static_cast<const InstancesComponent &>(component);
+    if (instances.instance_ids().is_empty()) {
+      return {};
+    }
+    return std::make_unique<fn::GVArray_For_Span<int>>(instances.instance_ids());
+  }
+
+  WriteAttributeLookup try_get_for_write(GeometryComponent &component) const final
+  {
+    InstancesComponent &instances = static_cast<InstancesComponent &>(component);
+    if (instances.instance_ids().is_empty()) {
+      return {};
+    }
+    return {std::make_unique<fn::GVMutableArray_For_MutableSpan<int>>(instances.instance_ids()),
+            domain_};
+  }
+
+  bool try_delete(GeometryComponent &component) const final
+  {
+    InstancesComponent &instances = static_cast<InstancesComponent &>(component);
+    if (instances.instance_ids().is_empty()) {
+      return false;
+    }
+    instances.instance_ids_clear();
+    return true;
+  }
+
+  bool try_create(GeometryComponent &component, const AttributeInit &initializer) const final
+  {
+    InstancesComponent &instances = static_cast<InstancesComponent &>(component);
+    if (instances.instances_amount() == 0) {
+      return false;
+    }
+    MutableSpan<int> ids = instances.instance_ids_ensure();
+    switch (initializer.type) {
+      case AttributeInit::Type::Default: {
+        ids.fill(0);
+        break;
+      }
+      case AttributeInit::Type::VArray: {
+        const GVArray *varray = static_cast<const AttributeInitVArray &>(initializer).varray;
+        varray->materialize_to_uninitialized(IndexRange(varray->size()), ids.data());
+        break;
+      }
+      case AttributeInit::Type::MoveArray: {
+        void *source_data = static_cast<const AttributeInitMove &>(initializer).data;
+        ids.copy_from({static_cast<int *>(source_data), instances.instances_amount()});
+        MEM_freeN(source_data);
+        break;
+      }
+    }
+    return true;
+  }
+
+  bool exists(const GeometryComponent &component) const final
+  {
+    const InstancesComponent &instances = static_cast<const InstancesComponent &>(component);
+    return !instances.instance_ids().is_empty();
+  }
+};
+
 static ComponentAttributeProviders create_attribute_providers_for_instances()
 {
   static InstancePositionAttributeProvider position;
+  static InstanceIDAttributeProvider id;
 
-  return ComponentAttributeProviders({&position}, {});
+  return ComponentAttributeProviders({&position, &id}, {});
 }
 }  // namespace blender::bke
 

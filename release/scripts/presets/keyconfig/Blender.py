@@ -56,7 +56,7 @@ class Prefs(bpy.types.KeyConfigPreferences):
         update=update_fn,
     )
     tool_key_mode: EnumProperty(
-        name="Tool Keys:",
+        name="Tool Keys",
         description=(
             "The method of keys to activate tools such as move, rotate & scale (G, R, S)"
         ),
@@ -217,6 +217,15 @@ class Prefs(bpy.types.KeyConfigPreferences):
         update=update_fn,
     )
 
+    use_file_single_click: BoolProperty(
+        name="Open Folders on Single Click",
+        description=(
+            "Navigate into folders by clicking on them once instead of twice"
+        ),
+        default=False,
+        update=update_fn,
+    )
+
     def draw(self, layout):
         from bpy import context
 
@@ -233,13 +242,13 @@ class Prefs(bpy.types.KeyConfigPreferences):
 
         # General settings.
         col = layout.column()
-        col.row().prop(self, "select_mouse", text="Select with Mouse Button:", expand=True)
-        col.row().prop(self, "spacebar_action", text="Spacebar Action:", expand=True)
+        col.row().prop(self, "select_mouse", text="Select with Mouse Button", expand=True)
+        col.row().prop(self, "spacebar_action", text="Spacebar Action", expand=True)
 
         if is_select_left:
-            col.row().prop(self, "gizmo_action", text="Activate Gizmo Event:", expand=True)
+            col.row().prop(self, "gizmo_action", text="Activate Gizmo Event", expand=True)
         else:
-            col.row().prop(self, "rmb_action", text="Right Mouse Select Action:", expand=True)
+            col.row().prop(self, "rmb_action", text="Right Mouse Select Action", expand=True)
 
         col.row().prop(self, "tool_key_mode", expand=True)
 
@@ -262,9 +271,9 @@ class Prefs(bpy.types.KeyConfigPreferences):
         # 3DView settings.
         col = layout.column()
         col.label(text="3D View")
-        col.row().prop(self, "v3d_tilde_action", text="Grave Accent / Tilde Action:", expand=True)
-        col.row().prop(self, "v3d_mmb_action", text="Middle Mouse Action:", expand=True)
-        col.row().prop(self, "v3d_alt_mmb_drag_action", text="Alt Middle Mouse Drag Action:", expand=True)
+        col.row().prop(self, "v3d_tilde_action", text="Grave Accent / Tilde Action", expand=True)
+        col.row().prop(self, "v3d_mmb_action", text="Middle Mouse Action", expand=True)
+        col.row().prop(self, "v3d_alt_mmb_drag_action", text="Alt Middle Mouse Drag Action", expand=True)
 
         # Checkboxes sub-layout.
         col = layout.column()
@@ -273,6 +282,10 @@ class Prefs(bpy.types.KeyConfigPreferences):
         sub.prop(self, "use_pie_click_drag")
         sub.prop(self, "use_v3d_shade_ex_pie")
 
+        # File Browser settings.
+        col = layout.column()
+        col.label(text="File Browser")
+        col.row().prop(self, "use_file_single_click")
 
 blender_default = bpy.utils.execfile(os.path.join(DIRNAME, "keymap_data", "blender_default.py"))
 
@@ -312,6 +325,7 @@ def load():
             ),
             use_alt_click_leader=kc_prefs.use_alt_click_leader,
             use_pie_click_drag=kc_prefs.use_pie_click_drag,
+            use_file_single_click=kc_prefs.use_file_single_click,
         ),
     )
 

@@ -21,8 +21,8 @@ class TestGraph:
             queue = TestQueue(json_filepath)
 
             for entry in queue.entries:
-                if entry.status in ('done', 'outdated'):
-                    device_name = entry.device_name
+                if entry.status in {'done', 'outdated'}:
+                    device_name = entry.device_name + " (" + entry.device_type + ")"
                     if device_name in devices.keys():
                         devices[device_name].append(entry)
                     else:

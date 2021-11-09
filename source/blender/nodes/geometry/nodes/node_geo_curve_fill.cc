@@ -35,8 +35,8 @@ namespace blender::nodes {
 
 static void geo_node_curve_fill_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>("Curve");
-  b.add_output<decl::Geometry>("Mesh");
+  b.add_input<decl::Geometry>(N_("Curve")).supported_type(GEO_COMPONENT_TYPE_CURVE);
+  b.add_output<decl::Geometry>(N_("Mesh"));
 }
 
 static void geo_node_curve_fill_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
@@ -154,20 +154,8 @@ static void geo_node_curve_fill_exec(GeoNodeExecParams params)
   const NodeGeometryCurveFill &storage = *(const NodeGeometryCurveFill *)params.node().storage;
   const GeometryNodeCurveFillMode mode = (GeometryNodeCurveFillMode)storage.mode;
 
-  if (geometry_set.has_instances()) {
-    InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
-    instances.ensure_geometry_instances();
-
-    threading::parallel_for(IndexRange(instances.references_amount()), 16, [&](IndexRange range) {
-      for (int i : range) {
-        GeometrySet &geometry_set = instances.geometry_set_from_reference(i);
-        geometry_set = bke::geometry_set_realize_instances(geometry_set);
-        curve_fill_calculate(geometry_set, mode);
-      }
-    });
-  }
-
-  curve_fill_calculate(geometry_set, mode);
+  geometry_set.modify_geometry_sets(
+      [&](GeometrySet &geometry_set) { curve_fill_calculate(geometry_set, mode); });
 
   params.set_output("Mesh", std::move(geometry_set));
 }
@@ -178,7 +166,7 @@ void register_node_type_geo_curve_fill()
 {
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_CURVE_FILL, "Curve Fill", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_FILL_CURVE, "Fill Curve", NODE_CLASS_GEOMETRY, 0);
 
   node_type_init(&ntype, blender::nodes::geo_node_curve_fill_init);
   node_type_storage(

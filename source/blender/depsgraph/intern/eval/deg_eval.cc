@@ -370,7 +370,6 @@ static TaskPool *deg_evaluate_task_pool_create(DepsgraphEvalState *state)
  */
 void deg_evaluate_on_refresh(Depsgraph *graph)
 {
-  graph_tag_ids_for_visible_update(graph);
   graph_tag_ids_for_subdivision_evaluation(graph);
 
   /* Nothing to update, early out. */

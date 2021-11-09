@@ -29,15 +29,16 @@ namespace blender::nodes {
 
 static void geo_node_curve_fillet_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>("Curve");
-  b.add_input<decl::Int>("Count").default_value(1).min(1).max(1000);
-  b.add_input<decl::Float>("Radius")
+  b.add_input<decl::Geometry>(N_("Curve")).supported_type(GEO_COMPONENT_TYPE_CURVE);
+  b.add_input<decl::Int>(N_("Count")).default_value(1).min(1).max(1000).supports_field();
+  b.add_input<decl::Float>(N_("Radius"))
       .min(0.0f)
       .max(FLT_MAX)
       .subtype(PropertySubType::PROP_DISTANCE)
-      .default_value(0.25f);
-  b.add_input<decl::Bool>("Limit Radius");
-  b.add_output<decl::Geometry>("Curve");
+      .default_value(0.25f)
+      .supports_field();
+  b.add_input<decl::Bool>(N_("Limit Radius"));
+  b.add_output<decl::Geometry>(N_("Curve"));
 }
 
 static void geo_node_curve_fillet_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
@@ -563,19 +564,16 @@ static std::unique_ptr<CurveEval> fillet_curve(const CurveEval &input_curve,
   return output_curve;
 }
 
-static void geo_node_fillet_exec(GeoNodeExecParams params)
+static void calculate_curve_fillet(GeometrySet &geometry_set,
+                                   const GeometryNodeCurveFilletMode mode,
+                                   const Field<float> &radius_field,
+                                   const std::optional<Field<int>> &count_field,
+                                   const bool limit_radius)
 {
-  GeometrySet geometry_set = params.extract_input<GeometrySet>("Curve");
-
-  geometry_set = bke::geometry_set_realize_instances(geometry_set);
-
   if (!geometry_set.has_curve()) {
-    params.set_output("Curve", geometry_set);
     return;
   }
 
-  NodeGeometryCurveFillet &node_storage = *(NodeGeometryCurveFillet *)params.node().storage;
-  const GeometryNodeCurveFilletMode mode = (GeometryNodeCurveFilletMode)node_storage.mode;
   FilletParam fillet_param;
   fillet_param.mode = mode;
 
@@ -584,19 +582,16 @@ static void geo_node_fillet_exec(GeoNodeExecParams params)
   const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_POINT);
   fn::FieldEvaluator field_evaluator{field_context, domain_size};
 
-  Field<float> radius_field = params.extract_input<Field<float>>("Radius");
-  field_evaluator.add(std::move(radius_field));
+  field_evaluator.add(radius_field);
 
   if (mode == GEO_NODE_CURVE_FILLET_POLY) {
-    Field<int> count_field = params.extract_input<Field<int>>("Count");
-    field_evaluator.add(std::move(count_field));
+    field_evaluator.add(*count_field);
   }
 
   field_evaluator.evaluate();
 
   fillet_param.radii = &field_evaluator.get_evaluated<float>(0);
   if (fillet_param.radii->is_single() && fillet_param.radii->get_internal_single() < 0.0f) {
-    params.set_output("Geometry", geometry_set);
     return;
   }
 
@@ -604,20 +599,43 @@ static void geo_node_fillet_exec(GeoNodeExecParams params)
     fillet_param.counts = &field_evaluator.get_evaluated<int>(1);
   }
 
-  fillet_param.limit_radius = params.extract_input<bool>("Limit Radius");
+  fillet_param.limit_radius = limit_radius;
 
   const CurveEval &input_curve = *geometry_set.get_curve_for_read();
   std::unique_ptr<CurveEval> output_curve = fillet_curve(input_curve, fillet_param);
 
-  params.set_output("Curve", GeometrySet::create_with_curve(output_curve.release()));
+  geometry_set.replace_curve(output_curve.release());
 }
+
+static void geo_node_fillet_exec(GeoNodeExecParams params)
+{
+  GeometrySet geometry_set = params.extract_input<GeometrySet>("Curve");
+
+  NodeGeometryCurveFillet &node_storage = *(NodeGeometryCurveFillet *)params.node().storage;
+  const GeometryNodeCurveFilletMode mode = (GeometryNodeCurveFilletMode)node_storage.mode;
+
+  Field<float> radius_field = params.extract_input<Field<float>>("Radius");
+  const bool limit_radius = params.extract_input<bool>("Limit Radius");
+
+  std::optional<Field<int>> count_field;
+  if (mode == GEO_NODE_CURVE_FILLET_POLY) {
+    count_field.emplace(params.extract_input<Field<int>>("Count"));
+  }
+
+  geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
+    calculate_curve_fillet(geometry_set, mode, radius_field, count_field, limit_radius);
+  });
+
+  params.set_output("Curve", std::move(geometry_set));
+}
+
 }  // namespace blender::nodes
 
 void register_node_type_geo_curve_fillet()
 {
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_CURVE_FILLET, "Curve Fillet", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_FILLET_CURVE, "Fillet Curve", NODE_CLASS_GEOMETRY, 0);
   ntype.draw_buttons = blender::nodes::geo_node_curve_fillet_layout;
   node_type_storage(
       &ntype, "NodeGeometryCurveFillet", node_free_standard_storage, node_copy_standard_storage);

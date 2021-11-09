@@ -366,7 +366,7 @@ static PyObject *bpy_prop_deferred_call(BPy_PropDeferred *UNUSED(self),
 
 /**
  * Expose the function in case scripts need to introspect this information
- * (not currently used by Blender it's self).
+ * (not currently used by Blender itself).
  */
 static PyObject *bpy_prop_deferred_function_get(BPy_PropDeferred *self, void *UNUSED(closure))
 {
@@ -377,7 +377,7 @@ static PyObject *bpy_prop_deferred_function_get(BPy_PropDeferred *self, void *UN
 
 /**
  * Expose keywords in case scripts need to introspect this information
- * (not currently used by Blender it's self).
+ * (not currently used by Blender itself).
  */
 static PyObject *bpy_prop_deferred_keywords_get(BPy_PropDeferred *self, void *UNUSED(closure))
 {
@@ -3750,7 +3750,7 @@ PyDoc_STRVAR(
     "         (e.g. returned by :class:`bpy.types.UILayout.icon`)\n"
     "      :number: Unique value used as the identifier for this item (stored in file data).\n"
     "         Use when the identifier may need to change. If the *ENUM_FLAG* option is used,\n"
-    "         the values are bitmasks and should be powers of two.\n"
+    "         the values are bit-masks and should be powers of two.\n"
     "\n"
     "      When an item only contains 4 items they define ``(identifier, name, description, "
     "number)``.\n"

@@ -58,7 +58,7 @@ void GPU_indexbuf_init_build_on_device(GPUIndexBuf *elem, uint index_len);
 /*
  * Thread safe.
  *
- * Function inspired by the reduction directives of multithread work APIs..
+ * Function inspired by the reduction directives of multi-thread work API's.
  */
 void GPU_indexbuf_join(GPUIndexBufBuilder *builder, const GPUIndexBufBuilder *builder_from);
 
