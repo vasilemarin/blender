@@ -36,7 +36,7 @@ void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::strin
   local_logger.log_node_warning(provider_->dnode, type, std::move(message));
 }
 
-void GeoNodeExecParams::execution_time(const int exec_time) const
+void GeoNodeExecParams::execution_time(const uint64_t exec_time) const
 {
   if (provider_->logger == nullptr) {
     return;

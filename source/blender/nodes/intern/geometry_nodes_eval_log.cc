@@ -463,7 +463,7 @@ void LocalGeoLogger::log_node_warning(DNode node, NodeWarningType type, std::str
   node_warnings_.append({node, {type, std::move(message)}});
 }
 
-void LocalGeoLogger::log_execution_time(DNode node, int exec_time)
+void LocalGeoLogger::log_execution_time(DNode node, uint64_t exec_time)
 {
   node_exec_times_.append({node, exec_time});
 }

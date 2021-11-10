@@ -308,7 +308,7 @@ class GeoNodeExecParams {
    * and potentially elsewhere in Blender.
    */
   void error_message_add(const NodeWarningType type, std::string message) const;
-  void execution_time(const int exec_time) const;
+  void execution_time(const uint64_t exec_time) const;
 
   /**
    * Creates a read-only attribute based on node inputs. The method automatically detects which

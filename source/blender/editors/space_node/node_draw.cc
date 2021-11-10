@@ -87,6 +87,8 @@
 
 #include "node_intern.h" /* own include */
 
+#include <iomanip>
+
 #ifdef WITH_COMPOSITOR
 #  include "COM_compositor.h"
 #endif
@@ -1577,6 +1579,72 @@ static void node_add_error_message_button(
   UI_block_emboss_set(node.block, UI_EMBOSS);
 }
 
+static void node_add_execution_time_label(const bContext *C, bNode &node, const rctf &rect)
+{
+  SpaceNode *snode = CTX_wm_space_node(C);
+  uint64_t exec_time = 0;
+
+  if (node.type == NODE_GROUP_OUTPUT) {
+    const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
+        *snode);
+    if (tree_log) {
+      tree_log->foreach_node_log(
+          [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
+    }
+  }
+  else if (node.type == NODE_GROUP) {
+    const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
+        *snode);
+    if (tree_log) {
+      const geo_log::TreeLog *child_tree_log = tree_log->lookup_child_log(node.name);
+      if (child_tree_log) {
+        child_tree_log->foreach_node_log(
+            [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
+      }
+    }
+  }
+  else {
+    const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
+        *snode, node);
+    exec_time = node_log ? node_log->execution_time() : 0;
+  }
+  /* Don't show if time is below 100 microseconds */
+  if (exec_time >= 100) {
+    std::string timing_str;
+    short precision = 0;
+
+    /* Show decimals if value is below 10s */
+    if (exec_time < 10000) {
+      precision = 1;
+    }
+    if (exec_time < 1000) {
+      precision = 2;
+    }
+
+    std::stringstream stream;
+    stream << std::fixed << std::setprecision(precision) << (exec_time / 1000.0f);
+    timing_str = stream.str() + " ms";
+
+    uiBut *but_timing = uiDefBut(node.block,
+                                 UI_BTYPE_LABEL,
+                                 0,
+                                 timing_str.c_str(),
+                                 (int)(rect.xmin + NODE_MARGIN_X + 0.4f),
+                                 (int)(rect.ymax - NODE_DY + (22.0f * U.dpi_fac)),
+                                 (short)(rect.xmax - rect.xmin),
+                                 (short)NODE_DY,
+                                 nullptr,
+                                 0,
+                                 0,
+                                 0,
+                                 0,
+                                 "");
+    if (node.flag & NODE_MUTED) {
+      UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
+    }
+  }
+}
+
 static void node_draw_basis(const bContext *C,
                             const View2D *v2d,
                             const SpaceNode *snode,
@@ -1750,29 +1818,9 @@ static void node_draw_basis(const bContext *C,
     UI_but_flag_enable(but, UI_BUT_INACTIVE);
   }
 
+  /* Execution time. */
   if (snode->flag & SNODE_SHOW_TIMING) {
-    const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
-        *snode, *node);
-    if (node_log && node_log->execution_time() > 0) {
-      std::string timing_str = std::to_string(node_log->execution_time()) + " ms";
-      uiBut *but_timing = uiDefBut(node->block,
-                                   UI_BTYPE_LABEL,
-                                   0,
-                                   timing_str.c_str(),
-                                   (int)(rct->xmin + NODE_MARGIN_X + 0.4f),
-                                   (int)(rct->ymax - NODE_DY + (22.0f * U.dpi_fac)),
-                                   (short)(iconofs - rct->xmin - (18.0f * U.dpi_fac)),
-                                   (short)NODE_DY,
-                                   nullptr,
-                                   0,
-                                   0,
-                                   0,
-                                   0,
-                                   "");
-      if (node->flag & NODE_MUTED) {
-        UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
-      }
-    }
+    node_add_execution_time_label(C, *node, *rct);
   }
   /* Wire across the node when muted/disabled. */
   if (node->flag & NODE_MUTED) {
@@ -1902,6 +1950,11 @@ static void node_draw_hidden(const bContext *C,
 
   /* Shadow. */
   node_draw_shadow(snode, node, hiddenrad, 1.0f);
+
+  /* Execution time. */
+  if (snode->flag & SNODE_SHOW_TIMING) {
+    node_add_execution_time_label(C, *node, *rct);
+  }
 
   /* Wire across the node when muted/disabled. */
   if (node->flag & NODE_MUTED) {

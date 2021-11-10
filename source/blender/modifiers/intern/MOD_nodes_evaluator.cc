@@ -931,7 +931,7 @@ class GeometryNodesEvaluator {
     auto begin = std::chrono::high_resolution_clock::now();
     bnode.typeinfo->geometry_node_execute(params);
     auto end = std::chrono::high_resolution_clock::now();
-    int duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+    int duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
     params.execution_time(duration);
   }
 
@@ -939,10 +939,12 @@ class GeometryNodesEvaluator {
                                    const nodes::NodeMultiFunctions::Item &fn_item,
                                    NodeState &node_state)
   {
+    NodeParamsProvider params_provider{*this, node, node_state};
+    GeoNodeExecParams params{params_provider};
+    auto begin = std::chrono::high_resolution_clock::now();
+
     if (node->idname().find("Legacy") != StringRef::not_found) {
       /* Create geometry nodes params just for creating an error message. */
-      NodeParamsProvider params_provider{*this, node, node_state};
-      GeoNodeExecParams params{params_provider};
       params.error_message_add(geo_log::NodeWarningType::Legacy,
                                TIP_("Legacy node will be removed before Blender 4.0"));
     }
@@ -989,6 +991,10 @@ class GeometryNodesEvaluator {
       output_state.has_been_computed = true;
       output_index++;
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    int duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+    params.execution_time(duration);
   }
 
   void execute_unknown_node(const DNode node, NodeState &node_state)
