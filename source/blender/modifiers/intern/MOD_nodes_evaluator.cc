@@ -35,6 +35,8 @@
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
+#include <chrono>
+
 namespace blender::modifiers::geometry_nodes {
 
 using fn::CPPType;
@@ -926,7 +928,11 @@ class GeometryNodesEvaluator {
       params.error_message_add(geo_log::NodeWarningType::Legacy,
                                TIP_("Legacy node will be removed before Blender 4.0"));
     }
+    auto begin = std::chrono::high_resolution_clock::now();
     bnode.typeinfo->geometry_node_execute(params);
+    auto end = std::chrono::high_resolution_clock::now();
+    int duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+    params.execution_time(duration);
   }
 
   void execute_multi_function_node(const DNode node,

@@ -1750,6 +1750,30 @@ static void node_draw_basis(const bContext *C,
     UI_but_flag_enable(but, UI_BUT_INACTIVE);
   }
 
+  if (snode->flag & SNODE_SHOW_TIMING) {
+    const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
+        *snode, *node);
+    if (node_log && node_log->execution_time() > 0) {
+      std::string timing_str = std::to_string(node_log->execution_time()) + " ms";
+      uiBut *but_timing = uiDefBut(node->block,
+                                   UI_BTYPE_LABEL,
+                                   0,
+                                   timing_str.c_str(),
+                                   (int)(rct->xmin + NODE_MARGIN_X + 0.4f),
+                                   (int)(rct->ymax - NODE_DY + (22.0f * U.dpi_fac)),
+                                   (short)(iconofs - rct->xmin - (18.0f * U.dpi_fac)),
+                                   (short)NODE_DY,
+                                   nullptr,
+                                   0,
+                                   0,
+                                   0,
+                                   0,
+                                   "");
+      if (node->flag & NODE_MUTED) {
+        UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
+      }
+    }
+  }
   /* Wire across the node when muted/disabled. */
   if (node->flag & NODE_MUTED) {
     node_draw_mute_line(C, v2d, snode, node);

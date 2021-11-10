@@ -1593,6 +1593,7 @@ typedef enum eSpaceNode_Flag {
   SNODE_PIN = (1 << 12),
   /** automatically offset following nodes in a chain on insertion */
   SNODE_SKIP_INSOFFSET = (1 << 13),
+  SNODE_SHOW_TIMING = (1 << 14),
 } eSpaceNode_Flag;
 
 /* SpaceNode.texfrom */
