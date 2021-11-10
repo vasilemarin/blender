@@ -1582,66 +1582,58 @@ static void node_add_error_message_button(
 static void node_add_execution_time_label(const bContext *C, bNode &node, const rctf &rect)
 {
   SpaceNode *snode = CTX_wm_space_node(C);
-  uint64_t exec_time = 0;
+  uint64_t exec_time_us = 0;
 
   if (node.type == NODE_GROUP_OUTPUT) {
-    const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-        *snode);
-    if (tree_log) {
-      tree_log->foreach_node_log(
-          [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
+    auto *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
+
+    if (tree_log == nullptr) {
+      return;
     }
+    tree_log->foreach_node_log(
+        [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
   }
   else if (node.type == NODE_GROUP) {
-    const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-        *snode);
-    if (tree_log) {
-      const geo_log::TreeLog *child_tree_log = tree_log->lookup_child_log(node.name);
-      if (child_tree_log) {
-        child_tree_log->foreach_node_log(
-            [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
-      }
+    auto *root_tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
+    if (root_tree_log == nullptr) {
+      return;
     }
+    auto *tree_log = root_tree_log->lookup_child_log(node.name);
+    if (tree_log == nullptr) {
+      return;
+    }
+    tree_log->foreach_node_log(
+        [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
   }
   else {
-    const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
-        *snode, node);
-    exec_time = node_log ? node_log->execution_time() : 0;
+    auto *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(*snode, node);
+    exec_time_us = node_log ? node_log->execution_time() : 0;
   }
-  /* Don't show if time is below 100 microseconds */
-  if (exec_time >= 100) {
-    std::string timing_str;
-    short precision = 0;
 
-    /* Show decimals if value is below 10s */
-    if (exec_time < 10000) {
-      precision = 1;
-    }
-    if (exec_time < 1000) {
-      precision = 2;
-    }
+  /* Don't show the label if execution time is 0 microseconds. */
+  if (exec_time_us == 0) {
+    return;
+  }
 
-    std::stringstream stream;
-    stream << std::fixed << std::setprecision(precision) << (exec_time / 1000.0f);
-    timing_str = stream.str() + " ms";
+  int exec_time_ms = static_cast<int>((exec_time_us / 1000.0f) + 0.5f);
+  std::string timing_str = (exec_time_us < 1000 ? "<1" : std::to_string(exec_time_ms)) + " ms";
 
-    uiBut *but_timing = uiDefBut(node.block,
-                                 UI_BTYPE_LABEL,
-                                 0,
-                                 timing_str.c_str(),
-                                 (int)(rect.xmin + NODE_MARGIN_X + 0.4f),
-                                 (int)(rect.ymax - NODE_DY + (22.0f * U.dpi_fac)),
-                                 (short)(rect.xmax - rect.xmin),
-                                 (short)NODE_DY,
-                                 nullptr,
-                                 0,
-                                 0,
-                                 0,
-                                 0,
-                                 "");
-    if (node.flag & NODE_MUTED) {
-      UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
-    }
+  uiBut *but_timing = uiDefBut(node.block,
+                               UI_BTYPE_LABEL,
+                               0,
+                               timing_str.c_str(),
+                               (int)(rect.xmin + NODE_MARGIN_X + 0.4f),
+                               (int)(rect.ymax - NODE_DY + (20.0f * U.dpi_fac)),
+                               (short)(rect.xmax - rect.xmin),
+                               (short)NODE_DY,
+                               nullptr,
+                               0,
+                               0,
+                               0,
+                               0,
+                               "");
+  if (node.flag & NODE_MUTED) {
+    UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
   }
 }
 
