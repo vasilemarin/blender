@@ -288,7 +288,7 @@ class NodeLog {
  public:
   const SocketLog *lookup_socket_log(eNodeSocketInOut in_out, int index) const;
   const SocketLog *lookup_socket_log(const bNode &node, const bNodeSocket &socket) const;
-  void execution_time(int exec_time);
+  void execution_time(uint64_t exec_time);
 
   Span<SocketLog> input_logs() const
   {
@@ -305,7 +305,7 @@ class NodeLog {
     return warnings_;
   }
 
-  int execution_time() const
+  uint64_t execution_time() const
   {
     return exec_time_;
   }

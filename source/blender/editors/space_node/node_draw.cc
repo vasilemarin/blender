@@ -1579,44 +1579,87 @@ static void node_add_error_message_button(
   UI_block_emboss_set(node.block, UI_EMBOSS);
 }
 
-static void node_add_execution_time_label(const bContext *C, bNode &node, const rctf &rect)
+uint64_t node_get_execution_time(bNodeTree *ntree, bNode *node, SpaceNode *snode)
 {
-  SpaceNode *snode = CTX_wm_space_node(C);
   uint64_t exec_time_us = 0;
 
-  if (node.type == NODE_GROUP_OUTPUT) {
+  if (node->type == NODE_GROUP_OUTPUT) {
     auto *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
 
     if (tree_log == nullptr) {
-      return;
+      return 0;
     }
     tree_log->foreach_node_log(
         [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
   }
-  else if (node.type == NODE_GROUP) {
+  else if (node->type == NODE_FRAME) {
+    LISTBASE_FOREACH (bNode *, tnode, &ntree->nodes) {
+      if (tnode->parent != node) {
+        continue;
+      }
+
+      if (tnode->type == NODE_FRAME) {
+        exec_time_us += node_get_execution_time(ntree, tnode, snode);
+      }
+      else if (tnode->type == NODE_GROUP) {
+        auto *root_tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
+        if (root_tree_log == nullptr) {
+          continue;
+        }
+        auto *tree_log = root_tree_log->lookup_child_log(tnode->name);
+        if (tree_log == nullptr) {
+          continue;
+        }
+        tree_log->foreach_node_log(
+            [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
+      }
+      else {
+        auto *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(*snode, *tnode);
+        if (node_log) {
+          exec_time_us += node_log->execution_time();
+        }
+      }
+    }
+  }
+  else if (node->type == NODE_GROUP) {
     auto *root_tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
     if (root_tree_log == nullptr) {
-      return;
+      return 0;
     }
-    auto *tree_log = root_tree_log->lookup_child_log(node.name);
+    auto *tree_log = root_tree_log->lookup_child_log(node->name);
     if (tree_log == nullptr) {
-      return;
+      return 0;
     }
     tree_log->foreach_node_log(
         [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
   }
   else {
-    auto *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(*snode, node);
+    auto *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(*snode, *node);
     exec_time_us = node_log ? node_log->execution_time() : 0;
   }
+  return exec_time_us;
+}
+
+static void node_add_execution_time_label(const bContext *C, bNode &node, const rctf &rect)
+{
+  SpaceNode *snode = CTX_wm_space_node(C);
+
+  uint64_t exec_time_us = node_get_execution_time(nullptr, &node, snode);
+  short precision = 0;
 
   /* Don't show the label if execution time is 0 microseconds. */
   if (exec_time_us == 0) {
     return;
   }
 
-  int exec_time_ms = static_cast<int>((exec_time_us / 1000.0f) + 0.5f);
-  std::string timing_str = (exec_time_us < 1000 ? "<1" : std::to_string(exec_time_ms)) + " ms";
+  /* Show decimal if value is below 1ms */
+  if (exec_time_us < 1000) {
+    precision = 1;
+  }
+
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(precision) << (exec_time_us / 1000.0f);
+  std::string timing_str = stream.str() + " ms";
 
   uiBut *but_timing = uiDefBut(node.block,
                                UI_BTYPE_LABEL,
