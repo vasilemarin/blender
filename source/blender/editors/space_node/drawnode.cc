@@ -370,24 +370,6 @@ static void node_draw_frame_label(bNodeTree *ntree, bNode *node, SpaceNode *snod
   float x = BLI_rctf_cent_x(rct) - (0.5f * width);
   float y = rct->ymax - label_height;
 
-  /* Draw execution time. */
-  if (snode->flag & SNODE_SHOW_TIMING) {
-    uint64_t exec_time_us = node_get_execution_time(ntree, node, snode);
-
-    if (exec_time_us > 0) {
-      std::string timing_str;
-      if (exec_time_us < 1000) {
-        timing_str = "<1 ms";
-      }
-      else {
-        int exec_time_ms = static_cast<int>((exec_time_us / 1000.0f) + 0.5f);
-        timing_str = std::to_string(exec_time_ms) + " ms";
-      }
-      BLF_position(fontid, rct->xmin + U.widget_unit * 0.5f, y, 0);
-      BLF_draw(fontid, timing_str.c_str(), timing_str.length());
-    }
-  }
-
   /* label */
   const bool has_label = node->label[0] != '\0';
   if (has_label) {
@@ -488,6 +470,8 @@ static void node_draw_frame(const bContext *C,
 
   /* label and text */
   node_draw_frame_label(ntree, node, snode);
+
+  node_draw_extra_info_panel(snode, node);
 
   UI_block_end(C, node->block);
   UI_block_draw(C, node->block);

@@ -1579,7 +1579,9 @@ static void node_add_error_message_button(
   UI_block_emboss_set(node.block, UI_EMBOSS);
 }
 
-uint64_t node_get_execution_time(bNodeTree *ntree, bNode *node, SpaceNode *snode)
+static uint64_t node_get_execution_time(const bNodeTree *ntree,
+                                        const bNode *node,
+                                        const SpaceNode *snode)
 {
   uint64_t exec_time_us = 0;
 
@@ -1640,34 +1642,57 @@ uint64_t node_get_execution_time(bNodeTree *ntree, bNode *node, SpaceNode *snode
   return exec_time_us;
 }
 
-static void node_add_execution_time_label(const bContext *C, bNode &node, const rctf &rect)
+static std::string node_get_execution_time_label(const SpaceNode *snode, const bNode *node)
 {
-  SpaceNode *snode = CTX_wm_space_node(C);
+  uint64_t exec_time_us = node_get_execution_time(snode->nodetree, node, snode);
 
-  uint64_t exec_time_us = node_get_execution_time(nullptr, &node, snode);
-  short precision = 0;
+  std::string timing_str;
 
-  /* Don't show the label if execution time is 0 microseconds. */
+  /* Don't show time if execution time is 0 microseconds. */
   if (exec_time_us == 0) {
-    return;
+    timing_str = "-";
+  }
+  else {
+    short precision = 0;
+    /* Show decimal if value is below 1ms */
+    if (exec_time_us < 1000) {
+      precision = 1;
+    }
+
+    std::stringstream stream;
+    stream << std::fixed << std::setprecision(precision) << (exec_time_us / 1000.0f);
+    timing_str = stream.str() + " ms";
+  }
+  return timing_str;
+}
+
+static int node_get_extra_info_count(const SpaceNode *snode, const bNode *node)
+{
+  int extra_info_count = 0;
+
+  if (snode->flag & SNODE_SHOW_TIMING &&
+      (ELEM(node->typeinfo->nclass, NODE_CLASS_GEOMETRY, NODE_CLASS_GROUP) ||
+       ELEM(node->type, NODE_FRAME, NODE_GROUP_OUTPUT))) {
+    extra_info_count++;
   }
 
-  /* Show decimal if value is below 1ms */
-  if (exec_time_us < 1000) {
-    precision = 1;
-  }
+  return extra_info_count;
+}
 
-  std::stringstream stream;
-  stream << std::fixed << std::setprecision(precision) << (exec_time_us / 1000.0f);
-  std::string timing_str = stream.str() + " ms";
-
-  uiBut *but_timing = uiDefBut(node.block,
+static void node_draw_extra_info_row(const bNode *node,
+                                     const rctf *rect,
+                                     const int row,
+                                     const std::string &text,
+                                     const char *tooltip,
+                                     const int icon)
+{
+  uiBut *but_timing = uiDefBut(node->block,
                                UI_BTYPE_LABEL,
                                0,
-                               timing_str.c_str(),
-                               (int)(rect.xmin + NODE_MARGIN_X + 0.4f),
-                               (int)(rect.ymax - NODE_DY + (20.0f * U.dpi_fac)),
-                               (short)(rect.xmax - rect.xmin),
+                               text.c_str(),
+                               (int)(rect->xmin + 4.0f * U.dpi_fac + NODE_MARGIN_X + 0.4f),
+                               (int)(rect->ymin + row * (20.0f * U.dpi_fac)),
+                               (short)(rect->xmax - rect->xmin),
                                (short)NODE_DY,
                                nullptr,
                                0,
@@ -1675,8 +1700,72 @@ static void node_add_execution_time_label(const bContext *C, bNode &node, const 
                                0,
                                0,
                                "");
-  if (node.flag & NODE_MUTED) {
+  if (node->flag & NODE_MUTED) {
     UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
+  }
+  UI_block_emboss_set(node->block, UI_EMBOSS_NONE);
+  uiBut *but_icon = uiDefIconBut(node->block,
+                                 UI_BTYPE_BUT,
+                                 0,
+                                 icon,
+                                 (int)(rect->xmin + 6.0f * U.dpi_fac),
+                                 (int)(rect->ymin + row * (20.0f * U.dpi_fac)),
+                                 NODE_HEADER_ICON_SIZE * 0.8f,
+                                 UI_UNIT_Y,
+                                 nullptr,
+                                 0,
+                                 0,
+                                 0,
+                                 0,
+                                 tooltip);
+  UI_block_emboss_set(node->block, UI_EMBOSS);
+}
+
+void node_draw_extra_info_panel(const SpaceNode *snode, const bNode *node)
+{
+  int extra_info_count = node_get_extra_info_count(snode, node);
+
+  if (extra_info_count == 0) {
+    return;
+  }
+
+  const rctf *rct = &node->totr;
+  float color[4];
+  rctf extra_info_rect;
+
+  if (node->type == NODE_FRAME) {
+    extra_info_rect.xmin = rct->xmin + 6.0f * U.dpi_fac;
+    extra_info_rect.xmax = rct->xmin + 105.0f * U.dpi_fac;
+    extra_info_rect.ymin = rct->ymin;
+    extra_info_rect.ymax = rct->ymin;
+  }
+  else {
+    extra_info_rect.xmin = rct->xmin + 3.0f * U.dpi_fac;
+    extra_info_rect.xmax = rct->xmin + 105.0f * U.dpi_fac;
+    extra_info_rect.ymin = rct->ymax;
+    extra_info_rect.ymax = rct->ymax + extra_info_count * (20.0f * U.dpi_fac) + 2.0f * U.dpi_fac;
+
+    ui_draw_dropshadow(
+        &extra_info_rect, BASIS_RAD, snode->runtime->aspect, 1.0f, node->flag & SELECT);
+    UI_GetThemeColorBlend4f(TH_BACK, TH_NODE, 0.7f, color);
+    color[3] -= 0.35f;
+    UI_draw_roundbox_corner_set(
+        UI_CNR_ALL & ~UI_CNR_BOTTOM_LEFT &
+        ((rct->xmax) > extra_info_rect.xmax ? ~UI_CNR_BOTTOM_RIGHT : UI_CNR_ALL));
+    UI_draw_roundbox_4fv(&extra_info_rect, true, BASIS_RAD, color);
+  }
+
+  int extra_info_row = 0;
+
+  if (snode->flag & SNODE_SHOW_TIMING &&
+      (ELEM(node->typeinfo->nclass, NODE_CLASS_GEOMETRY, NODE_CLASS_GROUP) ||
+       ELEM(node->type, NODE_FRAME, NODE_GROUP_OUTPUT))) {
+    std::string str = node_get_execution_time_label(snode, node);
+    const char *tooltip = "Execution time";
+
+    node_draw_extra_info_row(
+        node, &extra_info_rect, extra_info_row, str, tooltip, ICON_PREVIEW_RANGE);
+    extra_info_row++;
   }
 }
 
@@ -1704,6 +1793,8 @@ static void node_draw_basis(const bContext *C,
   int color_id = node_get_colorid(node);
 
   GPU_line_width(1.0f);
+
+  node_draw_extra_info_panel(snode, node);
 
   /* Header. */
   {
@@ -1853,10 +1944,6 @@ static void node_draw_basis(const bContext *C,
     UI_but_flag_enable(but, UI_BUT_INACTIVE);
   }
 
-  /* Execution time. */
-  if (snode->flag & SNODE_SHOW_TIMING) {
-    node_add_execution_time_label(C, *node, *rct);
-  }
   /* Wire across the node when muted/disabled. */
   if (node->flag & NODE_MUTED) {
     node_draw_mute_line(C, v2d, snode, node);
@@ -1985,11 +2072,6 @@ static void node_draw_hidden(const bContext *C,
 
   /* Shadow. */
   node_draw_shadow(snode, node, hiddenrad, 1.0f);
-
-  /* Execution time. */
-  if (snode->flag & SNODE_SHOW_TIMING) {
-    node_add_execution_time_label(C, *node, *rct);
-  }
 
   /* Wire across the node when muted/disabled. */
   if (node->flag & NODE_MUTED) {
