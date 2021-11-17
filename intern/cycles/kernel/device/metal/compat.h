@@ -73,7 +73,8 @@ using namespace metal;
 #define ccl_gpu_kernel(block_num_threads, thread_num_registers)
 #define ccl_gpu_kernel_threads(block_num_threads)
 
-/* convert a comma-separated list into a semicolon-separated list (so that we can generate a struct based on kernel entrypoint parameters) */
+/* Convert a comma-separated list into a semicolon-separated list
+ * (so that we can generate a struct based on kernel entry-point parameters). */
 #define FN0()
 #define FN1(p1) p1;
 #define FN2(p1, p2) p1; p2;
@@ -94,7 +95,8 @@ using namespace metal;
 #define GET_LAST_ARG(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, ...) p16
 #define PARAMS_MAKER(...) GET_LAST_ARG(__VA_ARGS__, FN16, FN15, FN14, FN13, FN12, FN11, FN10, FN9, FN8, FN7, FN6, FN5, FN4, FN3, FN2, FN1, FN0)
 
-/* generate a struct containing the entrypoint parameters and a "run" method which can access them implicitly via this-> */
+/* Generate a struct containing the entry-point parameters and a "run"
+ * method which can access them implicitly via this-> */
 #define ccl_gpu_kernel_signature(name, ...) \
 struct kernel_gpu_##name \
 { \
@@ -147,6 +149,31 @@ void kernel_gpu_##name::run(thread MetalKernelContext& context, \
   } ccl_gpu_kernel_lambda_pass(context)
 
 // clang-format on
+
+/* volumetric lambda functions - use function objects for lambda-like functionality */
+#define VOLUME_READ_LAMBDA(function_call) \
+  struct FnObjectRead { \
+    KernelGlobals kg; \
+    ccl_private MetalKernelContext *context; \
+    int state; \
+\
+    VolumeStack operator()(const int i) const \
+    { \
+      return context->function_call; \
+    } \
+  } volume_read_lambda_pass{kg, this, state};
+
+#define VOLUME_WRITE_LAMBDA(function_call) \
+  struct FnObjectWrite { \
+    KernelGlobals kg; \
+    ccl_private MetalKernelContext *context; \
+    int state; \
+\
+    void operator()(const int i, VolumeStack entry) const \
+    { \
+      context->function_call; \
+    } \
+  } volume_write_lambda_pass{kg, this, state};
 
 /* make_type definitions with Metal style element initializers */
 #ifdef make_float2
