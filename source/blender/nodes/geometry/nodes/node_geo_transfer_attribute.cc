@@ -42,7 +42,8 @@ static void geo_node_transfer_attribute_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Target"))
       .only_realized_data()
-      .supported_type({GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD});
+      .supported_type(
+          {GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_CURVE});
 
   b.add_input<decl::Vector>(N_("Attribute")).hide_value().supports_field();
   b.add_input<decl::Float>(N_("Attribute"), "Attribute_001").hide_value().supports_field();
@@ -540,10 +541,10 @@ class NearestTransferFunction : public fn::MultiFunction {
     attribute_math::convert_to_static_type(dst.type(), [&](auto dummy) {
       using T = decltype(dummy);
       if (use_mesh_ && use_points_) {
-        GVArray_Typed<T> src_mesh{*mesh_data_};
-        GVArray_Typed<T> src_point{*point_data_};
-        copy_with_indices_and_comparison(*src_mesh,
-                                         *src_point,
+        VArray<T> src_mesh = mesh_data_->typed<T>();
+        VArray<T> src_point = point_data_->typed<T>();
+        copy_with_indices_and_comparison(src_mesh,
+                                         src_point,
                                          mesh_distances,
                                          point_distances,
                                          mask,
@@ -552,12 +553,12 @@ class NearestTransferFunction : public fn::MultiFunction {
                                          dst.typed<T>());
       }
       else if (use_points_) {
-        GVArray_Typed<T> src_point{*point_data_};
-        copy_with_indices(*src_point, mask, point_indices, dst.typed<T>());
+        VArray<T> src_point = point_data_->typed<T>();
+        copy_with_indices(src_point, mask, point_indices, dst.typed<T>());
       }
       else if (use_mesh_) {
-        GVArray_Typed<T> src_mesh{*mesh_data_};
-        copy_with_indices(*src_mesh, mask, mesh_indices, dst.typed<T>());
+        VArray<T> src_mesh = mesh_data_->typed<T>();
+        copy_with_indices(src_mesh, mask, mesh_indices, dst.typed<T>());
       }
     });
   }
@@ -666,8 +667,7 @@ class IndexTransferFunction : public fn::MultiFunction {
 
     attribute_math::convert_to_static_type(type, [&](auto dummy) {
       using T = decltype(dummy);
-      GVArray_Typed<T> src{*src_data_};
-      copy_with_indices_clamped(*src, mask, indices, dst.typed<T>());
+      copy_with_indices_clamped(src_data_->typed<T>(), mask, indices, dst.typed<T>());
     });
   }
 };
@@ -769,6 +769,8 @@ static void geo_node_transfer_attribute_exec(GeoNodeExecParams params)
     }
     case GEO_NODE_ATTRIBUTE_TRANSFER_NEAREST: {
       if (geometry.has_curve() && !geometry.has_mesh() && !geometry.has_pointcloud()) {
+        params.error_message_add(NodeWarningType::Error,
+                                 TIP_("The target geometry must contain a mesh or a point cloud"));
         return return_default();
       }
       auto fn = std::make_unique<NearestTransferFunction>(
