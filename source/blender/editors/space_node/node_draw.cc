@@ -1579,20 +1579,20 @@ static void node_add_error_message_button(
   UI_block_emboss_set(node.block, UI_EMBOSS);
 }
 
-static uint64_t node_get_execution_time(const bNodeTree *ntree,
-                                        const bNode *node,
-                                        const SpaceNode *snode)
+static std::chrono::microseconds node_get_execution_time(const bNodeTree *ntree,
+                                                         const bNode *node,
+                                                         const SpaceNode *snode)
 {
-  uint64_t exec_time_us = 0;
+  std::chrono::microseconds exec_time = std::chrono::microseconds::zero();
 
   if (node->type == NODE_GROUP_OUTPUT) {
     auto *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
 
     if (tree_log == nullptr) {
-      return 0;
+      return exec_time;
     }
     tree_log->foreach_node_log(
-        [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
+        [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
   }
   else if (node->type == NODE_FRAME) {
     LISTBASE_FOREACH (bNode *, tnode, &ntree->nodes) {
@@ -1601,7 +1601,7 @@ static uint64_t node_get_execution_time(const bNodeTree *ntree,
       }
 
       if (tnode->type == NODE_FRAME) {
-        exec_time_us += node_get_execution_time(ntree, tnode, snode);
+        exec_time += node_get_execution_time(ntree, tnode, snode);
       }
       else if (tnode->type == NODE_GROUP) {
         auto *root_tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
@@ -1613,12 +1613,12 @@ static uint64_t node_get_execution_time(const bNodeTree *ntree,
           continue;
         }
         tree_log->foreach_node_log(
-            [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
+            [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
       }
       else {
         auto *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(*snode, *tnode);
         if (node_log) {
-          exec_time_us += node_log->execution_time();
+          exec_time += node_log->execution_time();
         }
       }
     }
@@ -1626,36 +1626,44 @@ static uint64_t node_get_execution_time(const bNodeTree *ntree,
   else if (node->type == NODE_GROUP) {
     auto *root_tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(*snode);
     if (root_tree_log == nullptr) {
-      return 0;
+      return exec_time;
     }
     auto *tree_log = root_tree_log->lookup_child_log(node->name);
     if (tree_log == nullptr) {
-      return 0;
+      return exec_time;
     }
     tree_log->foreach_node_log(
-        [&](const geo_log::NodeLog &node_log) { exec_time_us += node_log.execution_time(); });
+        [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
   }
   else {
     auto *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(*snode, *node);
-    exec_time_us = node_log ? node_log->execution_time() : 0;
+    if (node_log) {
+      exec_time = node_log->execution_time();
+    }
   }
-  return exec_time_us;
+  return exec_time;
 }
 
 static std::string node_get_execution_time_label(const SpaceNode *snode, const bNode *node)
 {
-  uint64_t exec_time_us = node_get_execution_time(snode->nodetree, node, snode);
-
+  std::chrono::microseconds exec_time = node_get_execution_time(snode->nodetree, node, snode);
+  uint64_t exec_time_us = exec_time.count();
   std::string timing_str;
 
   /* Don't show time if execution time is 0 microseconds. */
   if (exec_time_us == 0) {
     timing_str = "-";
   }
+  else if (exec_time_us < 100) {
+    timing_str = "< 0.1 ms";
+  }
   else {
     short precision = 0;
     /* Show decimal if value is below 1ms */
     if (exec_time_us < 1000) {
+      precision = 2;
+    }
+    else if (exec_time_us < 10000) {
       precision = 1;
     }
 
@@ -1666,30 +1674,37 @@ static std::string node_get_execution_time_label(const SpaceNode *snode, const b
   return timing_str;
 }
 
-static int node_get_extra_info_count(const SpaceNode *snode, const bNode *node)
-{
-  int extra_info_count = 0;
+struct NodeExtraInfoRow {
+  std::string text;
+  std::string tooltip;
+  int icon;
+};
 
-  if (snode->flag & SNODE_SHOW_TIMING &&
+static Vector<NodeExtraInfoRow> node_get_extra_info(const SpaceNode *snode, const bNode *node)
+{
+  Vector<NodeExtraInfoRow> rows;
+
+  if (snode->edittree->type == NTREE_GEOMETRY && snode->flag & SNODE_SHOW_TIMING &&
       (ELEM(node->typeinfo->nclass, NODE_CLASS_GEOMETRY, NODE_CLASS_GROUP) ||
        ELEM(node->type, NODE_FRAME, NODE_GROUP_OUTPUT))) {
-    extra_info_count++;
+    NodeExtraInfoRow row;
+    row.text = node_get_execution_time_label(snode, node);
+    row.tooltip = "Latest execution time. Shows total execution time for groups and frames";
+    row.icon = ICON_PREVIEW_RANGE;
+    rows.append(row);
   }
-
-  return extra_info_count;
+  return rows;
 }
 
 static void node_draw_extra_info_row(const bNode *node,
                                      const rctf *rect,
                                      const int row,
-                                     const std::string &text,
-                                     const char *tooltip,
-                                     const int icon)
+                                     NodeExtraInfoRow extra_info_row)
 {
   uiBut *but_timing = uiDefBut(node->block,
                                UI_BTYPE_LABEL,
                                0,
-                               text.c_str(),
+                               extra_info_row.text.c_str(),
                                (int)(rect->xmin + 4.0f * U.dpi_fac + NODE_MARGIN_X + 0.4f),
                                (int)(rect->ymin + row * (20.0f * U.dpi_fac)),
                                (short)(rect->xmax - rect->xmin),
@@ -1700,14 +1715,11 @@ static void node_draw_extra_info_row(const bNode *node,
                                0,
                                0,
                                "");
-  if (node->flag & NODE_MUTED) {
-    UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
-  }
   UI_block_emboss_set(node->block, UI_EMBOSS_NONE);
   uiBut *but_icon = uiDefIconBut(node->block,
                                  UI_BTYPE_BUT,
                                  0,
-                                 icon,
+                                 extra_info_row.icon,
                                  (int)(rect->xmin + 6.0f * U.dpi_fac),
                                  (int)(rect->ymin + row * (20.0f * U.dpi_fac)),
                                  NODE_HEADER_ICON_SIZE * 0.8f,
@@ -1717,15 +1729,19 @@ static void node_draw_extra_info_row(const bNode *node,
                                  0,
                                  0,
                                  0,
-                                 tooltip);
+                                 extra_info_row.tooltip.c_str());
   UI_block_emboss_set(node->block, UI_EMBOSS);
+  if (node->flag & NODE_MUTED) {
+    UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);
+    UI_but_flag_enable(but_icon, UI_BUT_INACTIVE);
+  }
 }
 
 void node_draw_extra_info_panel(const SpaceNode *snode, const bNode *node)
 {
-  int extra_info_count = node_get_extra_info_count(snode, node);
+  Vector<NodeExtraInfoRow> extra_info_rows = node_get_extra_info(snode, node);
 
-  if (extra_info_count == 0) {
+  if (extra_info_rows.size() == 0) {
     return;
   }
 
@@ -1734,20 +1750,25 @@ void node_draw_extra_info_panel(const SpaceNode *snode, const bNode *node)
   rctf extra_info_rect;
 
   if (node->type == NODE_FRAME) {
-    extra_info_rect.xmin = rct->xmin + 6.0f * U.dpi_fac;
-    extra_info_rect.xmax = rct->xmin + 105.0f * U.dpi_fac;
-    extra_info_rect.ymin = rct->ymin;
-    extra_info_rect.ymax = rct->ymin;
+    extra_info_rect.xmin = rct->xmin;
+    extra_info_rect.xmax = rct->xmin + 95.0f * U.dpi_fac;
+    extra_info_rect.ymin = rct->ymin + 2.0f * U.dpi_fac;
+    extra_info_rect.ymax = rct->ymin + 2.0f * U.dpi_fac;
   }
   else {
     extra_info_rect.xmin = rct->xmin + 3.0f * U.dpi_fac;
-    extra_info_rect.xmax = rct->xmin + 105.0f * U.dpi_fac;
+    extra_info_rect.xmax = rct->xmin + 95.0f * U.dpi_fac;
     extra_info_rect.ymin = rct->ymax;
-    extra_info_rect.ymax = rct->ymax + extra_info_count * (20.0f * U.dpi_fac) + 2.0f * U.dpi_fac;
+    extra_info_rect.ymax = rct->ymax + extra_info_rows.size() * (20.0f * U.dpi_fac);
 
-    ui_draw_dropshadow(
-        &extra_info_rect, BASIS_RAD, snode->runtime->aspect, 1.0f, node->flag & SELECT);
-    UI_GetThemeColorBlend4f(TH_BACK, TH_NODE, 0.7f, color);
+    if (node->flag & NODE_MUTED) {
+      UI_GetThemeColorBlend4f(TH_BACK, TH_NODE, 0.2f, color);
+    }
+    else {
+      ui_draw_dropshadow(
+          &extra_info_rect, BASIS_RAD, snode->runtime->aspect, 1.0f, node->flag & SELECT);
+      UI_GetThemeColorBlend4f(TH_BACK, TH_NODE, 0.7f, color);
+    }
     color[3] -= 0.35f;
     UI_draw_roundbox_corner_set(
         UI_CNR_ALL & ~UI_CNR_BOTTOM_LEFT &
@@ -1755,17 +1776,8 @@ void node_draw_extra_info_panel(const SpaceNode *snode, const bNode *node)
     UI_draw_roundbox_4fv(&extra_info_rect, true, BASIS_RAD, color);
   }
 
-  int extra_info_row = 0;
-
-  if (snode->flag & SNODE_SHOW_TIMING &&
-      (ELEM(node->typeinfo->nclass, NODE_CLASS_GEOMETRY, NODE_CLASS_GROUP) ||
-       ELEM(node->type, NODE_FRAME, NODE_GROUP_OUTPUT))) {
-    std::string str = node_get_execution_time_label(snode, node);
-    const char *tooltip = "Execution time";
-
-    node_draw_extra_info_row(
-        node, &extra_info_rect, extra_info_row, str, tooltip, ICON_PREVIEW_RANGE);
-    extra_info_row++;
+  for (short row : extra_info_rows.index_range()) {
+    node_draw_extra_info_row(node, &extra_info_rect, row, extra_info_rows[row]);
   }
 }
 
