@@ -1595,6 +1595,7 @@ static std::chrono::microseconds node_get_execution_time(const bNodeTree *ntree,
         [&](const geo_log::NodeLog &node_log) { exec_time += node_log.execution_time(); });
   }
   else if (node->type == NODE_FRAME) {
+    /* Could be cached in the future if this recursive code turns out to be slow. */
     LISTBASE_FOREACH (bNode *, tnode, &ntree->nodes) {
       if (tnode->parent != node) {
         continue;
@@ -1676,7 +1677,7 @@ static std::string node_get_execution_time_label(const SpaceNode *snode, const b
 
 struct NodeExtraInfoRow {
   std::string text;
-  std::string tooltip;
+  const char *tooltip;
   int icon;
 };
 
@@ -1691,7 +1692,7 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(const SpaceNode *snode, cons
     row.text = node_get_execution_time_label(snode, node);
     row.tooltip = "Latest execution time. Shows total execution time for groups and frames";
     row.icon = ICON_PREVIEW_RANGE;
-    rows.append(row);
+    rows.append(std::move(row));
   }
   return rows;
 }
@@ -1699,7 +1700,7 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(const SpaceNode *snode, cons
 static void node_draw_extra_info_row(const bNode *node,
                                      const rctf *rect,
                                      const int row,
-                                     NodeExtraInfoRow extra_info_row)
+                                     const NodeExtraInfoRow &extra_info_row)
 {
   uiBut *but_timing = uiDefBut(node->block,
                                UI_BTYPE_LABEL,
@@ -1729,7 +1730,7 @@ static void node_draw_extra_info_row(const bNode *node,
                                  0,
                                  0,
                                  0,
-                                 extra_info_row.tooltip.c_str());
+                                 extra_info_row.tooltip);
   UI_block_emboss_set(node->block, UI_EMBOSS);
   if (node->flag & NODE_MUTED) {
     UI_but_flag_enable(but_timing, UI_BUT_INACTIVE);

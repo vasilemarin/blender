@@ -928,9 +928,10 @@ class GeometryNodesEvaluator {
       params.error_message_add(geo_log::NodeWarningType::Legacy,
                                TIP_("Legacy node will be removed before Blender 4.0"));
     }
-    std::chrono::steady_clock::time_point begin = std::chrono::high_resolution_clock::now();
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point begin = Clock::now();
     bnode.typeinfo->geometry_node_execute(params);
-    std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+    Clock::time_point end = Clock::now();
     std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(
         end - begin);
     params_.geo_logger->local().log_execution_time(node, duration);
