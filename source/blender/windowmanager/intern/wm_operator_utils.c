@@ -402,12 +402,12 @@ bool WM_operator_do_navigation(bContext *C, wmOperator *op, const wmEvent *event
   static int kmi_ot_len;
 
   /* Lazy initialization (avoids having to allocating a context). */
+  static wmOperator *op_last = NULL;
   static wmOperatorType *ot_last = NULL;
-  static char spacetype_last = SPACE_EMPTY;
   SpaceLink *sl = CTX_wm_space_data(C);
-  if ((ot_last != op->type) || (spacetype_last != sl->spacetype)) {
+  if ((op_last != op) || (ot_last != op->type)) {
+    op_last = op;
     ot_last = op->type;
-    spacetype_last = sl->spacetype;
 
     wmWindowManager *wm = CTX_wm_manager(C);
     wmKeyMap *km;

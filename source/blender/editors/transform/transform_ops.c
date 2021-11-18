@@ -1415,7 +1415,7 @@ static wmKeyMapItem **navigation_keymaps(bContext *C, int *r_kmi_len)
       if (kmi->flag & KMI_INACTIVE) {
         continue;
       }
-      for (int j = 0; i < ARRAY_SIZE(op_names); j++) {
+      for (int j = 0; j < ARRAY_SIZE(op_names); j++) {
         if (STREQ(kmi->idname, op_names[j])) {
           km_items[kmi_len++] = kmi;
           break;
