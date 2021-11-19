@@ -24,8 +24,10 @@
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
+#include "BKE_preferences.h"
 #include "BKE_report.h"
 
+#include "BLI_fnmatch.h"
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
@@ -648,6 +650,71 @@ static void ASSET_OT_catalogs_save(struct wmOperatorType *ot)
   ot->poll = asset_catalogs_save_poll;
 }
 
+static bool asset_bundle_install_poll(bContext *C)
+{
+  /* This operator only works when the asset browser is set to Current File. */
+  const SpaceFile *sfile = CTX_wm_space_file(C);
+  if (!ED_fileselect_is_local_asset_library(sfile)) {
+    return false;
+  }
+
+  /* Cheap check to see if this is an "asset bundle". A proper check will be done in the exec
+   * function, to ensure that no external files will be referenced. */
+  Main *bmain = CTX_data_main(C);
+  const bool is_bundle_file = fnmatch("*_bundle.blend", bmain->name, FNM_CASEFOLD) == 0;
+  return is_bundle_file;
+}
+
+static int asset_bundle_install_exec(bContext * /*C*/, wmOperator *op)
+{
+  /* TODO: check that there are no references to any external files. */
+
+  /* TODO: Disconnect any catalogs from their CDFs. */
+
+  /* TODO: Save As the file to the new location. */
+
+  const int enum_value = RNA_enum_get(op->ptr, "asset_library_ref");
+  const AssetLibraryReference lib_ref = ED_asset_library_reference_from_enum_value(enum_value);
+  const bUserAssetLibrary *lib = BKE_preferences_asset_library_find_from_index(
+      &U, lib_ref.custom_library_index);
+  printf("lib: %s\n", lib->path);
+
+  // const EnumPropertyItem *items = ED_asset_library_reference_to_rna_enum_itemf(false);
+
+  return OPERATOR_FINISHED;
+}
+
+static const EnumPropertyItem *rna_asset_library_reference_itemf(bContext *UNUSED(C),
+                                                                 PointerRNA *UNUSED(ptr),
+                                                                 PropertyRNA *UNUSED(prop),
+                                                                 bool *r_free)
+{
+  const EnumPropertyItem *items = ED_asset_library_reference_to_rna_enum_itemf(false);
+  if (!items) {
+    *r_free = false;
+  }
+
+  *r_free = true;
+  return items;
+}
+
+static void ASSET_OT_bundle_install(struct wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Add Bundle To Asset Library";
+  ot->description =
+      "Copy the current blend file into an Asset Library. Only works on standalone blend files "
+      "(i.e. when no other files are referenced)";
+  ot->idname = "ASSET_OT_bundle_install";
+
+  /* api callbacks */
+  ot->exec = asset_bundle_install_exec;
+  ot->poll = asset_bundle_install_poll;
+
+  ot->prop = RNA_def_property(ot->srna, "asset_library_ref", PROP_ENUM, PROP_NONE);
+  RNA_def_enum_funcs(ot->prop, rna_asset_library_reference_itemf);
+}
+
 /* -------------------------------------------------------------------- */
 
 void ED_operatortypes_asset(void)
@@ -661,6 +728,7 @@ void ED_operatortypes_asset(void)
   WM_operatortype_append(ASSET_OT_catalog_undo);
   WM_operatortype_append(ASSET_OT_catalog_redo);
   WM_operatortype_append(ASSET_OT_catalog_undo_push);
+  WM_operatortype_append(ASSET_OT_bundle_install);
 
   WM_operatortype_append(ASSET_OT_list_refresh);
 }

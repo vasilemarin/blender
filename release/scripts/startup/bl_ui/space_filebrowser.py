@@ -643,6 +643,9 @@ class ASSETBROWSER_MT_editor_menus(AssetBrowserMenu, Menu):
         layout.menu("ASSETBROWSER_MT_select")
         layout.menu("ASSETBROWSER_MT_edit")
 
+        if bpy.ops.asset.bundle_install.poll():
+            layout.operator_menu_enum("asset.bundle_install", "asset_library_ref")
+
 
 class ASSETBROWSER_MT_view(AssetBrowserMenu, Menu):
     bl_label = "View"
