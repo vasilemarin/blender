@@ -1520,6 +1520,7 @@ typedef struct SpaceNodeOverlay {
 typedef enum eSpaceNodeOverlay_Flag {
   SN_OVERLAY_SHOW_OVERLAYS = (1 << 1),
   SN_OVERLAY_SHOW_WIRE_COLORS = (1 << 2),
+  SNODE_SHOW_TIMING = (1 << 3),
 } eSpaceNodeOverlay_Flag;
 
 typedef struct SpaceNode {
@@ -1597,7 +1598,6 @@ typedef enum eSpaceNode_Flag {
   SNODE_PIN = (1 << 12),
   /** automatically offset following nodes in a chain on insertion */
   SNODE_SKIP_INSOFFSET = (1 << 13),
-  SNODE_SHOW_TIMING = (1 << 14),
 } eSpaceNode_Flag;
 
 /* SpaceNode.texfrom */
