@@ -22,8 +22,8 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/CommandLine.h>
-#include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/TargetRegistry.h>
+#include <llvm/Support/TargetSelect.h>
 
 #include "FN_llvm.hh"
 
@@ -70,14 +70,13 @@ void playground()
   const int result = generated_function(3, 5);
   std::cout << result << "\n";
 
-  /*
   LLVMTargetMachineEmitToFile((LLVMTargetMachineRef)ee->getTargetMachine(),
                               llvm::wrap(module_ptr),
                               (char *)"C:\\Users\\jacques\\Documents\\machine_code.txt",
                               LLVMAssemblyFile,
                               nullptr);
-  */
-  // function->dump();
+
+  function->dump();
 }
 
 }  // namespace blender::fn
