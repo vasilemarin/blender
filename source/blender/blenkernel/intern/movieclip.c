@@ -347,6 +347,7 @@ IDTypeInfo IDType_ID_MC = {
     .name_plural = "movieclips",
     .translation_context = BLT_I18NCONTEXT_ID_MOVIECLIP,
     .flags = IDTYPE_FLAGS_APPEND_IS_REUSABLE,
+    .asset_type_info = NULL,
 
     .init_data = movie_clip_init_data,
     .copy_data = movie_clip_copy_data,
@@ -1923,6 +1924,11 @@ void BKE_movieclip_build_proxy_frame_for_ibuf(MovieClip *clip,
       IMB_freeImBuf(tmpibuf);
     }
   }
+}
+
+bool BKE_movieclip_proxy_enabled(MovieClip *clip)
+{
+  return clip->flag & MCLIP_USE_PROXY;
 }
 
 float BKE_movieclip_remap_scene_to_clip_frame(const MovieClip *clip, float framenr)

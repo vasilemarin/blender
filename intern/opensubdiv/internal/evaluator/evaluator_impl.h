@@ -39,7 +39,7 @@ namespace opensubdiv {
 
 class PatchMap;
 
-// Wrapper around implementaiton, which defines API which we are capable to
+// Wrapper around implementation, which defines API which we are capable to
 // provide over the implementation.
 //
 // TODO(sergey):  It is almost the same as C-API object, so ideally need to
