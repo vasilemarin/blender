@@ -541,7 +541,7 @@ static bool snap_selected_to_location(bContext *C,
         BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
         Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
 
-        BKE_object_get_parent_matrix(ob_eval, ob_eval->parent, parentmat);
+        BKE_object_get_parent_matrix(depsgraph, ob_eval, ob_eval->parent, parentmat);
         mul_m3_m4m4(originmat, parentmat, ob->parentinv);
         invert_m3_m3(imat, originmat);
         mul_m3_v3(imat, cursor_parent);

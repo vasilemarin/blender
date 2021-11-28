@@ -732,7 +732,8 @@ static void cloth_calc_force(
 
       SIM_mass_spring_get_motion_state(data, i, x, v);
       pd_point_from_loc(scene, x, v, i, &epoint);
-      BKE_effectors_apply(effectors,
+      BKE_effectors_apply(nullptr,
+                          effectors,
                           nullptr,
                           clmd->sim_parms->effector_weights,
                           &epoint,

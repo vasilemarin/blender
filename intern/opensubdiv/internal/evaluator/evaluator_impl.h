@@ -30,7 +30,8 @@
 
 #include "opensubdiv_capi_type.h"
 
-struct OpenSubdiv_BufferInterface;
+struct OpenSubdiv_Buffer;
+struct OpenSubdiv_EvaluatorCacheImpl;
 struct OpenSubdiv_PatchCoord;
 struct OpenSubdiv_TopologyRefiner;
 
@@ -137,8 +138,8 @@ class EvalOutputAPI {
                             float *dPdv);
 
   // Fill the output buffers and variables with data from the PatchMap.
-  void getPatchMap(OpenSubdiv_BufferInterface *patch_map_handles,
-                   OpenSubdiv_BufferInterface *patch_map_quadtree,
+  void getPatchMap(OpenSubdiv_Buffer *patch_map_handles,
+                   OpenSubdiv_Buffer *patch_map_quadtree,
                    int *min_patch_face,
                    int *max_patch_face,
                    int *max_depth,
@@ -146,37 +147,37 @@ class EvalOutputAPI {
 
   // Wrap the patch arrays buffer used by OpenSubDiv for the source data with the given buffer
   // interface.
-  void wrapPatchArraysBuffer(OpenSubdiv_BufferInterface *patch_arrays_buffer);
+  void wrapPatchArraysBuffer(OpenSubdiv_Buffer *patch_arrays_buffer);
 
   // Wrap the patch index buffer used by OpenSubDiv for the source data with the given buffer
   // interface.
-  void wrapPatchIndexBuffer(OpenSubdiv_BufferInterface *patch_index_buffer);
+  void wrapPatchIndexBuffer(OpenSubdiv_Buffer *patch_index_buffer);
 
   // Wrap the patch param buffer used by OpenSubDiv for the source data with the given buffer
   // interface.
-  void wrapPatchParamBuffer(OpenSubdiv_BufferInterface *patch_param_buffer);
+  void wrapPatchParamBuffer(OpenSubdiv_Buffer *patch_param_buffer);
 
   // Wrap the buffer used by OpenSubDiv for the source data with the given buffer interface.
-  void wrapSrcBuffer(OpenSubdiv_BufferInterface *src_buffer);
+  void wrapSrcBuffer(OpenSubdiv_Buffer *src_buffer);
 
   // Wrap the patch arrays buffer used by OpenSubDiv for the face varying channel with the given
   // buffer interface.
   void wrapFVarPatchArraysBuffer(const int face_varying_channel,
-                                 OpenSubdiv_BufferInterface *patch_arrays_buffer);
+                                 OpenSubdiv_Buffer *patch_arrays_buffer);
 
   // Wrap the patch index buffer used by OpenSubDiv for the face varying channel with the given
   // buffer interface.
   void wrapFVarPatchIndexBuffer(const int face_varying_channel,
-                                OpenSubdiv_BufferInterface *patch_index_buffer);
+                                OpenSubdiv_Buffer *patch_index_buffer);
 
   // Wrap the patch param buffer used by OpenSubDiv for the face varying channel with the given
   // buffer interface.
   void wrapFVarPatchParamBuffer(const int face_varying_channel,
-                                OpenSubdiv_BufferInterface *patch_param_buffer);
+                                OpenSubdiv_Buffer *patch_param_buffer);
 
   // Wrap thebuffer used by OpenSubDiv for the face varying channel with the given buffer
   // interface.
-  void wrapFVarSrcBuffer(const int face_varying_channel, OpenSubdiv_BufferInterface *src_buffer);
+  void wrapFVarSrcBuffer(const int face_varying_channel, OpenSubdiv_Buffer *src_buffer);
 
  protected:
   PatchMap *patch_map_;
@@ -198,25 +199,11 @@ struct OpenSubdiv_EvaluatorImpl {
   MEM_CXX_CLASS_ALLOC_FUNCS("OpenSubdiv_EvaluatorImpl");
 };
 
-struct OpenSubdiv_EvaluatorCacheImpl {
- public:
-  OpenSubdiv_EvaluatorCacheImpl();
-  ~OpenSubdiv_EvaluatorCacheImpl();
-
-  void *eval_cache;
-  MEM_CXX_CLASS_ALLOC_FUNCS("OpenSubdiv_EvaluatorCacheImpl");
-};
-
 OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
     struct OpenSubdiv_TopologyRefiner *topology_refiner,
     eOpenSubdivEvaluator evaluator_type,
     OpenSubdiv_EvaluatorCacheImpl *evaluator_cache_descr);
 
 void openSubdiv_deleteEvaluatorInternal(OpenSubdiv_EvaluatorImpl *evaluator);
-
-OpenSubdiv_EvaluatorCacheImpl *openSubdiv_createEvaluatorCacheInternal(
-    eOpenSubdivEvaluator evaluator_type);
-
-void openSubdiv_deleteEvaluatorCacheInternal(OpenSubdiv_EvaluatorCacheImpl *evaluator_cache);
 
 #endif  // OPENSUBDIV_EVALUATOR_IMPL_H_

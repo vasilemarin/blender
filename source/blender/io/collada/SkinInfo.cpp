@@ -247,7 +247,7 @@ void SkinInfo::link_armature(bContext *C,
   DEG_id_tag_update(&obn->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 #endif
   copy_m4_m4(ob->obmat, bind_shape_matrix);
-  BKE_object_apply_mat4(ob, ob->obmat, false, false);
+  BKE_object_apply_mat4(nullptr, ob, ob->obmat, false, false);
 
   amd->deformflag = ARM_DEF_VGROUP;
 

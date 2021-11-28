@@ -36,7 +36,6 @@ struct OpenSubdiv_Converter;
 struct OpenSubdiv_Evaluator;
 struct OpenSubdiv_TopologyRefiner;
 struct Subdiv;
-struct SubsurfModifierData;
 
 typedef enum eSubdivVtxBoundaryInterpolation {
   /* Do not interpolate boundaries. */
@@ -189,7 +188,16 @@ typedef struct Subdiv {
   /* Cached values, are not supposed to be accessed directly. */
   struct {
     /* Indexed by base face index, element indicates total number of ptex
-     * faces created for preceding base faces. */
+     * faces created for preceding base faces. This also stores the final
+     * ptex offset (the total number of PTex faces) at the end of the array
+     * so that algorithms can compute the number of ptex faces for a given
+     * face by computing the delta with the offset for the next face without
+     * using a separate data structure, e.g.:
+     *
+     * const int num_face_ptex_faces = face_ptex_offset[i + 1] - face_ptex_offset[i];
+     *
+     * In total this array has a size of `num base faces + 1`.
+     */
     int *face_ptex_offset;
   } cache_;
 } Subdiv;
@@ -222,10 +230,6 @@ void BKE_subdiv_stats_print(const SubdivStats *stats);
 /* ================================ SETTINGS ================================ */
 
 bool BKE_subdiv_settings_equal(const SubdivSettings *settings_a, const SubdivSettings *settings_b);
-
-void BKE_subdiv_settings_init_from_modifier(SubdivSettings *settings,
-                                            const struct SubsurfModifierData *smd,
-                                            const bool use_render_params);
 
 /* ============================== CONSTRUCTION ============================== */
 
@@ -262,6 +266,9 @@ void BKE_subdiv_displacement_detach(Subdiv *subdiv);
 
 /* ============================ TOPOLOGY HELPERS ============================ */
 
+/* For each element in the array, this stores the total number of ptex faces up to that element,
+ * with the total number of ptex faces being the last element in the array. The array is of length
+ * `base face count + 1`. */
 int *BKE_subdiv_face_ptex_offset_get(Subdiv *subdiv);
 
 /* =========================== PTEX FACES AND GRIDS ========================= */

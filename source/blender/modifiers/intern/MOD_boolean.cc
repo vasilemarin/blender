@@ -419,7 +419,8 @@ static Mesh *exact_boolean_mesh(BooleanModifierData *bmd,
   obmats.append((float4x4 *)&ctx->object->obmat);
   material_remaps.append({});
   if (bmd->flag & eBooleanModifierFlag_Object) {
-    Mesh *mesh_operand = BKE_modifier_get_evaluated_mesh_from_evaluated_object(bmd->object, false);
+    Mesh *mesh_operand = BKE_modifier_get_evaluated_mesh_from_evaluated_object(
+        ctx->depsgraph, bmd->object, false);
     if (!mesh_operand) {
       return mesh;
     }
@@ -434,7 +435,8 @@ static Mesh *exact_boolean_mesh(BooleanModifierData *bmd,
     if (collection) {
       FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (collection, ob) {
         if (ob->type == OB_MESH && ob != ctx->object) {
-          Mesh *collection_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob, false);
+          Mesh *collection_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(
+              ctx->depsgraph, ob, false);
           if (!collection_mesh) {
             continue;
           }
@@ -489,8 +491,8 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
     Object *operand_ob = bmd->object;
 
-    Mesh *mesh_operand_ob = BKE_modifier_get_evaluated_mesh_from_evaluated_object(operand_ob,
-                                                                                  false);
+    Mesh *mesh_operand_ob = BKE_modifier_get_evaluated_mesh_from_evaluated_object(
+        ctx->depsgraph, operand_ob, false);
 
     if (mesh_operand_ob) {
       /* XXX This is utterly non-optimal, we may go from a bmesh to a mesh back to a bmesh!
@@ -525,8 +527,8 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
     FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (collection, operand_ob) {
       if (operand_ob->type == OB_MESH && operand_ob != ctx->object) {
-        Mesh *mesh_operand_ob = BKE_modifier_get_evaluated_mesh_from_evaluated_object(operand_ob,
-                                                                                      false);
+        Mesh *mesh_operand_ob = BKE_modifier_get_evaluated_mesh_from_evaluated_object(
+            ctx->depsgraph, operand_ob, false);
 
         if (mesh_operand_ob) {
           /* XXX This is utterly non-optimal, we may go from a bmesh to a mesh back to a bmesh!

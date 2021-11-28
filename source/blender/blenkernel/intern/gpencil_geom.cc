@@ -2677,7 +2677,7 @@ bool BKE_gpencil_convert_mesh(Main *bmain,
 
   /* Use evaluated data to get mesh with all modifiers on top. */
   Object *ob_eval = (Object *)DEG_get_evaluated_object(depsgraph, ob_mesh);
-  const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
+  const Mesh *me_eval = BKE_object_get_evaluated_mesh(depsgraph, ob_eval);
   const MPoly *mpoly = me_eval->mpoly;
   const MLoop *mloop = me_eval->mloop;
   int mpoly_len = me_eval->totpoly;

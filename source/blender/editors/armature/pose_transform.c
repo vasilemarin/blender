@@ -92,7 +92,7 @@ static void applyarmature_fix_boneparents(const bContext *C, Scene *scene, Objec
       /* apply current transform from parent (not yet destroyed),
        * then calculate new parent inverse matrix
        */
-      BKE_object_apply_mat4(ob, ob->obmat, false, false);
+      BKE_object_apply_mat4(depsgraph, ob, ob->obmat, false, false);
 
       BKE_object_workob_calc_parent(depsgraph, scene, ob, &workob);
       invert_m4_m4(ob->parentinv, workob.obmat);

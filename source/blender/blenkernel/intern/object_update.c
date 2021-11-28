@@ -105,7 +105,7 @@ void BKE_object_eval_parent(Depsgraph *depsgraph, Object *ob)
   copy_m4_m4(locmat, ob->obmat);
 
   /* get parent effect matrix */
-  BKE_object_get_parent_matrix(ob, par, totmat);
+  BKE_object_get_parent_matrix(NULL, ob, par, totmat);
 
   /* total */
   mul_m4_m4m4(tmat, totmat, ob->parentinv);
@@ -280,11 +280,13 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
 }
 
 /** Bounding box from evaluated geometry. */
-static void object_sync_boundbox_to_original(Object *object_orig, Object *object_eval)
+static void object_sync_boundbox_to_original(Depsgraph *depsgraph,
+                                             Object *object_orig,
+                                             Object *object_eval)
 {
   BoundBox *bb = object_eval->runtime.bb;
   if (!bb || (bb->flag & BOUNDBOX_DIRTY)) {
-    BKE_object_boundbox_calc_from_evaluated_geometry(object_eval);
+    BKE_object_boundbox_calc_from_evaluated_geometry(depsgraph, object_eval);
   }
 
   bb = BKE_object_boundbox_get(object_eval);
@@ -322,7 +324,7 @@ void BKE_object_sync_to_original(Depsgraph *depsgraph, Object *object)
     }
   }
 
-  object_sync_boundbox_to_original(object_orig, object);
+  object_sync_boundbox_to_original(depsgraph, object_orig, object);
 }
 
 bool BKE_object_eval_proxy_copy(Depsgraph *depsgraph, Object *object)

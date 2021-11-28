@@ -567,7 +567,7 @@ ABCMeshWriter::ABCMeshWriter(const ABCWriterConstructorArgs &args) : ABCGenericM
 
 Mesh *ABCMeshWriter::get_export_mesh(Object *object_eval, bool & /*r_needsfree*/)
 {
-  return BKE_object_get_evaluated_mesh(object_eval);
+  return BKE_object_get_evaluated_mesh(nullptr, object_eval);
 }
 
 }  // namespace blender::io::alembic

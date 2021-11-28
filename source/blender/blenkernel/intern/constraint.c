@@ -529,12 +529,15 @@ void BKE_constraint_mat_convertspace(Object *ob,
 /* ------------ General Target Matrix Tools ---------- */
 
 /* function that sets the given matrix based on given vertex group in mesh */
-static void contarget_get_mesh_mat(Object *ob, const char *substring, float mat[4][4])
+static void contarget_get_mesh_mat(Depsgraph *depsgraph,
+                                   Object *ob,
+                                   const char *substring,
+                                   float mat[4][4])
 {
   /* when not in EditMode, use the 'final' evaluated mesh, depsgraph
    * ensures we build with CD_MDEFORMVERT layer
    */
-  const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob);
+  const Mesh *me_eval = BKE_object_get_evaluated_mesh(depsgraph, ob);
   BMEditMesh *em = BKE_editmesh_from_object(ob);
   float plane[3];
   float imat[3][3], tmat[3][3];
@@ -720,7 +723,7 @@ static void constraint_target_to_mat4(Object *ob,
    *       way as constraints can only really affect things on object/bone level.
    */
   else if (ob->type == OB_MESH) {
-    contarget_get_mesh_mat(ob, substring, mat);
+    contarget_get_mesh_mat(cob->depsgraph, ob, substring, mat);
     BKE_constraint_mat_convertspace(ob, NULL, cob, mat, from, to, false);
   }
   else if (ob->type == OB_LATTICE) {
@@ -4290,7 +4293,7 @@ static void shrinkwrap_get_tarmat(struct Depsgraph *UNUSED(depsgraph),
     float track_no[3] = {0.0f, 0.0f, 0.0f};
 
     SpaceTransform transform;
-    Mesh *target_eval = BKE_object_get_evaluated_mesh(ct->tar);
+    Mesh *target_eval = BKE_object_get_evaluated_mesh(cob->depsgraph, ct->tar);
 
     copy_m4_m4(ct->matrix, cob->matrix);
 
@@ -5120,7 +5123,7 @@ static void followtrack_project_to_depth_object_if_needed(FollowTrackContext *co
   }
 
   Object *depth_object = context->depth_object;
-  const Mesh *depth_mesh = BKE_object_get_evaluated_mesh(depth_object);
+  const Mesh *depth_mesh = BKE_object_get_evaluated_mesh(cob->depsgraph, depth_object);
   if (depth_mesh == NULL) {
     return;
   }
@@ -5717,7 +5720,7 @@ bool BKE_constraint_apply_for_object(Depsgraph *depsgraph,
   BLI_freelinkN(&single_con, new_con);
 
   /* Apply transform from matrix. */
-  BKE_object_apply_mat4(ob, ob->obmat, true, true);
+  BKE_object_apply_mat4(depsgraph, ob, ob->obmat, true, true);
 
   return true;
 }

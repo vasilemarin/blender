@@ -41,8 +41,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "opensubdiv_capi_type.h"
-
 /* -------------------------------------------------------------------- */
 /** \name Subdivision Context
  * \{ */
@@ -1197,7 +1195,7 @@ Mesh *BKE_subdiv_to_mesh(Subdiv *subdiv,
   /* Make sure evaluator is up to date with possible new topology, and that
    * it is refined for the new positions of coarse vertices. */
   if (!BKE_subdiv_eval_begin_from_mesh(
-          subdiv, coarse_mesh, NULL, OPENSUBDIV_EVALUATOR_CPU, NULL)) {
+          subdiv, coarse_mesh, NULL, SUBDIV_EVALUATOR_TYPE_CPU, NULL)) {
     /* This could happen in two situations:
      * - OpenSubdiv is disabled.
      * - Something totally bad happened, and OpenSubdiv rejected our

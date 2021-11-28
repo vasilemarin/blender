@@ -72,7 +72,7 @@ void USDXformReader::read_object_data(Main * /* bmain */, const double motionSam
     id_us_plus(&data->cache_file->id);
   }
 
-  BKE_object_apply_mat4(object_, transform_from_usd, true, false);
+  BKE_object_apply_mat4(nullptr, object_, transform_from_usd, true, false);
 }
 
 void USDXformReader::read_matrix(float r_mat[4][4] /* local matrix */,

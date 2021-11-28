@@ -1823,7 +1823,7 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 
   /* For snapping, we need subdivision surfaces on the CPU side as well. */
   if (t->spacetype == SPACE_VIEW3D && activeSnap(t)) {
-    DEG_graph_tag_for_subdivision_evaluation(t->depsgraph);
+    DEG_graph_tag_for_cpu_subdivision_evaluation(t->depsgraph);
   }
 
   /* EVIL! posemode code can switch translation to rotate when 1 bone is selected.

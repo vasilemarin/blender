@@ -100,6 +100,7 @@ void BKE_object_free_modifiers(struct Object *ob, const int flag);
 void BKE_object_free_shaderfx(struct Object *ob, const int flag);
 
 void BKE_object_make_proxy(struct Main *bmain,
+                           struct Depsgraph *depsgraph,
                            struct Object *ob,
                            struct Object *target,
                            struct Object *cob);
@@ -165,11 +166,13 @@ void BKE_object_rot_to_mat3(const struct Object *ob, float r_mat[3][3], bool use
 void BKE_object_mat3_to_rot(struct Object *ob, float r_mat[3][3], bool use_compat);
 void BKE_object_to_mat3(struct Object *ob, float r_mat[3][3]);
 void BKE_object_to_mat4(struct Object *ob, float r_mat[4][4]);
-void BKE_object_apply_mat4(struct Object *ob,
+void BKE_object_apply_mat4(struct Depsgraph *depsgraph,
+                           struct Object *ob,
                            const float mat[4][4],
                            const bool use_compat,
                            const bool use_parent);
-void BKE_object_apply_mat4_ex(struct Object *ob,
+void BKE_object_apply_mat4_ex(struct Depsgraph *depsgraph,
+                              struct Object *ob,
                               const float mat[4][4],
                               struct Object *parent,
                               const float parentinv[4][4],
@@ -204,7 +207,10 @@ struct Base **BKE_object_pose_base_array_get(struct ViewLayer *view_layer,
                                              struct View3D *v3d,
                                              unsigned int *r_bases_len);
 
-void BKE_object_get_parent_matrix(struct Object *ob, struct Object *par, float r_parentmat[4][4]);
+void BKE_object_get_parent_matrix(struct Depsgraph *depsgraph,
+                                  struct Object *ob,
+                                  struct Object *par,
+                                  float r_parentmat[4][4]);
 
 /* Compute object world transform and store it in ob->obmat. */
 void BKE_object_where_is_calc(struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob);
@@ -241,7 +247,8 @@ void BKE_object_dimensions_set(struct Object *ob, const float value[3], int axis
 void BKE_object_empty_draw_type_set(struct Object *ob, const int value);
 void BKE_object_boundbox_flag(struct Object *ob, int flag, const bool set);
 void BKE_object_boundbox_calc_from_mesh(struct Object *ob, const struct Mesh *me_eval);
-bool BKE_object_boundbox_calc_from_evaluated_geometry(struct Object *ob);
+bool BKE_object_boundbox_calc_from_evaluated_geometry(struct Depsgraph *depsgraph,
+                                                      struct Object *ob);
 void BKE_object_minmax(struct Object *ob, float r_min[3], float r_max[3], const bool use_hidden);
 bool BKE_object_minmax_dupli(struct Depsgraph *depsgraph,
                              struct Scene *scene,
@@ -251,7 +258,8 @@ bool BKE_object_minmax_dupli(struct Depsgraph *depsgraph,
                              const bool use_hidden);
 
 /* sometimes min-max isn't enough, we need to loop over each point */
-void BKE_object_foreach_display_point(struct Object *ob,
+void BKE_object_foreach_display_point(struct Depsgraph *depsgraph,
+                                      struct Object *ob,
                                       const float obmat[4][4],
                                       void (*func_cb)(const float[3], void *),
                                       void *user_data);
@@ -336,7 +344,8 @@ bool BKE_object_obdata_texspace_get(struct Object *ob,
                                     float **r_size);
 
 struct Mesh *BKE_object_get_evaluated_mesh_no_subsurf(const struct Object *object);
-struct Mesh *BKE_object_get_evaluated_mesh(const struct Object *object);
+struct Mesh *BKE_object_get_evaluated_mesh(struct Depsgraph *depsgraph,
+                                           const struct Object *object);
 struct Mesh *BKE_object_get_pre_modified_mesh(const struct Object *object);
 struct Mesh *BKE_object_get_original_mesh(const struct Object *object);
 
@@ -402,7 +411,7 @@ struct LinkNode *BKE_object_relational_superset(struct ViewLayer *view_layer,
 struct LinkNode *BKE_object_groups(struct Main *bmain, struct Scene *scene, struct Object *ob);
 void BKE_object_groups_clear(struct Main *bmain, struct Scene *scene, struct Object *object);
 
-struct KDTree_3d *BKE_object_as_kdtree(struct Object *ob, int *r_tot);
+struct KDTree_3d *BKE_object_as_kdtree(struct Depsgraph *depsgraph, struct Object *ob, int *r_tot);
 
 bool BKE_object_modifier_use_time(struct Scene *scene,
                                   struct Object *ob,
@@ -462,7 +471,10 @@ void BKE_object_modifiers_lib_link_common(void *userData,
                                           int cb_flag);
 
 /* Return the last subsurf modifier of an object, this does not check whether modifiers on top of
- * it are disabled. Return NULL if no such modifier is found. */
+ * it are disabled. Return NULL if no such modifier is found.
+ *
+ * This does not check if the modifier is enabled as it is assumed that the caller verified that it
+ * is enabled for its evaluation mode. */
 struct SubsurfModifierData *BKE_object_get_last_subsurf_modifier(struct Object *ob);
 
 void BKE_object_replace_data_on_shallow_copy(struct Object *ob, struct ID *new_data);

@@ -38,9 +38,10 @@ struct Subdiv;
 struct ToolSettings;
 
 /* -------------------------------------------------------------------- */
-/** \name DRWPatchMap is a GPU version of the OpenSubDiv PatchMap. The quad tree and the patch
- * handles are copied to GPU buffers in order to lookup the right patch for a given set of patch
- * coordinates.
+/** \name DRWPatchMap
+ *
+ * This is a GPU version of the OpenSubDiv PatchMap. The quad tree and the patch handles are copied
+ * to GPU buffers in order to lookup the right patch for a given set of patch coordinates.
  * \{ */
 
 typedef struct DRWPatchMap {
@@ -55,8 +56,9 @@ typedef struct DRWPatchMap {
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name DRWSubdivCache holds the various buffers used to evaluate and render subdivision through
- * OpenGL.
+/** \name DRWSubdivCache
+ *
+ * This holds the various buffers used to evaluate and render subdivision through OpenGL.
  * \{ */
 
 typedef struct DRWSubdivCache {
@@ -142,8 +144,6 @@ void DRW_create_subdivision(const struct Scene *scene,
                             struct MeshBatchCache *batch_cache,
                             struct MeshBufferCache *mbc,
                             const struct ToolSettings *toolsettings);
-
-void DRW_subdiv_free(void);
 
 void DRW_subdiv_cache_free(struct Subdiv *subdiv);
 

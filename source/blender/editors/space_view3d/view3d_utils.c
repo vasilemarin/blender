@@ -639,7 +639,7 @@ bool ED_view3d_camera_lock_sync(const Depsgraph *depsgraph, View3D *v3d, RegionV
       mul_m4_m4m4(parent_mat, diff_mat, root_parent_eval->obmat);
 
       BKE_object_tfm_protected_backup(root_parent, &obtfm);
-      BKE_object_apply_mat4(root_parent, parent_mat, true, false);
+      BKE_object_apply_mat4(NULL, root_parent, parent_mat, true, false);
       BKE_object_tfm_protected_restore(root_parent, &obtfm, root_parent->protectflag);
 
       ob_update = v3d->camera;
@@ -1577,7 +1577,7 @@ void ED_view3d_to_object(const Depsgraph *depsgraph,
   ED_view3d_to_m4(mat, ofs, quat, dist);
 
   Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-  BKE_object_apply_mat4_ex(ob, mat, ob_eval->parent, ob_eval->parentinv, true);
+  BKE_object_apply_mat4_ex(NULL, ob, mat, ob_eval->parent, ob_eval->parentinv, true);
 }
 
 bool ED_view3d_camera_to_view_selected(struct Main *bmain,
@@ -1603,7 +1603,7 @@ bool ED_view3d_camera_to_view_selected(struct Main *bmain,
 
     /* only touch location */
     BKE_object_tfm_protected_backup(camera_ob, &obtfm);
-    BKE_object_apply_mat4(camera_ob, obmat_new, true, true);
+    BKE_object_apply_mat4(NULL, camera_ob, obmat_new, true, true);
     BKE_object_tfm_protected_restore(camera_ob, &obtfm, OB_LOCK_SCALE | OB_LOCK_ROT4D);
 
     /* notifiers */

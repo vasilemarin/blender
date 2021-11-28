@@ -108,7 +108,7 @@ static bool rule_goal_avoid(BoidRule *rule, BoidBrainData *bbd, BoidValues *val,
       if (gabr->ob && (rule->type != eBoidRuleType_Goal || gabr->ob != bpa->ground)) {
         if (gabr->ob == eob) {
           /* TODO: effectors with multiple points */
-          if (get_effector_data(cur, &efd, &epoint, 0)) {
+          if (get_effector_data(NULL, cur, &efd, &epoint, 0)) {
             if (cur->pd && cur->pd->forcefield == PFIELD_BOID) {
               priority = mul * pd->f_strength *
                          effector_falloff(cur, &efd, &epoint, bbd->part->effector_weights);
@@ -126,7 +126,7 @@ static bool rule_goal_avoid(BoidRule *rule, BoidBrainData *bbd, BoidValues *val,
         /* skip current object */
       }
       else if (pd->forcefield == PFIELD_BOID && mul * pd->f_strength > 0.0f &&
-               get_effector_data(cur, &cur_efd, &epoint, 0)) {
+               get_effector_data(NULL, cur, &cur_efd, &epoint, 0)) {
         float temp = mul * pd->f_strength *
                      effector_falloff(cur, &cur_efd, &epoint, bbd->part->effector_weights);
 
@@ -156,7 +156,7 @@ static bool rule_goal_avoid(BoidRule *rule, BoidBrainData *bbd, BoidValues *val,
     temp_eff.depsgraph = bbd->sim->depsgraph;
     temp_eff.scene = bbd->sim->scene;
     eff = &temp_eff;
-    get_effector_data(eff, &efd, &epoint, 0);
+    get_effector_data(NULL, eff, &efd, &epoint, 0);
     priority = 1.0f;
   }
 
@@ -170,7 +170,7 @@ static bool rule_goal_avoid(BoidRule *rule, BoidBrainData *bbd, BoidValues *val,
 
     if (gabr->options & BRULE_GOAL_AVOID_PREDICT) {
       /* estimate future location of target */
-      get_effector_data(eff, &efd, &epoint, 1);
+      get_effector_data(NULL, eff, &efd, &epoint, 1);
 
       mul_v3_fl(efd.vel, efd.distance / (val->max_speed * bbd->timestep));
       add_v3_v3(efd.loc, efd.vel);
@@ -1370,7 +1370,8 @@ void boid_body(BoidBrainData *bbd, ParticleData *pa)
 
   /* account for effectors */
   pd_point_from_particle(bbd->sim, pa, &pa->state, &epoint);
-  BKE_effectors_apply(bbd->sim->psys->effectors,
+  BKE_effectors_apply(NULL,
+                      bbd->sim->psys->effectors,
                       bbd->sim->colliders,
                       bbd->part->effector_weights,
                       &epoint,

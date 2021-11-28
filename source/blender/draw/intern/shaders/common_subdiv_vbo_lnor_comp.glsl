@@ -26,7 +26,7 @@ void main()
   uint coarse_quad_index = coarse_polygon_index_from_subdiv_quad_index(quad_index,
                                                                        coarse_poly_count);
 
-  if (((extra_coarse_face_data[coarse_quad_index] >> 31) & 0x1) != 0) {
+  if ((extra_coarse_face_data[coarse_quad_index] & coarse_face_smooth_mask) != 0) {
     /* Face is smooth, use vertex normals. */
     for (int i = 0; i < 4; i++) {
       PosNorLoop pos_nor_loop = pos_nor[start_loop_index + i];

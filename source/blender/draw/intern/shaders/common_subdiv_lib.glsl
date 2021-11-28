@@ -23,6 +23,12 @@ layout(std140) uniform shader_data
 
   /* Sculpt data. */
   bool has_sculpt_mask;
+
+  /* Masks for the extra coarse face data. */
+  uint coarse_face_select_mask;
+  uint coarse_face_smooth_mask;
+  uint coarse_face_active_mask;
+  uint coarse_face_loopstart_mask;
 };
 
 /* Structure for #CompressedPatchCoord. */

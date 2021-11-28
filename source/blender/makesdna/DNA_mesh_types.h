@@ -259,7 +259,8 @@ typedef enum eMeshWrapperType {
   ME_WRAPPER_TYPE_MDATA = 0,
   /** Use edit-mesh data (#Mesh.edit_mesh, #Mesh_Runtime.edit_data). */
   ME_WRAPPER_TYPE_BMESH = 1,
-  /* ME_WRAPPER_TYPE_SUBD = 2, */ /* TODO */
+  /** Use subdivision mesh data (#Mesh_Runtime.mesh_eval). */
+  ME_WRAPPER_TYPE_SUBD = 2,
 } eMeshWrapperType;
 
 /* texflag */

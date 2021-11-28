@@ -196,7 +196,7 @@ void AbcObjectReader::setupObjectTransform(const float time)
   this->read_matrix(transform_from_alembic, time, m_settings->scale, is_constant);
 
   /* Apply the matrix to the object. */
-  BKE_object_apply_mat4(m_object, transform_from_alembic, true, false);
+  BKE_object_apply_mat4(nullptr, m_object, transform_from_alembic, true, false);
   BKE_object_to_mat4(m_object, m_object->obmat);
 
   if (!is_constant || m_settings->always_add_cache_reader) {

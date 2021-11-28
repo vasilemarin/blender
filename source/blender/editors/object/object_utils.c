@@ -491,7 +491,7 @@ void ED_object_xform_array_m4(Object **objects, uint objects_len, const float ma
       Object *ob = objects[i];
       BKE_object_to_mat4(ob, m4);
       mul_m4_m4m4(m4, matrix, m4);
-      BKE_object_apply_mat4(ob, m4, true, true);
+      BKE_object_apply_mat4(NULL, ob, m4, true, true);
       DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
     }
   }

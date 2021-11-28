@@ -568,7 +568,7 @@ void USD_get_transform(struct CacheReader *reader,
   }
 
   float mat_parent[4][4];
-  BKE_object_get_parent_matrix(object, object->parent, mat_parent);
+  BKE_object_get_parent_matrix(nullptr, object, object->parent, mat_parent);
 
   float mat_local[4][4];
   usd_reader->read_matrix(mat_local, time, scale, &is_constant);

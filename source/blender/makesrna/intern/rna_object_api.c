@@ -546,7 +546,7 @@ static Object *eval_object_ensure(Object *ob,
     if (depsgraph != NULL) {
       ob = DEG_get_evaluated_object(depsgraph, ob);
     }
-    if (ob == NULL || BKE_object_get_evaluated_mesh(ob) == NULL) {
+    if (ob == NULL || BKE_object_get_evaluated_mesh(depsgraph, ob) == NULL) {
       BKE_reportf(
           reports, RPT_ERROR, "Object '%s' has no evaluated mesh data", ob_orig->id.name + 2);
       return NULL;
@@ -587,9 +587,14 @@ static void rna_Object_ray_cast(Object *ob,
        distmin <= distance)) {
     BVHTreeFromMesh treeData = {NULL};
 
+    Depsgraph *depsgraph = rnaptr_depsgraph != NULL ? rnaptr_depsgraph->data : NULL;
+    if (depsgraph == NULL) {
+      depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+    }
+
     /* No need to managing allocation or freeing of the BVH data.
      * This is generated and freed as needed. */
-    Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob);
+    Mesh *mesh_eval = BKE_object_get_evaluated_mesh(depsgraph, ob);
     BKE_bvhtree_from_mesh_get(&treeData, mesh_eval, BVHTREE_FROM_LOOPTRI, 4);
 
     /* may fail if the mesh has no faces, in that case the ray-cast misses */
@@ -644,9 +649,14 @@ static void rna_Object_closest_point_on_mesh(Object *ob,
     return;
   }
 
+  Depsgraph *depsgraph = rnaptr_depsgraph != NULL ? rnaptr_depsgraph->data : NULL;
+  if (depsgraph == NULL) {
+    depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  }
+
   /* No need to managing allocation or freeing of the BVH data.
    * this is generated and freed as needed. */
-  Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob);
+  Mesh *mesh_eval = BKE_object_get_evaluated_mesh(depsgraph, ob);
   BKE_bvhtree_from_mesh_get(&treeData, mesh_eval, BVHTREE_FROM_LOOPTRI, 4);
 
   if (treeData.tree == NULL) {
@@ -714,6 +724,11 @@ void rna_Object_me_eval_info(
       }
   }
 
+  Depsgraph *depsgraph = rnaptr_depsgraph != NULL ? rnaptr_depsgraph->data : NULL;
+  if (depsgraph == NULL) {
+    depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  }
+
   switch (type) {
     case 0:
       if (ob->type == OB_MESH) {
@@ -724,7 +739,7 @@ void rna_Object_me_eval_info(
       me_eval = ob->runtime.mesh_deform_eval;
       break;
     case 2:
-      me_eval = BKE_object_get_evaluated_mesh(ob);
+      me_eval = BKE_object_get_evaluated_mesh(depsgraph, ob);
       break;
   }
 

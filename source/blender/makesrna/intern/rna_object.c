@@ -374,7 +374,8 @@ static void rna_Object_internal_update_draw(Main *UNUSED(bmain),
 static void rna_Object_matrix_world_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
   /* don't use compat so we get predictable rotation */
-  BKE_object_apply_mat4((Object *)ptr->owner_id, ((Object *)ptr->owner_id)->obmat, false, true);
+  BKE_object_apply_mat4(
+      NULL, (Object *)ptr->owner_id, ((Object *)ptr->owner_id)->obmat, false, true);
   rna_Object_internal_update(bmain, scene, ptr);
 }
 
@@ -439,7 +440,7 @@ static void rna_Object_matrix_local_set(PointerRNA *ptr, const float values[16])
 
   /* Don't use compatible so we get predictable rotation, and do not use parenting either,
    * because it's a local matrix! */
-  BKE_object_apply_mat4(ob, local_mat, false, false);
+  BKE_object_apply_mat4(NULL, ob, local_mat, false, false);
 }
 
 static void rna_Object_matrix_basis_get(PointerRNA *ptr, float values[16])
@@ -451,7 +452,7 @@ static void rna_Object_matrix_basis_get(PointerRNA *ptr, float values[16])
 static void rna_Object_matrix_basis_set(PointerRNA *ptr, const float values[16])
 {
   Object *ob = (Object *)ptr->owner_id;
-  BKE_object_apply_mat4(ob, (float(*)[4])values, false, false);
+  BKE_object_apply_mat4(NULL, ob, (float(*)[4])values, false, false);
 }
 
 void rna_Object_internal_update_data_impl(PointerRNA *ptr)

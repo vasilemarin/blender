@@ -114,7 +114,7 @@ struct Depsgraph {
   bool need_visibility_time_update;
 
   /* Indicates whether IDs in this graph are to be tagged for CPU evaluation of subdivision. */
-  bool need_subdivision_update;
+  bool need_cpu_subdivision;
 
   /* Indicates which ID types were updated. */
   char id_type_updated[INDEX_ID_MAX];

@@ -46,6 +46,7 @@
 #include "BKE_subdiv_ccg.h"
 #include "BKE_subdiv_deform.h"
 #include "BKE_subdiv_mesh.h"
+#include "BKE_subdiv_modifier.h"
 #include "BKE_subsurf.h"
 
 #include "UI_interface.h"
@@ -218,12 +219,12 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 #endif
   SubsurfModifierData *smd = (SubsurfModifierData *)md;
   SubdivSettings subdiv_settings;
-  BKE_subdiv_settings_init_from_modifier(
+  BKE_subsurf_modifier_subdiv_settings_init(
       &subdiv_settings, smd, (ctx->flag & MOD_APPLY_RENDER) != 0);
   if (subdiv_settings.level == 0) {
     return result;
   }
-  SubsurfRuntimeData *runtime_data = BKE_modifier_subsurf_ensure_runtime(smd);
+  SubsurfRuntimeData *runtime_data = BKE_subsurf_modifier_ensure_runtime(smd);
 
   /* Delay evaluation to the draw code if possible, provided we do not have to apply the modifier.
    */
@@ -233,12 +234,12 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
     if (ctx->flag & MOD_APPLY_RENDER) {
       required_mode |= eModifierMode_Render;
     }
-    if (BKE_modifier_subsurf_can_do_gpu_subdiv_ex(scene, ctx->object, smd, required_mode, false)) {
+    if (BKE_subsurf_modifier_can_do_gpu_subdiv_ex(scene, ctx->object, smd, required_mode, false)) {
       return result;
     }
   }
 
-  Subdiv *subdiv = BKE_modifier_subsurf_subdiv_descriptor_ensure(
+  Subdiv *subdiv = BKE_subsurf_modifier_subdiv_descriptor_ensure(
       smd, &subdiv_settings, mesh, false);
   if (subdiv == NULL) {
     /* Happens on bad topology, but also on empty input mesh. */
@@ -293,13 +294,13 @@ static void deformMatrices(ModifierData *md,
 
   SubsurfModifierData *smd = (SubsurfModifierData *)md;
   SubdivSettings subdiv_settings;
-  BKE_subdiv_settings_init_from_modifier(
+  BKE_subsurf_modifier_subdiv_settings_init(
       &subdiv_settings, smd, (ctx->flag & MOD_APPLY_RENDER) != 0);
   if (subdiv_settings.level == 0) {
     return;
   }
-  SubsurfRuntimeData *runtime_data = BKE_modifier_subsurf_ensure_runtime(smd);
-  Subdiv *subdiv = BKE_modifier_subsurf_subdiv_descriptor_ensure(
+  SubsurfRuntimeData *runtime_data = BKE_subsurf_modifier_ensure_runtime(smd);
+  Subdiv *subdiv = BKE_subsurf_modifier_subdiv_descriptor_ensure(
       smd, &subdiv_settings, mesh, false);
   if (subdiv == NULL) {
     /* Happens on bad topology, but also on empty input mesh. */

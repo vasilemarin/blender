@@ -51,6 +51,7 @@
 #include "BKE_node.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+#include "BKE_subdiv_modifier.h"
 #include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
@@ -511,9 +512,9 @@ void graph_tag_on_visible_update(Depsgraph *graph, const bool do_time)
   graph->need_visibility_time_update |= do_time;
 }
 
-void graph_tag_for_subdivision_evaluation(Depsgraph *graph)
+void graph_tag_for_cpu_subdivision_evaluation(Depsgraph *graph)
 {
-  graph->need_subdivision_update = true;
+  graph->need_cpu_subdivision = true;
 }
 
 } /* namespace */
@@ -589,13 +590,12 @@ void graph_tag_ids_for_visible_update(Depsgraph *graph)
   graph->need_visibility_time_update = false;
 }
 
-void graph_tag_ids_for_subdivision_evaluation(Depsgraph *graph)
+void graph_tag_ids_for_cpu_subdivision_evaluation(Depsgraph *graph)
 {
-  if (!graph->need_subdivision_update) {
+  if (!graph->need_cpu_subdivision) {
     return;
   }
 
-  Main *bmain = graph->bmain;
   Scene *scene = graph->scene;
 
   for (deg::IDNode *id_node : graph->id_nodes) {
@@ -607,19 +607,14 @@ void graph_tag_ids_for_subdivision_evaluation(Depsgraph *graph)
     Object *object_orig = reinterpret_cast<Object *>(id_node->id_orig);
     int required_mode = eModifierMode_Realtime | eModifierMode_Editmode;
 
-    if (!BKE_modifier_subsurf_can_do_gpu_subdiv(scene, object_orig, required_mode)) {
+    if (!BKE_subsurf_modifier_can_do_gpu_subdiv(scene, object_orig, required_mode)) {
       continue;
     }
 
-    if (object_orig->runtime.subsurf_data_eval == nullptr) {
-      id_node->eval_flags |= DAG_EVAL_NEED_SUBDIVISION_MESH;
-      int flag = ID_RECALC_GEOMETRY;
-      graph_id_tag_update(
-          bmain, graph, id_node->id_orig, flag, DEG_UPDATE_SOURCE_REQUIRES_SUBDIVISION);
-    }
+    id_node->eval_flags |= DAG_EVAL_SUBDIV_ON_CPU;
   }
 
-  graph->need_subdivision_update = false;
+  graph->need_cpu_subdivision = false;
 }
 
 NodeType geometry_tag_to_component(const ID *id)
@@ -878,10 +873,10 @@ void DEG_tag_on_visible_update(Main *bmain, const bool do_time)
   }
 }
 
-void DEG_graph_tag_for_subdivision_evaluation(Depsgraph *depsgraph)
+void DEG_graph_tag_for_cpu_subdivision_evaluation(Depsgraph *depsgraph)
 {
   deg::Depsgraph *graph = (deg::Depsgraph *)depsgraph;
-  deg::graph_tag_for_subdivision_evaluation(graph);
+  deg::graph_tag_for_cpu_subdivision_evaluation(graph);
 }
 
 void DEG_enable_editors_update(Depsgraph *depsgraph)

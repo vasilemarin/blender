@@ -2373,7 +2373,7 @@ static void make_object_duplilist_real(bContext *C,
     ob_dst->instance_collection = NULL;
 
     copy_m4_m4(ob_dst->obmat, dob->mat);
-    BKE_object_apply_mat4(ob_dst, ob_dst->obmat, false, false);
+    BKE_object_apply_mat4(NULL, ob_dst, ob_dst->obmat, false, false);
 
     BLI_ghash_insert(dupli_gh, dob, ob_dst);
     if (parent_gh) {
@@ -2468,7 +2468,7 @@ static void make_object_duplilist_real(bContext *C,
     if (ob_dst->parent) {
       /* NOTE: this may be the parent of other objects, but it should
        * still work out ok */
-      BKE_object_apply_mat4(ob_dst, dob->mat, false, true);
+      BKE_object_apply_mat4(NULL, ob_dst, dob->mat, false, true);
 
       /* to set ob_dst->orig and in case there's any other discrepancies */
       DEG_id_tag_update(&ob_dst->id, ID_RECALC_TRANSFORM);
@@ -3567,7 +3567,7 @@ static int object_add_named_exec(bContext *C, wmOperator *op)
   if (RNA_property_is_set(op->ptr, prop_matrix)) {
     Object *ob_add = basen->object;
     RNA_property_float_get_array(op->ptr, prop_matrix, &ob_add->obmat[0][0]);
-    BKE_object_apply_mat4(ob_add, ob_add->obmat, true, true);
+    BKE_object_apply_mat4(NULL, ob_add, ob_add->obmat, true, true);
 
     DEG_id_tag_update(&ob_add->id, ID_RECALC_TRANSFORM);
   }

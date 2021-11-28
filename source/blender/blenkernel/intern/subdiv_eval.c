@@ -39,8 +39,39 @@
 #include "opensubdiv_evaluator_capi.h"
 #include "opensubdiv_topology_refiner_capi.h"
 
+/* ============================  Helper Function ============================ */
+
+static eOpenSubdivEvaluator opensubdiv_evalutor_from_subdiv_evaluator_type(
+    eSubdivEvaluatorType evaluator_type)
+{
+  switch (evaluator_type) {
+    case SUBDIV_EVALUATOR_TYPE_CPU: {
+      return OPENSUBDIV_EVALUATOR_CPU;
+    }
+    case SUBDIV_EVALUATOR_TYPE_OPENMP: {
+      return OPENSUBDIV_EVALUATOR_OPENMP;
+    }
+    case SUBDIV_EVALUATOR_TYPE_OPENCL: {
+      return OPENSUBDIV_EVALUATOR_OPENCL;
+    }
+    case SUBDIV_EVALUATOR_TYPE_CUDA: {
+      return OPENSUBDIV_EVALUATOR_CUDA;
+    }
+    case SUBDIV_EVALUATOR_TYPE_GLSL_TRANSFORM_FEEDBACK: {
+      return OPENSUBDIV_EVALUATOR_GLSL_TRANSFORM_FEEDBACK;
+    }
+    case SUBDIV_EVALUATOR_TYPE_GLSL_COMPUTE: {
+      return OPENSUBDIV_EVALUATOR_GLSL_COMPUTE;
+    }
+  }
+  BLI_assert_msg(0, "Unknown evaluator type");
+  return OPENSUBDIV_EVALUATOR_CPU;
+}
+
+/* ======================  Main Subdivision Evaluation ====================== */
+
 bool BKE_subdiv_eval_begin(Subdiv *subdiv,
-                           int evaluator_type,
+                           eSubdivEvaluatorType evaluator_type,
                            OpenSubdiv_EvaluatorCache *evaluator_cache)
 {
   BKE_subdiv_stats_reset(&subdiv->stats, SUBDIV_STATS_EVALUATOR_CREATE);
@@ -50,9 +81,11 @@ bool BKE_subdiv_eval_begin(Subdiv *subdiv,
     return false;
   }
   if (subdiv->evaluator == NULL) {
+    eOpenSubdivEvaluator opensubdiv_evaluator_type =
+        opensubdiv_evalutor_from_subdiv_evaluator_type(evaluator_type);
     BKE_subdiv_stats_begin(&subdiv->stats, SUBDIV_STATS_EVALUATOR_CREATE);
     subdiv->evaluator = openSubdiv_createEvaluatorFromTopologyRefiner(
-        subdiv->topology_refiner, evaluator_type, evaluator_cache);
+        subdiv->topology_refiner, opensubdiv_evaluator_type, evaluator_cache);
     BKE_subdiv_stats_end(&subdiv->stats, SUBDIV_STATS_EVALUATOR_CREATE);
     if (subdiv->evaluator == NULL) {
       return false;
@@ -100,11 +133,12 @@ static void set_coarse_positions(Subdiv *subdiv,
       const MVert *vertex = &mvert[vertex_index];
       vertex_co = vertex->co;
     }
-    copy_v3_v3(&buffer[manifold_vertex_index], vertex_co);
+    copy_v3_v3(&buffer[manifold_vertex_index][0], vertex_co);
     manifold_vertex_index++;
     manifold_vertex_count++;
   }
-  subdiv->evaluator->setCoarsePositions(subdiv->evaluator, buffer, 0, manifold_vertex_count);
+  subdiv->evaluator->setCoarsePositions(
+      subdiv->evaluator, &buffer[0][0], 0, manifold_vertex_count);
   MEM_freeN(vertex_used_map);
   MEM_freeN(buffer);
 }
@@ -168,7 +202,7 @@ static void set_face_varying_data_from_uv(Subdiv *subdiv,
   BLI_task_parallel_range(
       0, num_faces, &ctx, set_face_varying_data_from_uv_task, &parallel_range_settings);
 
-  evaluator->setFaceVaryingData(evaluator, layer_index, buffer, 0, num_fvar_values);
+  evaluator->setFaceVaryingData(evaluator, layer_index, &buffer[0][0], 0, num_fvar_values);
 
   MEM_freeN(buffer);
 }
@@ -176,7 +210,7 @@ static void set_face_varying_data_from_uv(Subdiv *subdiv,
 bool BKE_subdiv_eval_begin_from_mesh(Subdiv *subdiv,
                                      const Mesh *mesh,
                                      const float (*coarse_vertex_cos)[3],
-                                     int evaluator_type,
+                                     eSubdivEvaluatorType evaluator_type,
                                      OpenSubdiv_EvaluatorCache *evaluator_cache)
 {
   if (!BKE_subdiv_eval_begin(subdiv, evaluator_type, evaluator_cache)) {

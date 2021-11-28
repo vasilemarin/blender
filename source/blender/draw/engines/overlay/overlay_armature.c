@@ -543,7 +543,7 @@ static void drw_shgroup_bone_custom_solid(ArmatureDrawContext *ctx,
    * by #data_eval. This is bad since it gives preference to an object's evaluated mesh over any
    * other data type, but supporting all evaluated geometry components would require a much larger
    * refactor of this area. */
-  Mesh *mesh = BKE_object_get_evaluated_mesh(custom);
+  Mesh *mesh = BKE_object_get_evaluated_mesh(NULL, custom);
   if (mesh == NULL) {
     return;
   }
@@ -1307,9 +1307,10 @@ static void draw_axes(ArmatureDrawContext *ctx,
                       const bArmature *arm)
 {
   float final_col[4];
-  const float *col = (ctx->const_color)                        ? ctx->const_color :
-                     (BONE_FLAG(eBone, pchan) & BONE_SELECTED) ? G_draw.block.colorTextHi :
-                                                                 G_draw.block.colorText;
+  const float *col = (ctx->const_color) ?
+                         ctx->const_color :
+                         (BONE_FLAG(eBone, pchan) & BONE_SELECTED) ? G_draw.block.colorTextHi :
+                                                                     G_draw.block.colorText;
   copy_v4_v4(final_col, col);
   /* Mix with axes color. */
   final_col[3] = (ctx->const_color) ? 1.0 : (BONE_FLAG(eBone, pchan) & BONE_SELECTED) ? 0.1 : 0.65;

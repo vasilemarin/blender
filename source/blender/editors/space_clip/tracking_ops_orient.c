@@ -380,7 +380,7 @@ static void set_axis(Scene *scene,
     }
   }
 
-  BKE_object_apply_mat4(ob, mat, 0, 0);
+  BKE_object_apply_mat4(NULL, ob, mat, 0, 0);
 }
 
 static int set_plane_exec(bContext *C, wmOperator *op)
@@ -463,26 +463,26 @@ static int set_plane_exec(bContext *C, wmOperator *op)
   mat[3][1] = orig[1];
   mat[3][2] = orig[2];
 
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   if (tracking_object->flag & TRACKING_OBJECT_CAMERA) {
     invert_m4(mat);
 
     BKE_object_to_mat4(object, obmat);
     mul_m4_m4m4(mat, mat, obmat);
     mul_m4_m4m4(newmat, rot, mat);
-    BKE_object_apply_mat4(object, newmat, 0, 0);
+    BKE_object_apply_mat4(depsgraph, object, newmat, 0, 0);
 
     /* Make camera have positive z-coordinate. */
     if (object->loc[2] < 0) {
       invert_m4(rot);
       mul_m4_m4m4(newmat, rot, mat);
-      BKE_object_apply_mat4(object, newmat, 0, 0);
+      BKE_object_apply_mat4(depsgraph, object, newmat, 0, 0);
     }
   }
   else {
-    BKE_object_apply_mat4(object, mat, 0, 0);
+    BKE_object_apply_mat4(depsgraph, object, mat, 0, 0);
   }
 
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Object *object_eval = DEG_get_evaluated_object(depsgraph, object);
   BKE_object_transform_copy(object_eval, object);

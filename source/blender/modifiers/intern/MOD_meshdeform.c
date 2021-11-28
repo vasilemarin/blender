@@ -368,7 +368,7 @@ static void meshdeformModifier_do(ModifierData *md,
    * We'll support this case once granular dependency graph is landed.
    */
   Object *ob_target = mmd->object;
-  cagemesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob_target, false);
+  cagemesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(NULL, ob_target, false);
   if (cagemesh == NULL) {
     BKE_modifier_set_error(ctx->object, md, "Cannot get mesh from cage object");
     return;

@@ -67,7 +67,7 @@ static LinkNode *knifeproject_poly_from_object(const bContext *C,
 
   if (ob->type == OB_MESH || ob->runtime.data_eval) {
     Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-    me_eval = BKE_object_get_evaluated_mesh(ob_eval);
+    me_eval = BKE_object_get_evaluated_mesh(NULL, ob_eval);
     if (me_eval == NULL) {
       Scene *scene_eval = (Scene *)DEG_get_evaluated_id(depsgraph, &scene->id);
       me_eval = mesh_get_eval_final(depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);

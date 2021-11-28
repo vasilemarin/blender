@@ -357,7 +357,7 @@ static Mesh *rigidbody_get_mesh(Object *ob)
     case RBO_MESH_DEFORM:
       return ob->runtime.mesh_deform_eval;
     case RBO_MESH_FINAL:
-      return BKE_object_get_evaluated_mesh(ob);
+      return BKE_object_get_evaluated_mesh(NULL, ob);
     case RBO_MESH_BASE:
       /* This mesh may be used for computing looptris, which should be done
        * on the original; otherwise every time the CoW is recreated it will
@@ -368,7 +368,7 @@ static Mesh *rigidbody_get_mesh(Object *ob)
 
   /* Just return something sensible so that at least Blender won't crash. */
   BLI_assert_msg(0, "Unknown mesh source");
-  return BKE_object_get_evaluated_mesh(ob);
+  return BKE_object_get_evaluated_mesh(NULL, ob);
 }
 
 /* create collision shape of mesh - convex hull */

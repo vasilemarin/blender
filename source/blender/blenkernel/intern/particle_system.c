@@ -2251,7 +2251,8 @@ static void basic_force_cb(void *efdata_v, ParticleKey *state, float *force, flo
   /* add effectors */
   pd_point_from_particle(efdata->sim, efdata->pa, state, &epoint);
   if (part->type != PART_HAIR || part->effector_weights->flag & EFF_WEIGHT_DO_HAIR) {
-    BKE_effectors_apply(sim->psys->effectors,
+    BKE_effectors_apply(NULL,
+                        sim->psys->effectors,
                         sim->colliders,
                         part->effector_weights,
                         &epoint,

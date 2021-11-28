@@ -54,6 +54,7 @@
 #include "BKE_object_deform.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
+#include "BKE_subdiv_modifier.h"
 
 #include "atomic_ops.h"
 
@@ -381,6 +382,7 @@ static void drw_mesh_attributes_add_request(DRW_MeshAttributes *attrs,
 BLI_INLINE const CustomData *mesh_cd_ldata_get_from_mesh(const Mesh *me)
 {
   switch ((eMeshWrapperType)me->runtime.wrapper_type) {
+    case ME_WRAPPER_TYPE_SUBD:
     case ME_WRAPPER_TYPE_MDATA:
       return &me->ldata;
       break;
@@ -396,6 +398,7 @@ BLI_INLINE const CustomData *mesh_cd_ldata_get_from_mesh(const Mesh *me)
 BLI_INLINE const CustomData *mesh_cd_pdata_get_from_mesh(const Mesh *me)
 {
   switch ((eMeshWrapperType)me->runtime.wrapper_type) {
+    case ME_WRAPPER_TYPE_SUBD:
     case ME_WRAPPER_TYPE_MDATA:
       return &me->pdata;
       break;
@@ -411,6 +414,7 @@ BLI_INLINE const CustomData *mesh_cd_pdata_get_from_mesh(const Mesh *me)
 BLI_INLINE const CustomData *mesh_cd_edata_get_from_mesh(const Mesh *me)
 {
   switch ((eMeshWrapperType)me->runtime.wrapper_type) {
+    case ME_WRAPPER_TYPE_SUBD:
     case ME_WRAPPER_TYPE_MDATA:
       return &me->edata;
       break;
@@ -426,6 +430,7 @@ BLI_INLINE const CustomData *mesh_cd_edata_get_from_mesh(const Mesh *me)
 BLI_INLINE const CustomData *mesh_cd_vdata_get_from_mesh(const Mesh *me)
 {
   switch ((eMeshWrapperType)me->runtime.wrapper_type) {
+    case ME_WRAPPER_TYPE_SUBD:
     case ME_WRAPPER_TYPE_MDATA:
       return &me->vdata;
       break;
@@ -1721,7 +1726,7 @@ void DRW_mesh_batch_cache_create_requested(struct TaskGraph *task_graph,
   if (is_editmode) {
     required_mode |= eModifierMode_Editmode;
   }
-  const bool do_subdivision = BKE_modifier_subsurf_can_do_gpu_subdiv(scene, ob, required_mode);
+  const bool do_subdivision = BKE_subsurf_modifier_can_do_gpu_subdiv(scene, ob, required_mode);
 
   MeshBufferList *mbuflist = &cache->final.buff;
 

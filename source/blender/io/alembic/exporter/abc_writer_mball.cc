@@ -62,7 +62,7 @@ bool ABCMetaballWriter::export_as_subdivision_surface(Object * /*ob_eval*/) cons
 
 Mesh *ABCMetaballWriter::get_export_mesh(Object *object_eval, bool &r_needsfree)
 {
-  Mesh *mesh_eval = BKE_object_get_evaluated_mesh(object_eval);
+  Mesh *mesh_eval = BKE_object_get_evaluated_mesh(nullptr, object_eval);
   if (mesh_eval != nullptr) {
     /* Mesh_eval only exists when generative modifiers are in use. */
     r_needsfree = false;

@@ -98,6 +98,7 @@ typedef struct SnapObjectData {
 } SnapObjectData;
 
 struct SnapObjectContext {
+  Depsgraph *depsgraph;
   Scene *scene;
 
   int flag;
@@ -146,9 +147,12 @@ struct SnapObjectContext {
 
 /* Mesh used for snapping.
  * If NULL the BMesh should be used. */
-static Mesh *mesh_for_snap(Object *ob_eval, eSnapEditType edit_mode_type, bool *r_use_hide)
+static Mesh *mesh_for_snap(Depsgraph *despgraph,
+                           Object *ob_eval,
+                           eSnapEditType edit_mode_type,
+                           bool *r_use_hide)
 {
-  Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
+  Mesh *me_eval = BKE_object_get_evaluated_mesh(despgraph, ob_eval);
   bool use_hide = false;
   if (BKE_object_is_in_editmode(ob_eval)) {
     if (edit_mode_type == SNAP_GEOM_EDIT) {
@@ -1020,7 +1024,7 @@ static void raycast_obj_fn(
     case OB_MESH: {
       const eSnapEditType edit_mode_type = sctx->runtime.params->edit_mode_type;
       bool use_hide = false;
-      Mesh *me_eval = mesh_for_snap(ob_eval, edit_mode_type, &use_hide);
+      Mesh *me_eval = mesh_for_snap(sctx->depsgraph, ob_eval, edit_mode_type, &use_hide);
       if (me_eval == NULL) {
         /* Operators only update the editmesh looptris of the original mesh. */
         BMEditMesh *em_orig = BKE_editmesh_from_object(DEG_get_original_object(ob_eval));
@@ -1057,7 +1061,7 @@ static void raycast_obj_fn(
     case OB_SURF:
     case OB_FONT: {
       if (!is_object_active) {
-        const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob_eval);
+        const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(NULL, ob_eval);
         if (mesh_eval) {
           retval = raycastMesh(sctx,
                                dt->ray_start,
@@ -2687,7 +2691,7 @@ static void snap_obj_fn(SnapObjectContext *sctx,
     case OB_MESH: {
       const eSnapEditType edit_mode_type = sctx->runtime.params->edit_mode_type;
       bool use_hide;
-      Mesh *me_eval = mesh_for_snap(ob_eval, edit_mode_type, &use_hide);
+      Mesh *me_eval = mesh_for_snap(sctx->depsgraph, ob_eval, edit_mode_type, &use_hide);
       if (me_eval == NULL) {
         /* Operators only update the editmesh looptris of the original mesh. */
         BMEditMesh *em_orig = BKE_editmesh_from_object(DEG_get_original_object(ob_eval));
@@ -2712,7 +2716,7 @@ static void snap_obj_fn(SnapObjectContext *sctx,
       break; /* Use ATTR_FALLTHROUGH if we want to snap to the generated mesh. */
     case OB_SURF:
     case OB_FONT: {
-      Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob_eval);
+      Mesh *mesh_eval = BKE_object_get_evaluated_mesh(NULL, ob_eval);
       if (mesh_eval) {
         retval |= snapMesh(
             sctx, ob_eval, mesh_eval, obmat, false, dt->dist_px, dt->r_loc, dt->r_no, dt->r_index);

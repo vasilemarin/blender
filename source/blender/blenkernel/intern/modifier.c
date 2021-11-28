@@ -75,7 +75,6 @@
 #include "BKE_multires.h"
 #include "BKE_object.h"
 #include "BKE_pointcache.h"
-#include "BKE_subdiv.h"
 
 /* may move these, only for BKE_modifier_path_relbase */
 #include "BKE_main.h"
@@ -84,16 +83,11 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "GPU_capabilities.h"
-#include "GPU_context.h"
-
 #include "MOD_modifiertypes.h"
 
 #include "BLO_read_write.h"
 
 #include "CLG_log.h"
-
-#include "opensubdiv_capi.h"
 
 static CLG_LogRef LOG = {"bke.modifier"};
 static ModifierTypeInfo *modifier_types[NUM_MODIFIER_TYPES] = {NULL};
@@ -1032,6 +1026,7 @@ static void modwrap_dependsOnNormals(Mesh *me)
       }
       break;
     }
+    case ME_WRAPPER_TYPE_SUBD:
     case ME_WRAPPER_TYPE_MDATA:
       BKE_mesh_calc_normals(me);
       break;
@@ -1101,7 +1096,8 @@ void BKE_modifier_deform_vertsEM(ModifierData *md,
  * \param get_cage_mesh: Return evaluated mesh with only deforming modifiers applied
  * (i.e. mesh topology remains the same as original one, a.k.a. 'cage' mesh).
  */
-Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(Object *ob_eval,
+Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(Depsgraph *depsgraph,
+                                                            Object *ob_eval,
                                                             const bool get_cage_mesh)
 {
   Mesh *me = NULL;
@@ -1118,7 +1114,7 @@ Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(Object *ob_eval,
   if (me == NULL) {
     me = (get_cage_mesh && ob_eval->runtime.mesh_deform_eval != NULL) ?
              ob_eval->runtime.mesh_deform_eval :
-             BKE_object_get_evaluated_mesh(ob_eval);
+             BKE_object_get_evaluated_mesh(depsgraph, ob_eval);
   }
 
   return me;
@@ -1583,99 +1579,4 @@ void BKE_modifier_blend_read_lib(BlendLibReader *reader, Object *ob)
       mod->flag &= ~eModifierFlag_OverrideLibrary_Local;
     }
   }
-}
-
-static ModifierData *modifier_get_last_enabled_for_mode(const Scene *scene,
-                                                        const Object *ob,
-                                                        int required_mode)
-{
-  ModifierData *md = ob->modifiers.last;
-
-  while (md) {
-    if (BKE_modifier_is_enabled(scene, md, required_mode)) {
-      break;
-    }
-
-    md = md->prev;
-  }
-
-  return md;
-}
-
-bool BKE_modifier_subsurf_can_do_gpu_subdiv_ex(const Scene *scene,
-                                               const Object *ob,
-                                               const SubsurfModifierData *smd,
-                                               int required_mode,
-                                               bool skip_check_is_last)
-{
-  if (!skip_check_is_last) {
-    ModifierData *md = modifier_get_last_enabled_for_mode(scene, ob, required_mode);
-    if (md != (const ModifierData *)smd) {
-      return false;
-    }
-  }
-
-  /* Only OpenGL is supported for OpenSubdiv evaluation for now. */
-  if (GPU_backend_get_type() != GPU_BACKEND_OPENGL) {
-    return false;
-  }
-
-  if (!GPU_compute_shader_support()) {
-    return false;
-  }
-
-  const int available_evaluators = openSubdiv_getAvailableEvaluators();
-  if ((available_evaluators & OPENSUBDIV_EVALUATOR_GLSL_COMPUTE) == 0) {
-    return false;
-  }
-
-  return true;
-}
-
-bool BKE_modifier_subsurf_can_do_gpu_subdiv(const Scene *scene,
-                                            const Object *ob,
-                                            int required_mode)
-{
-  ModifierData *md = modifier_get_last_enabled_for_mode(scene, ob, required_mode);
-
-  if (!md) {
-    return false;
-  }
-
-  if (md->type != eModifierType_Subsurf) {
-    return false;
-  }
-
-  return BKE_modifier_subsurf_can_do_gpu_subdiv_ex(
-      scene, ob, (SubsurfModifierData *)md, required_mode, true);
-}
-
-void (*BKE_modifier_subsurf_free_gpu_cache_cb)(Subdiv *subdiv) = NULL;
-
-/* Main goal of this function is to give usable subdivision surface descriptor
- * which matches settings and topology. */
-Subdiv *BKE_modifier_subsurf_subdiv_descriptor_ensure(const SubsurfModifierData *smd,
-                                                      const SubdivSettings *subdiv_settings,
-                                                      const Mesh *mesh,
-                                                      const bool for_draw_code)
-{
-  SubsurfRuntimeData *runtime_data = (SubsurfRuntimeData *)smd->modifier.runtime;
-  if (runtime_data->subdiv && runtime_data->set_by_draw_code != for_draw_code) {
-    BKE_subdiv_free(runtime_data->subdiv);
-    runtime_data->subdiv = NULL;
-  }
-  Subdiv *subdiv = BKE_subdiv_update_from_mesh(runtime_data->subdiv, subdiv_settings, mesh);
-  runtime_data->subdiv = subdiv;
-  runtime_data->set_by_draw_code = for_draw_code;
-  return subdiv;
-}
-
-SubsurfRuntimeData *BKE_modifier_subsurf_ensure_runtime(SubsurfModifierData *smd)
-{
-  SubsurfRuntimeData *runtime_data = (SubsurfRuntimeData *)smd->modifier.runtime;
-  if (runtime_data == NULL) {
-    runtime_data = MEM_callocN(sizeof(*runtime_data), "subsurf runtime");
-    smd->modifier.runtime = runtime_data;
-  }
-  return runtime_data;
 }

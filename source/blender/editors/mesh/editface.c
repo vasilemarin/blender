@@ -443,7 +443,7 @@ bool paintface_mouse_select(
 void paintvert_flush_flags(Object *ob)
 {
   Mesh *me = BKE_mesh_from_object(ob);
-  Mesh *me_eval = BKE_object_get_evaluated_mesh(ob);
+  Mesh *me_eval = BKE_object_get_evaluated_mesh(NULL, ob);
   MVert *mvert_eval, *mv;
   const int *index_array = NULL;
   int totvert;

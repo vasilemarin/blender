@@ -405,7 +405,8 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     vgroup_start_cap_remap = BKE_object_defgroup_index_map_create(
         start_cap_ob, ctx->object, &vgroup_start_cap_remap_len);
 
-    start_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(start_cap_ob, false);
+    start_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(
+        NULL, start_cap_ob, false);
     if (start_cap_mesh) {
       start_cap_nverts = start_cap_mesh->totvert;
       start_cap_nedges = start_cap_mesh->totedge;
@@ -418,7 +419,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     vgroup_end_cap_remap = BKE_object_defgroup_index_map_create(
         end_cap_ob, ctx->object, &vgroup_end_cap_remap_len);
 
-    end_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(end_cap_ob, false);
+    end_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(NULL, end_cap_ob, false);
     if (end_cap_mesh) {
       end_cap_nverts = end_cap_mesh->totvert;
       end_cap_nedges = end_cap_mesh->totedge;

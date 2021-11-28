@@ -43,8 +43,6 @@ struct Mesh;
 struct ModifierData;
 struct Object;
 struct Scene;
-struct Subdiv;
-struct SubdivSettings;
 struct bArmature;
 
 typedef enum {
@@ -545,7 +543,8 @@ void BKE_modifier_deform_vertsEM(ModifierData *md,
                                  float (*vertexCos)[3],
                                  int numVerts);
 
-struct Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(struct Object *ob_eval,
+struct Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(struct Depsgraph *depsgraph,
+                                                                   struct Object *ob_eval,
                                                                    const bool get_cage_mesh);
 
 void BKE_modifier_check_uuids_unique_and_report(const struct Object *object);
@@ -555,28 +554,6 @@ void BKE_modifier_blend_read_data(struct BlendDataReader *reader,
                                   struct ListBase *lb,
                                   struct Object *ob);
 void BKE_modifier_blend_read_lib(struct BlendLibReader *reader, struct Object *ob);
-
-/* If skip_check_is_last is true, we assume that the modifier passed is the last enabled modifier
- * in the stack. */
-bool BKE_modifier_subsurf_can_do_gpu_subdiv_ex(const struct Scene *scene,
-                                               const struct Object *ob,
-                                               const SubsurfModifierData *smd,
-                                               int required_mode,
-                                               bool skip_check_is_last);
-
-bool BKE_modifier_subsurf_can_do_gpu_subdiv(const struct Scene *scene,
-                                            const struct Object *ob,
-                                            const int required_mode);
-
-extern void (*BKE_modifier_subsurf_free_gpu_cache_cb)(struct Subdiv *subdiv);
-
-struct Subdiv *BKE_modifier_subsurf_subdiv_descriptor_ensure(
-    const SubsurfModifierData *smd,
-    const struct SubdivSettings *subdiv_settings,
-    const struct Mesh *mesh,
-    const bool for_draw_code);
-
-struct SubsurfRuntimeData *BKE_modifier_subsurf_ensure_runtime(SubsurfModifierData *smd);
 
 #ifdef __cplusplus
 }

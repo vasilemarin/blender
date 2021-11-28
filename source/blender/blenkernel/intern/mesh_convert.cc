@@ -945,9 +945,9 @@ static void curve_to_mesh_eval_ensure(Object &object)
 }
 
 /* Necessary because #BKE_object_get_evaluated_mesh doesn't look in the geometry set yet. */
-static const Mesh *get_evaluated_mesh_from_object(const Object *object)
+static const Mesh *get_evaluated_mesh_from_object(Depsgraph *depsgraph, const Object *object)
 {
-  const Mesh *mesh = BKE_object_get_evaluated_mesh(object);
+  const Mesh *mesh = BKE_object_get_evaluated_mesh(depsgraph, object);
   if (mesh) {
     return mesh;
   }
@@ -967,9 +967,10 @@ static const CurveEval *get_evaluated_curve_from_object(const Object *object)
   return nullptr;
 }
 
-static Mesh *mesh_new_from_evaluated_curve_type_object(const Object *evaluated_object)
+static Mesh *mesh_new_from_evaluated_curve_type_object(Depsgraph *depsgraph,
+                                                       const Object *evaluated_object)
 {
-  const Mesh *mesh = get_evaluated_mesh_from_object(evaluated_object);
+  const Mesh *mesh = get_evaluated_mesh_from_object(depsgraph, evaluated_object);
   if (mesh) {
     return BKE_mesh_copy_for_eval(mesh, false);
   }
@@ -980,12 +981,12 @@ static Mesh *mesh_new_from_evaluated_curve_type_object(const Object *evaluated_o
   return nullptr;
 }
 
-static Mesh *mesh_new_from_curve_type_object(const Object *object)
+static Mesh *mesh_new_from_curve_type_object(Depsgraph *depsgraph, const Object *object)
 {
   /* If the object is evaluated, it should either have an evaluated mesh or curve data already.
    * The mesh can be duplicated, or the curve converted to wire mesh edges. */
   if (DEG_is_evaluated_object(object)) {
-    return mesh_new_from_evaluated_curve_type_object(object);
+    return mesh_new_from_evaluated_curve_type_object(depsgraph, object);
   }
 
   /* Otherwise, create a temporary "fake" evaluated object and try again. This might have
@@ -1001,7 +1002,7 @@ static Mesh *mesh_new_from_curve_type_object(const Object *object)
     BKE_id_free(nullptr, temp_data);
   }
 
-  Mesh *mesh = mesh_new_from_evaluated_curve_type_object(temp_object);
+  Mesh *mesh = mesh_new_from_evaluated_curve_type_object(depsgraph, temp_object);
 
   BKE_id_free(nullptr, temp_object->data);
   BKE_id_free(nullptr, temp_object);
@@ -1109,7 +1110,7 @@ Mesh *BKE_mesh_new_from_object(Depsgraph *depsgraph,
     case OB_FONT:
     case OB_CURVE:
     case OB_SURF:
-      new_mesh = mesh_new_from_curve_type_object(object);
+      new_mesh = mesh_new_from_curve_type_object(depsgraph, object);
       break;
     case OB_MBALL:
       new_mesh = mesh_new_from_mball_object(object);

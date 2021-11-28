@@ -417,7 +417,7 @@ void ED_object_parent_clear(Object *ob, const int type)
       /* remove parent, and apply the parented transform
        * result as object's local transforms */
       ob->parent = NULL;
-      BKE_object_apply_mat4(ob, ob->obmat, true, false);
+      BKE_object_apply_mat4(NULL, ob, ob->obmat, true, false);
       break;
     }
     case CLEAR_PARENT_INVERSE: {
@@ -598,7 +598,7 @@ bool ED_object_parent_set(ReportList *reports,
   if (keep_transform) {
     /* Was removed because of bug T23577,
      * but this can be handy in some cases too T32616, so make optional. */
-    BKE_object_apply_mat4(ob, ob->obmat, false, false);
+    BKE_object_apply_mat4(depsgraph, ob, ob->obmat, false, false);
   }
 
   /* Set the parent (except for follow-path constraint option). */
@@ -880,7 +880,8 @@ static bool parent_set_vertex_parent(bContext *C, struct ParentingContext *paren
   struct KDTree_3d *tree = NULL;
   int tree_tot;
 
-  tree = BKE_object_as_kdtree(parenting_context->par, &tree_tot);
+  tree = BKE_object_as_kdtree(
+      CTX_data_ensure_evaluated_depsgraph(C), parenting_context->par, &tree_tot);
   BLI_assert(tree != NULL);
 
   if (tree_tot < (parenting_context->is_vertex_tri ? 3 : 1)) {
@@ -1143,6 +1144,7 @@ static const EnumPropertyItem prop_clear_track_types[] = {
 static int object_track_clear_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   const int type = RNA_enum_get(op->ptr, "type");
 
   if (CTX_data_edit_object(C)) {
@@ -1168,7 +1170,7 @@ static int object_track_clear_exec(bContext *C, wmOperator *op)
     }
 
     if (type == CLEAR_TRACK_KEEP_TRANSFORM) {
-      BKE_object_apply_mat4(ob, ob->obmat, true, true);
+      BKE_object_apply_mat4(depsgraph, ob, ob->obmat, true, true);
     }
   }
   CTX_DATA_END;

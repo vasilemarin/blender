@@ -1461,7 +1461,7 @@ static void surfacedeformModifier_do(ModifierData *md,
   }
 
   Object *ob_target = smd->target;
-  target = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob_target, false);
+  target = BKE_modifier_get_evaluated_mesh_from_evaluated_object(NULL, ob_target, false);
   if (!target) {
     BKE_modifier_set_error(ob, md, "No valid target mesh");
     return;

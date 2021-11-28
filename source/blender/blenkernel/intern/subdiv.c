@@ -30,6 +30,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_modifier.h"
+#include "BKE_subdiv_modifier.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -96,24 +97,6 @@ bool BKE_subdiv_settings_equal(const SubdivSettings *settings_a, const SubdivSet
           settings_a->level == settings_b->level &&
           settings_a->vtx_boundary_interpolation == settings_b->vtx_boundary_interpolation &&
           settings_a->fvar_linear_interpolation == settings_b->fvar_linear_interpolation);
-}
-
-void BKE_subdiv_settings_init_from_modifier(SubdivSettings *settings,
-                                            const SubsurfModifierData *smd,
-                                            const bool use_render_params)
-{
-  const int requested_levels = (use_render_params) ? smd->renderLevels : smd->levels;
-
-  settings->is_simple = (smd->subdivType == SUBSURF_TYPE_SIMPLE);
-  settings->is_adaptive = !(smd->flags & eSubsurfModifierFlag_UseRecursiveSubdivision);
-  settings->level = settings->is_simple ?
-                        1 :
-                        (settings->is_adaptive ? smd->quality : requested_levels);
-  settings->use_creases = (smd->flags & eSubsurfModifierFlag_UseCrease);
-  settings->vtx_boundary_interpolation = BKE_subdiv_vtx_boundary_interpolation_from_subsurf(
-      smd->boundary_smooth);
-  settings->fvar_linear_interpolation = BKE_subdiv_fvar_interpolation_from_uv_smooth(
-      smd->uv_smooth);
 }
 
 /* ============================== CONSTRUCTION ============================== */
@@ -210,9 +193,9 @@ void BKE_subdiv_free(Subdiv *subdiv)
 {
   if (subdiv->evaluator != NULL) {
     const eOpenSubdivEvaluator evaluator_type = subdiv->evaluator->type;
-    if (evaluator_type == OPENSUBDIV_EVALUATOR_GLSL_COMPUTE) {
+    if (evaluator_type != OPENSUBDIV_EVALUATOR_CPU) {
       /* Let the draw code do the freeing, to ensure that the OpenGL context is valid. */
-      BKE_modifier_subsurf_free_gpu_cache_cb(subdiv);
+      BKE_subsurf_modifier_free_gpu_cache_cb(subdiv);
       return;
     }
     openSubdiv_deleteEvaluator(subdiv->evaluator);
@@ -239,12 +222,6 @@ int *BKE_subdiv_face_ptex_offset_get(Subdiv *subdiv)
     return NULL;
   }
   const int num_coarse_faces = topology_refiner->getNumFaces(topology_refiner);
-  /* +1 to store the final PTex offset (the total number of PTex faces) at the end of the array so
-   * that algorithms can compute the number of PTex faces for a given face by computing the delta
-   * with the offset for the next face without using a separate data structure, e.g.:
-   *
-   * const int num_face_ptex_faces = face_ptex_offset[i + 1] - face_ptex_offset[i];
-   */
   subdiv->cache_.face_ptex_offset = MEM_malloc_arrayN(
       num_coarse_faces + 1, sizeof(int), "subdiv face_ptex_offset");
   int ptex_offset = 0;

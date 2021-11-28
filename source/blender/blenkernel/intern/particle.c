@@ -2570,7 +2570,8 @@ static void do_path_effectors(ParticleSimulationData *sim,
   copy_qt_qt(eff_key.rot, (ca - 1)->rot);
 
   pd_point_from_particle(sim, sim->psys->particles + i, &eff_key, &epoint);
-  BKE_effectors_apply(sim->psys->effectors,
+  BKE_effectors_apply(NULL,
+                      sim->psys->effectors,
                       sim->colliders,
                       sim->psys->part->effector_weights,
                       &epoint,

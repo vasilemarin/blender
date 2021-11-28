@@ -216,7 +216,7 @@ void deg_graph_build_flush_need_subdivision(Depsgraph *graph)
     }
 
     if (!op_node->outlinks.is_empty()) {
-      id_node->eval_flags |= DAG_EVAL_NEED_SUBDIVISION_MESH;
+      id_node->eval_flags |= DAG_EVAL_SUBDIV_ON_CPU;
     }
   }
 }

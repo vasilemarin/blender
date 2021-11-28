@@ -54,19 +54,36 @@ layout(binding = 8) writeonly buffer outputFVarData
 };
 #elif defined(FDOTS_EVALUATION)
 /* For face dots, we build the position, normals, and index buffers in one go. */
+
+/* vec3 is padded to vec4, but the format used for fdots does not have any padding. */
+struct FDotVert {
+  float x, y, z;
+};
+
+/* Same here, do not use vec3. */
+struct FDotNor {
+  float x, y, z;
+  float flag;
+};
+
 layout(binding = 8) writeonly buffer outputVertices
 {
-  vec3 output_verts[];
+  FDotVert output_verts[];
 };
 
 layout(binding = 9) writeonly buffer outputNormals
 {
-  vec3 output_nors[];
+  FDotNor output_nors[];
 };
 
 layout(std430, binding = 10) writeonly buffer outputFdotsIndices
 {
   uint output_indices[];
+};
+
+layout(std430, binding = 11) readonly buffer extraCoarseFaceData
+{
+  uint extra_coarse_face_data[];
 };
 #else
 layout(binding = 8) writeonly buffer outputVertexData
@@ -297,6 +314,29 @@ void main()
   }
 }
 #elif defined(FDOTS_EVALUATION)
+bool is_face_selected(uint coarse_quad_index)
+{
+  return (extra_coarse_face_data[coarse_quad_index] & coarse_face_select_mask) != 0;
+}
+
+bool is_face_active(uint coarse_quad_index)
+{
+  return (extra_coarse_face_data[coarse_quad_index] & coarse_face_active_mask) != 0;
+}
+
+float get_face_flag(uint coarse_quad_index)
+{
+  if (is_face_active(coarse_quad_index)) {
+    return -1.0;
+  }
+
+  if (is_face_selected(coarse_quad_index)) {
+    return 1.0;
+  }
+
+  return 0.0;
+}
+
 void main()
 {
   /* The face dots evaluation is done for each coarse quads. */
@@ -311,8 +351,19 @@ void main()
   evaluate_patches_limits(patch_co.patch_index, uv.x, uv.y, pos, du, dv);
   vec3 nor = normalize(cross(du, dv));
 
-  output_verts[coarse_quad_index] = pos;
-  output_nors[coarse_quad_index] = nor;
+  FDotVert vert;
+  vert.x = pos.x;
+  vert.y = pos.y;
+  vert.z = pos.z;
+
+  FDotNor fnor;
+  fnor.x = nor.x;
+  fnor.y = nor.y;
+  fnor.z = nor.z;
+  fnor.flag = get_face_flag(coarse_quad_index);
+
+  output_verts[coarse_quad_index] = vert;
+  output_nors[coarse_quad_index] = fnor;
   output_indices[coarse_quad_index] = coarse_quad_index;
 }
 #else

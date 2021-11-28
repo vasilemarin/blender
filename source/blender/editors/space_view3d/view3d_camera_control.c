@@ -217,7 +217,7 @@ static bool object_apply_mat4_with_protect(Object *ob,
     BKE_object_tfm_protected_backup(ob, &obtfm);
   }
 
-  BKE_object_apply_mat4(ob, obmat, true, use_parent);
+  BKE_object_apply_mat4(NULL, ob, obmat, true, use_parent);
 
   if (use_protect) {
     float obmat_noprotect[4][4], obmat_protect[4][4];

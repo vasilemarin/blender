@@ -1732,7 +1732,7 @@ static void copy_ccg_data(Mesh *mesh_destination, Mesh *mesh_source, int layer_t
   CustomData_copy_layer_type_data(data_source, data_destination, layer_type, 0, 0, num_elements);
 }
 
-static void object_update_from_subsurf_ccg(Object *object)
+static void object_update_from_subsurf_ccg(Depsgraph *depsgraph, Object *object)
 {
   /* Currently CCG is only created for Mesh objects. */
   if (object->type != OB_MESH) {
@@ -1746,7 +1746,7 @@ static void object_update_from_subsurf_ccg(Object *object)
     return;
   }
   /* Object was never evaluated, so can not have CCG subdivision surface. */
-  Mesh *mesh_eval = BKE_object_get_evaluated_mesh(object);
+  Mesh *mesh_eval = BKE_object_get_evaluated_mesh(depsgraph, object);
   if (mesh_eval == nullptr) {
     return;
   }
@@ -1842,7 +1842,7 @@ void BKE_object_free_derived_caches(Object *ob)
 {
   MEM_SAFE_FREE(ob->runtime.bb);
 
-  object_update_from_subsurf_ccg(ob);
+  object_update_from_subsurf_ccg(NULL, ob);
 
   if (ob->runtime.data_eval != nullptr) {
     if (ob->runtime.is_data_eval_owned) {
@@ -1861,11 +1861,6 @@ void BKE_object_free_derived_caches(Object *ob)
     Mesh *mesh_deform_eval = ob->runtime.mesh_deform_eval;
     BKE_mesh_eval_delete(mesh_deform_eval);
     ob->runtime.mesh_deform_eval = nullptr;
-  }
-  if (ob->runtime.subsurf_data_eval != NULL) {
-    Mesh *mesh_subsurf_eval = ob->runtime.subsurf_data_eval;
-    BKE_mesh_eval_delete(mesh_subsurf_eval);
-    ob->runtime.subsurf_data_eval = NULL;
   }
 
   /* Restore initial pointer for copy-on-write data-blocks, object->data
@@ -2984,7 +2979,8 @@ void BKE_object_copy_proxy_drivers(Object *ob, Object *target)
  * - local_object->proxy == pointer to library object, saved in files and read.
  * - local_object->proxy_group == pointer to collection dupli-object, saved in files and read.
  */
-void BKE_object_make_proxy(Main *bmain, Object *ob, Object *target, Object *cob)
+void BKE_object_make_proxy(
+    Main *bmain, Depsgraph *depsgraph, Object *ob, Object *target, Object *cob)
 {
   /* paranoia checks */
   if (ID_IS_LINKED(ob) || !ID_IS_LINKED(target)) {
@@ -3013,7 +3009,7 @@ void BKE_object_make_proxy(Main *bmain, Object *ob, Object *target, Object *cob)
       mul_v3_mat3_m4v3(tvec, ob->obmat, cob->instance_collection->instance_offset);
       sub_v3_v3(ob->obmat[3], tvec);
     }
-    BKE_object_apply_mat4(ob, ob->obmat, false, true);
+    BKE_object_apply_mat4(depsgraph, ob, ob->obmat, false, true);
   }
   else {
     BKE_object_transform_copy(ob, target);
@@ -3345,7 +3341,7 @@ void BKE_object_matrix_local_get(struct Object *ob, float r_mat[4][4])
   if (ob->parent) {
     float par_imat[4][4];
 
-    BKE_object_get_parent_matrix(ob, ob->parent, par_imat);
+    BKE_object_get_parent_matrix(NULL, ob, ob->parent, par_imat);
     invert_m4(par_imat);
     mul_m4_m4m4(r_mat, par_imat, ob->obmat);
   }
@@ -3450,14 +3446,14 @@ static void ob_parbone(Object *ob, Object *par, float r_mat[4][4])
   }
 }
 
-static void give_parvert(Object *par, int nr, float vec[3])
+static void give_parvert(Depsgraph *depsgraph, Object *par, int nr, float vec[3])
 {
   zero_v3(vec);
 
   if (par->type == OB_MESH) {
     Mesh *me = (Mesh *)par->data;
     BMEditMesh *em = me->edit_mesh;
-    Mesh *me_eval = (em) ? em->mesh_eval_final : BKE_object_get_evaluated_mesh(par);
+    Mesh *me_eval = (em) ? em->mesh_eval_final : BKE_object_get_evaluated_mesh(depsgraph, par);
 
     if (me_eval) {
       int count = 0;
@@ -3568,15 +3564,15 @@ static void give_parvert(Object *par, int nr, float vec[3])
   }
 }
 
-static void ob_parvert3(Object *ob, Object *par, float r_mat[4][4])
+static void ob_parvert3(Depsgraph *depsgraph, Object *ob, Object *par, float r_mat[4][4])
 {
   /* in local ob space */
   if (OB_TYPE_SUPPORT_PARVERT(par->type)) {
     float cmat[3][3], v1[3], v2[3], v3[3], q[4];
 
-    give_parvert(par, ob->par1, v1);
-    give_parvert(par, ob->par2, v2);
-    give_parvert(par, ob->par3, v3);
+    give_parvert(depsgraph, par, ob->par1, v1);
+    give_parvert(depsgraph, par, ob->par2, v2);
+    give_parvert(depsgraph, par, ob->par3, v3);
 
     tri_to_quat(q, v1, v2, v3);
     quat_to_mat3(cmat, q);
@@ -3589,7 +3585,10 @@ static void ob_parvert3(Object *ob, Object *par, float r_mat[4][4])
   }
 }
 
-void BKE_object_get_parent_matrix(Object *ob, Object *par, float r_parentmat[4][4])
+void BKE_object_get_parent_matrix(Depsgraph *depsgraph,
+                                  Object *ob,
+                                  Object *par,
+                                  float r_parentmat[4][4])
 {
   float tmat[4][4];
   float vec[3];
@@ -3619,11 +3618,11 @@ void BKE_object_get_parent_matrix(Object *ob, Object *par, float r_parentmat[4][
 
     case PARVERT1:
       unit_m4(r_parentmat);
-      give_parvert(par, ob->par1, vec);
+      give_parvert(depsgraph, par, ob->par1, vec);
       mul_v3_m4v3(r_parentmat[3], par->obmat, vec);
       break;
     case PARVERT3:
-      ob_parvert3(ob, par, tmat);
+      ob_parvert3(depsgraph, ob, par, tmat);
 
       mul_m4_m4m4(r_parentmat, par->obmat, tmat);
       break;
@@ -3644,8 +3643,12 @@ void BKE_object_get_parent_matrix(Object *ob, Object *par, float r_parentmat[4][
  * \param r_originmat: Optional matrix that stores the space the object is in
  * (without its own matrix applied)
  */
-static void solve_parenting(
-    Object *ob, Object *par, const bool set_origin, float r_obmat[4][4], float r_originmat[3][3])
+static void solve_parenting(Depsgraph *depsgraph,
+                            Object *ob,
+                            Object *par,
+                            const bool set_origin,
+                            float r_obmat[4][4],
+                            float r_originmat[3][3])
 {
   float totmat[4][4];
   float tmat[4][4];
@@ -3653,7 +3656,7 @@ static void solve_parenting(
 
   BKE_object_to_mat4(ob, locmat);
 
-  BKE_object_get_parent_matrix(ob, par, totmat);
+  BKE_object_get_parent_matrix(depsgraph, ob, par, totmat);
 
   /* total */
   mul_m4_m4m4(tmat, totmat, ob->parentinv);
@@ -3686,7 +3689,7 @@ static void object_where_is_calc_ex(Depsgraph *depsgraph,
     Object *par = ob->parent;
 
     /* calculate parent matrix */
-    solve_parenting(ob, par, true, ob->obmat, r_originmat);
+    solve_parenting(depsgraph, ob, par, true, ob->obmat, r_originmat);
   }
   else {
     BKE_object_to_mat4(ob, ob->obmat);
@@ -3735,7 +3738,7 @@ void BKE_object_where_is_calc_mat4(Object *ob, float r_obmat[4][4])
 {
   if (ob->parent) {
     Object *par = ob->parent;
-    solve_parenting(ob, par, false, r_obmat, nullptr);
+    solve_parenting(nullptr, ob, par, false, r_obmat, nullptr);
   }
   else {
     BKE_object_to_mat4(ob, r_obmat);
@@ -3803,7 +3806,8 @@ void BKE_object_workob_calc_parent(Depsgraph *depsgraph, Scene *scene, Object *o
  * \param use_compat: true to ensure that rotations are set using the
  * min difference between the old and new orientation.
  */
-void BKE_object_apply_mat4_ex(Object *ob,
+void BKE_object_apply_mat4_ex(Depsgraph *depsgraph,
+                              Object *ob,
                               const float mat[4][4],
                               Object *parent,
                               const float parentinv[4][4],
@@ -3816,7 +3820,7 @@ void BKE_object_apply_mat4_ex(Object *ob,
   if (parent != nullptr) {
     float rmat[4][4], diff_mat[4][4], imat[4][4], parent_mat[4][4];
 
-    BKE_object_get_parent_matrix(ob, parent, parent_mat);
+    BKE_object_get_parent_matrix(depsgraph, ob, parent, parent_mat);
 
     mul_m4_m4m4(diff_mat, parent_mat, parentinv);
     invert_m4_m4(imat, diff_mat);
@@ -3849,12 +3853,14 @@ void BKE_object_apply_mat4_ex(Object *ob,
 /**
  * XXX: should be removed after COW operators port to use BKE_object_apply_mat4_ex directly.
  */
-void BKE_object_apply_mat4(Object *ob,
+void BKE_object_apply_mat4(Depsgraph *depsgraph,
+                           Object *ob,
                            const float mat[4][4],
                            const bool use_compat,
                            const bool use_parent)
 {
-  BKE_object_apply_mat4_ex(ob, mat, use_parent ? ob->parent : nullptr, ob->parentinv, use_compat);
+  BKE_object_apply_mat4_ex(
+      depsgraph, ob, mat, use_parent ? ob->parent : nullptr, ob->parentinv, use_compat);
 }
 
 /** \} */
@@ -3988,7 +3994,7 @@ void BKE_object_boundbox_calc_from_mesh(Object *ob, const Mesh *me_eval)
   ob->runtime.bb->flag &= ~BOUNDBOX_DIRTY;
 }
 
-bool BKE_object_boundbox_calc_from_evaluated_geometry(Object *ob)
+bool BKE_object_boundbox_calc_from_evaluated_geometry(Depsgraph *depsgraph, Object *ob)
 {
   blender::float3 min, max;
   INIT_MINMAX(min, max);
@@ -3996,7 +4002,7 @@ bool BKE_object_boundbox_calc_from_evaluated_geometry(Object *ob)
   if (ob->runtime.geometry_set_eval) {
     ob->runtime.geometry_set_eval->compute_boundbox_without_instances(&min, &max);
   }
-  else if (const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob)) {
+  else if (const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(depsgraph, ob)) {
     if (!BKE_mesh_wrapper_minmax(mesh_eval, min, max)) {
       return false;
     }
@@ -4321,13 +4327,14 @@ static void foreach_display_point_gpencil_stroke_fn(bGPDlayer *UNUSED(layer),
   }
 }
 
-void BKE_object_foreach_display_point(Object *ob,
+void BKE_object_foreach_display_point(Depsgraph *depsgraph,
+                                      Object *ob,
                                       const float obmat[4][4],
                                       void (*func_cb)(const float[3], void *),
                                       void *user_data)
 {
   /* TODO: pointcloud and hair objects support */
-  const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob);
+  const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(depsgraph, ob);
   float co[3];
 
   if (mesh_eval != nullptr) {
@@ -4370,7 +4377,7 @@ void BKE_scene_foreach_display_point(Depsgraph *depsgraph,
                          DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY | DEG_ITER_OBJECT_FLAG_VISIBLE |
                              DEG_ITER_OBJECT_FLAG_DUPLI) {
     if ((ob->base_flag & BASE_SELECTED) != 0) {
-      BKE_object_foreach_display_point(ob, ob->obmat, func_cb, user_data);
+      BKE_object_foreach_display_point(depsgraph, ob, ob->obmat, func_cb, user_data);
     }
   }
   DEG_OBJECT_ITER_END;
@@ -4629,13 +4636,25 @@ Mesh *BKE_object_get_evaluated_mesh_no_subsurf(const Object *object)
   return nullptr;
 }
 
-/** Get evaluated mesh for given object. */
-Mesh *BKE_object_get_evaluated_mesh(const Object *object)
+/** Get evaluated mesh for given object.
+ * This will lazily compute subdivision on the CPU if the depsgraph is not null.
+ */
+Mesh *BKE_object_get_evaluated_mesh(Depsgraph *depsgraph, const Object *object)
 {
-  if (object->runtime.subsurf_data_eval) {
-    return object->runtime.subsurf_data_eval;
+  Mesh *mesh = BKE_object_get_evaluated_mesh_no_subsurf(object);
+  if (!mesh) {
+    return nullptr;
   }
-  return BKE_object_get_evaluated_mesh_no_subsurf(object);
+
+  if (depsgraph) {
+    const uint32_t eval_flags = DEG_get_eval_flags_for_id(depsgraph,
+                                                          const_cast<ID *>(&object->id));
+    if (eval_flags & DAG_EVAL_SUBDIV_ON_CPU) {
+      mesh = BKE_mesh_wrapper_ensure_subdivision(depsgraph, object, mesh);
+    }
+  }
+
+  return mesh;
 }
 
 /**
@@ -5297,7 +5316,6 @@ void BKE_object_runtime_reset_on_copy(Object *object, const int UNUSED(flag))
   runtime->object_as_temp_mesh = nullptr;
   runtime->object_as_temp_curve = nullptr;
   runtime->geometry_set_eval = nullptr;
-  runtime->subsurf_data_eval = nullptr;
 }
 
 /**
@@ -5463,7 +5481,7 @@ void BKE_object_groups_clear(Main *bmain, Scene *scene, Object *ob)
  * \param r_tot:
  * \return The kdtree or nullptr if it can't be created.
  */
-KDTree_3d *BKE_object_as_kdtree(Object *ob, int *r_tot)
+KDTree_3d *BKE_object_as_kdtree(Depsgraph *depsgraph, Object *ob, int *r_tot)
 {
   KDTree_3d *tree = nullptr;
   unsigned int tot = 0;
@@ -5474,7 +5492,7 @@ KDTree_3d *BKE_object_as_kdtree(Object *ob, int *r_tot)
       unsigned int i;
 
       Mesh *me_eval = ob->runtime.mesh_deform_eval ? ob->runtime.mesh_deform_eval :
-                                                     BKE_object_get_evaluated_mesh(ob);
+                                                     BKE_object_get_evaluated_mesh(depsgraph, ob);
       const int *index;
 
       if (me_eval && (index = (const int *)CustomData_get_layer(&me_eval->vdata, CD_ORIGINDEX))) {
@@ -5918,10 +5936,9 @@ SubsurfModifierData *BKE_object_get_last_subsurf_modifier(Object *ob)
 void BKE_object_replace_data_on_shallow_copy(Object *ob, ID *new_data)
 {
   ob->type = BKE_object_obdata_to_type(new_data);
-  ob->data = new_data;
+  ob->data = (void *)new_data;
   ob->runtime.geometry_set_eval = nullptr;
-  ob->runtime.data_eval = nullptr;
-  ob->runtime.subsurf_data_eval = nullptr;
+  ob->runtime.data_eval = new_data;
   if (ob->runtime.bb != nullptr) {
     ob->runtime.bb->flag |= BOUNDBOX_DIRTY;
   }

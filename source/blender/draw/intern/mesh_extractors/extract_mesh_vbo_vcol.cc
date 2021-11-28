@@ -37,8 +37,7 @@ namespace blender::draw {
 /* Initialize the common vertex format for vcol for coarse and subdivided meshes. */
 static void init_vcol_format(GPUVertFormat *format,
                              const MeshBatchCache *cache,
-                             CustomData *cd_ldata,
-                             CustomData *cd_vdata)
+                             CustomData *cd_ldata)
 {
   GPU_vertformat_deinterleave(format);
 
@@ -95,9 +94,8 @@ static void extract_vcol_init(const MeshRenderData *mr,
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buf);
   GPUVertFormat format = {0};
   CustomData *cd_ldata = (mr->extract_type == MR_EXTRACT_BMESH) ? &mr->bm->ldata : &mr->me->ldata;
-  CustomData *cd_vdata = (mr->extract_type == MR_EXTRACT_BMESH) ? &mr->bm->vdata : &mr->me->vdata;
   const uint32_t vcol_layers = cache->cd_used.vcol;
-  init_vcol_format(&format, cache, cd_ldata, cd_vdata);
+  init_vcol_format(&format, cache, cd_ldata);
 
   GPU_vertbuf_init_with_format(vbo, &format);
   GPU_vertbuf_data_alloc(vbo, mr->loop_len);
@@ -146,7 +144,7 @@ static void extract_vcol_init_subdiv(const DRWSubdivCache *subdiv_cache,
   Mesh *coarse_mesh = subdiv_cache->mesh;
 
   GPUVertFormat format = {0};
-  init_vcol_format(&format, cache, &coarse_mesh->ldata, &coarse_mesh->vdata);
+  init_vcol_format(&format, cache, &coarse_mesh->ldata);
 
   GPU_vertbuf_init_build_on_device(dst_buffer, &format, subdiv_cache->num_subdiv_loops);
 

@@ -345,7 +345,8 @@ static void make_child_duplis(const DupliContext *ctx,
 /** \name Internal Data Access Utilities
  * \{ */
 
-static const Mesh *mesh_data_from_duplicator_object(Object *ob,
+static const Mesh *mesh_data_from_duplicator_object(Depsgraph *despgraph,
+                                                    Object *ob,
                                                     BMEditMesh **r_em,
                                                     const float (**r_vert_coords)[3],
                                                     const float (**r_vert_normals)[3])
@@ -385,7 +386,7 @@ static const Mesh *mesh_data_from_duplicator_object(Object *ob,
     }
   }
   else {
-    me_eval = BKE_object_get_evaluated_mesh(ob);
+    me_eval = BKE_object_get_evaluated_mesh(despgraph, ob);
   }
   return me_eval;
 }
@@ -614,7 +615,7 @@ static void make_duplis_verts(const DupliContext *ctx)
   const float(*vert_coords)[3] = nullptr;
   const float(*vert_normals)[3] = nullptr;
   const Mesh *me_eval = mesh_data_from_duplicator_object(
-      parent, &em, &vert_coords, use_rotation ? &vert_normals : nullptr);
+      ctx->depsgraph, parent, &em, &vert_coords, use_rotation ? &vert_normals : nullptr);
   if (em == nullptr && me_eval == nullptr) {
     return;
   }
@@ -1225,7 +1226,8 @@ static void make_duplis_faces(const DupliContext *ctx)
   /* Gather mesh info. */
   BMEditMesh *em = nullptr;
   const float(*vert_coords)[3] = nullptr;
-  const Mesh *me_eval = mesh_data_from_duplicator_object(parent, &em, &vert_coords, nullptr);
+  const Mesh *me_eval = mesh_data_from_duplicator_object(
+      ctx->depsgraph, parent, &em, &vert_coords, nullptr);
   if (em == nullptr && me_eval == nullptr) {
     return;
   }

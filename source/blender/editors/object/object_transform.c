@@ -543,7 +543,7 @@ static void ignore_parent_tx(Main *bmain, Depsgraph *depsgraph, Scene *scene, Ob
   for (ob_child = bmain->objects.first; ob_child; ob_child = ob_child->id.next) {
     if (ob_child->parent == ob) {
       Object *ob_child_eval = DEG_get_evaluated_object(depsgraph, ob_child);
-      BKE_object_apply_mat4(ob_child_eval, ob_child_eval->obmat, true, false);
+      BKE_object_apply_mat4(NULL, ob_child_eval, ob_child_eval->obmat, true, false);
       BKE_object_workob_calc_parent(depsgraph, scene, ob_child_eval, &workob);
       invert_m4_m4(ob_child->parentinv, workob.obmat);
       /* Copy result of BKE_object_apply_mat4(). */
@@ -958,7 +958,7 @@ static int visual_transform_apply_exec(bContext *C, wmOperator *UNUSED(op))
   CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects) {
     Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
     BKE_object_where_is_calc(depsgraph, scene, ob_eval);
-    BKE_object_apply_mat4(ob_eval, ob_eval->obmat, true, true);
+    BKE_object_apply_mat4(NULL, ob_eval, ob_eval->obmat, true, true);
     BKE_object_transform_copy(ob, ob_eval);
 
     /* update for any children that may get moved */
@@ -1710,7 +1710,7 @@ static void object_apply_rotation(Object *ob, const float rmat[3][3])
 
   copy_v3_v3(size, ob->scale);
   copy_v3_v3(loc, ob->loc);
-  BKE_object_apply_mat4(ob, rmat4, true, true);
+  BKE_object_apply_mat4(NULL, ob, rmat4, true, true);
   copy_v3_v3(ob->scale, size);
   copy_v3_v3(ob->loc, loc);
 }
@@ -1722,7 +1722,7 @@ static void object_apply_location(Object *ob, const float loc[3])
   float mat[4][4];
   copy_m4_m4(mat, ob->obmat);
   copy_v3_v3(mat[3], loc);
-  BKE_object_apply_mat4(ob, mat, true, true);
+  BKE_object_apply_mat4(NULL, ob, mat, true, true);
   copy_v3_v3(mat[3], ob->loc);
   *ob = ob_prev;
   copy_v3_v3(ob->loc, mat[3]);

@@ -23,6 +23,7 @@
 #include "MEM_guardedalloc.h"
 #include <new>
 
+#include "internal/evaluator/evaluator_cache_impl.h"
 #include "internal/evaluator/evaluator_impl.h"
 
 namespace {
@@ -135,8 +136,8 @@ void evaluateFaceVarying(OpenSubdiv_Evaluator *evaluator,
 }
 
 void getPatchMap(struct OpenSubdiv_Evaluator *evaluator,
-                 struct OpenSubdiv_BufferInterface *patch_map_handles,
-                 struct OpenSubdiv_BufferInterface *patch_map_quadtree,
+                 struct OpenSubdiv_Buffer *patch_map_handles,
+                 struct OpenSubdiv_Buffer *patch_map_quadtree,
                  int *min_patch_face,
                  int *max_patch_face,
                  int *max_depth,
@@ -151,32 +152,31 @@ void getPatchMap(struct OpenSubdiv_Evaluator *evaluator,
 }
 
 void wrapPatchArraysBuffer(struct OpenSubdiv_Evaluator *evaluator,
-                           struct OpenSubdiv_BufferInterface *patch_array_buffer)
+                           struct OpenSubdiv_Buffer *patch_array_buffer)
 {
   evaluator->impl->eval_output->wrapPatchArraysBuffer(patch_array_buffer);
 }
 
 void wrapPatchIndexBuffer(struct OpenSubdiv_Evaluator *evaluator,
-                          struct OpenSubdiv_BufferInterface *patch_index_buffer)
+                          struct OpenSubdiv_Buffer *patch_index_buffer)
 {
   evaluator->impl->eval_output->wrapPatchIndexBuffer(patch_index_buffer);
 }
 
 void wrapPatchParamBuffer(struct OpenSubdiv_Evaluator *evaluator,
-                          struct OpenSubdiv_BufferInterface *patch_param_buffer)
+                          struct OpenSubdiv_Buffer *patch_param_buffer)
 {
   evaluator->impl->eval_output->wrapPatchParamBuffer(patch_param_buffer);
 }
 
-void wrapSrcBuffer(struct OpenSubdiv_Evaluator *evaluator,
-                   struct OpenSubdiv_BufferInterface *src_buffer)
+void wrapSrcBuffer(struct OpenSubdiv_Evaluator *evaluator, struct OpenSubdiv_Buffer *src_buffer)
 {
   evaluator->impl->eval_output->wrapSrcBuffer(src_buffer);
 }
 
 void wrapFVarPatchArraysBuffer(struct OpenSubdiv_Evaluator *evaluator,
                                const int face_varying_channel,
-                               struct OpenSubdiv_BufferInterface *patch_array_buffer)
+                               struct OpenSubdiv_Buffer *patch_array_buffer)
 {
   evaluator->impl->eval_output->wrapFVarPatchArraysBuffer(face_varying_channel,
                                                           patch_array_buffer);
@@ -184,21 +184,21 @@ void wrapFVarPatchArraysBuffer(struct OpenSubdiv_Evaluator *evaluator,
 
 void wrapFVarPatchIndexBuffer(struct OpenSubdiv_Evaluator *evaluator,
                               const int face_varying_channel,
-                              struct OpenSubdiv_BufferInterface *patch_index_buffer)
+                              struct OpenSubdiv_Buffer *patch_index_buffer)
 {
   evaluator->impl->eval_output->wrapFVarPatchIndexBuffer(face_varying_channel, patch_index_buffer);
 }
 
 void wrapFVarPatchParamBuffer(struct OpenSubdiv_Evaluator *evaluator,
                               const int face_varying_channel,
-                              struct OpenSubdiv_BufferInterface *patch_param_buffer)
+                              struct OpenSubdiv_Buffer *patch_param_buffer)
 {
   evaluator->impl->eval_output->wrapFVarPatchParamBuffer(face_varying_channel, patch_param_buffer);
 }
 
 void wrapFVarSrcBuffer(struct OpenSubdiv_Evaluator *evaluator,
                        const int face_varying_channel,
-                       struct OpenSubdiv_BufferInterface *src_buffer)
+                       struct OpenSubdiv_Buffer *src_buffer)
 {
   evaluator->impl->eval_output->wrapFVarSrcBuffer(face_varying_channel, src_buffer);
 }

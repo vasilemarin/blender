@@ -68,7 +68,7 @@ void ED_draw_object_facemap(Depsgraph *depsgraph,
   const Mesh *me = ob->data;
   {
     Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-    const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
+    const Mesh *me_eval = BKE_object_get_evaluated_mesh(NULL, ob_eval);
     if (me_eval != NULL) {
       me = me_eval;
     }

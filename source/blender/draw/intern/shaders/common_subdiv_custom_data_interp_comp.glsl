@@ -152,7 +152,7 @@ uint get_polygon_corner_index(uint coarse_polygon, uint patch_index)
 
 uint get_loop_start(uint coarse_polygon)
 {
-  return extra_coarse_face_data[coarse_polygon] & 0x7fffffff;
+  return extra_coarse_face_data[coarse_polygon] & coarse_face_loopstart_mask;
 }
 
 void main()

@@ -128,7 +128,8 @@ static bool stats_mesheval(const Mesh *me_eval, bool is_selected, SceneStats *st
   return true;
 }
 
-static void stats_object(Object *ob,
+static void stats_object(Depsgraph *depsgraph,
+                         Object *ob,
                          const View3D *v3d_local,
                          SceneStats *stats,
                          GSet *objects_gset)
@@ -151,7 +152,7 @@ static void stats_object(Object *ob,
   switch (ob->type) {
     case OB_MESH: {
       /* we assume evaluated mesh is already built, this strictly does stats now. */
-      const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob);
+      const Mesh *me_eval = BKE_object_get_evaluated_mesh(depsgraph, ob);
       if (!BLI_gset_add(objects_gset, (void *)me_eval)) {
         break;
       }
@@ -167,7 +168,7 @@ static void stats_object(Object *ob,
     case OB_SURF:
     case OB_CURVE:
     case OB_FONT: {
-      const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob);
+      const Mesh *me_eval = BKE_object_get_evaluated_mesh(depsgraph, ob);
       if ((me_eval != nullptr) && !BLI_gset_add(objects_gset, (void *)me_eval)) {
         break;
       }
@@ -455,7 +456,7 @@ static void stats_update(Depsgraph *depsgraph,
     /* Objects. */
     GSet *objects_gset = BLI_gset_new(BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, __func__);
     DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob_iter) {
-      stats_object(ob_iter, v3d_local, stats, objects_gset);
+      stats_object(depsgraph, ob_iter, v3d_local, stats, objects_gset);
     }
     DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END;
     BLI_gset_free(objects_gset, nullptr);

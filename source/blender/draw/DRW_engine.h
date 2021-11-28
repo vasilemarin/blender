@@ -160,6 +160,9 @@ void DRW_xr_drawing_end(void);
 void DRW_cache_free_old_batches(struct Main *bmain);
 void DRW_cache_free_old_subdiv(void);
 
+/* For the OpenGL evaluators and garbage collected subdivision data. */
+void DRW_subdiv_free(void);
+
 /* Never use this. Only for closing blender. */
 void DRW_opengl_context_enable_ex(bool restore);
 void DRW_opengl_context_disable_ex(bool restore);

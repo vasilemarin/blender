@@ -33,19 +33,26 @@ struct Mesh;
 struct Subdiv;
 struct OpenSubdiv_EvaluatorCache;
 
-/* Returns true if evaluator is ready for use.
- * NOTE: evaluator_type is a eOpenSubdivEvaluator. */
+typedef enum eSubdivEvaluatorType {
+  SUBDIV_EVALUATOR_TYPE_CPU,
+  SUBDIV_EVALUATOR_TYPE_OPENMP,
+  SUBDIV_EVALUATOR_TYPE_OPENCL,
+  SUBDIV_EVALUATOR_TYPE_CUDA,
+  SUBDIV_EVALUATOR_TYPE_GLSL_TRANSFORM_FEEDBACK,
+  SUBDIV_EVALUATOR_TYPE_GLSL_COMPUTE,
+} eSubdivEvaluatorType;
+
+/* Returns true if evaluator is ready for use. */
 bool BKE_subdiv_eval_begin(struct Subdiv *subdiv,
-                           int evaluator_type,
+                           eSubdivEvaluatorType evaluator_type,
                            struct OpenSubdiv_EvaluatorCache *evaluator_cache);
 
 /* coarse_vertex_cos is an optional argument which allows to override coordinates of the coarse
- * mesh.
- * NOTE: evaluator_type is a eOpenSubdivEvaluator. */
+ * mesh. */
 bool BKE_subdiv_eval_begin_from_mesh(struct Subdiv *subdiv,
                                      const struct Mesh *mesh,
                                      const float (*coarse_vertex_cos)[3],
-                                     int evaluator_type,
+                                     eSubdivEvaluatorType evaluator_type,
                                      struct OpenSubdiv_EvaluatorCache *evaluator_cache);
 bool BKE_subdiv_eval_refine_from_mesh(struct Subdiv *subdiv,
                                       const struct Mesh *mesh,

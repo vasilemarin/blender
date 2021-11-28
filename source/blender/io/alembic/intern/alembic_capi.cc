@@ -745,7 +745,7 @@ void ABC_get_transform(CacheReader *reader, float r_mat_world[4][4], float time,
   }
 
   float mat_parent[4][4];
-  BKE_object_get_parent_matrix(object, object->parent, mat_parent);
+  BKE_object_get_parent_matrix(nullptr, object, object->parent, mat_parent);
 
   float mat_local[4][4];
   abc_reader->read_matrix(mat_local, time, scale, is_constant);

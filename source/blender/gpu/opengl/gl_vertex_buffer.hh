@@ -40,7 +40,7 @@ class GLVertBuf : public VertBuf {
   /** OpenGL buffer handle. Init on first upload. Immutable after that. */
   GLuint vbo_id_ = 0;
   /** Defines whether the buffer handle is wrapped by this GLVertBuf, i.e. we do not own it and
-   * should free it. */
+   * should not free it. */
   bool is_wrapper_ = false;
   /** Size on the GPU. */
   size_t vbo_size_ = 0;

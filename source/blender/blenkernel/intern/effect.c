@@ -374,7 +374,8 @@ ListBase *BKE_effectors_create(Depsgraph *depsgraph,
       if (!is_effector_relevant(ob->pd, weights, use_rotation)) {
         continue;
       }
-      if (ob->pd->shape == PFIELD_SHAPE_POINTS && BKE_object_get_evaluated_mesh(ob) == NULL) {
+      if (ob->pd->shape == PFIELD_SHAPE_POINTS &&
+          BKE_object_get_evaluated_mesh(depsgraph, ob) == NULL) {
         continue;
       }
 
@@ -692,7 +693,8 @@ int closest_point_on_surface(SurfaceModifierData *surmd,
 
   return 0;
 }
-int get_effector_data(EffectorCache *eff,
+int get_effector_data(Depsgraph *depsgraph,
+                      EffectorCache *eff,
                       EffectorData *efd,
                       EffectedPoint *point,
                       int real_velocity)
@@ -718,7 +720,7 @@ int get_effector_data(EffectorCache *eff,
   }
   else if (eff->pd && eff->pd->shape == PFIELD_SHAPE_POINTS) {
     /* TODO: hair and points object support */
-    const Mesh *me_eval = BKE_object_get_evaluated_mesh(eff->ob);
+    const Mesh *me_eval = BKE_object_get_evaluated_mesh(depsgraph, eff->ob);
     if (me_eval != NULL) {
       copy_v3_v3(efd->loc, me_eval->mvert[*efd->index].co);
       normal_short_to_float_v3(efd->nor, me_eval->mvert[*efd->index].no);
@@ -824,15 +826,20 @@ int get_effector_data(EffectorCache *eff,
 
   return ret;
 }
-static void get_effector_tot(
-    EffectorCache *eff, EffectorData *efd, EffectedPoint *point, int *tot, int *p, int *step)
+static void get_effector_tot(Depsgraph *depsgraph,
+                             EffectorCache *eff,
+                             EffectorData *efd,
+                             EffectedPoint *point,
+                             int *tot,
+                             int *p,
+                             int *step)
 {
   *p = 0;
   efd->index = p;
 
   if (eff->pd->shape == PFIELD_SHAPE_POINTS) {
     /* TODO: hair and points object support */
-    const Mesh *me_eval = BKE_object_get_evaluated_mesh(eff->ob);
+    const Mesh *me_eval = BKE_object_get_evaluated_mesh(depsgraph, eff->ob);
     *tot = me_eval != NULL ? me_eval->totvert : 1;
 
     if (*tot && eff->pd->forcefield == PFIELD_HARMONIC && point->index >= 0) {
@@ -1144,7 +1151,8 @@ static void do_physical_effector(EffectorCache *eff,
  * flags        = only used for softbody wind now
  * guide        = old speed of particle
  */
-void BKE_effectors_apply(ListBase *effectors,
+void BKE_effectors_apply(Depsgraph *depsgraph,
+                         ListBase *effectors,
                          ListBase *colliders,
                          EffectorWeights *weights,
                          EffectedPoint *point,
@@ -1176,10 +1184,10 @@ void BKE_effectors_apply(ListBase *effectors,
     for (eff = effectors->first; eff; eff = eff->next) {
       /* object effectors were fully checked to be OK to evaluate! */
 
-      get_effector_tot(eff, &efd, point, &tot, &p, &step);
+      get_effector_tot(depsgraph, eff, &efd, point, &tot, &p, &step);
 
       for (; p < tot; p += step) {
-        if (get_effector_data(eff, &efd, point, 0)) {
+        if (get_effector_data(depsgraph, eff, &efd, point, 0)) {
           efd.falloff = effector_falloff(eff, &efd, point, weights);
 
           if (efd.falloff > 0.0f) {

@@ -393,7 +393,7 @@ int ED_mesh_join_objects_exec(bContext *C, wmOperator *op)
    * NOTE: This doesn't apply recursive parenting. */
   if (join_parent) {
     ob->parent = NULL;
-    BKE_object_apply_mat4_ex(ob, ob->obmat, ob->parent, ob->parentinv, false);
+    BKE_object_apply_mat4_ex(depsgraph, ob, ob->obmat, ob->parent, ob->parentinv, false);
   }
 
   /* that way the active object is always selected */
