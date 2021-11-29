@@ -319,7 +319,7 @@ Mesh *BKE_mesh_wrapper_ensure_subdivision(Depsgraph *depsgraph, const Object *ob
 
   if (me->runtime.wrapper_type == ME_WRAPPER_TYPE_SUBD) {
     BLI_mutex_unlock(mesh_eval_mutex);
-    return me;
+    return me->runtime.mesh_eval;
   }
 
   SubsurfModifierData *smd = BKE_object_get_last_subsurf_modifier(ob);
