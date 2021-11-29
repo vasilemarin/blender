@@ -98,7 +98,6 @@ typedef struct SnapObjectData {
 } SnapObjectData;
 
 struct SnapObjectContext {
-  Depsgraph *depsgraph;
   Scene *scene;
 
   int flag;
@@ -1024,7 +1023,7 @@ static void raycast_obj_fn(
     case OB_MESH: {
       const eSnapEditType edit_mode_type = sctx->runtime.params->edit_mode_type;
       bool use_hide = false;
-      Mesh *me_eval = mesh_for_snap(sctx->depsgraph, ob_eval, edit_mode_type, &use_hide);
+      Mesh *me_eval = mesh_for_snap(sctx->runtime.depsgraph, ob_eval, edit_mode_type, &use_hide);
       if (me_eval == NULL) {
         /* Operators only update the editmesh looptris of the original mesh. */
         BMEditMesh *em_orig = BKE_editmesh_from_object(DEG_get_original_object(ob_eval));
@@ -2691,7 +2690,7 @@ static void snap_obj_fn(SnapObjectContext *sctx,
     case OB_MESH: {
       const eSnapEditType edit_mode_type = sctx->runtime.params->edit_mode_type;
       bool use_hide;
-      Mesh *me_eval = mesh_for_snap(sctx->depsgraph, ob_eval, edit_mode_type, &use_hide);
+      Mesh *me_eval = mesh_for_snap(sctx->runtime.depsgraph, ob_eval, edit_mode_type, &use_hide);
       if (me_eval == NULL) {
         /* Operators only update the editmesh looptris of the original mesh. */
         BMEditMesh *em_orig = BKE_editmesh_from_object(DEG_get_original_object(ob_eval));
