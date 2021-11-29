@@ -38,7 +38,6 @@
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_particle_types.h"
 #include "DNA_screen_types.h"
@@ -47,11 +46,9 @@
 #include "BKE_anim_data.h"
 #include "BKE_global.h"
 #include "BKE_idtype.h"
-#include "BKE_modifier.h"
 #include "BKE_node.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
-#include "BKE_subdiv_modifier.h"
 #include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
@@ -454,8 +451,6 @@ const char *update_source_as_string(eUpdateSource source)
       return "RELATIONS";
     case DEG_UPDATE_SOURCE_VISIBILITY:
       return "VISIBILITY";
-    case DEG_UPDATE_SOURCE_REQUIRES_SUBDIVISION:
-      return "SUBDIVISION";
   }
   BLI_assert_msg(0, "Should never happen.");
   return "UNKNOWN";
