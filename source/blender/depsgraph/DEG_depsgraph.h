@@ -71,9 +71,6 @@ enum {
   /* A shrinkwrap modifier or constraint targeting this mesh needs information
    * about non-manifold boundary edges for the Target Normal Project mode. */
   DAG_EVAL_NEED_SHRINKWRAP_BOUNDARY = (1 << 1),
-  /* Evaluate last subsurf modifier on the stack on the CPU as well so that
-   * tools and modifier can access the final subdivided surface geometry. */
-  DAG_EVAL_SUBDIV_ON_CPU = (1 << 2),
 };
 
 #ifdef __cplusplus
@@ -117,9 +114,6 @@ void DEG_graph_tag_on_visible_update(Depsgraph *depsgraph, const bool do_time);
 
 /* Tag all dependency graphs for update when visible scenes/layers changes. */
 void DEG_tag_on_visible_update(struct Main *bmain, const bool do_time);
-
-/* Tag dependency graph for updates to compute subdivision on the CPU. */
-void DEG_graph_tag_for_cpu_subdivision_evaluation(Depsgraph *depsgraph);
 
 /* NOTE: Will return NULL if the flag is not known, allowing to gracefully handle situations
  * when recalc flag has been removed. */

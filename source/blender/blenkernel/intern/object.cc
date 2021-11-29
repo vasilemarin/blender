@@ -4638,6 +4638,7 @@ Mesh *BKE_object_get_evaluated_mesh_no_subsurf(const Object *object)
 
 /** Get evaluated mesh for given object.
  * This will lazily compute subdivision on the CPU if the depsgraph is not null.
+ * If subdivision data is not required use #BKE_object_get_evaluated_mesh_no_subsurf instead.
  */
 Mesh *BKE_object_get_evaluated_mesh(Depsgraph *depsgraph, const Object *object)
 {
@@ -4646,12 +4647,8 @@ Mesh *BKE_object_get_evaluated_mesh(Depsgraph *depsgraph, const Object *object)
     return nullptr;
   }
 
-  if (depsgraph) {
-    const uint32_t eval_flags = DEG_get_eval_flags_for_id(depsgraph,
-                                                          const_cast<ID *>(&object->id));
-    if (eval_flags & DAG_EVAL_SUBDIV_ON_CPU) {
-      mesh = BKE_mesh_wrapper_ensure_subdivision(depsgraph, object, mesh);
-    }
+  if (depsgraph && GS(((const ID *)object->data)->name) == ID_ME) {
+    mesh = BKE_mesh_wrapper_ensure_subdivision(depsgraph, object, mesh);
   }
 
   return mesh;

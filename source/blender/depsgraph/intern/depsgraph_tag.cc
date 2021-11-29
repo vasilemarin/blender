@@ -512,11 +512,6 @@ void graph_tag_on_visible_update(Depsgraph *graph, const bool do_time)
   graph->need_visibility_time_update |= do_time;
 }
 
-void graph_tag_for_cpu_subdivision_evaluation(Depsgraph *graph)
-{
-  graph->need_cpu_subdivision = true;
-}
-
 } /* namespace */
 
 void graph_tag_ids_for_visible_update(Depsgraph *graph)
@@ -588,33 +583,6 @@ void graph_tag_ids_for_visible_update(Depsgraph *graph)
 
   graph->need_visibility_update = false;
   graph->need_visibility_time_update = false;
-}
-
-void graph_tag_ids_for_cpu_subdivision_evaluation(Depsgraph *graph)
-{
-  if (!graph->need_cpu_subdivision) {
-    return;
-  }
-
-  Scene *scene = graph->scene;
-
-  for (deg::IDNode *id_node : graph->id_nodes) {
-    const ID_Type id_type = GS(id_node->id_orig->name);
-    if (id_type != ID_OB) {
-      continue;
-    }
-
-    Object *object_orig = reinterpret_cast<Object *>(id_node->id_orig);
-    int required_mode = eModifierMode_Realtime | eModifierMode_Editmode;
-
-    if (!BKE_subsurf_modifier_can_do_gpu_subdiv(scene, object_orig, required_mode)) {
-      continue;
-    }
-
-    id_node->eval_flags |= DAG_EVAL_SUBDIV_ON_CPU;
-  }
-
-  graph->need_cpu_subdivision = false;
 }
 
 NodeType geometry_tag_to_component(const ID *id)
@@ -871,12 +839,6 @@ void DEG_tag_on_visible_update(Main *bmain, const bool do_time)
   for (deg::Depsgraph *depsgraph : deg::get_all_registered_graphs(bmain)) {
     deg::graph_tag_on_visible_update(depsgraph, do_time);
   }
-}
-
-void DEG_graph_tag_for_cpu_subdivision_evaluation(Depsgraph *depsgraph)
-{
-  deg::Depsgraph *graph = (deg::Depsgraph *)depsgraph;
-  deg::graph_tag_for_cpu_subdivision_evaluation(graph);
 }
 
 void DEG_enable_editors_update(Depsgraph *depsgraph)
