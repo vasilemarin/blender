@@ -141,7 +141,7 @@ set(SRC
 
   function/nodes/node_fn_align_euler_to_vector.cc
   function/nodes/node_fn_boolean_math.cc
-  function/nodes/node_fn_float_compare.cc
+  function/nodes/node_fn_compare.cc
   function/nodes/node_fn_float_to_int.cc
   function/nodes/node_fn_input_bool.cc
   function/nodes/node_fn_input_color.cc
@@ -248,7 +248,7 @@ set(SRC
   shader/nodes/node_shader_wavelength.c
   shader/nodes/node_shader_wireframe.c
   shader/node_shader_tree.c
-  shader/node_shader_util.c
+  shader/node_shader_util.cc
 
   texture/nodes/node_texture_at.c
   texture/nodes/node_texture_bricks.c
@@ -277,7 +277,6 @@ set(SRC
   texture/node_texture_util.c
 
   intern/derived_node_tree.cc
-  intern/extern_implementations.cc
   intern/geometry_nodes_eval_log.cc
   intern/math_functions.cc
   intern/node_common.cc

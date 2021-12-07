@@ -183,10 +183,6 @@ static int attribute_domain_priority(const AttributeDomain domain)
   }
 }
 
-/**
- * Domains with a higher "information density" have a higher priority, in order
- * to choose a domain that will not lose data through domain conversion.
- */
 AttributeDomain attribute_domain_highest_priority(Span<AttributeDomain> domains)
 {
   int highest_priority = INT_MIN;
@@ -288,7 +284,7 @@ static void *add_generic_custom_data_layer(CustomData &custom_data,
     char attribute_name_c[MAX_NAME];
     attribute_id.name().copy(attribute_name_c);
     return CustomData_add_layer_named(
-        &custom_data, data_type, CD_DEFAULT, nullptr, domain_size, attribute_name_c);
+        &custom_data, data_type, alloctype, layer_data, domain_size, attribute_name_c);
   }
   const AnonymousAttributeID &anonymous_id = attribute_id.anonymous_id();
   return CustomData_add_layer_anonymous(
@@ -400,7 +396,9 @@ WriteAttributeLookup BuiltinCustomDataLayerProvider::try_get_for_write(
   }
 
   if (data != new_data) {
-    custom_data_access_.update_custom_data_pointers(component);
+    if (custom_data_access_.update_custom_data_pointers) {
+      custom_data_access_.update_custom_data_pointers(component);
+    }
     data = new_data;
   }
 
@@ -441,7 +439,9 @@ bool BuiltinCustomDataLayerProvider::try_delete(GeometryComponent &component) co
   const bool delete_success = CustomData_free_layer(
       custom_data, stored_type_, domain_size, layer_index);
   if (delete_success) {
-    custom_data_access_.update_custom_data_pointers(component);
+    if (custom_data_access_.update_custom_data_pointers) {
+      custom_data_access_.update_custom_data_pointers(component);
+    }
   }
   return delete_success;
 }
@@ -476,7 +476,9 @@ bool BuiltinCustomDataLayerProvider::try_create(GeometryComponent &component,
         *custom_data, stored_type_, domain_size, initializer);
   }
   if (success) {
-    custom_data_access_.update_custom_data_pointers(component);
+    if (custom_data_access_.update_custom_data_pointers) {
+      custom_data_access_.update_custom_data_pointers(component);
+    }
   }
   return success;
 }
@@ -644,7 +646,9 @@ WriteAttributeLookup NamedLegacyCustomDataProvider::try_get_for_write(
         void *data_new = CustomData_duplicate_referenced_layer_named(
             custom_data, stored_type_, layer.name, domain_size);
         if (data_old != data_new) {
-          custom_data_access_.update_custom_data_pointers(component);
+          if (custom_data_access_.update_custom_data_pointers) {
+            custom_data_access_.update_custom_data_pointers(component);
+          }
         }
         return {as_write_attribute_(layer.data, domain_size), domain_};
       }
@@ -666,7 +670,9 @@ bool NamedLegacyCustomDataProvider::try_delete(GeometryComponent &component,
       if (custom_data_layer_matches_attribute_id(layer, attribute_id)) {
         const int domain_size = component.attribute_domain_size(domain_);
         CustomData_free_layer(custom_data, stored_type_, domain_size, i);
-        custom_data_access_.update_custom_data_pointers(component);
+        if (custom_data_access_.update_custom_data_pointers) {
+          custom_data_access_.update_custom_data_pointers(component);
+        }
         return true;
       }
     }
@@ -734,7 +740,6 @@ CustomDataAttributes &CustomDataAttributes::operator=(const CustomDataAttributes
 
 std::optional<GSpan> CustomDataAttributes::get_for_read(const AttributeIDRef &attribute_id) const
 {
-  BLI_assert(size_ != 0);
   for (const CustomDataLayer &layer : Span(data.layers, data.totlayer)) {
     if (custom_data_layer_matches_attribute_id(layer, attribute_id)) {
       const CPPType *cpp_type = custom_data_type_to_cpp_type((CustomDataType)layer.type);
@@ -745,11 +750,6 @@ std::optional<GSpan> CustomDataAttributes::get_for_read(const AttributeIDRef &at
   return {};
 }
 
-/**
- * Return a virtual array for a stored attribute, or a single value virtual array with the default
- * value if the attribute doesn't exist. If no default value is provided, the default value for the
- * type will be used.
- */
 GVArray CustomDataAttributes::get_for_read(const AttributeIDRef &attribute_id,
                                            const CustomDataType data_type,
                                            const void *default_value) const
@@ -773,8 +773,6 @@ GVArray CustomDataAttributes::get_for_read(const AttributeIDRef &attribute_id,
 
 std::optional<GMutableSpan> CustomDataAttributes::get_for_write(const AttributeIDRef &attribute_id)
 {
-  /* If this assert hits, it most likely means that #reallocate was not called at some point. */
-  BLI_assert(size_ != 0);
   for (CustomDataLayer &layer : MutableSpan(data.layers, data.totlayer)) {
     if (custom_data_layer_matches_attribute_id(layer, attribute_id)) {
       const CPPType *cpp_type = custom_data_type_to_cpp_type((CustomDataType)layer.type);
@@ -1050,10 +1048,6 @@ Set<AttributeIDRef> GeometryComponent::attribute_ids() const
   return attributes;
 }
 
-/**
- * \return False if the callback explicitly returned false at any point, otherwise true,
- * meaning the callback made it all the way through.
- */
 bool GeometryComponent::attribute_foreach(const AttributeForeachCallback callback) const
 {
   using namespace blender::bke;
@@ -1414,21 +1408,25 @@ OutputAttribute GeometryComponent::attribute_try_get_for_output_only(
 
 namespace blender::bke {
 
-GVArray AttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
-                                                    IndexMask UNUSED(mask),
-                                                    ResourceScope &UNUSED(scope)) const
+GVArray GeometryFieldInput::get_varray_for_context(const fn::FieldContext &context,
+                                                   IndexMask mask,
+                                                   ResourceScope &UNUSED(scope)) const
 {
   if (const GeometryComponentFieldContext *geometry_context =
           dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
     const GeometryComponent &component = geometry_context->geometry_component();
     const AttributeDomain domain = geometry_context->domain();
-    const CustomDataType data_type = cpp_type_to_custom_data_type(*type_);
-    GVArray attribute = component.attribute_try_get_for_read(name_, domain, data_type);
-    if (attribute) {
-      return attribute;
-    }
+    return this->get_varray_for_context(component, domain, mask);
   }
   return {};
+}
+
+GVArray AttributeFieldInput::get_varray_for_context(const GeometryComponent &component,
+                                                    const AttributeDomain domain,
+                                                    IndexMask UNUSED(mask)) const
+{
+  const CustomDataType data_type = cpp_type_to_custom_data_type(*type_);
+  return component.attribute_try_get_for_read(name_, domain, data_type);
 }
 
 std::string AttributeFieldInput::socket_inspection_name() const
@@ -1462,25 +1460,20 @@ static StringRef get_random_id_attribute_name(const AttributeDomain domain)
   }
 }
 
-GVArray IDAttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
-                                                      IndexMask mask,
-                                                      ResourceScope &scope) const
+GVArray IDAttributeFieldInput::get_varray_for_context(const GeometryComponent &component,
+                                                      const AttributeDomain domain,
+                                                      IndexMask mask) const
 {
-  if (const GeometryComponentFieldContext *geometry_context =
-          dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
-    const GeometryComponent &component = geometry_context->geometry_component();
-    const AttributeDomain domain = geometry_context->domain();
-    const StringRef name = get_random_id_attribute_name(domain);
-    GVArray attribute = component.attribute_try_get_for_read(name, domain, CD_PROP_INT32);
-    if (attribute) {
-      BLI_assert(attribute.size() == component.attribute_domain_size(domain));
-      return attribute;
-    }
 
-    /* Use the index as the fallback if no random ID attribute exists. */
-    return fn::IndexFieldInput::get_index_varray(mask, scope);
+  const StringRef name = get_random_id_attribute_name(domain);
+  GVArray attribute = component.attribute_try_get_for_read(name, domain, CD_PROP_INT32);
+  if (attribute) {
+    BLI_assert(attribute.size() == component.attribute_domain_size(domain));
+    return attribute;
   }
-  return {};
+
+  /* Use the index as the fallback if no random ID attribute exists. */
+  return fn::IndexFieldInput::get_index_varray(mask);
 }
 
 std::string IDAttributeFieldInput::socket_inspection_name() const
@@ -1500,20 +1493,12 @@ bool IDAttributeFieldInput::is_equal_to(const fn::FieldNode &other) const
   return dynamic_cast<const IDAttributeFieldInput *>(&other) != nullptr;
 }
 
-GVArray AnonymousAttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
-                                                             IndexMask UNUSED(mask),
-                                                             ResourceScope &UNUSED(scope)) const
+GVArray AnonymousAttributeFieldInput::get_varray_for_context(const GeometryComponent &component,
+                                                             const AttributeDomain domain,
+                                                             IndexMask UNUSED(mask)) const
 {
-  if (const GeometryComponentFieldContext *geometry_context =
-          dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
-    const GeometryComponent &component = geometry_context->geometry_component();
-    const AttributeDomain domain = geometry_context->domain();
-    const CustomDataType data_type = cpp_type_to_custom_data_type(*type_);
-    GVArray attribute = component.attribute_try_get_for_read(
-        anonymous_id_.get(), domain, data_type);
-    return attribute;
-  }
-  return {};
+  const CustomDataType data_type = cpp_type_to_custom_data_type(*type_);
+  return component.attribute_try_get_for_read(anonymous_id_.get(), domain, data_type);
 }
 
 std::string AnonymousAttributeFieldInput::socket_inspection_name() const

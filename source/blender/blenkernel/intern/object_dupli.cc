@@ -1680,9 +1680,6 @@ static const DupliGenerator *get_dupli_generator(const DupliContext *ctx)
 /** \name Dupli-Container Implementation
  * \{ */
 
-/**
- * \return a #ListBase of #DupliObject.
- */
 ListBase *object_duplilist(Depsgraph *depsgraph, Scene *sce, Object *ob)
 {
   ListBase *duplilist = (ListBase *)MEM_callocN(sizeof(ListBase), "duplilist");

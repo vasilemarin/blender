@@ -221,9 +221,6 @@ static void add_effector_evaluation(ListBase **effectors,
   precalculate_effector(depsgraph, eff);
 }
 
-/* Create list of effector relations in the collection or entire scene.
- * This is used by the depsgraph to build relations, as well as faster
- * lookup of effectors during evaluation. */
 ListBase *BKE_effector_relations_create(Depsgraph *depsgraph,
                                         ViewLayer *view_layer,
                                         Collection *collection)
@@ -329,7 +326,6 @@ static bool is_effector_relevant(PartDeflect *pd, EffectorWeights *weights, bool
          is_effector_nonzero_strength(pd);
 }
 
-/* Create effective list of effectors from relations built beforehand. */
 ListBase *BKE_effectors_create(Depsgraph *depsgraph,
                                Object *ob_src,
                                ParticleSystem *psys_src,
@@ -657,11 +653,11 @@ float effector_falloff(EffectorCache *eff,
   return falloff;
 }
 
-int closest_point_on_surface(SurfaceModifierData *surmd,
-                             const float co[3],
-                             float surface_co[3],
-                             float surface_nor[3],
-                             float surface_vel[3])
+bool closest_point_on_surface(SurfaceModifierData *surmd,
+                              const float co[3],
+                              float surface_co[3],
+                              float surface_nor[3],
+                              float surface_vel[3])
 {
   BVHTreeNearest nearest;
 
@@ -688,19 +684,19 @@ int closest_point_on_surface(SurfaceModifierData *surmd,
 
       mul_v3_fl(surface_vel, (1.0f / 3.0f));
     }
-    return 1;
+    return true;
   }
 
-  return 0;
+  return false;
 }
-int get_effector_data(Depsgraph *depsgraph,
-                      EffectorCache *eff,
-                      EffectorData *efd,
-                      EffectedPoint *point,
-                      int real_velocity)
+bool get_effector_data(Depsgraph *depsgraph,
+                       EffectorCache *eff,
+                       EffectorData *efd,
+                       EffectedPoint *point,
+                       int real_velocity)
 {
   float cfra = DEG_get_ctime(eff->depsgraph);
-  int ret = 0;
+  bool ret = false;
 
   /* In case surface object is in Edit mode when loading the .blend,
    * surface modifier is never executed and bvhtree never built, see T48415. */
@@ -732,7 +728,7 @@ int get_effector_data(Depsgraph *depsgraph,
 
       efd->size = 0.0f;
 
-      ret = 1;
+      ret = true;
     }
   }
   else if (eff->psys) {
@@ -800,7 +796,7 @@ int get_effector_data(Depsgraph *depsgraph,
     zero_v3(efd->vel);
     efd->size = 0.0f;
 
-    ret = 1;
+    ret = true;
   }
 
   if (ret) {
@@ -1137,20 +1133,6 @@ static void do_physical_effector(EffectorCache *eff,
   }
 }
 
-/*  -------- BKE_effectors_apply() --------
- * generic force/speed system, now used for particles and softbodies
- * scene       = scene where it runs in, for time and stuff
- * lb           = listbase with objects that take part in effecting
- * opco     = global coord, as input
- * force        = accumulator for force
- * wind_force   = accumulator for force only acting perpendicular to a surface
- * speed        = actual current speed which can be altered
- * cur_time = "external" time in frames, is constant for static particles
- * loc_time = "local" time in frames, range <0-1> for the lifetime of particle
- * par_layer    = layer the caller is in
- * flags        = only used for softbody wind now
- * guide        = old speed of particle
- */
 void BKE_effectors_apply(Depsgraph *depsgraph,
                          ListBase *effectors,
                          ListBase *colliders,
@@ -1160,6 +1142,22 @@ void BKE_effectors_apply(Depsgraph *depsgraph,
                          float *wind_force,
                          float *impulse)
 {
+  /* WARNING(@campbellbarton): historic comment?
+   * Many of these parameters don't exist!
+   *
+   * scene        = scene where it runs in, for time and stuff.
+   * lb           = listbase with objects that take part in effecting.
+   * opco         = global coord, as input.
+   * force        = accumulator for force.
+   * wind_force   = accumulator for force only acting perpendicular to a surface.
+   * speed        = actual current speed which can be altered.
+   * cur_time     = "external" time in frames, is constant for static particles.
+   * loc_time     = "local" time in frames, range <0-1> for the lifetime of particle.
+   * par_layer    = layer the caller is in.
+   * flags        = only used for soft-body wind now.
+   * guide        = old speed of particle.
+   */
+
   /*
    * Modifies the force on a particle according to its
    * relation with the effector object
