@@ -62,6 +62,10 @@ struct Subdiv *BKE_subsurf_modifier_subdiv_descriptor_ensure(
 
 struct SubsurfRuntimeData *BKE_subsurf_modifier_ensure_runtime(struct SubsurfModifierData *smd);
 
+/* Return the #ModifierMode required for the evaluation of the subsurf modifier, which should be
+ * used to check if the modifier is enabled. */
+int BKE_subsurf_modifier_eval_required_mode(bool is_final_render, bool is_edit_mode);
+
 #ifdef __cplusplus
 }
 #endif

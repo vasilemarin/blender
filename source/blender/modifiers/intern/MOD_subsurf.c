@@ -39,6 +39,7 @@
 #include "DNA_screen_types.h"
 
 #include "BKE_context.h"
+#include "BKE_editmesh.h"
 #include "BKE_mesh.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -230,10 +231,11 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
    */
   if ((ctx->flag & (MOD_APPLY_TO_BASE_MESH | MOD_APPLY_CPU_SUBDIVISION)) == 0) {
     Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
-    int required_mode = eModifierMode_Realtime | eModifierMode_Editmode;
-    if (ctx->flag & MOD_APPLY_RENDER) {
-      required_mode |= eModifierMode_Render;
-    }
+    const bool is_render_mode = (ctx->flag & MOD_APPLY_RENDER) != 0;
+    /* Same check as in `DRW_mesh_batch_cache_create_requested` to keep both code coherent. */
+    const bool is_editmode = (mesh->edit_mesh != NULL) &&
+                             (mesh->edit_mesh->mesh_eval_final != NULL);
+    const int required_mode = BKE_subsurf_modifier_eval_required_mode(is_render_mode, is_editmode);
     if (BKE_subsurf_modifier_can_do_gpu_subdiv_ex(scene, ctx->object, smd, required_mode, false)) {
       return result;
     }
