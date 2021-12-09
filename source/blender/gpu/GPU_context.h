@@ -46,8 +46,14 @@ eGPUBackendType GPU_backend_get_type(void);
 typedef struct GPUContext GPUContext;
 
 GPUContext *GPU_context_create(void *ghost_window);
+/**
+ * To be called after #GPU_context_active_set(ctx_to_destroy).
+ */
 void GPU_context_discard(GPUContext *);
 
+/**
+ * Ctx can be NULL.
+ */
 void GPU_context_active_set(GPUContext *);
 GPUContext *GPU_context_active_get(void);
 

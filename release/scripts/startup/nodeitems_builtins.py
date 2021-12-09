@@ -150,9 +150,11 @@ def mesh_node_items(context):
     yield NodeItem("GeometryNodeSubdivisionSurface")
     yield NodeItem("GeometryNodeTriangulate")
     yield NodeItemCustom(draw=lambda self, layout, context: layout.separator())
+    yield NodeItem("GeometryNodeInputMeshEdgeNeighbors")
     yield NodeItem("GeometryNodeInputMeshEdgeVertices")
     yield NodeItem("GeometryNodeInputMeshFaceArea")
     yield NodeItem("GeometryNodeInputMeshFaceNeighbors")
+    yield NodeItem("GeometryNodeInputMeshIsland")
     yield NodeItem("GeometryNodeInputShadeSmooth")
     yield NodeItem("GeometryNodeInputMeshVertexNeighbors")
     yield NodeItemCustom(draw=lambda self, layout, context: layout.separator())
@@ -174,6 +176,7 @@ def geometry_node_items(context):
     yield NodeItem("GeometryNodeBoundBox")
     yield NodeItem("GeometryNodeConvexHull")
     yield NodeItem("GeometryNodeDeleteGeometry")
+    yield NodeItem("GeometryNodeGeometryToInstance")
     yield NodeItem("GeometryNodeProximity")
     yield NodeItem("GeometryNodeJoinGeometry")
     yield NodeItem("GeometryNodeRaycast")
@@ -212,6 +215,7 @@ def geometry_input_node_items(context):
     yield NodeItem("GeometryNodeInputNormal")
     yield NodeItem("GeometryNodeInputPosition")
     yield NodeItem("GeometryNodeInputRadius")
+    yield NodeItem("GeometryNodeInputSceneTime")
 
 # Custom Menu for Material Nodes
 def geometry_material_node_items(context):

@@ -1256,7 +1256,7 @@ struct bNode *ntreeShaderOutputNode(struct bNodeTree *ntree, int target);
  * This one needs to work on a local tree.
  *
  * TODO: This is *not* part of `blenkernel`, it's defined under "source/blender/nodes/".
- * This declaration should be be moved out of BKE.
+ * This declaration should be moved out of BKE.
  */
 void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
                            struct GPUMaterial *mat,
@@ -1466,7 +1466,7 @@ void ntreeCompositTagRender(struct Scene *scene);
  *   which calls #node_cmp_rlayers_register_pass for every render layer node.
  *
  * TODO: This is *not* part of `blenkernel`, it's defined under "source/blender/nodes/".
- * This declaration should be be moved out of BKE.
+ * This declaration should be moved out of BKE.
  */
 void ntreeCompositUpdateRLayers(struct bNodeTree *ntree);
 void ntreeCompositRegisterPass(struct bNodeTree *ntree,
@@ -1715,6 +1715,10 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define GEO_NODE_INPUT_MESH_FACE_AREA 1139
 #define GEO_NODE_INPUT_MESH_FACE_NEIGHBORS 1140
 #define GEO_NODE_INPUT_MESH_VERTEX_NEIGHBORS 1141
+#define GEO_NODE_GEOMETRY_TO_INSTANCE 1142
+#define GEO_NODE_INPUT_MESH_EDGE_NEIGHBORS 1143
+#define GEO_NODE_INPUT_MESH_ISLAND 1144
+#define GEO_NODE_INPUT_SCENE_TIME 1145
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1759,3 +1763,13 @@ extern struct bNodeSocketType NodeSocketTypeUndefined;
 #ifdef __cplusplus
 }
 #endif
+
+#define NODE_STORAGE_FUNCS(StorageT) \
+  [[maybe_unused]] static StorageT &node_storage(bNode &node) \
+  { \
+    return *static_cast<StorageT *>(node.storage); \
+  } \
+  [[maybe_unused]] static const StorageT &node_storage(const bNode &node) \
+  { \
+    return *static_cast<const StorageT *>(node.storage); \
+  }
