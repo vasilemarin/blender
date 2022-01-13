@@ -79,7 +79,10 @@
 #include "RNA_access.h"
 
 #include "outliner_intern.hh"
-#include "tree/tree_display.h"
+#include "tree/tree_display.hh"
+#include "tree/tree_element.hh"
+
+using namespace blender::ed::outliner;
 
 /* Disable - this is far too slow - campbell. */
 /* #define USE_GROUP_SELECT */
@@ -527,8 +530,13 @@ void outliner_collection_isolate_flag(Scene *scene,
                                          is_hide);
 
   /* Make this collection and its children collections the only "visible". */
-  outliner_collection_set_flag_recursive(
-      scene, view_layer, layer_collection, collection, layer_or_collection_prop, nullptr, !is_hide);
+  outliner_collection_set_flag_recursive(scene,
+                                         view_layer,
+                                         layer_collection,
+                                         collection,
+                                         layer_or_collection_prop,
+                                         nullptr,
+                                         !is_hide);
 
   /* Make this collection direct parents also "visible". */
   if (layer_collection) {
@@ -2174,7 +2182,7 @@ static bool outliner_draw_warning_tree_element(uiBlock *block,
 
   int icon = ICON_NONE;
   const char *tip = "";
-  const bool has_warning = outliner_element_warnings_get(te, &icon, &tip);
+  const bool has_warning = tree_element_warnings_get(te, &icon, &tip);
   BLI_assert(has_warning);
   UNUSED_VARS_NDEBUG(has_warning);
 
@@ -3853,9 +3861,10 @@ void draw_outliner(const bContext *C)
   const bool use_mode_column = (space_outliner->flag & SO_MODE_COLUMN) &&
                                (ELEM(space_outliner->outlinevis, SO_VIEW_LAYER, SO_SCENES));
 
-  const bool use_warning_column =
-      ELEM(space_outliner->outlinevis, SO_LIBRARIES, SO_OVERRIDES_LIBRARY) &&
-      outliner_tree_display_warnings_poll(space_outliner->runtime->tree_display);
+  const bool use_warning_column = ELEM(space_outliner->outlinevis,
+                                       SO_LIBRARIES,
+                                       SO_OVERRIDES_LIBRARY) &&
+                                  space_outliner->runtime->tree_display->hasWarnings();
 
   /* Draw outliner stuff (background, hierarchy lines and names). */
   const float restrict_column_width = outliner_restrict_columns_width(space_outliner);

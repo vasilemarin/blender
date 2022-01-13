@@ -50,7 +50,12 @@
 #include "UI_view2d.h"
 
 #include "outliner_intern.hh"
-#include "tree/tree_display.h"
+#include "tree/tree_display.hh"
+
+SpaceOutliner_Runtime::SpaceOutliner_Runtime(const SpaceOutliner_Runtime & /*other*/)
+    : tree_display(nullptr), treehash(nullptr)
+{
+}
 
 static void outliner_main_region_init(wmWindowManager *wm, ARegion *region)
 {
@@ -359,7 +364,7 @@ static void outliner_free(SpaceLink *sl)
   }
 
   if (space_outliner->runtime) {
-    outliner_tree_display_destroy(&space_outliner->runtime->tree_display);
+    space_outliner->runtime->tree_display = nullptr;
     if (space_outliner->runtime->treehash) {
       BKE_outliner_treehash_free(space_outliner->runtime->treehash);
     }
@@ -373,7 +378,7 @@ static void outliner_init(wmWindowManager *UNUSED(wm), ScrArea *area)
   SpaceOutliner *space_outliner = reinterpret_cast<SpaceOutliner *>(area->spacedata.first);
 
   if (space_outliner->runtime == nullptr) {
-    space_outliner->runtime = MEM_cnew<SpaceOutliner_Runtime>("SpaceOutliner_Runtime");
+    space_outliner->runtime = MEM_new<SpaceOutliner_Runtime>("SpaceOutliner_Runtime");
   }
 }
 
