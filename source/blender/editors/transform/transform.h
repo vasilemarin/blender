@@ -43,6 +43,7 @@ struct TransDataContainer;
 struct TransInfo;
 struct TransSnap;
 struct ViewLayer;
+struct ViewOpsData;
 struct bContext;
 struct wmEvent;
 struct wmKeyConfig;
@@ -665,6 +666,8 @@ typedef struct TransInfo {
   /** Currently only used for random curve of proportional editing. */
   struct RNG *rng;
 
+  struct ViewOpsData *vod;
+
   /** Typically for mode settings. */
   TransCustomDataContainer custom;
 } TransInfo;
@@ -760,6 +763,7 @@ void applyMouseInput(struct TransInfo *t,
                      struct MouseInput *mi,
                      const int mval[2],
                      float output[3]);
+void transform_input_update(TransInfo *t, const float fac);
 
 void setCustomPoints(TransInfo *t, MouseInput *mi, const int start[2], const int end[2]);
 void setCustomPointsFromDirection(TransInfo *t, MouseInput *mi, const float dir[2]);
@@ -808,6 +812,7 @@ void calculateCenter2D(TransInfo *t);
 void calculateCenterLocal(TransInfo *t, const float center_global[3]);
 
 void calculateCenter(TransInfo *t);
+void tranformViewUpdate(TransInfo *t);
 
 /* API functions for getting center points */
 void calculateCenterBound(TransInfo *t, float r_center[3]);
