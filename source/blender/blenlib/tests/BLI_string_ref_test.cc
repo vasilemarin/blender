@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* Apache License, Version 2.0 */
 
 #include "BLI_strict_flags.h"
 #include "BLI_string_ref.hh"

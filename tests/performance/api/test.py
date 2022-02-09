@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: Apache-2.0
+# Apache License, Version 2.0
+
 import abc
 import fnmatch
 from typing import Dict, List

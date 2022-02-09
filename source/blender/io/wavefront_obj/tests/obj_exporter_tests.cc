@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* Apache License, Version 2.0 */
 
 #include <gtest/gtest.h>
 #include <ios>
