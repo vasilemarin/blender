@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# Apache License, Version 2.0
 
 # ./blender.bin --background -noaudio --python tests/python/bl_pyapi_bpy_utils_units.py -- --verbose
 import unittest
