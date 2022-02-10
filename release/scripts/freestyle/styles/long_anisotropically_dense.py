@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 #  Filename : long_anisotropically_dense.py
 #  Author   : Stephane Grabli
 #  Date     : 04/08/2005

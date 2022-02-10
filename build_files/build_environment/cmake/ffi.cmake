@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ExternalProject_Add(external_ffi
   URL file://${PACKAGE_DIR}/${FFI_FILE}
   URL_HASH ${FFI_HASH_TYPE}=${FFI_HASH}

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(MSVC)
   set(PYTARGET ${HARVEST_TARGET}/python/${PYTHON_SHORT_VERSION_NO_DOTS})
   set(PYSRC ${LIBDIR}/python/)

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # avoid noisy warnings
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
   remove_cc_flag(

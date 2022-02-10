@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(ICONV_EXTRA_ARGS)
 
 ExternalProject_Add(external_iconv

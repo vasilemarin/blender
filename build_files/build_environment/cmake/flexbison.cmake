@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(FLEXBISON_EXTRA_ARGS)
 
 ExternalProject_Add(external_flexbison

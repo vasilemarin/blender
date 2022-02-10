@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(UNIX)
   if(APPLE)
     set(_libtoolize_name glibtoolize)

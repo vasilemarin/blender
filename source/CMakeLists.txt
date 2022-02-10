@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WITH_LEGACY_OPENGL)
   add_definitions(-DWITH_LEGACY_OPENGL)
 endif()

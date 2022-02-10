@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # <pep8-80 compliant>
 
 # This file defines a set of methods that are useful for various

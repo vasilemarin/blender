@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # To run all tests, use
 # BLENDER_VERBOSE=1 blender path/to/bevel_regression.blend --python path/to/bevel_operator.py -- --run-all-tests
 # To run one test, use

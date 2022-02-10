@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 """
 This module contains helper functions used for Freestyle style module
 writing.

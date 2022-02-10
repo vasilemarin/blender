@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # Mantaflow triggers a clang-cl compiler error with versions before 9.0.1
 # Since mantaflow does not appear to be using OpenMP at this point in time,
 # disable the flag for now. See https://bugs.llvm.org/show_bug.cgi?id=43175 for details.

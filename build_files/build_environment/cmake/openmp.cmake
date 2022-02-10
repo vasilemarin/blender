@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(APPLE)
   set(OPENMP_PATCH_COMMAND ${PATCH_CMD} -p 1 -d ${BUILD_DIR}/openmp/src/external_openmp < ${PATCH_DIR}/openmp.diff)
 else()

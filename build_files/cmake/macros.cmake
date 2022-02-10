@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 macro(list_insert_after
   list_id item_check item_add
   )

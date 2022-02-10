@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WIN32)
   if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
     set(VPX_EXTRA_FLAGS --target=x86_64-win64-gcc --disable-multithread)

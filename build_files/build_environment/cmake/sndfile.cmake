@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(SNDFILE_EXTRA_ARGS)
 set(SNDFILE_ENV PKG_CONFIG_PATH=${mingw_LIBDIR}/ogg/lib/pkgconfig:${mingw_LIBDIR}/vorbis/lib/pkgconfig:${mingw_LIBDIR}/flac/lib/pkgconfig:${mingw_LIBDIR})
 

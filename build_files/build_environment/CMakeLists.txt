@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ####################################################################################################
 #
 # This is a build system used by platform maintainers to build library dependencies on

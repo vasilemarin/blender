@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # Xcode and system configuration for Apple.
 
 # Detect processor architecture.

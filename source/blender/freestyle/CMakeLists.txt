@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(SRC
   FRS_freestyle.h
   intern/application/AppCanvas.cpp

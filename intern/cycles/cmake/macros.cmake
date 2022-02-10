@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2011-2020 Blender Foundation
+
 function(cycles_set_solution_folder target)
   if(IDE_GROUP_PROJECTS_IN_FOLDERS)
     get_filename_component(folderdir ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)

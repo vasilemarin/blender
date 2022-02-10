@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # Copyright (c) 2009 Fernando Perez, www.stani.be
 
 # Original copyright (see docstring):

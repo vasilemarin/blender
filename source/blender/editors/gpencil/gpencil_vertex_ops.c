@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2015 Blender Foundation.  */
+ * Copyright 2015 Blender Foundation. */
 
 /** \file
  * \ingroup edgpencil

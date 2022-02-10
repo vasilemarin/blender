@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 """
 This module contains functions operating on vertices (0D elements) and
 polylines (1D elements).  The module is also intended to be a

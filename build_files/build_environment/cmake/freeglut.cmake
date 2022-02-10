@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WIN32)
   if(BUILD_MODE STREQUAL Release)
     set(FREEGLUT_EXTRA_ARGS

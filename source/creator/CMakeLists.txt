@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 blender_include_dirs(
   ../../intern/clog
   ../../intern/glew-mx

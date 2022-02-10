@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ExternalProject_Add(external_opus
   URL file://${PACKAGE_DIR}/${OPUS_FILE}
   DOWNLOAD_DIR ${DOWNLOAD_DIR}

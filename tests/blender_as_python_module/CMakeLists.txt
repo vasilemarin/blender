@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 function(add_blender_as_python_module_test testname testscript)
   if(NOT TEST_PYTHON_EXE)
     message(FATAL_ERROR "No Python configured for running tests, set TEST_PYTHON_EXE.")

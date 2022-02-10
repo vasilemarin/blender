@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WIN32)
   # cmake for windows
   set(JPEG_EXTRA_ARGS -DNASM=${NASM_PATH} -DWITH_JPEG8=ON  -DCMAKE_DEBUG_POSTFIX=d -DWITH_CRT_DLL=On)

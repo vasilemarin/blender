@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+
 # Keep flags in sync with install_deps.sh ones in compile_XR_OpenXR_SDK()
 set(XR_OPENXR_SDK_EXTRA_ARGS
   -DBUILD_FORCE_GENERATION=OFF

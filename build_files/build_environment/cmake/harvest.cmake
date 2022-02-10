@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ########################################################################
 # Copy all generated files to the proper structure as blender prefers
 ########################################################################

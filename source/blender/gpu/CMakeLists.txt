@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # WITH_OPENGL limits the visibility of the opengl headers to just GPU and bg_gpu,
 # to more easily highlight codepadths in other libraries that need to be refactored,
 # bf_gpu is allowed to have opengl regardless of this option.

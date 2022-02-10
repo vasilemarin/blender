@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(CMAKE_COMPILER_IS_GNUCC)
   remove_cc_flag(
     "-Wshadow"

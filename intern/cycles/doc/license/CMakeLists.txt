@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2011-2020 Blender Foundation
+
 set(LICENSES
   Apache_2.0.txt
   ILM.txt

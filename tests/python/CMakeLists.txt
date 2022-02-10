@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # Use '--write-blend=/tmp/test.blend' to view output
 
 # Some tests are interesting but take too long to run

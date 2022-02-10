@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WIN32)
   set(SDL_EXTRA_ARGS
     -DSDL_STATIC=Off

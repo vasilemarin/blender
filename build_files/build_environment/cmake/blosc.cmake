@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(BLOSC_EXTRA_ARGS
   -DZLIB_INCLUDE_DIR=${LIBDIR}/zlib/include/
   -DZLIB_LIBRARY=${LIBDIR}/zlib/lib/${ZLIB_LIBRARY}

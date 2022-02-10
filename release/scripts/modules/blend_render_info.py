@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # <pep8 compliant>
 
 # This module can get render info without running from inside blender.

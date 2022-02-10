@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 """
 This module contains chaining iterators used for the chaining
 operation to construct long strokes by concatenating feature edges

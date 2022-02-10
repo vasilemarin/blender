@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ExternalProject_Add(external_sse2neon
   GIT_REPOSITORY  ${SSE2NEON_GIT}
   GIT_TAG ${SSE2NEON_GIT_HASH}

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(BUILD_MODE STREQUAL Debug)
   set(BLOSC_POST _d)
 endif()

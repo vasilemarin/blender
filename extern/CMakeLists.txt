@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # Libs that adhere to strict flags
 add_subdirectory(curve_fit_nd)
 

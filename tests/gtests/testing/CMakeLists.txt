@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 add_definitions(${GFLAGS_DEFINES})
 add_definitions(${GLOG_DEFINES})
 add_definitions(-DBLENDER_GFLAGS_NAMESPACE=${GFLAGS_NAMESPACE})

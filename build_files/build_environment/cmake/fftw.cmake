@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(FFTW_EXTRA_ARGS)
 
 if(WIN32)

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(ALEMBIC_EXTRA_ARGS
   -DBUILDSTATIC=ON
   -DLINKSTATIC=ON

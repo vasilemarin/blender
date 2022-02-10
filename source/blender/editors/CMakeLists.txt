@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WITH_BLENDER)
   if(WITH_INPUT_NDOF)
     add_definitions(-DWITH_INPUT_NDOF)

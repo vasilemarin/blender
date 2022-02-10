@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # <pep8 compliant>
 
 # Populate a template file (POT format currently) from Blender RNA/py/C data.

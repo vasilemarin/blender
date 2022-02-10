@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(GLEW_EXTRA_ARGS
   -DBUILD_UTILS=Off
   -DBUILD_SHARED_LIBS=Off

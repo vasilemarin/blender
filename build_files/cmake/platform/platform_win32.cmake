@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # Libraries configuration for Windows.
 
 add_definitions(-DWIN32)

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(USD_EXTRA_ARGS
   -DBoost_COMPILER:STRING=${BOOST_COMPILER_STRING}
   -DBoost_USE_MULTITHREADED=ON

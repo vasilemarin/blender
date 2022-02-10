@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ExternalProject_Add(external_zlib_mingw
   URL file://${PACKAGE_DIR}/${ZLIB_FILE}
   URL_HASH ${ZLIB_HASH_TYPE}=${ZLIB_HASH}

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
+
 """
 Compare renders or screenshots against reference versions and generate
 a HTML report showing the differences, for regression testing.

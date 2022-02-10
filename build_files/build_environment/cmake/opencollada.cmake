@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(UNIX)
   set(OPENCOLLADA_EXTRA_ARGS
     -DLIBXML2_INCLUDE_DIR=${LIBDIR}/xml2/include/libxml2

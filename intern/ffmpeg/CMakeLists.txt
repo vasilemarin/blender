@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WITH_GTESTS)
   set(TEST_SRC
     tests/ffmpeg_codecs.cc

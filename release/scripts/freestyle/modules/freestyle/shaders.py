@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 #  Filename : shaders.py
 #  Authors  : Fredo Durand, Stephane Grabli, Francois Sillion, Emmanuel Turquin
 #  Date     : 11/08/2005

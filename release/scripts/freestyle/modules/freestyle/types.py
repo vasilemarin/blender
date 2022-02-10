@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 """
 This module contains core classes of the Freestyle Python API,
 including data types of view map components (0D and 1D elements), base

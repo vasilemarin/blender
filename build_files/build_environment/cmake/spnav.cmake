@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ExternalProject_Add(external_spnav
   URL file://${PACKAGE_DIR}/${SPNAV_FILE}
   DOWNLOAD_DIR ${DOWNLOAD_DIR}

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ExternalProject_Add(external_xml2
   URL file://${PACKAGE_DIR}/${XML2_FILE}
   DOWNLOAD_DIR ${DOWNLOAD_DIR}

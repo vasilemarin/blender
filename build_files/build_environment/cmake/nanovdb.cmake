@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(NANOVDB_EXTRA_ARGS
    # NanoVDB is header-only, so only need the install target
   -DNANOVDB_BUILD_UNITTESTS=OFF

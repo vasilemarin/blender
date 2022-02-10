@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 #  Filename : split_at_tvertices.py
 #  Author   : Stephane Grabli
 #  Date     : 04/08/2005

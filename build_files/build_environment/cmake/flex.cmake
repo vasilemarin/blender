@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 ExternalProject_Add(external_flex
   URL file://${PACKAGE_DIR}/${FLEX_FILE}
   URL_HASH ${FLEX_HASH_TYPE}=${FLEX_HASH}

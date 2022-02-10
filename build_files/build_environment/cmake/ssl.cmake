@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(SSL_CONFIGURE_COMMAND ./Configure)
 set(SSL_PATCH_CMD echo .)
 

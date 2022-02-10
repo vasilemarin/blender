@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2011-2020 Blender Foundation
+
 # Standalone or with Blender
 if(NOT WITH_BLENDER AND WITH_CYCLES_STANDALONE)
   set(CYCLES_INSTALL_PATH ${CMAKE_INSTALL_PREFIX})

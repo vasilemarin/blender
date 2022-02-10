@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(LAME_EXTRA_ARGS)
 if(MSVC)
   if("${CMAKE_SIZEOF_VOID_P}" EQUAL "4")

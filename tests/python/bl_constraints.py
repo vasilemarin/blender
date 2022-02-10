@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 """
 ./blender.bin --background -noaudio --factory-startup --python tests/python/bl_constraints.py -- --testdir /path/to/lib/tests/constraints
 """

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # Note the utility apps may use png/tiff/gif system libraries, but the
 # library itself does not depend on them, so should give no problems.
 

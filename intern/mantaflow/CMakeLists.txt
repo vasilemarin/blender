@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 add_definitions(-DWITH_FLUID=1)
 
 if(WITH_OPENVDB)

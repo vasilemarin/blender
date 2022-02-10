@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(ZLIB_VERSION 1.2.11)
 set(ZLIB_URI https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz)
 set(ZLIB_HASH 1c9f62f0778697a09d36121ead88e08e)

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 #-----------------------------------------------------------------------------
 # We don't allow in-source builds. This causes no end of troubles because
 # all out-of-source builds will use the CMakeCache.txt file there and even

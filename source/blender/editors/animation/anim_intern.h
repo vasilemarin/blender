@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2009 Blender Foundation, Joshua Leung.
- *  */
+ * Copyright 2009 Blender Foundation, Joshua Leung. */
 
 /** \file
  * \ingroup edanimation

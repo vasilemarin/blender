@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(WIN32)
   set(X264_EXTRA_ARGS --enable-win32thread --cross-prefix=${MINGW_HOST}- --host=${MINGW_HOST})
 endif()

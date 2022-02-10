@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: GPL-2.0-or-laterremove_strict_flags()
+# SPDX-License-Identifier: GPL-2.0-or-later
+remove_strict_flags()
 set(INC
 
 )

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 #  Filename : blueprint_circles.py
 #  Author   : Emmanuel Turquin
 #  Date     : 04/08/2005

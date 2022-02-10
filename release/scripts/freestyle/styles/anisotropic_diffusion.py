@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 #  Filename : anisotropic_diffusion.py
 #  Author   : Fredo Durand
 #  Date     : 12/08/2004

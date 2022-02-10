@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 __all__ = (
     "batch_for_shader",
 )

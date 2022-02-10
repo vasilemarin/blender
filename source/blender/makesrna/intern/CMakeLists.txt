@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 if(CMAKE_COMPILER_IS_GNUCC)
   # add here so we fail early.
   string(APPEND CMAKE_C_FLAGS " -Werror=implicit-function-declaration")

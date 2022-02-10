@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 remove_strict_flags()
 FIND_FILE(OPENCOLLADA_ANIMATION_CLIP
   NAMES

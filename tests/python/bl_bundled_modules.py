@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 # <pep8 compliant>
 
 # Test that modules we ship with our Python installation are available

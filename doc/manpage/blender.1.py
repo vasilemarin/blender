@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 '''
 This script generates the blender.1 man page, embedding the help text
 from the Blender executable itself. Invoke it as follows:

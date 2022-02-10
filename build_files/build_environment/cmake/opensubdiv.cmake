@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 set(OPENSUBDIV_EXTRA_ARGS
   -DNO_EXAMPLES=ON
   -DNO_REGRESSION=ON

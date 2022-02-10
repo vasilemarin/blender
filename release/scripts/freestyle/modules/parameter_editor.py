@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 #  Filename : parameter_editor.py
 #  Authors  : Tamito Kajiyama
 #  Date     : 26/07/2010
