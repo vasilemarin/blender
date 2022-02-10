@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright 2016 Blender Foundation. All rights reserved.
+# The Original Code is: all of this file.
+# Contributor(s): Sebastian Barschkis (sebbas).
 
 # Mantaflow triggers a clang-cl compiler error with versions before 9.0.1
 # Since mantaflow does not appear to be using OpenMP at this point in time,
