@@ -2567,6 +2567,29 @@ void blo_do_versions_300(FileData *fd, Library *UNUSED(lib), Main *bmain)
     }
   }
 
+  /* TODO Add actual version check and file version bump before commit. */
+  {
+    /* NOTE: This is a fairly rough process, based on very basic euristics. Should be enough for a
+     * do_version code though, this is a new optional feature, not a critical conversion. */
+    ID *id;
+    FOREACH_MAIN_ID_BEGIN (bmain, id) {
+      if (!ID_IS_OVERRIDE_LIBRARY_REAL(id) || ID_IS_LINKED(id)) {
+        /* Ignore non-real liboverrides, and linked ones. */
+        continue;
+      }
+      if (GS(id->name) == ID_OB) {
+        /* Never 'lock' an object into a system override for now. */
+        continue;
+      }
+      if (BKE_lib_override_library_is_user_edited(id)) {
+        /* Do not 'lock' an ID already edited by the user. */
+        continue;
+      }
+      id->override_library->flag |= IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED;
+    }
+    FOREACH_MAIN_ID_END;
+  }
+
   /**
    * Versioning code until next subversion bump goes here.
    *
