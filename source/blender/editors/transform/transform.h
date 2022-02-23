@@ -377,10 +377,12 @@ typedef struct MouseInput {
 
   /** Initial mouse position. */
   int imval[2];
-  bool precision;
-  float precision_factor;
+  float imval_unproj[3];
   float center[2];
   float factor;
+  float precision_factor;
+  bool precision;
+
   /** Additional data, if needed by the particular function. */
   void *data;
 

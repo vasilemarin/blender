@@ -1141,7 +1141,7 @@ static void calculateZfac(TransInfo *t)
    * We need special case here as well, since ED_view3d_calc_zfac will crash when called
    * for a region different from RGN_TYPE_WINDOW.
    */
-  if (t->spacetype == SPACE_VIEW3D) {
+  if ((t->spacetype == SPACE_VIEW3D) && (t->region->regiontype == RGN_TYPE_WINDOW)) {
     t->zfac = ED_view3d_calc_zfac(t->region->regiondata, t->center_global, NULL);
   }
   else if (t->spacetype == SPACE_IMAGE) {
@@ -1198,7 +1198,7 @@ void calculateCenter(TransInfo *t)
  * Adjusts the mouse position relative to the object. */
 void tranformViewUpdate(TransInfo *t)
 {
-  if (t->spacetype == SPACE_VIEW3D) {
+  if ((t->spacetype == SPACE_VIEW3D) && (t->region->regiontype == RGN_TYPE_WINDOW)) {
     setTransformViewMatrices(t);
 
     for (int i = 0; i < ARRAY_SIZE(t->orient); i++) {
