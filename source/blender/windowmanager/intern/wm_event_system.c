@@ -4487,7 +4487,7 @@ static void wm_eventemulation(wmEvent *event, bool test_only)
   if (U.flag & USER_TWOBUTTONMOUSE) {
 
     if (event->type == LEFTMOUSE) {
-      short *mod = (
+      bool *mod = (
 #if !defined(WIN32)
           (U.mouse_emulate_3_button_modifier == USER_EMU_MMB_MOD_OSKEY) ? &event->oskey :
                                                                           &event->alt
@@ -4931,7 +4931,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void 
     case GHOST_kEventKeyDown:
     case GHOST_kEventKeyUp: {
       GHOST_TEventKeyData *kd = customdata;
-      short keymodifier = KM_NOTHING;
+      bool keymodifier = 0;
       event.type = convert_key(kd->key);
       event.ascii = kd->ascii;
       /* Might be not NULL terminated. */
@@ -4981,27 +4981,27 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void 
         case EVT_LEFTSHIFTKEY:
         case EVT_RIGHTSHIFTKEY:
           if (event.val == KM_PRESS) {
-            keymodifier = KM_MOD_HELD;
+            keymodifier = true;
           }
           event.shift = event_state->shift = keymodifier;
           break;
         case EVT_LEFTCTRLKEY:
         case EVT_RIGHTCTRLKEY:
           if (event.val == KM_PRESS) {
-            keymodifier = KM_MOD_HELD;
+            keymodifier = true;
           }
           event.ctrl = event_state->ctrl = keymodifier;
           break;
         case EVT_LEFTALTKEY:
         case EVT_RIGHTALTKEY:
           if (event.val == KM_PRESS) {
-            keymodifier = KM_MOD_HELD;
+            keymodifier = true;
           }
           event.alt = event_state->alt = keymodifier;
           break;
         case EVT_OSKEY:
           if (event.val == KM_PRESS) {
-            keymodifier = KM_MOD_HELD;
+            keymodifier = true;
           }
           event.oskey = event_state->oskey = keymodifier;
           break;
@@ -5302,7 +5302,7 @@ wmKeyMapItem *WM_event_match_keymap_item_from_handlers(
 /** State storage to detect changes between calls to refresh the information. */
 struct CursorKeymapInfo_State {
   struct {
-    short shift, ctrl, alt, oskey;
+    bool shift, ctrl, alt, oskey;
   } modifiers;
   short space_type;
   short region_type;

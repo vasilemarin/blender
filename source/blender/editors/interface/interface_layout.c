@@ -492,7 +492,7 @@ static void ui_layer_but_cb(bContext *C, void *arg_but, void *arg_index)
   PointerRNA *ptr = &but->rnapoin;
   PropertyRNA *prop = but->rnaprop;
   const int index = POINTER_AS_INT(arg_index);
-  const int shift = win->eventstate->shift;
+  const bool shift = win->eventstate->shift;
   const int len = RNA_property_array_length(ptr, prop);
 
   if (!shift) {

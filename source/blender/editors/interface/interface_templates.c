@@ -5539,7 +5539,7 @@ static void handle_layer_buttons(bContext *C, void *arg1, void *arg2)
   uiBut *but = arg1;
   const int cur = POINTER_AS_INT(arg2);
   wmWindow *win = CTX_wm_window(C);
-  const int shift = win->eventstate->shift;
+  const bool shift = win->eventstate->shift;
 
   if (!shift) {
     const int tot = RNA_property_array_length(&but->rnapoin, but->rnaprop);

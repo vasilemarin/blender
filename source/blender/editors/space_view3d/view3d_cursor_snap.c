@@ -63,7 +63,7 @@ typedef struct SnapCursorDataIntern {
     int x;
     int y;
 #ifdef USE_SNAP_DETECT_FROM_KEYMAP_HACK
-    short shift, ctrl, alt, oskey;
+    bool shift, ctrl, alt, oskey;
 #endif
   } last_eventstate;
 
