@@ -470,7 +470,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
         n->val_flag[idx] |= NUM_EDITED;
         return true;
       }
-      else if (event->ctrl) {
+      else if (event->modifier & KM_CTRL) {
         n->flag &= ~NUM_EDIT_FULL;
         return true;
       }
