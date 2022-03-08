@@ -1059,9 +1059,6 @@ void SEQUENCER_OT_lock(struct wmOperatorType *ot)
 
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  RNA_def_boolean(
-      ot->srna, "channel_index", 0, "Channel Index", "Lock strips in specific channel");
 }
 
 /** \} */
