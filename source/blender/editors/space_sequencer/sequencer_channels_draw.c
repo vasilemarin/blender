@@ -221,10 +221,6 @@ static void draw_channel_labels(SeqChannelDrawContext *context,
   rctf rect;
   label_rect_init(context, channel_index, used_width, &rect);
 
-  if (BLI_rctf_size_x(&rect) <= 0) {
-    return; /* No space for label. */
-  }
-
   if (channel_is_being_renamed(sseq, channel_index)) {
     SeqTimelineChannel *channel = SEQ_channel_get_by_index(context->channels, channel_index);
     PointerRNA ptr = {NULL};
