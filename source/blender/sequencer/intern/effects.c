@@ -2421,6 +2421,7 @@ static ImBuf *do_multicam(const SeqRenderData *context,
   ImBuf *out;
   Editing *ed;
   ListBase *seqbasep;
+  ListBase *channels = &seq->channels;
 
   if (seq->multicam_source == 0 || seq->multicam_source >= seq->machine) {
     return NULL;
@@ -2435,7 +2436,8 @@ static ImBuf *do_multicam(const SeqRenderData *context,
     return NULL;
   }
 
-  out = seq_render_give_ibuf_seqbase(context, timeline_frame, seq->multicam_source, seqbasep);
+  out = seq_render_give_ibuf_seqbase(
+      context, timeline_frame, seq->multicam_source, channels, seqbasep);
 
   return out;
 }
@@ -2461,6 +2463,7 @@ static ImBuf *do_adjustment_impl(const SeqRenderData *context, Sequence *seq, fl
 {
   Editing *ed;
   ListBase *seqbasep;
+  ListBase *channels = &seq->channels;
   ImBuf *i = NULL;
 
   ed = context->scene->ed;
@@ -2473,7 +2476,8 @@ static ImBuf *do_adjustment_impl(const SeqRenderData *context, Sequence *seq, fl
   timeline_frame = clamp_i(timeline_frame, seq->startdisp, seq->enddisp - 1);
 
   if (seq->machine > 1) {
-    i = seq_render_give_ibuf_seqbase(context, timeline_frame, seq->machine - 1, seqbasep);
+    i = seq_render_give_ibuf_seqbase(
+        context, timeline_frame, seq->machine - 1, channels, seqbasep);
   }
 
   /* Found nothing? so let's work the way up the meta-strip stack, so

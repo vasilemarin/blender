@@ -537,6 +537,7 @@ extern StructRNA RNA_SequenceElement;
 extern StructRNA RNA_SequenceModifier;
 extern StructRNA RNA_SequenceProxy;
 extern StructRNA RNA_SequenceTransform;
+extern StructRNA RNA_SequenceTimelineChannel;
 extern StructRNA RNA_ShaderFx;
 extern StructRNA RNA_ShaderFxBlur;
 extern StructRNA RNA_ShaderFxColorize;

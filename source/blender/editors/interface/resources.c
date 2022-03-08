@@ -154,7 +154,7 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
 
       switch (colorid) {
         case TH_BACK:
-          if (ELEM(theme_regionid, RGN_TYPE_WINDOW, RGN_TYPE_PREVIEW)) {
+          if (ELEM(theme_regionid, RGN_TYPE_WINDOW, RGN_TYPE_PREVIEW) || (spacetype == SPACE_SEQ && theme_regionid == RGN_TYPE_CHANNELS) ) {
             cp = ts->back;
           }
           else if (theme_regionid == RGN_TYPE_CHANNELS) {
