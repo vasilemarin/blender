@@ -17,6 +17,7 @@
 #include "BKE_report.h"
 
 #include "ED_markers.h"
+#include "ED_time_scrub_ui.h"
 
 #include "SEQ_animation.h"
 #include "SEQ_edit.h"
@@ -824,6 +825,7 @@ static void flushTransSeq(TransInfo *t)
       seq->flag |= SEQ_OVERLAP;
     }
   }
+
   SEQ_collection_free(transformed_strips);
 }
 
