@@ -38,7 +38,6 @@ void SEQ_relations_invalidate_cache_in_range(struct Scene *scene,
                                              struct Sequence *seq,
                                              struct Sequence *range_mask,
                                              int invalidate_types);
-
 /**
  * Release FFmpeg handles of strips that are not currently displayed to minimize memory usage.
  */
