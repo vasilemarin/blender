@@ -276,7 +276,7 @@ typedef struct Editing {
   /** Pointer to the current list of seq's being edited (can be within a meta strip). */
   ListBase *seqbasep;
   ListBase *active_channels;
-  ListBase *active_channels2;
+  void *_pad0;
   /** Pointer to the top-most seq's. */
   ListBase seqbase;
   ListBase metastack;
