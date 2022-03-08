@@ -1381,7 +1381,7 @@ static char *rna_Channel_path(PointerRNA *ptr)
   Editing *ed = SEQ_editing_get(scene);
   SeqTimelineChannel *channel = (SeqTimelineChannel *)ptr->data;
 
-  /* Find channel owner. If NULL, owner is `Editing`, not any `Sequence`. */
+  /* Find channel owner. If NULL, owner is `Editing`, otherwise it's `Sequence`. */
   Sequence *channel_owner = NULL;
 
   SeqCollection *strips = SEQ_query_all_strips_recursive(&ed->seqbase);
