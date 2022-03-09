@@ -34,6 +34,13 @@
 #include "transform.h"
 #include "transform_convert.h"
 
+#define SEQ_EDGE_PAN_INSIDE_PAD 2
+#define SEQ_EDGE_PAN_OUTSIDE_PAD 0 /* Disable clamping for panning, use whole screen. */
+#define SEQ_EDGE_PAN_SPEED_RAMP 1
+#define SEQ_EDGE_PAN_MAX_SPEED 40 /* In UI units per second, slower than default. */
+#define SEQ_EDGE_PAN_DELAY 1.0f
+#define SEQ_EDGE_PAN_ZOOM_INFLUENCE 0.5f
+
 /** Used for sequencer transform. */
 typedef struct TransDataSeq {
   struct Sequence *seq;
@@ -615,13 +622,6 @@ static void freeSeqData(TransInfo *t, TransDataContainer *tc, TransCustomData *c
   free_transform_custom_data(custom_data);
 }
 
-#define NODE_EDGE_PAN_INSIDE_PAD 2
-#define NODE_EDGE_PAN_OUTSIDE_PAD 0 /* Disable clamping for node panning, use whole screen. */
-#define NODE_EDGE_PAN_SPEED_RAMP 1
-#define NODE_EDGE_PAN_MAX_SPEED 40 /* In UI units per second, slower than default. */
-#define NODE_EDGE_PAN_DELAY 1.0f
-#define NODE_EDGE_PAN_ZOOM_INFLUENCE 0.5f
-
 void createTransSeqData(TransInfo *t)
 {
 #define XXX_DURIAN_ANIM_TX_HACK
@@ -689,12 +689,13 @@ void createTransSeqData(TransInfo *t)
   /* Custom data to enable edge panning during transformation. */
   UI_view2d_edge_pan_init(t->context,
                           &ts->edge_pan,
-                          NODE_EDGE_PAN_INSIDE_PAD,
-                          NODE_EDGE_PAN_OUTSIDE_PAD,
-                          NODE_EDGE_PAN_SPEED_RAMP,
-                          NODE_EDGE_PAN_MAX_SPEED,
-                          NODE_EDGE_PAN_DELAY,
-                          NODE_EDGE_PAN_ZOOM_INFLUENCE);
+                          SEQ_EDGE_PAN_INSIDE_PAD,
+                          SEQ_EDGE_PAN_OUTSIDE_PAD,
+                          SEQ_EDGE_PAN_SPEED_RAMP,
+                          SEQ_EDGE_PAN_MAX_SPEED,
+                          SEQ_EDGE_PAN_DELAY,
+                          SEQ_EDGE_PAN_ZOOM_INFLUENCE);
+  UI_view2d_edge_pan_set_limits(&ts->edge_pan, -FLT_MAX, FLT_MAX, 1, MAXSEQ + 1);
   ts->initial_v2d_cur = t->region->v2d.cur;
 
   /* loop 2: build transdata array */
@@ -738,6 +739,10 @@ static void view2d_edge_pan_loc_compensate(TransInfo *t, float loc_in[2], float 
 {
   TransSeq *ts = (TransSeq *)TRANS_DATA_CONTAINER_FIRST_SINGLE(t)->custom.type.data;
 
+  /* Initial and current view2D rects for additional transform due to view panning and zooming */
+  const rctf *rect_src = &ts->initial_v2d_cur;
+  const rctf *rect_dst = &t->region->v2d.cur;
+
   if (t->options & CTX_VIEW2D_EDGE_PAN) {
     SpaceSeq *sseq = CTX_wm_space_seq(t->context);
     sseq->flag |= SPACE_SEQ_CLAMP_SMOOTH;
@@ -754,10 +759,6 @@ static void view2d_edge_pan_loc_compensate(TransInfo *t, float loc_in[2], float 
       UI_view2d_edge_pan_apply(t->context, &ts->edge_pan, xy);
     }
   }
-
-  /* Initial and current view2D rects for additional transform due to view panning and zooming */
-  const rctf *rect_src = &ts->initial_v2d_cur;
-  const rctf *rect_dst = &t->region->v2d.cur;
 
   copy_v2_v2(r_loc, loc_in);
   /* Additional offset due to change in view2D rect. */

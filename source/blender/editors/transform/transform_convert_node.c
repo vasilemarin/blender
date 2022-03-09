@@ -98,12 +98,12 @@ void createTransNodeData(TransInfo *t)
   View2DEdgePanData *customdata = MEM_callocN(sizeof(*customdata), __func__);
   UI_view2d_edge_pan_init(t->context,
                           customdata,
-                          NODE_EDGE_PAN_INSIDE_PAD,
-                          NODE_EDGE_PAN_OUTSIDE_PAD,
-                          NODE_EDGE_PAN_SPEED_RAMP,
-                          NODE_EDGE_PAN_MAX_SPEED,
-                          NODE_EDGE_PAN_DELAY,
-                          NODE_EDGE_PAN_ZOOM_INFLUENCE);
+                          SEQ_EDGE_PAN_INSIDE_PAD,
+                          SEQ_EDGE_PAN_OUTSIDE_PAD,
+                          SEQ_EDGE_PAN_SPEED_RAMP,
+                          SEQ_EDGE_PAN_MAX_SPEED,
+                          SEQ_EDGE_PAN_DELAY,
+                          SEQ_EDGE_PAN_ZOOM_INFLUENCE);
   t->custom.type.data = customdata;
   t->custom.type.use_free = true;
 
