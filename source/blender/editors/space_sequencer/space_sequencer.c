@@ -625,13 +625,13 @@ static void sequencer_main_region_init(wmWindowManager *wm, ARegion *region)
 }
 
 /* Strip editing timeline. */
-static void sequencer_main_region_draw(bContext *C, ARegion *region)
+static void sequencer_main_region_draw(const bContext *C, ARegion *region)
 {
   draw_timeline_seq(C, region);
 }
 
 /* Strip editing timeline. */
-static void sequencer_main_region_draw_overlay(bContext *C, ARegion *region)
+static void sequencer_main_region_draw_overlay(const bContext *C, ARegion *region)
 {
   draw_timeline_seq_display(C, region);
 }
@@ -644,7 +644,7 @@ struct View2DScrollers {
   rcti _hor, _vert;
 };
 
-static void sequencer_main_clamp_view(bContext *C, ARegion *region)
+static void sequencer_main_clamp_view(const bContext *C, ARegion *region)
 {
   View2D *v2d = &region->v2d;
   Editing *ed = SEQ_editing_get(CTX_data_scene(C));

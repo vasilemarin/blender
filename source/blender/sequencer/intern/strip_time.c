@@ -442,7 +442,7 @@ void SEQ_timeline_expand_boundbox(const ListBase *seqbase, rctf *rect)
     if (rect->xmax < seq->enddisp + 1) {
       rect->xmax = seq->enddisp + 1;
     }
-    if (rect->ymax < seq->machine + 2) {
+    if (rect->ymax < seq->machine) {
       rect->ymax = seq->machine;
     }
   }
