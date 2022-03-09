@@ -734,11 +734,14 @@ BLI_INLINE void trans_update_seq(Scene *sce, Sequence *seq, int old_start, int s
   }
 }
 
-static void flushTransSeq(TransInfo *t)
+static void view2d_edge_pan_loc_compensate(TransInfo *t, float loc_in[2], float r_loc[2])
 {
   TransSeq *ts = (TransSeq *)TRANS_DATA_CONTAINER_FIRST_SINGLE(t)->custom.type.data;
 
   if (t->options & CTX_VIEW2D_EDGE_PAN) {
+    SpaceSeq *sseq = CTX_wm_space_seq(t->context);
+    sseq->flag |= SPACE_SEQ_CLAMP_SMOOTH;
+
     if (t->state == TRANS_CANCEL) {
       UI_view2d_edge_pan_cancel(t->context, &ts->edge_pan);
     }
@@ -756,6 +759,13 @@ static void flushTransSeq(TransInfo *t)
   const rctf *rect_src = &ts->initial_v2d_cur;
   const rctf *rect_dst = &t->region->v2d.cur;
 
+  copy_v2_v2(r_loc, loc_in);
+  /* Additional offset due to change in view2D rect. */
+  BLI_rctf_transform_pt_v(rect_dst, rect_src, r_loc, r_loc);
+}
+
+static void flushTransSeq(TransInfo *t)
+{
   /* Editing null check already done */
   ListBase *seqbasep = seqbase_active_get(t);
 
@@ -771,11 +781,8 @@ static void flushTransSeq(TransInfo *t)
   for (a = 0, td = tc->data, td2d = tc->data_2d; a < tc->data_len; a++, td++, td2d++) {
     tdsq = (TransDataSeq *)td->extra;
     seq = tdsq->seq;
-
     float loc[2];
-    copy_v2_v2(loc, td2d->loc);
-    /* additional offset due to change in view2D rect */
-    BLI_rctf_transform_pt_v(rect_dst, rect_src, loc, loc);
+    view2d_edge_pan_loc_compensate(t, td->loc, loc);
 
     new_frame = round_fl_to_int(loc[0]);
 

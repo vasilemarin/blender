@@ -649,6 +649,12 @@ static void sequencer_main_clamp_view(const bContext *C, ARegion *region)
   View2D *v2d = &region->v2d;
   Editing *ed = SEQ_editing_get(CTX_data_scene(C));
 
+  /* Transformation uses edge panning to move view. Also if smooth view is running, don't apply
+   * clamping to prevent overriding this functionality. */
+  if (G.moving || v2d->smooth_timer != NULL) {
+    return;
+  }
+
   /* Initialize default view with 7 channels, that are visible even if empty. */
   rctf strip_boundbox;
   BLI_rctf_init(&strip_boundbox, 0.0f, 0.0f, 1.0f, 7.0f);
@@ -677,14 +683,30 @@ static void sequencer_main_clamp_view(const bContext *C, ARegion *region)
     strip_boundbox.ymin -= scroll_bar_height;
   }
 
-  const float range_y = BLI_rctf_size_y(&v2d->cur);
-  if (v2d->cur.ymax > strip_boundbox.ymax) {
-    v2d->cur.ymax = strip_boundbox.ymax;
-    v2d->cur.ymin = max_ff(strip_boundbox.ymin, strip_boundbox.ymax - range_y);
+  rctf view_clamped = v2d->cur;
+  bool do_clamp = false;
+
+  const float range_y = BLI_rctf_size_y(&view_clamped);
+  if (view_clamped.ymax > strip_boundbox.ymax) {
+    view_clamped.ymax = strip_boundbox.ymax;
+    view_clamped.ymin = max_ff(strip_boundbox.ymin, strip_boundbox.ymax - range_y);
+    do_clamp = true;
   }
-  if (v2d->cur.ymin < strip_boundbox.ymin) {
-    v2d->cur.ymin = strip_boundbox.ymin;
-    v2d->cur.ymax = min_ff(strip_boundbox.ymax, strip_boundbox.ymin + range_y);
+  if (view_clamped.ymin < strip_boundbox.ymin) {
+    view_clamped.ymin = strip_boundbox.ymin;
+    view_clamped.ymax = min_ff(strip_boundbox.ymax, strip_boundbox.ymin + range_y);
+    do_clamp = true;
+  }
+
+  SpaceSeq *sseq = CTX_wm_space_seq(C);
+  if (do_clamp) {
+    if ((sseq->flag & SPACE_SEQ_CLAMP_SMOOTH) != 0) {
+      UI_view2d_smooth_view(C, region, &view_clamped, U.smooth_viewtx);
+      sseq->flag &= ~SPACE_SEQ_CLAMP_SMOOTH;
+    }
+    else {
+      v2d->cur = view_clamped;
+    }
   }
 }
 
