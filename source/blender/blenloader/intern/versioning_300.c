@@ -2589,6 +2589,7 @@ void blo_do_versions_300(FileData *fd, Library *UNUSED(lib), Main *bmain)
             continue;
           }
 
+<<<<<<< HEAD
           ListBase *regionbase = (sl == area->spacedata.first) ? &area->regionbase :
                                                                  &sl->regionbase;
           ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_CHANNELS);
@@ -2603,42 +2604,45 @@ void blo_do_versions_300(FileData *fd, Library *UNUSED(lib), Main *bmain)
           ARegion *timeline_region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
           if (timeline_region != NULL) {
             timeline_region->v2d.flag |= V2D_VIEWSYNC_AREA_VERTICAL;
+            timeline_region->v2d.cur.ymax = 8.5f;
+            timeline_region->v2d.align &= ~V2D_ALIGN_NO_NEG_Y;
           }
         }
       }
     }
+  }
 
-    /* Initialize channels. */
-    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-      Editing *ed = SEQ_editing_get(scene);
-      if (ed == NULL > 0) {
-        continue;
-      }
-      SEQ_channels_ensure(&ed->channels);
-      SEQ_for_each_callback(&scene->ed->seqbase, seq_meta_channels_ensure, NULL);
+  /* Initialize channels. */
+  LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+    Editing *ed = SEQ_editing_get(scene);
+    if (ed == NULL > 0) {
+      continue;
+    }
+    SEQ_channels_ensure(&ed->channels);
+    SEQ_for_each_callback(&scene->ed->seqbase, seq_meta_channels_ensure, NULL);
 
-      ed->active_channels = &ed->channels;
+    ed->active_channels = &ed->channels;
 
-      ListBase *previous_channels = &ed->channels;
-      LISTBASE_FOREACH (MetaStack *, ms, &ed->metastack) {
-        ms->old_channels = previous_channels;
-        previous_channels = &ms->parseq->channels;
-        /* If `MetaStack` exists, active channels must point to last link. */
-        ed->active_channels = &ms->parseq->channels;
-      }
+    ListBase *previous_channels = &ed->channels;
+    LISTBASE_FOREACH (MetaStack *, ms, &ed->metastack) {
+      ms->old_channels = previous_channels;
+      previous_channels = &ms->parseq->channels;
+      /* If `MetaStack` exists, active channels must point to last link. */
+      ed->active_channels = &ms->parseq->channels;
     }
   }
+}
 
-  /**
-   * Versioning code until next subversion bump goes here.
-   *
-   * \note Be sure to check when bumping the version:
-   * - "versioning_userdef.c", #blo_do_versions_userdef
-   * - "versioning_userdef.c", #do_versions_theme
-   *
-   * \note Keep this message at the bottom of the function.
-   */
-  {
-    /* Keep this block, even when empty. */
-  }
+/**
+ * Versioning code until next subversion bump goes here.
+ *
+ * \note Be sure to check when bumping the version:
+ * - "versioning_userdef.c", #blo_do_versions_userdef
+ * - "versioning_userdef.c", #do_versions_theme
+ *
+ * \note Keep this message at the bottom of the function.
+ */
+{
+  /* Keep this block, even when empty. */
+}
 }

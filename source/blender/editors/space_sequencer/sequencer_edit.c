@@ -1771,6 +1771,9 @@ static int sequencer_delete_exec(bContext *C, wmOperator *UNUSED(op))
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
   DEG_relations_tag_update(bmain);
   WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  SpaceSeq *sseq = CTX_wm_space_seq(C);
+  sseq->flag |= SPACE_SEQ_CLAMP_SMOOTH;
+
   return OPERATOR_FINISHED;
 }
 
