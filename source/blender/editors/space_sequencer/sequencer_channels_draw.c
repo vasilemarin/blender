@@ -85,18 +85,6 @@ static float channel_index_y_min(SeqChannelDrawContext *context, const int index
   return y;
 }
 
-static void debug_rect(SeqChannelDrawContext *context, int channel_index)
-{
-  GPU_blend(GPU_BLEND_ALPHA);
-  uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-  immUniformColor4ub(255, 255, 255, 48);
-  float y = channel_index_y_min(context, channel_index);
-  imm_draw_box_wire_2d(pos, 1, y, context->v2d->cur.xmax, y + context->channel_height);
-  immUnbindProgram();
-  GPU_blend(GPU_BLEND_NONE);
-}
-
 static void displayed_channel_range_get(SeqChannelDrawContext *context, int channel_range[2])
 {
   /* Channel 0 is not usable, so should never be drawn. */
@@ -131,10 +119,10 @@ static float draw_channel_widget_hide(SeqChannelDrawContext *context,
                      UI_BTYPE_TOGGLE,
                      1,
                      icon,
-                     context->v2d->cur.xmax - offset,
+                     context->v2d->cur.xmax / context->scale - offset,
                      y,
-                     icon_width_get(context),
-                     icon_width_get(context),
+                     width,
+                     width,
                      &ptr,
                      hide_prop,
                      0,
@@ -169,10 +157,10 @@ static float draw_channel_widget_lock(SeqChannelDrawContext *context,
                      UI_BTYPE_TOGGLE,
                      1,
                      icon,
-                     context->v2d->cur.xmax - offset,
+                     context->v2d->cur.xmax / context->scale - offset,
                      y,
-                     icon_width_get(context),
-                     icon_width_get(context),
+                     width,
+                     width,
                      &ptr,
                      hide_prop,
                      0,
@@ -206,8 +194,7 @@ static void label_rect_init(SeqChannelDrawContext *context,
   float y = channel_index_y_min(context, channel_index) + margin;
 
   float margin_x = icon_width_get(context) * 0.65;
-  float width = max_ff(0.0f,
-                       context->v2d->cur.xmax / context->scale - used_width / context->scale);
+  float width = max_ff(0.0f, context->v2d->cur.xmax / context->scale - used_width);
 
   /* Text input has own margin. Prevent text jumping around and use as much space as possible. */
   if (channel_is_being_renamed(CTX_wm_space_seq(context->C), channel_index)) {
@@ -228,6 +215,10 @@ static void draw_channel_labels(SeqChannelDrawContext *context,
   rctf rect;
   label_rect_init(context, channel_index, used_width, &rect);
 
+  if (BLI_rctf_size_y(&rect) <= 1.0f || BLI_rctf_size_x(&rect) <= 1.0f) {
+    return;
+  }
+
   if (channel_is_being_renamed(sseq, channel_index)) {
     SeqTimelineChannel *channel = SEQ_channel_get_by_index(context->channels, channel_index);
     PointerRNA ptr = {NULL};
@@ -241,8 +232,8 @@ static void draw_channel_labels(SeqChannelDrawContext *context,
                            "",
                            rect.xmin,
                            rect.ymin,
-                           rect.xmax - rect.xmin,
-                           (rect.ymax - rect.ymin),
+                           BLI_rctf_size_x(&rect),
+                           BLI_rctf_size_y(&rect),
                            &ptr,
                            RNA_property_identifier(prop),
                            -1,
@@ -286,7 +277,6 @@ static void draw_channel_header(SeqChannelDrawContext *context, uiBlock *block, 
   offset += draw_channel_widget_hide(context, block, channel_index, offset);
 
   draw_channel_labels(context, block, channel_index, offset);
-  debug_rect(context, channel_index);
 }
 
 static void draw_channel_headers(SeqChannelDrawContext *context)
