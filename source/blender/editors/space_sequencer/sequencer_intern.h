@@ -35,6 +35,7 @@ typedef struct SeqChannelDrawContext {
   const struct bContext *C;
   struct ScrArea *area;
   struct ARegion *region;
+  struct ARegion *timeline_region;
   struct View2D *v2d;
   struct View2D *timeline_region_v2d;
 
@@ -43,8 +44,10 @@ typedef struct SeqChannelDrawContext {
   struct ListBase *seqbase;  /* Active seqbase. */
   struct ListBase *channels; /* Active channels. */
 
+  float draw_offset;
   float channel_height;
   float frame_width;
+  float scale;
 } SeqChannelDrawContext;
 
 /* sequencer_draw.c */

@@ -38,58 +38,51 @@
 /* Own include. */
 #include "sequencer_intern.h"
 
-#define ICON_WIDTH (U.widget_unit * 0.8)
-
-/* Similar to `UI_view2d_sync()` but converts values to pixelspace. */
-static void sync_channel_header_area(SeqChannelDrawContext *context)
-{
-  LISTBASE_FOREACH (ARegion *, region, &context->area->regionbase) {
-    View2D *v2d_other = &region->v2d;
-
-    /* don't operate on self */
-    if (context->v2d != v2d_other && region->regiontype == RGN_TYPE_WINDOW) {
-      context->v2d->cur.ymin = v2d_other->cur.ymin * context->channel_height;
-      context->v2d->cur.ymax = v2d_other->cur.ymax * context->channel_height;
-      /* region possibly changed, so refresh */
-      ED_region_tag_redraw_no_rebuild(region);
-    }
-  }
-}
-
-static float channel_height_pixelspace_get(ScrArea *area)
+static ARegion *timeline_region_get(ScrArea *area)
 {
   LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
     if (region->regiontype == RGN_TYPE_WINDOW) {
-      return UI_view2d_view_to_region_y(&region->v2d, 1.0f) -
-             UI_view2d_view_to_region_y(&region->v2d, 0.0f);
+      return region;
     }
   }
 
   BLI_assert_unreachable();
-  return 1.0f;
+  return NULL;
 }
 
-static float frame_width_pixelspace_get(ScrArea *area)
+static float draw_offset_get(View2D *timeline_region_v2d)
 {
-  LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
-    if (region->regiontype == RGN_TYPE_WINDOW) {
-      return UI_view2d_view_to_region_x(&region->v2d, 1.0f) -
-             UI_view2d_view_to_region_x(&region->v2d, 0.0f);
-    }
-  }
+  return timeline_region_v2d->cur.ymin;
+}
 
-  BLI_assert_unreachable();
-  return 1.0f;
+static float channel_height_pixelspace_get(View2D *timeline_region_v2d)
+{
+  return UI_view2d_view_to_region_y(timeline_region_v2d, 1.0f) -
+         UI_view2d_view_to_region_y(timeline_region_v2d, 0.0f);
+}
+
+static float frame_width_pixelspace_get(View2D *timeline_region_v2d)
+{
+
+  return UI_view2d_view_to_region_x(timeline_region_v2d, 1.0f) -
+         UI_view2d_view_to_region_x(timeline_region_v2d, 0.0f);
+}
+
+static float icon_width_get(SeqChannelDrawContext *context)
+{
+  return (U.widget_unit * 0.8 * context->scale);
 }
 
 static float widget_y_offset(SeqChannelDrawContext *context)
 {
-  return context->channel_height / 2 - ICON_WIDTH / 2;
+  return (((context->channel_height / context->scale) - icon_width_get(context))) / 2;
 }
 
 static float channel_index_y_min(SeqChannelDrawContext *context, const int index)
 {
-  return index * context->channel_height;
+  float y = (index - context->draw_offset) * context->channel_height;
+  y /= context->scale;
+  return y;
 }
 
 static void displayed_channel_range_get(SeqChannelDrawContext *context, int channel_range[2])
@@ -110,8 +103,9 @@ static float draw_channel_widget_hide(SeqChannelDrawContext *context,
                                       int channel_index,
                                       float offset)
 {
-  const float y = channel_index_y_min(context, channel_index) + widget_y_offset(context);
-  const float width = ICON_WIDTH;
+  float y = channel_index_y_min(context, channel_index) + widget_y_offset(context);
+
+  const float width = icon_width_get(context);
   SeqTimelineChannel *channel = SEQ_channel_get_by_index(context->channels, channel_index);
   const int icon = SEQ_channel_is_muted(channel) ? ICON_CHECKBOX_DEHLT : ICON_CHECKBOX_HLT;
   const char *tooltip = SEQ_channel_is_muted(channel) ? "Unmute channel" : "Mute channel";
@@ -125,10 +119,10 @@ static float draw_channel_widget_hide(SeqChannelDrawContext *context,
                      UI_BTYPE_TOGGLE,
                      1,
                      icon,
-                     context->v2d->cur.xmax - offset,
+                     context->v2d->cur.xmax / context->scale - offset,
                      y,
-                     ICON_WIDTH,
-                     ICON_WIDTH,
+                     width,
+                     width,
                      &ptr,
                      hide_prop,
                      0,
@@ -147,8 +141,8 @@ static float draw_channel_widget_lock(SeqChannelDrawContext *context,
                                       float offset)
 {
 
-  const float y = channel_index_y_min(context, channel_index) + widget_y_offset(context);
-  const float width = ICON_WIDTH;
+  float y = channel_index_y_min(context, channel_index) + widget_y_offset(context);
+  const float width = icon_width_get(context);
 
   SeqTimelineChannel *channel = SEQ_channel_get_by_index(context->channels, channel_index);
   const int icon = SEQ_channel_is_locked(channel) ? ICON_LOCKED : ICON_UNLOCKED;
@@ -163,10 +157,10 @@ static float draw_channel_widget_lock(SeqChannelDrawContext *context,
                      UI_BTYPE_TOGGLE,
                      1,
                      icon,
-                     context->v2d->cur.xmax - offset,
+                     context->v2d->cur.xmax / context->scale - offset,
                      y,
-                     ICON_WIDTH,
-                     ICON_WIDTH,
+                     width,
+                     width,
                      &ptr,
                      hide_prop,
                      0,
@@ -186,7 +180,7 @@ static bool channel_is_being_renamed(SpaceSeq *sseq, int channel_index)
 
 static float text_size_get(SeqChannelDrawContext *context)
 {
-  return 20 * U.dpi_fac;  // XXX
+  return 20 * U.dpi_fac * context->scale;  // XXX
 }
 
 /* Todo: decide what gets priority - label or buttons */
@@ -196,15 +190,15 @@ static void label_rect_init(SeqChannelDrawContext *context,
                             rctf *r_rect)
 {
   float text_size = text_size_get(context);
-  float margin = (context->channel_height - text_size) / 2.0f;
+  float margin = (context->channel_height / context->scale - text_size) / 2.0f;
   float y = channel_index_y_min(context, channel_index) + margin;
 
-  float margin_x = ICON_WIDTH * 0.65;
-  float width = max_ff(0.0f, context->v2d->cur.xmax - used_width);
+  float margin_x = icon_width_get(context) * 0.65;
+  float width = max_ff(0.0f, context->v2d->cur.xmax / context->scale - used_width);
 
   /* Text input has own margin. Prevent text jumping around and use as much space as possible. */
   if (channel_is_being_renamed(CTX_wm_space_seq(context->C), channel_index)) {
-    float input_box_margin = ICON_WIDTH * 0.5f;
+    float input_box_margin = icon_width_get(context) * 0.5f;
     margin_x -= input_box_margin;
     width += input_box_margin;
   }
@@ -221,6 +215,10 @@ static void draw_channel_labels(SeqChannelDrawContext *context,
   rctf rect;
   label_rect_init(context, channel_index, used_width, &rect);
 
+  if (BLI_rctf_size_y(&rect) <= 1.0f || BLI_rctf_size_x(&rect) <= 1.0f) {
+    return;
+  }
+
   if (channel_is_being_renamed(sseq, channel_index)) {
     SeqTimelineChannel *channel = SEQ_channel_get_by_index(context->channels, channel_index);
     PointerRNA ptr = {NULL};
@@ -234,15 +232,15 @@ static void draw_channel_labels(SeqChannelDrawContext *context,
                            "",
                            rect.xmin,
                            rect.ymin,
-                           rect.xmax - rect.xmin,
-                           rect.ymax - rect.ymin,
+                           BLI_rctf_size_x(&rect),
+                           BLI_rctf_size_y(&rect),
                            &ptr,
                            RNA_property_identifier(prop),
                            -1,
                            0,
                            0,
-                           -1,
-                           -1,
+                           0,
+                           0,
                            NULL);
     UI_block_emboss_set(block, UI_EMBOSS_NONE);
 
@@ -253,21 +251,28 @@ static void draw_channel_labels(SeqChannelDrawContext *context,
     WM_event_add_notifier(context->C, NC_SCENE | ND_SEQUENCER, context->scene);
   }
   else {
-    uchar col[4] = {255, 255, 255, 255};
-    char *label = SEQ_channel_name_get(context->channels, channel_index);
-    UI_view2d_text_cache_add_rectf(context->v2d, &rect, label, strlen(label), col);
+    const char *label = SEQ_channel_name_get(context->channels, channel_index);
+    uiDefBut(block,
+             UI_BTYPE_LABEL,
+             0,
+             label,
+             rect.xmin,
+             rect.ymin,
+             rect.xmax - rect.xmin,
+             (rect.ymax - rect.ymin),
+             NULL,
+             0,
+             0,
+             0,
+             0,
+             "");
   }
 }
 
 /* Todo: different text/buttons alignment */
 static void draw_channel_header(SeqChannelDrawContext *context, uiBlock *block, int channel_index)
 {
-  /* Not enough space to draw. Draw only background.*/
-  if (ICON_WIDTH > context->channel_height) {
-    return;
-  }
-
-  float offset = ICON_WIDTH * 1.5f;
+  float offset = icon_width_get(context) * 1.5f;
   offset += draw_channel_widget_lock(context, block, channel_index, offset);
   offset += draw_channel_widget_hide(context, block, channel_index, offset);
 
@@ -276,6 +281,9 @@ static void draw_channel_header(SeqChannelDrawContext *context, uiBlock *block, 
 
 static void draw_channel_headers(SeqChannelDrawContext *context)
 {
+  GPU_matrix_push();
+  wmOrtho2_pixelspace(context->region->winx / context->scale,
+                      context->region->winy / context->scale);
   uiBlock *block = UI_block_begin(context->C, context->region, __func__, UI_EMBOSS);
 
   int channel_range[2];
@@ -285,98 +293,15 @@ static void draw_channel_headers(SeqChannelDrawContext *context)
     draw_channel_header(context, block, channel);
   }
 
-  UI_view2d_text_cache_draw(context->region);
   UI_block_end(context->C, block);
   UI_block_draw(context->C, block);
-}
 
-static void seq_draw_sfra_efra(SeqChannelDrawContext *context)
-{
-  Scene *scene = context->scene;
-  const float channels_region_width = BLI_rctf_size_x(&context->v2d->cur);
-  const float sfra_pixelspace_rel = (scene->r.sfra - context->timeline_region_v2d->cur.xmin) *
-                                    context->frame_width;
-  const float efra_pixelspace_rel = (scene->r.efra + 1 - context->timeline_region_v2d->cur.xmin) *
-                                    context->frame_width;
-  const float frame_sta = channels_region_width + sfra_pixelspace_rel;
-  const float frame_end = channels_region_width + efra_pixelspace_rel;
-
-  View2D *v2d = context->v2d;
-
-  GPU_blend(GPU_BLEND_ALPHA);
-  uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-
-  /* Draw overlay outside of frame range. */
-  immUniformThemeColorShadeAlpha(TH_BACK, -10, -100);
-
-  if (frame_sta < frame_end) {
-    immRectf(pos, v2d->cur.xmin, v2d->cur.ymin, (float)frame_sta, v2d->cur.ymax);
-    immRectf(pos, (float)frame_end, v2d->cur.ymin, v2d->cur.xmax, v2d->cur.ymax);
-  }
-  else {
-    immRectf(pos, v2d->cur.xmin, v2d->cur.ymin, v2d->cur.xmax, v2d->cur.ymax);
-  }
-
-  immUniformThemeColorShade(TH_BACK, -60);
-
-  /* Draw frame range boundary. */
-  immBegin(GPU_PRIM_LINES, 4);
-
-  immVertex2f(pos, frame_sta, v2d->cur.ymin);
-  immVertex2f(pos, frame_sta, v2d->cur.ymax);
-
-  immVertex2f(pos, frame_end, v2d->cur.ymin);
-  immVertex2f(pos, frame_end, v2d->cur.ymax);
-
-  immEnd();
-
-  immUnbindProgram();
-
-  GPU_blend(GPU_BLEND_NONE);
-}
-
-static void draw_background_alternate_rows(SeqChannelDrawContext *context)
-{
-  int channel_range[2];
-  displayed_channel_range_get(context, channel_range);
-
-  for (int channel = channel_range[0]; channel <= channel_range[1]; channel++) {
-    if ((channel & 1) == 0) {
-      continue;
-    }
-
-    float y = channel_index_y_min(context, channel);
-    uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-    GPU_blend(GPU_BLEND_ALPHA);
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-    immUniformThemeColor(TH_ROW_ALTERNATE);
-    immRectf(pos, 1, y, context->v2d->cur.xmax, y + context->channel_height);
-    immUnbindProgram();
-    GPU_blend(GPU_BLEND_NONE);
-  }
-}
-
-static void draw_separator(SeqChannelDrawContext *context)
-{
-  uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  GPU_blend(GPU_BLEND_ALPHA);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-  immUniformThemeColorShade(TH_BACK, 30);
-  immBegin(GPU_PRIM_LINES, 2);
-  immVertex2f(pos, context->v2d->cur.xmax, context->v2d->cur.ymin);
-  immVertex2f(pos, context->v2d->cur.xmax, context->v2d->cur.ymax);
-  immEnd();
-  immUnbindProgram();
-  GPU_blend(GPU_BLEND_NONE);
+  GPU_matrix_pop();
 }
 
 static void draw_background(SeqChannelDrawContext *context)
 {
   UI_ThemeClearColor(TH_BACK);
-  draw_background_alternate_rows(context);
-  seq_draw_sfra_efra(context);
-  draw_separator(context);
 }
 
 void channel_draw_context_init(const bContext *C,
@@ -387,19 +312,18 @@ void channel_draw_context_init(const bContext *C,
   r_context->area = CTX_wm_area(C);
   r_context->region = region;
   r_context->v2d = &region->v2d;
-  r_context->channel_height = channel_height_pixelspace_get(CTX_wm_area(C));
-  r_context->frame_width = frame_width_pixelspace_get(CTX_wm_area(C));
   r_context->scene = CTX_data_scene(C);
   r_context->ed = SEQ_editing_get(r_context->scene);
   r_context->seqbase = SEQ_active_seqbase_get(r_context->ed);
   r_context->channels = SEQ_channels_active_get(r_context->ed);
+  r_context->timeline_region = timeline_region_get(CTX_wm_area(C));
+  r_context->timeline_region_v2d = &r_context->timeline_region->v2d;
 
-  LISTBASE_FOREACH (ARegion *, region, &r_context->area->regionbase) {
-    if (region->regiontype == RGN_TYPE_WINDOW) {
-      r_context->timeline_region_v2d = &region->v2d;
-      break;
-    }
-  }
+  r_context->channel_height = channel_height_pixelspace_get(r_context->timeline_region_v2d);
+  r_context->frame_width = frame_width_pixelspace_get(r_context->timeline_region_v2d);
+  r_context->draw_offset = draw_offset_get(r_context->timeline_region_v2d);
+
+  r_context->scale = min_ff(r_context->channel_height / (U.widget_unit * 0.6), 1);
 }
 
 void draw_channels(const bContext *C, ARegion *region)
@@ -407,7 +331,6 @@ void draw_channels(const bContext *C, ARegion *region)
   SeqChannelDrawContext context;
   channel_draw_context_init(C, region, &context);
 
-  sync_channel_header_area(&context);
   UI_view2d_view_ortho(context.v2d);
 
   draw_background(&context);
