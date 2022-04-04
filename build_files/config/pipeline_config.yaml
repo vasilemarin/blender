@@ -5,7 +5,7 @@
 update-code:
     git:
         submodules:
-        -   branch: xr-dev
+        -   branch: temp-xr-tracker
             commit_id: HEAD
             path: release/scripts/addons
         -   branch: master
