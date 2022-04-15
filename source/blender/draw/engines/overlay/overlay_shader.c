@@ -494,12 +494,8 @@ GPUShader *OVERLAY_shader_edit_gpencil_guide_point(void)
 {
   OVERLAY_Shaders *sh_data = &e_data.sh_data[0];
   if (!sh_data->edit_gpencil_guide_point) {
-    sh_data->edit_gpencil_guide_point = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){datatoc_common_view_lib_glsl,
-                                 datatoc_edit_gpencil_guide_vert_glsl,
-                                 NULL},
-        .frag = (const char *[]){datatoc_gpu_shader_point_varying_color_frag_glsl, NULL},
-    });
+    sh_data->edit_gpencil_guide_point = GPU_shader_create_from_info_name(
+        "overlay_edit_gpencil_guide_point");
   }
   return sh_data->edit_gpencil_guide_point;
 }
@@ -507,18 +503,9 @@ GPUShader *OVERLAY_shader_edit_gpencil_guide_point(void)
 GPUShader *OVERLAY_shader_edit_gpencil_point(void)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
-  const GPUShaderConfigData *sh_cfg = &GPU_shader_cfg_data[draw_ctx->sh_cfg];
   OVERLAY_Shaders *sh_data = &e_data.sh_data[draw_ctx->sh_cfg];
   if (!sh_data->edit_gpencil_point) {
-    sh_data->edit_gpencil_point = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg->lib,
-                                 datatoc_common_globals_lib_glsl,
-                                 datatoc_common_view_lib_glsl,
-                                 datatoc_edit_gpencil_vert_glsl,
-                                 NULL},
-        .frag = (const char *[]){datatoc_gpu_shader_point_varying_color_frag_glsl, NULL},
-        .defs = (const char *[]){sh_cfg->def, "#define USE_POINTS\n", NULL},
-    });
+    sh_data->edit_gpencil_point = GPU_shader_create_from_info_name("overlay_edit_gpencil_point");
   }
   return sh_data->edit_gpencil_point;
 }
@@ -526,18 +513,9 @@ GPUShader *OVERLAY_shader_edit_gpencil_point(void)
 GPUShader *OVERLAY_shader_edit_gpencil_wire(void)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
-  const GPUShaderConfigData *sh_cfg = &GPU_shader_cfg_data[draw_ctx->sh_cfg];
   OVERLAY_Shaders *sh_data = &e_data.sh_data[draw_ctx->sh_cfg];
   if (!sh_data->edit_gpencil_wire) {
-    sh_data->edit_gpencil_wire = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg->lib,
-                                 datatoc_common_globals_lib_glsl,
-                                 datatoc_common_view_lib_glsl,
-                                 datatoc_edit_gpencil_vert_glsl,
-                                 NULL},
-        .frag = (const char *[]){datatoc_gpu_shader_3D_smooth_color_frag_glsl, NULL},
-        .defs = (const char *[]){sh_cfg->def, NULL},
-    });
+    sh_data->edit_gpencil_point = GPU_shader_create_from_info_name("overlay_edit_gpencil_wire");
   }
   return sh_data->edit_gpencil_wire;
 }

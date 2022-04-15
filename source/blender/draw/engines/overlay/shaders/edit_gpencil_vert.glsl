@@ -1,19 +1,4 @@
-
-uniform float normalSize;
-uniform bool doMultiframe;
-uniform bool doStrokeEndpoints;
-uniform bool hideSelect;
-uniform bool doWeightColor;
-uniform float gpEditOpacity;
-uniform vec4 gpEditColor;
-uniform sampler1D weightTex;
-
-in vec3 pos;
-in int ma;
-in uint vflag;
-in float weight;
-
-out vec4 finalColor;
+#pragma BLENDER_REQUIRE(common_gpencil_lib.glsl)
 
 void discard_vert()
 {

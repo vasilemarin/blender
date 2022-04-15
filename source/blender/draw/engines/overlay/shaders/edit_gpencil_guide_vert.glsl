@@ -1,8 +1,4 @@
-uniform vec4 pColor;
-uniform float pSize;
-uniform vec3 pPosition;
-
-out vec4 finalColor;
+#pragma BLENDER_REQUIRE(common_gpencil_lib.glsl)
 
 void main()
 {
