@@ -24,7 +24,7 @@ GPU_SHADER_CREATE_INFO(overlay_edit_gpencil_point)
     .fragment_out(0, Type::VEC4, "finalColor")
     .vertex_source("edit_gpencil_vert.glsl")
     .fragment_source("gpu_shader_point_varying_color_frag.glsl")
-    .additional_info("draw_modelmat", "draw_globals");
+    .additional_info("draw_gpencil");
 
 GPU_SHADER_CREATE_INFO(overlay_edit_gpencil_wire)
     .do_static_compilation(true)
@@ -43,7 +43,7 @@ GPU_SHADER_CREATE_INFO(overlay_edit_gpencil_wire)
     .fragment_out(0, Type::VEC4, "finalColor")
     .vertex_source("edit_gpencil_vert.glsl")
     .fragment_source("gpu_shader_3D_smooth_color_frag.glsl")
-    .additional_info("draw_modelmat", "draw_globals");
+    .additional_info("draw_gpencil");
 
 GPU_SHADER_CREATE_INFO(overlay_edit_gpencil_guide_point)
     .do_static_compilation(true)
@@ -53,6 +53,6 @@ GPU_SHADER_CREATE_INFO(overlay_edit_gpencil_guide_point)
     .fragment_out(0, Type::VEC4, "finalColor")
     .vertex_source("edit_gpencil_guide_vert.glsl")
     .fragment_source("gpu_shader_point_varying_color_frag.glsl")
-    .additional_info("draw_modelmat", "draw_globals");
+    .additional_info("draw_gpencil");
 
 /** \} */
