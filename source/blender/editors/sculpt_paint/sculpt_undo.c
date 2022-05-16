@@ -1783,7 +1783,6 @@ void ED_sculpt_undosys_type(UndoType *ut)
 
 static UndoSculpt *sculpt_undosys_step_get_nodes(UndoStep *us_p)
 {
-  BLI_assert(us_p != NULL);
   SculptUndoStep *us = (SculptUndoStep *)us_p;
   return &us->data;
 }
@@ -1792,9 +1791,6 @@ static UndoSculpt *sculpt_undo_get_nodes(void)
 {
   UndoStack *ustack = ED_undo_stack_get();
   UndoStep *us = BKE_undosys_stack_init_or_active_with_type(ustack, BKE_UNDOSYS_TYPE_SCULPT);
-  if (us == NULL) {
-    return NULL;
-  }
   return sculpt_undosys_step_get_nodes(us);
 }
 
