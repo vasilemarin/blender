@@ -5298,7 +5298,8 @@ static bool sculpt_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
     /* Setup the correct undo system. Image painting and sculpting are mutual exclusive.
      * Color attributes are part of the sculpting undo system. */
-    if (SCULPT_use_image_paint_brush(&tool_settings->paint_mode, ob)) {
+    if (brush && brush->sculpt_tool == SCULPT_TOOL_PAINT &&
+        SCULPT_use_image_paint_brush(&tool_settings->paint_mode, ob)) {
       ED_image_undo_push_begin(op->type->name, PAINT_MODE_SCULPT);
     }
     else {
@@ -5430,7 +5431,8 @@ static void sculpt_stroke_done(const bContext *C, struct PaintStroke *UNUSED(str
   SCULPT_cache_free(ss->cache);
   ss->cache = NULL;
 
-  if (SCULPT_use_image_paint_brush(&tool_settings->paint_mode, ob)) {
+  if (brush && brush->sculpt_tool == SCULPT_TOOL_PAINT &&
+      SCULPT_use_image_paint_brush(&tool_settings->paint_mode, ob)) {
     ED_image_undo_push_end();
   }
   else {
