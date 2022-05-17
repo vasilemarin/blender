@@ -77,7 +77,8 @@ class UVIsland {
     }
     printf("<<<< UVIsland(end)\n");
   }
-
+  /* Join a given UVIsland into self by using the given tri as the edges that needs to be merged.
+   */
   void join(UVIsland &other, const MLoopTri &tri, const MLoopUV *mloopuv)
   {
     printf("Before joining");
