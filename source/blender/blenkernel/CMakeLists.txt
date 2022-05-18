@@ -834,6 +834,10 @@ if(WITH_GTESTS)
     intern/lib_remap_test.cc
     intern/tracking_test.cc
   )
+  # Temp override test_src to speedup linking.
+  set(TEST_SRC
+    intern/uv_islands_test.cc
+  )
   set(TEST_INC
     ../editors/include
   )
