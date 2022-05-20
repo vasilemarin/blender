@@ -268,7 +268,17 @@ struct UVIslandsMask {
   void add(short island_index, const UVPrimitive &primitive)
   {
     for (int i = 0; i < 3; i++) {
-      add(island_index, primitive.edges[i].vertices[0].uv);
+      add(island_index, primitive.edges[i]);
+    }
+  }
+
+  void add(short island_index, const UVEdge &edge)
+  {
+    float2 p;
+    for (int i = 0; i < 10; i++) {
+      float f = i / 10.0f;
+      interp_v2_v2v2(p, edge.vertices[0].uv, edge.vertices[1].uv, f);
+      add(island_index, p);
     }
   }
 
