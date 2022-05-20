@@ -38,6 +38,10 @@ constexpr bool USE_WATERTIGHT_CHECK = true;
 static uv_islands::UVIslands build_uv_islands(const PBVH &pbvh, const MLoopUV *mloopuv)
 {
   uv_islands::UVIslands islands(pbvh.looptri, pbvh.totprim, mloopuv);
+  uv_islands::UVIslandsMask uv_masks(float2(0.0, 0.0), ushort2(1024, 1024));
+  uv_masks.add(islands);
+  uv_masks.dilate();
+  uv_masks.print();
   return islands;
 }
 

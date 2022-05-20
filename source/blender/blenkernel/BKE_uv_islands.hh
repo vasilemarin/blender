@@ -82,9 +82,16 @@ struct UVIsland {
 
   UVIsland(const UVPrimitive &primitive)
   {
+    append(primitive);
+  }
+
+ private:
+  void append(const UVPrimitive &primitive)
+  {
     primitives.append(primitive);
   }
 
+ public:
   bool has_shared_edge(const UVPrimitive &primitive) const
   {
     for (const UVPrimitive &prim : primitives) {
@@ -116,7 +123,7 @@ struct UVIsland {
                    "Cannot extend as primitive has to many shared edges with UV island. "
                    "Inconsistent UVIsland?");
 
-    primitives.append(new_prim);
+    append(new_prim);
   }
 
   /**
@@ -128,22 +135,22 @@ struct UVIsland {
    * */
   void join(const UVIsland &other, const UVPrimitive &primitive)
   {
-    Vector<const UVPrimitive *> extend;
-    Vector<const UVPrimitive *> append;
+    Vector<const UVPrimitive *> prims_to_extend;
+    Vector<const UVPrimitive *> prims_to_append;
     for (const UVPrimitive &other_prim : other.primitives) {
       if (primitive.has_shared_edge(other_prim)) {
-        extend.append(&other_prim);
+        prims_to_extend.append(&other_prim);
       }
       else {
-        append.append(&other_prim);
+        prims_to_append.append(&other_prim);
       }
     }
 
-    for (const UVPrimitive *other_prim : extend) {
+    for (const UVPrimitive *other_prim : prims_to_extend) {
       extend_border(*other_prim);
     }
-    for (const UVPrimitive *other_prim : append) {
-      primitives.append(*other_prim);
+    for (const UVPrimitive *other_prim : prims_to_append) {
+      append(*other_prim);
     }
   }
 };
@@ -223,6 +230,149 @@ struct UVIslands {
       }
     }
     return true;
+  }
+};
+
+/* Bitmask containing the num of the nearest Island. */
+// TODO: this is a really quick implementation.
+struct UVIslandsMask {
+  float2 udim_offset;
+  ushort2 resolution;
+  Array<uint16_t> mask;
+
+  UVIslandsMask(float2 udim_offset, ushort2 resolution)
+      : udim_offset(udim_offset), resolution(resolution), mask(resolution.x * resolution.y)
+  {
+    clear();
+  }
+
+  void clear()
+  {
+    mask.fill(0xffff);
+  }
+
+  void add(const UVIslands &islands)
+  {
+    for (int index = 0; index < islands.islands.size(); index++) {
+      add(index, islands.islands[index]);
+    }
+  }
+
+  void add(short island_index, const UVIsland &island)
+  {
+    for (const UVPrimitive &prim : island.primitives) {
+      add(island_index, prim);
+    }
+  }
+
+  void add(short island_index, const UVPrimitive &primitive)
+  {
+    for (int i = 0; i < 3; i++) {
+      add(island_index, primitive.edges[i].vertices[0].uv);
+    }
+  }
+
+  void add(short island_index, const float2 uv)
+  {
+    float2 udim_corrected_uv = uv - udim_offset;
+    ushort2 mask_uv(udim_corrected_uv.x * resolution.x, udim_corrected_uv.y * resolution.y);
+    if (mask_uv.x < 0 || mask_uv.y < 0 || mask_uv.x >= resolution.x || mask_uv.y >= resolution.y) {
+      return;
+    }
+    uint64_t offset = resolution.x * mask_uv.y + mask_uv.x;
+    mask[offset] = island_index;
+  }
+
+  void dilate()
+  {
+    while (true) {
+      bool changed = dilate_x();
+      changed |= dilate_y();
+      if (!changed) {
+        break;
+      }
+    }
+  }
+
+  bool dilate_x()
+  {
+    bool changed = false;
+    const Array<uint16_t> prev_mask = mask;
+    for (int y = 0; y < resolution.y; y++) {
+      for (int x = 0; x < resolution.x; x++) {
+        uint64_t offset = y * resolution.x + x;
+        if (prev_mask[offset] != 0xffff) {
+          continue;
+        }
+        if (x != 0 && prev_mask[offset - 1] != 0xffff) {
+          mask[offset] = prev_mask[offset - 1];
+          changed = true;
+        }
+        else if (x < resolution.x && prev_mask[offset + 1] != 0xffff) {
+          mask[offset] = prev_mask[offset + 1];
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  bool dilate_y()
+  {
+    bool changed = false;
+    const Array<uint16_t> prev_mask = mask;
+    for (int y = 0; y < resolution.y; y++) {
+      for (int x = 0; x < resolution.x; x++) {
+        uint64_t offset = y * resolution.x + x;
+        if (prev_mask[offset] != 0xffff) {
+          continue;
+        }
+        if (y != 0 && prev_mask[offset - resolution.x] != 0xffff) {
+          mask[offset] = prev_mask[offset - resolution.x];
+          changed = true;
+        }
+        else if (y < resolution.y && prev_mask[offset + resolution.x] != 0xffff) {
+          mask[offset] = prev_mask[offset + resolution.x];
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  void print() const
+  {
+    int offset = 0;
+    for (int y = 0; y < resolution.y; y++) {
+      for (int x = 0; x < resolution.x; x++) {
+        uint16_t value = mask[offset++];
+        if (value == 0xffff) {
+          printf(" ");
+        }
+        else if (value == 0) {
+          printf("0");
+        }
+        else if (value == 1) {
+          printf("1");
+        }
+        else if (value == 2) {
+          printf("2");
+        }
+        else if (value == 3) {
+          printf("3");
+        }
+        else if (value == 4) {
+          printf("4");
+        }
+        else if (value == 5) {
+          printf("5");
+        }
+        else if (value == 6) {
+          printf("6");
+        }
+      }
+      printf("\n");
+    }
   }
 };
 
