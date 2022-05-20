@@ -59,7 +59,6 @@ typedef struct PHash {
 struct PChart;
 struct PEdge;
 struct PFace;
-struct PHandle;
 struct PVert;
 
 /* Simplices */
@@ -171,7 +170,7 @@ typedef struct PChart {
   } u;
 
   uchar flag;
-  struct PHandle *handle;
+  PHandle *handle;
 } PChart;
 
 enum PChartFlag {
@@ -808,9 +807,8 @@ static PEdge *p_edge_lookup(PHandle *handle, const PHashKey *vkeys)
   return NULL;
 }
 
-static int p_face_exists(ParamHandle *phandle, ParamKey *pvkeys, int i1, int i2, int i3)
+static int p_face_exists(PHandle *handle, ParamKey *pvkeys, int i1, int i2, int i3)
 {
-  PHandle *handle = (PHandle *)phandle;
   PHashKey *vkeys = (PHashKey *)pvkeys;
   PHashKey key = PHASH_edge(vkeys[i1], vkeys[i2]);
   PEdge *e = (PEdge *)phash_lookup(handle->hash_edges, key);
@@ -4359,7 +4357,7 @@ static void p_smooth(PChart *chart)
 
 /* Exported */
 
-ParamHandle *GEO_uv_parametrizer_construct_begin(void)
+PHandle *GEO_uv_parametrizer_construct_begin(void)
 {
   PHandle *handle = MEM_callocN(sizeof(*handle), "PHandle");
   handle->construction_chart = p_chart_new(handle);
@@ -4375,21 +4373,18 @@ ParamHandle *GEO_uv_parametrizer_construct_begin(void)
   handle->hash_edges = phash_new((PHashLink **)&handle->construction_chart->edges, 1);
   handle->hash_faces = phash_new((PHashLink **)&handle->construction_chart->faces, 1);
 
-  return (ParamHandle *)handle;
+  return handle;
 }
 
-void GEO_uv_parametrizer_aspect_ratio(ParamHandle *handle, float aspx, float aspy)
+void GEO_uv_parametrizer_aspect_ratio(PHandle *phandle, float aspx, float aspy)
 {
-  PHandle *phandle = (PHandle *)handle;
-
   phandle->aspx = aspx;
   phandle->aspy = aspy;
   phandle->do_aspect = true;
 }
 
-void GEO_uv_parametrizer_delete(ParamHandle *handle)
+void GEO_uv_parametrizer_delete(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
   int i;
 
   param_assert(ELEM(phandle->state, PHANDLE_STATE_ALLOCATED, PHANDLE_STATE_CONSTRUCTED));
@@ -4416,7 +4411,7 @@ void GEO_uv_parametrizer_delete(ParamHandle *handle)
   MEM_freeN(phandle);
 }
 
-static void p_add_ngon(ParamHandle *handle,
+static void p_add_ngon(PHandle *handle,
                        ParamKey key,
                        int nverts,
                        ParamKey *vkeys,
@@ -4426,9 +4421,8 @@ static void p_add_ngon(ParamHandle *handle,
                        ParamBool *select)
 {
   /* Allocate memory for polyfill. */
-  PHandle *phandle = (PHandle *)handle;
-  MemArena *arena = phandle->polyfill_arena;
-  Heap *heap = phandle->polyfill_heap;
+  MemArena *arena = handle->polyfill_arena;
+  Heap *heap = handle->polyfill_heap;
   uint nfilltri = nverts - 2;
   uint(*tris)[3] = BLI_memarena_alloc(arena, sizeof(*tris) * (size_t)nfilltri);
   float(*projverts)[2] = BLI_memarena_alloc(arena, sizeof(*projverts) * (size_t)nverts);
@@ -4478,7 +4472,7 @@ static void p_add_ngon(ParamHandle *handle,
   BLI_memarena_clear(arena);
 }
 
-void GEO_uv_parametrizer_face_add(ParamHandle *handle,
+void GEO_uv_parametrizer_face_add(PHandle *phandle,
                                   ParamKey key,
                                   int nverts,
                                   ParamKey *vkeys,
@@ -4487,15 +4481,13 @@ void GEO_uv_parametrizer_face_add(ParamHandle *handle,
                                   ParamBool *pin,
                                   ParamBool *select)
 {
-  PHandle *phandle = (PHandle *)handle;
-
   param_assert(phash_lookup(phandle->hash_faces, key) == NULL);
   param_assert(phandle->state == PHANDLE_STATE_ALLOCATED);
   param_assert(ELEM(nverts, 3, 4));
 
   if (nverts > 4) {
     /* ngon */
-    p_add_ngon(handle, key, nverts, vkeys, co, uv, pin, select);
+    p_add_ngon(phandle, key, nverts, vkeys, co, uv, pin, select);
   }
   else if (nverts == 4) {
     /* quad */
@@ -4514,9 +4506,8 @@ void GEO_uv_parametrizer_face_add(ParamHandle *handle,
   }
 }
 
-void GEO_uv_parametrizer_edge_set_seam(ParamHandle *handle, ParamKey *vkeys)
+void GEO_uv_parametrizer_edge_set_seam(PHandle *phandle, ParamKey *vkeys)
 {
-  PHandle *phandle = (PHandle *)handle;
   PEdge *e;
 
   param_assert(phandle->state == PHANDLE_STATE_ALLOCATED);
@@ -4527,12 +4518,11 @@ void GEO_uv_parametrizer_edge_set_seam(ParamHandle *handle, ParamKey *vkeys)
   }
 }
 
-void GEO_uv_parametrizer_construct_end(ParamHandle *handle,
+void GEO_uv_parametrizer_construct_end(PHandle *phandle,
                                        ParamBool fill,
                                        ParamBool topology_from_uvs,
                                        int *count_fail)
 {
-  PHandle *phandle = (PHandle *)handle;
   PChart *chart = phandle->construction_chart;
   int i, j, nboundaries = 0;
   PEdge *outer;
@@ -4572,7 +4562,7 @@ void GEO_uv_parametrizer_construct_end(ParamHandle *handle,
     }
 
     for (v = chart->verts; v; v = v->nextlink) {
-      p_vert_load_pin_select_uvs(handle, v);
+      p_vert_load_pin_select_uvs(phandle, v);
     }
   }
 
@@ -4581,9 +4571,8 @@ void GEO_uv_parametrizer_construct_end(ParamHandle *handle,
   phandle->state = PHANDLE_STATE_CONSTRUCTED;
 }
 
-void GEO_uv_parametrizer_lscm_begin(ParamHandle *handle, ParamBool live, ParamBool abf)
+void GEO_uv_parametrizer_lscm_begin(PHandle *phandle, ParamBool live, ParamBool abf)
 {
-  PHandle *phandle = (PHandle *)handle;
   PFace *f;
   int i;
 
@@ -4598,9 +4587,8 @@ void GEO_uv_parametrizer_lscm_begin(ParamHandle *handle, ParamBool live, ParamBo
   }
 }
 
-void GEO_uv_parametrizer_lscm_solve(ParamHandle *handle, int *count_changed, int *count_failed)
+void GEO_uv_parametrizer_lscm_solve(PHandle *phandle, int *count_changed, int *count_failed)
 {
-  PHandle *phandle = (PHandle *)handle;
   PChart *chart;
   int i;
 
@@ -4638,9 +4626,8 @@ void GEO_uv_parametrizer_lscm_solve(ParamHandle *handle, int *count_changed, int
   }
 }
 
-void GEO_uv_parametrizer_lscm_end(ParamHandle *handle)
+void GEO_uv_parametrizer_lscm_end(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
   int i;
 
   param_assert(phandle->state == PHANDLE_STATE_LSCM);
@@ -4655,9 +4642,8 @@ void GEO_uv_parametrizer_lscm_end(ParamHandle *handle)
   phandle->state = PHANDLE_STATE_CONSTRUCTED;
 }
 
-void GEO_uv_parametrizer_stretch_begin(ParamHandle *handle)
+void GEO_uv_parametrizer_stretch_begin(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
   PChart *chart;
   PVert *v;
   PFace *f;
@@ -4685,17 +4671,14 @@ void GEO_uv_parametrizer_stretch_begin(ParamHandle *handle)
   }
 }
 
-void GEO_uv_parametrizer_stretch_blend(ParamHandle *handle, float blend)
+void GEO_uv_parametrizer_stretch_blend(PHandle *phandle, float blend)
 {
-  PHandle *phandle = (PHandle *)handle;
-
   param_assert(phandle->state == PHANDLE_STATE_STRETCH);
   phandle->blend = blend;
 }
 
-void GEO_uv_parametrizer_stretch_iter(ParamHandle *handle)
+void GEO_uv_parametrizer_stretch_iter(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
   PChart *chart;
   int i;
 
@@ -4707,10 +4690,8 @@ void GEO_uv_parametrizer_stretch_iter(ParamHandle *handle)
   }
 }
 
-void GEO_uv_parametrizer_stretch_end(ParamHandle *handle)
+void GEO_uv_parametrizer_stretch_end(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
-
   param_assert(phandle->state == PHANDLE_STATE_STRETCH);
   phandle->state = PHANDLE_STATE_CONSTRUCTED;
 
@@ -4718,9 +4699,8 @@ void GEO_uv_parametrizer_stretch_end(ParamHandle *handle)
   phandle->rng = NULL;
 }
 
-void GEO_uv_parametrizer_smooth_area(ParamHandle *handle)
+void GEO_uv_parametrizer_smooth_area(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
   int i;
 
   param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
@@ -4738,12 +4718,10 @@ void GEO_uv_parametrizer_smooth_area(ParamHandle *handle)
 }
 
 /* don't pack, just rotate (used for better packing) */
-static void GEO_uv_parametrizer_pack_rotate(ParamHandle *handle, bool ignore_pinned)
+static void GEO_uv_parametrizer_pack_rotate(PHandle *phandle, bool ignore_pinned)
 {
   PChart *chart;
   int i;
-
-  PHandle *phandle = (PHandle *)handle;
 
   for (i = 0; i < phandle->ncharts; i++) {
     chart = phandle->charts[i];
@@ -4756,10 +4734,7 @@ static void GEO_uv_parametrizer_pack_rotate(ParamHandle *handle, bool ignore_pin
   }
 }
 
-void GEO_uv_parametrizer_pack(ParamHandle *handle,
-                              float margin,
-                              bool do_rotate,
-                              bool ignore_pinned)
+void GEO_uv_parametrizer_pack(PHandle *handle, float margin, bool do_rotate, bool ignore_pinned)
 {
   /* box packing variables */
   BoxPack *boxarray, *box;
@@ -4770,9 +4745,7 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
   float trans[2];
   double area = 0.0;
 
-  PHandle *phandle = (PHandle *)handle;
-
-  if (phandle->ncharts == 0) {
+  if (handle->ncharts == 0) {
     return;
   }
 
@@ -4781,15 +4754,15 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
     GEO_uv_parametrizer_pack_rotate(handle, ignore_pinned);
   }
 
-  if (phandle->aspx != phandle->aspy) {
-    GEO_uv_parametrizer_scale(handle, 1.0f / phandle->aspx, 1.0f / phandle->aspy);
+  if (handle->aspx != handle->aspy) {
+    GEO_uv_parametrizer_scale(handle, 1.0f / handle->aspx, 1.0f / handle->aspy);
   }
 
   /* we may not use all these boxes */
-  boxarray = MEM_mallocN(phandle->ncharts * sizeof(BoxPack), "BoxPack box");
+  boxarray = MEM_mallocN(handle->ncharts * sizeof(BoxPack), "BoxPack box");
 
-  for (i = 0; i < phandle->ncharts; i++) {
-    chart = phandle->charts[i];
+  for (i = 0; i < handle->ncharts; i++) {
+    chart = handle->charts[i];
 
     if (ignore_pinned && (chart->flag & PCHART_HAS_PINS)) {
       unpacked++;
@@ -4821,8 +4794,8 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
      * 0.0 to 1.0 but not give a massive margin */
     margin = (margin * (float)area) * 0.1f;
     unpacked = 0;
-    for (i = 0; i < phandle->ncharts; i++) {
-      chart = phandle->charts[i];
+    for (i = 0; i < handle->ncharts; i++) {
+      chart = handle->charts[i];
 
       if (ignore_pinned && (chart->flag & PCHART_HAS_PINS)) {
         unpacked++;
@@ -4838,7 +4811,7 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
     }
   }
 
-  BLI_box_pack_2d(boxarray, phandle->ncharts - unpacked, &tot_width, &tot_height);
+  BLI_box_pack_2d(boxarray, handle->ncharts - unpacked, &tot_width, &tot_height);
 
   if (tot_height > tot_width) {
     scale = tot_height != 0.0f ? (1.0f / tot_height) : 1.0f;
@@ -4847,30 +4820,29 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
     scale = tot_width != 0.0f ? (1.0f / tot_width) : 1.0f;
   }
 
-  for (i = 0; i < phandle->ncharts - unpacked; i++) {
+  for (i = 0; i < handle->ncharts - unpacked; i++) {
     box = boxarray + i;
     trans[0] = box->x;
     trans[1] = box->y;
 
-    chart = phandle->charts[box->index];
+    chart = handle->charts[box->index];
     p_chart_uv_translate(chart, trans);
     p_chart_uv_scale(chart, scale);
   }
   MEM_freeN(boxarray);
 
-  if (phandle->aspx != phandle->aspy) {
-    GEO_uv_parametrizer_scale(handle, phandle->aspx, phandle->aspy);
+  if (handle->aspx != handle->aspy) {
+    GEO_uv_parametrizer_scale(handle, handle->aspx, handle->aspy);
   }
 }
 
-void GEO_uv_parametrizer_average(ParamHandle *handle, bool ignore_pinned)
+void GEO_uv_parametrizer_average(PHandle *phandle, bool ignore_pinned)
 {
   PChart *chart;
   int i;
   float tot_uvarea = 0.0f, tot_facearea = 0.0f;
   float tot_fac, fac;
   float minv[2], maxv[2], trans[2];
-  PHandle *phandle = (PHandle *)handle;
 
   if (phandle->ncharts == 0) {
     return;
@@ -4930,9 +4902,8 @@ void GEO_uv_parametrizer_average(ParamHandle *handle, bool ignore_pinned)
   }
 }
 
-void GEO_uv_parametrizer_scale(ParamHandle *handle, float x, float y)
+void GEO_uv_parametrizer_scale(PHandle *phandle, float x, float y)
 {
-  PHandle *phandle = (PHandle *)handle;
   PChart *chart;
   int i;
 
@@ -4942,9 +4913,8 @@ void GEO_uv_parametrizer_scale(ParamHandle *handle, float x, float y)
   }
 }
 
-void GEO_uv_parametrizer_flush(ParamHandle *handle)
+void GEO_uv_parametrizer_flush(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
   PChart *chart;
   int i;
 
@@ -4964,9 +4934,8 @@ void GEO_uv_parametrizer_flush(ParamHandle *handle)
   }
 }
 
-void GEO_uv_parametrizer_flush_restore(ParamHandle *handle)
+void GEO_uv_parametrizer_flush_restore(PHandle *phandle)
 {
-  PHandle *phandle = (PHandle *)handle;
   PChart *chart;
   PFace *f;
   int i;

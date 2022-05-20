@@ -298,11 +298,8 @@ void ED_uvedit_get_aspect(Object *ob, float *r_aspx, float *r_aspy)
   ED_uvedit_get_aspect_from_material(ob, efa->mat_nr, r_aspx, r_aspy);
 }
 
-static void construct_param_handle_face_add(ParamHandle *handle,
-                                            const Scene *scene,
-                                            BMFace *efa,
-                                            int face_index,
-                                            const int cd_loop_uv_offset)
+static void construct_param_handle_face_add(
+    PHandle *handle, const Scene *scene, BMFace *efa, int face_index, const int cd_loop_uv_offset)
 {
   ParamKey key;
   ParamKey *vkeys = BLI_array_alloca(vkeys, efa->len);
@@ -333,13 +330,12 @@ static void construct_param_handle_face_add(ParamHandle *handle,
 }
 
 /* See: construct_param_handle_multi to handle multiple objects at once. */
-static ParamHandle *construct_param_handle(const Scene *scene,
-                                           Object *ob,
-                                           BMesh *bm,
-                                           const UnwrapOptions *options,
-                                           UnwrapResultInfo *result_info)
+static PHandle *construct_param_handle(const Scene *scene,
+                                       Object *ob,
+                                       BMesh *bm,
+                                       const UnwrapOptions *options,
+                                       UnwrapResultInfo *result_info)
 {
-  ParamHandle *handle;
   BMFace *efa;
   BMLoop *l;
   BMEdge *eed;
@@ -348,7 +344,7 @@ static ParamHandle *construct_param_handle(const Scene *scene,
 
   const int cd_loop_uv_offset = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
 
-  handle = GEO_uv_parametrizer_construct_begin();
+  PHandle *handle = GEO_uv_parametrizer_construct_begin();
 
   if (options->correct_aspect) {
     float aspx, aspy;
@@ -411,20 +407,19 @@ static ParamHandle *construct_param_handle(const Scene *scene,
 /**
  * Version of #construct_param_handle_single that handles multiple objects.
  */
-static ParamHandle *construct_param_handle_multi(const Scene *scene,
-                                                 Object **objects,
-                                                 const uint objects_len,
-                                                 const UnwrapOptions *options,
-                                                 int *count_fail)
+static PHandle *construct_param_handle_multi(const Scene *scene,
+                                             Object **objects,
+                                             const uint objects_len,
+                                             const UnwrapOptions *options,
+                                             int *count_fail)
 {
-  ParamHandle *handle;
   BMFace *efa;
   BMLoop *l;
   BMEdge *eed;
   BMIter iter, liter;
   int i;
 
-  handle = GEO_uv_parametrizer_construct_begin();
+  PHandle *handle = GEO_uv_parametrizer_construct_begin();
 
   if (options->correct_aspect) {
     Object *ob = objects[0];
@@ -533,13 +528,12 @@ static void texface_from_original_index(const Scene *scene,
  * The many modifications required to make the original function(see above)
  * work justified the existence of a new function.
  */
-static ParamHandle *construct_param_handle_subsurfed(const Scene *scene,
-                                                     Object *ob,
-                                                     BMEditMesh *em,
-                                                     const UnwrapOptions *options,
-                                                     UnwrapResultInfo *result_info)
+static PHandle *construct_param_handle_subsurfed(const Scene *scene,
+                                                 Object *ob,
+                                                 BMEditMesh *em,
+                                                 const UnwrapOptions *options,
+                                                 UnwrapResultInfo *result_info)
 {
-  ParamHandle *handle;
   /* index pointers */
   MPoly *mpoly;
   MLoop *mloop;
@@ -571,7 +565,7 @@ static ParamHandle *construct_param_handle_subsurfed(const Scene *scene,
 
   const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 
-  handle = GEO_uv_parametrizer_construct_begin();
+  PHandle *handle = GEO_uv_parametrizer_construct_begin();
 
   if (options->correct_aspect) {
     float aspx, aspy;
@@ -736,7 +730,7 @@ typedef struct MinStretch {
   const Scene *scene;
   Object **objects_edit;
   uint objects_len;
-  ParamHandle *handle;
+  PHandle *handle;
   float blend;
   double lasttime;
   int i, iterations;
@@ -1023,8 +1017,7 @@ static void uvedit_pack_islands(const Scene *scene, Object *ob, BMesh *bm)
   bool rotate = true;
   bool ignore_pinned = false;
 
-  ParamHandle *handle;
-  handle = construct_param_handle(scene, ob, bm, &options, NULL);
+  PHandle *handle = construct_param_handle(scene, ob, bm, &options, NULL);
   GEO_uv_parametrizer_pack(handle, scene->toolsettings->uvcalc_margin, rotate, ignore_pinned);
   GEO_uv_parametrizer_flush(handle);
   GEO_uv_parametrizer_delete(handle);
@@ -1043,8 +1036,7 @@ static void uvedit_pack_islands_multi(const Scene *scene,
                                       bool rotate,
                                       bool ignore_pinned)
 {
-  ParamHandle *handle;
-  handle = construct_param_handle_multi(scene, objects, objects_len, options, NULL);
+  PHandle *handle = construct_param_handle_multi(scene, objects, objects_len, options, NULL);
   GEO_uv_parametrizer_pack(handle, scene->toolsettings->uvcalc_margin, rotate, ignore_pinned);
   GEO_uv_parametrizer_flush(handle);
   GEO_uv_parametrizer_delete(handle);
@@ -1177,7 +1169,7 @@ static int average_islands_scale_exec(bContext *C, wmOperator *UNUSED(op))
     return OPERATOR_CANCELLED;
   }
 
-  ParamHandle *handle = construct_param_handle_multi(scene, objects, objects_len, &options, NULL);
+  PHandle *handle = construct_param_handle_multi(scene, objects, objects_len, &options, NULL);
   GEO_uv_parametrizer_average(handle, false);
   GEO_uv_parametrizer_flush(handle);
   GEO_uv_parametrizer_delete(handle);
@@ -1218,13 +1210,13 @@ void UV_OT_average_islands_scale(wmOperatorType *ot)
  * \{ */
 
 static struct {
-  ParamHandle **handles;
+  PHandle **handles;
   uint len, len_alloc;
 } g_live_unwrap = {NULL};
 
 void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 {
-  ParamHandle *handle = NULL;
+  PHandle *handle = NULL;
   BMEditMesh *em = BKE_editmesh_from_object(obedit);
   const bool abf = (scene->toolsettings->unwrapper == 0);
   bool use_subsurf;
@@ -1255,14 +1247,14 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
   /* Create or increase size of g_live_unwrap.handles array */
   if (g_live_unwrap.handles == NULL) {
     g_live_unwrap.len_alloc = 32;
-    g_live_unwrap.handles = MEM_mallocN(sizeof(ParamHandle *) * g_live_unwrap.len_alloc,
+    g_live_unwrap.handles = MEM_mallocN(sizeof(PHandle *) * g_live_unwrap.len_alloc,
                                         "uvedit_live_unwrap_liveHandles");
     g_live_unwrap.len = 0;
   }
   if (g_live_unwrap.len >= g_live_unwrap.len_alloc) {
     g_live_unwrap.len_alloc *= 2;
     g_live_unwrap.handles = MEM_reallocN(g_live_unwrap.handles,
-                                         sizeof(ParamHandle *) * g_live_unwrap.len_alloc);
+                                         sizeof(PHandle *) * g_live_unwrap.len_alloc);
   }
   g_live_unwrap.handles[g_live_unwrap.len] = handle;
   g_live_unwrap.len++;
@@ -1793,7 +1785,7 @@ static void uvedit_unwrap(const Scene *scene,
   bool use_subsurf;
   modifier_unwrap_state(obedit, scene, &use_subsurf);
 
-  ParamHandle *handle;
+  PHandle *handle;
   if (use_subsurf) {
     handle = construct_param_handle_subsurfed(scene, obedit, em, options, result_info);
   }

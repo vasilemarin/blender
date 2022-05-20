@@ -12,8 +12,9 @@
 extern "C" {
 #endif
 
-typedef void ParamHandle;  /* handle to a set of charts */
-typedef intptr_t ParamKey; /* (hash) key for identifying verts and faces */
+typedef struct PHandle ParamHandle; /* Deprecated, use PHandle instead. */
+typedef struct PHandle PHandle;     /* Handle to an array of charts. */
+typedef intptr_t ParamKey;          /* Key (hash) for identifying verts and faces. */
 typedef enum ParamBool {
   PARAM_TRUE = 1,
   PARAM_FALSE = 0,
@@ -34,11 +35,11 @@ typedef enum ParamBool {
  *
  * \{ */
 
-ParamHandle *GEO_uv_parametrizer_construct_begin(void);
+PHandle *GEO_uv_parametrizer_construct_begin(void);
 
-void GEO_uv_parametrizer_aspect_ratio(ParamHandle *handle, float aspx, float aspy);
+void GEO_uv_parametrizer_aspect_ratio(PHandle *handle, float aspx, float aspy);
 
-void GEO_uv_parametrizer_face_add(ParamHandle *handle,
+void GEO_uv_parametrizer_face_add(PHandle *handle,
                                   ParamKey key,
                                   int nverts,
                                   ParamKey *vkeys,
@@ -47,13 +48,13 @@ void GEO_uv_parametrizer_face_add(ParamHandle *handle,
                                   ParamBool *pin,
                                   ParamBool *select);
 
-void GEO_uv_parametrizer_edge_set_seam(ParamHandle *handle, ParamKey *vkeys);
+void GEO_uv_parametrizer_edge_set_seam(PHandle *handle, ParamKey *vkeys);
 
-void GEO_uv_parametrizer_construct_end(ParamHandle *handle,
+void GEO_uv_parametrizer_construct_end(PHandle *handle,
                                        ParamBool fill,
                                        ParamBool topology_from_uvs,
                                        int *count_fail);
-void GEO_uv_parametrizer_delete(ParamHandle *handle);
+void GEO_uv_parametrizer_delete(PHandle *handle);
 
 /** \} */
 
@@ -70,9 +71,9 @@ void GEO_uv_parametrizer_delete(ParamHandle *handle);
  *
  * \{ */
 
-void GEO_uv_parametrizer_lscm_begin(ParamHandle *handle, ParamBool live, ParamBool abf);
-void GEO_uv_parametrizer_lscm_solve(ParamHandle *handle, int *count_changed, int *count_failed);
-void GEO_uv_parametrizer_lscm_end(ParamHandle *handle);
+void GEO_uv_parametrizer_lscm_begin(PHandle *handle, ParamBool live, ParamBool abf);
+void GEO_uv_parametrizer_lscm_solve(PHandle *handle, int *count_changed, int *count_failed);
+void GEO_uv_parametrizer_lscm_end(PHandle *handle);
 
 /** \} */
 
@@ -80,10 +81,10 @@ void GEO_uv_parametrizer_lscm_end(ParamHandle *handle);
 /** \name Stretch
  * \{ */
 
-void GEO_uv_parametrizer_stretch_begin(ParamHandle *handle);
-void GEO_uv_parametrizer_stretch_blend(ParamHandle *handle, float blend);
-void GEO_uv_parametrizer_stretch_iter(ParamHandle *handle);
-void GEO_uv_parametrizer_stretch_end(ParamHandle *handle);
+void GEO_uv_parametrizer_stretch_begin(PHandle *handle);
+void GEO_uv_parametrizer_stretch_blend(PHandle *handle, float blend);
+void GEO_uv_parametrizer_stretch_iter(PHandle *handle);
+void GEO_uv_parametrizer_stretch_end(PHandle *handle);
 
 /** \} */
 
@@ -91,7 +92,7 @@ void GEO_uv_parametrizer_stretch_end(ParamHandle *handle);
 /** \name Area Smooth
  * \{ */
 
-void GEO_uv_parametrizer_smooth_area(ParamHandle *handle);
+void GEO_uv_parametrizer_smooth_area(PHandle *handle);
 
 /** \} */
 
@@ -99,10 +100,7 @@ void GEO_uv_parametrizer_smooth_area(ParamHandle *handle);
 /** \name Packing
  * \{ */
 
-void GEO_uv_parametrizer_pack(ParamHandle *handle,
-                              float margin,
-                              bool do_rotate,
-                              bool ignore_pinned);
+void GEO_uv_parametrizer_pack(PHandle *handle, float margin, bool do_rotate, bool ignore_pinned);
 
 /** \} */
 
@@ -110,7 +108,7 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
 /** \name Average area for all charts
  * \{ */
 
-void GEO_uv_parametrizer_average(ParamHandle *handle, bool ignore_pinned);
+void GEO_uv_parametrizer_average(PHandle *handle, bool ignore_pinned);
 
 /** \} */
 
@@ -118,7 +116,7 @@ void GEO_uv_parametrizer_average(ParamHandle *handle, bool ignore_pinned);
 /** \name Simple x,y scale
  * \{ */
 
-void GEO_uv_parametrizer_scale(ParamHandle *handle, float x, float y);
+void GEO_uv_parametrizer_scale(PHandle *handle, float x, float y);
 
 /** \} */
 
@@ -126,8 +124,8 @@ void GEO_uv_parametrizer_scale(ParamHandle *handle, float x, float y);
 /** \name Flushing
  * \{ */
 
-void GEO_uv_parametrizer_flush(ParamHandle *handle);
-void GEO_uv_parametrizer_flush_restore(ParamHandle *handle);
+void GEO_uv_parametrizer_flush(PHandle *handle);
+void GEO_uv_parametrizer_flush_restore(PHandle *handle);
 
 /** \} */
 
