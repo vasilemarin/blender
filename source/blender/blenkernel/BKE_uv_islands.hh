@@ -51,16 +51,17 @@ struct UVPrimitive {
     }
   }
 
-  std::optional<std::pair<UVEdge &, UVEdge &>> shared_edge(UVPrimitive &other)
+  Vector<std::pair<UVEdge &, UVEdge &>> shared_edges(UVPrimitive &other)
   {
+    Vector<std::pair<UVEdge &, UVEdge &>> result;
     for (int i = 0; i < 3; i++) {
       for (int j = 0; j < 3; j++) {
         if (edges[i].has_shared_edge(other.edges[j])) {
-          return std::pair<UVEdge &, UVEdge &>(edges[i], other.edges[j]);
+          result.append(std::pair<UVEdge &, UVEdge &>(edges[i], other.edges[j]));
         }
       }
     }
-    return std::nullopt;
+    return result;
   }
 
   bool has_shared_edge(const UVPrimitive &other) const
@@ -99,22 +100,19 @@ struct UVIsland {
     UVPrimitive new_prim = primitive;
     uint64_t shared_edges_len = 0;
     for (UVPrimitive &prim : primitives) {
-      std::optional<std::pair<UVEdge &, UVEdge &>> shared_edge = prim.shared_edge(new_prim);
-      if (!shared_edge.has_value()) {
-        continue;
+      for (std::pair<UVEdge &, UVEdge &> &shared_edge : prim.shared_edges(new_prim)) {
+        // TODO: eventually this should be supported. Skipped for now as it isn't the most
+        // important this to add. */
+        BLI_assert(shared_edge.first.adjacent_uv_primitive == -1);
+        BLI_assert(shared_edge.second.adjacent_uv_primitive == -1);
+        shared_edge.first.adjacent_uv_primitive = new_prim.index;
+        shared_edge.second.adjacent_uv_primitive = prim.index;
+        shared_edges_len++;
       }
-      // TODO: eventually this should be supported. Skipped for now as it isn't the most important
-      // this to add. */
-      std::pair<UVEdge &, UVEdge &> &edges = *shared_edge;
-      BLI_assert(edges.first.adjacent_uv_primitive == -1);
-      BLI_assert(edges.second.adjacent_uv_primitive == -1);
-      edges.first.adjacent_uv_primitive = new_prim.index;
-      edges.second.adjacent_uv_primitive = prim.index;
-      shared_edges_len++;
     }
     BLI_assert_msg(shared_edges_len != 0,
                    "Cannot extend as primitive has no shared edges with UV island.");
-    BLI_assert_msg(shared_edges_len < 3,
+    BLI_assert_msg(shared_edges_len < 4,
                    "Cannot extend as primitive has to many shared edges with UV island. "
                    "Inconsistent UVIsland?");
 
@@ -130,12 +128,22 @@ struct UVIsland {
    * */
   void join(const UVIsland &other, const UVPrimitive &primitive)
   {
+    Vector<const UVPrimitive *> extend;
+    Vector<const UVPrimitive *> append;
     for (const UVPrimitive &other_prim : other.primitives) {
       if (primitive.has_shared_edge(other_prim)) {
-        extend_border(other_prim);
-        continue;
+        extend.append(&other_prim);
       }
-      primitives.append(other_prim);
+      else {
+        append.append(&other_prim);
+      }
+    }
+
+    for (const UVPrimitive *other_prim : extend) {
+      extend_border(*other_prim);
+    }
+    for (const UVPrimitive *other_prim : append) {
+      primitives.append(*other_prim);
     }
   }
 };
@@ -151,34 +159,20 @@ struct UVIslands {
 
   explicit UVIslands(const MLoopTri *primitives, uint64_t primitives_len, const MLoopUV *mloopuv)
   {
+    for (int prim = 0; prim < primitives_len; prim++) {
+      UVPrimitive primitive(prim, primitives[prim], mloopuv);
+      add(primitive);
+    }
+
+//#define DEBUG_SVG
+#ifdef DEBUG_SVG
     std::ofstream of;
     of.open("/tmp/islands.svg");
     svg_header(of);
-    int step = 0;
-    for (int prim = 0; prim < primitives_len; prim++) {
-      UVPrimitive primitive(prim, primitives[prim], mloopuv);
-      if (prim == 12) {
-        printf("BREAK");
-      }
-      if (prim < 14) {
-        svg(of, primitive, step);
-        svg(of, *this, step);
-        of.flush();
-        step++;
-      }
-      BLI_assert(validate());
-      add(primitive);
-      if (!validate()) {
-        svg(of, *this, step);
-        svg_footer(of);
-        of.close();
-        BLI_assert(false);
-        return;
-      }
-    }
-    svg(of, *this, step);
+    svg(of, *this, 0);
     svg_footer(of);
     of.close();
+#endif
     // TODO: extract border.
   }
 
@@ -194,16 +188,17 @@ struct UVIslands {
     }
 
     if (extended_islands.size() > 0) {
-      islands[extended_islands[0]].extend_border(primitive);
+      UVIsland &island = islands[extended_islands[0]];
+      island.extend_border(primitive);
       /* `extended_islands` can hold upto 3 islands that are connected with the given tri.
        * they can be joined to a single island, using the first as its target. */
       for (uint64_t index = 1; index < extended_islands.size(); index++) {
-        islands[extended_islands[0]].join(islands[extended_islands[index]], primitive);
+        island.join(islands[extended_islands[index]], primitive);
       }
 
       /* remove the islands that have been joined, starting at the end. */
       for (uint64_t index = extended_islands.size() - 1; index > 0; index--) {
-        islands.remove_and_reorder(index);
+        islands.remove(extended_islands[index]);
       }
 
       return;
@@ -305,20 +300,10 @@ void svg(std::ostream &ss, const UVPrimitive &primitive)
 void svg(std::ostream &ss, const UVPrimitive &primitive, int step)
 {
   ss << "<g transform=\"translate(" << step * 1024 << " 0)\">\n";
-  ss << "  <g fill=\"lightred\">\n";
+  ss << "  <g fill=\"red\">\n";
   svg(ss, primitive);
   ss << "  </g>";
   ss << "</g>\n";
 }
-
-/*std::string as_svg(const UVIslands &islands)
-{
-  std::stringstream ss;
-  svg_header(ss);
-  svg(ss, islands);
-  svg_footer(ss);
-
-  return ss.str();
-}*/
 
 }  // namespace blender::bke::uv_islands
