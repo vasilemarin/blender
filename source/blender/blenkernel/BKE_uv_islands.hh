@@ -33,6 +33,11 @@ struct UVEdge {
     return (vertices[0].uv == other.vertices[0].uv && vertices[1].uv == other.vertices[1].uv) ||
            (vertices[0].uv == other.vertices[1].uv && vertices[1].uv == other.vertices[0].uv);
   }
+
+  bool is_border_edge() const
+  {
+    return adjacent_uv_primitive == -1;
+  }
 };
 
 struct UVPrimitive {
@@ -79,12 +84,69 @@ struct UVPrimitive {
   }
 };
 
+struct UVBorderVert {
+  float2 uv;
+  explicit UVBorderVert(float2 &uv) : uv(uv)
+  {
+  }
+};
+
+struct UVBorderEdge {
+  UVEdge *edge;
+  bool tag = false;
+
+  explicit UVBorderEdge(UVEdge *edge) : edge(edge)
+  {
+  }
+};
+
 struct UVIsland {
   Vector<UVPrimitive> primitives;
+  Vector<UVBorderVert> border;
 
   UVIsland(const UVPrimitive &primitive)
   {
     append(primitive);
+  }
+
+  void extract_border()
+  {
+    Vector<UVBorderEdge> edges;
+
+    for (UVPrimitive &primitive : primitives) {
+      for (UVEdge &edge : primitive.edges) {
+        if (edge.is_border_edge()) {
+          edges.append(UVBorderEdge(&edge));
+        }
+      }
+    }
+
+    edges.first().tag = true;
+    UVEdge *starting_edge = edges.first().edge;
+
+    border.append(UVBorderVert(starting_edge->vertices[0].uv));
+    border.append(UVBorderVert(starting_edge->vertices[1].uv));
+    UVBorderVert &first = border.first();
+    UVBorderVert &current = border.last();
+
+    while (current.uv != first.uv) {
+      for (UVBorderEdge &border_edge : edges) {
+        if (border_edge.tag == true) {
+          continue;
+        }
+        int i;
+        for (i = 0; i < 2; i++) {
+          if (border_edge.edge->vertices[i].uv == current.uv) {
+            border.append(UVBorderVert(border_edge.edge->vertices[1 - i].uv));
+            border_edge.tag = true;
+            break;
+          }
+        }
+        if (i != 2) {
+          break;
+        }
+      }
+    }
   }
 
  private:
@@ -183,7 +245,13 @@ struct UVIslands {
     svg_footer(of);
     of.close();
 #endif
-    // TODO: extract border.
+  }
+
+  void extract_borders()
+  {
+    for (UVIsland &island : islands) {
+      island.extract_border();
+    }
   }
 
  private:

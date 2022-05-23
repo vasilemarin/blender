@@ -41,6 +41,7 @@ static uv_islands::UVIslands build_uv_islands(const PBVH &pbvh, const MLoopUV *m
   uv_islands::UVIslandsMask uv_masks(float2(0.0, 0.0), ushort2(256, 256));
   uv_masks.add(islands);
   uv_masks.dilate();
+  islands.extract_borders();
   return islands;
 }
 
