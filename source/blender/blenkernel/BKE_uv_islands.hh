@@ -15,6 +15,8 @@ namespace blender::bke::uv_islands {
 // TODO: Joining uv island should check where the borders could be merged.
 // TODO: this isn't optimized for performance.
 
+//#define DEBUG_SVG
+
 struct UVVertex {
   /* Loop index of the vertex in the original mesh. */
   uint64_t loop;
@@ -156,9 +158,11 @@ struct UVIsland {
 };
 
 struct UVIslands;
+struct UVIslandsMask;
 void svg_header(std::ostream &ss);
 void svg(std::ostream &ss, const UVIslands &islands, int step);
 void svg(std::ostream &ss, const UVPrimitive &primitive, int step);
+void svg(std::ostream &ss, const UVIslandsMask &mask, int step);
 void svg_footer(std::ostream &ss);
 
 struct UVIslands {
@@ -171,7 +175,6 @@ struct UVIslands {
       add(primitive);
     }
 
-//#define DEBUG_SVG
 #ifdef DEBUG_SVG
     std::ofstream of;
     of.open("/tmp/islands.svg");
@@ -295,13 +298,27 @@ struct UVIslandsMask {
 
   void dilate()
   {
+#ifdef DEBUG_SVG
+    std::ofstream of;
+    of.open("/tmp/dilate.svg");
+    svg_header(of);
+    int index = 0;
+#endif
     while (true) {
       bool changed = dilate_x();
       changed |= dilate_y();
       if (!changed) {
         break;
       }
+#ifdef DEBUG_SVG
+      svg(of, *this, index++);
+#endif
     }
+#ifdef DEBUG_SVG
+    svg(of, *this, index);
+    svg_footer(of);
+    of.close();
+#endif
   }
 
   bool dilate_x()
@@ -318,7 +335,7 @@ struct UVIslandsMask {
           mask[offset] = prev_mask[offset - 1];
           changed = true;
         }
-        else if (x < resolution.x && prev_mask[offset + 1] != 0xffff) {
+        else if (x < resolution.x - 1 && prev_mask[offset + 1] != 0xffff) {
           mask[offset] = prev_mask[offset + 1];
           changed = true;
         }
@@ -341,7 +358,7 @@ struct UVIslandsMask {
           mask[offset] = prev_mask[offset - resolution.x];
           changed = true;
         }
-        else if (y < resolution.y && prev_mask[offset + resolution.x] != 0xffff) {
+        else if (y < resolution.y - 1 && prev_mask[offset + resolution.x] != 0xffff) {
           mask[offset] = prev_mask[offset + resolution.x];
           changed = true;
         }
@@ -439,6 +456,49 @@ void svg(std::ostream &ss, const UVIslands &islands, int step)
     island_index++;
   }
 
+  ss << "</g>\n";
+}
+
+void svg(std::ostream &ss, const UVIslandsMask &mask, int step)
+{
+  ss << "<g transform=\"translate(" << step * 1024 << " 0)\">\n";
+  ss << " <g fill=\"none\" stroke=\"black\">\n";
+
+  float2 resolution = float2(mask.resolution.x, mask.resolution.y);
+  for (int x = 0; x < mask.resolution.x; x++) {
+    for (int y = 0; y < mask.resolution.y; y++) {
+      int offset = y * mask.resolution.x + x;
+      int offset2 = offset - 1;
+      if (y == 0 && mask.mask[offset] == 0xffff) {
+        continue;
+      }
+      if (x > 0 && mask.mask[offset] == mask.mask[offset2]) {
+        continue;
+      }
+      float2 start = float2(float(x), float(y)) / resolution * float2(1024, 1024);
+      float2 end = float2(float(x), float(y + 1)) / resolution * float2(1024, 1024);
+      ss << "       <line x1=\"" << start.x << "\" y1=\"" << start.y << "\" x2=\"" << end.x
+         << "\" y2=\"" << end.y << "\"/>\n";
+    }
+  }
+
+  for (int x = 0; x < mask.resolution.x; x++) {
+    for (int y = 0; y < mask.resolution.y; y++) {
+      int offset = y * mask.resolution.x + x;
+      int offset2 = offset - mask.resolution.x;
+      if (x == 0 && mask.mask[offset] == 0xffff) {
+        continue;
+      }
+      if (y > 0 && mask.mask[offset] == mask.mask[offset2]) {
+        continue;
+      }
+      float2 start = float2(float(x), float(y)) / resolution * float2(1024, 1024);
+      float2 end = float2(float(x + 1), float(y)) / resolution * float2(1024, 1024);
+      ss << "       <line x1=\"" << start.x << "\" y1=\"" << start.y << "\" x2=\"" << end.x
+         << "\" y2=\"" << end.y << "\"/>\n";
+    }
+  }
+  ss << " </g>\n";
   ss << "</g>\n";
 }
 
