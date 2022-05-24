@@ -139,6 +139,7 @@ struct UVIsland {
           if (border_edge.edge->vertices[i].uv == current.uv) {
             border.append(UVBorderVert(border_edge.edge->vertices[1 - i].uv));
             border_edge.tag = true;
+            current = border.last();
             break;
           }
         }
